@@ -17,7 +17,6 @@ function SavedPanel({
   const [loadingRoutes, setLoadingRoutes] = React.useState(false);
 
   async function loadRoutes() {
-    if (routes !== null) return;
     setLoadingRoutes(true);
     const { data, error } = await supabase
       .from("saved_routes")
@@ -26,12 +25,12 @@ function SavedPanel({
       .limit(30);
     setLoadingRoutes(false);
     if (!error) setRoutes(data || []);
+    else console.error("[SavedPanel] load routes:", error);
   }
 
-  function switchTab(t) {
-    setTab(t);
-    if (t === "routes") loadRoutes();
-  }
+  React.useEffect(() => { loadRoutes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function switchTab(t) { setTab(t); }
 
   async function deleteRoute(id, e) {
     e.stopPropagation();
@@ -62,7 +61,7 @@ function SavedPanel({
             onClick={() => switchTab("routes")}
             className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "routes" ? "border-cyan-500 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
           >
-            Routes {routes !== null ? `(${routes.length})` : ""}
+            Routes{routes !== null ? ` (${routes.length})` : ""}
           </button>
         </div>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-700 pb-1.5">
@@ -1757,16 +1756,6 @@ export default function SSTHeatmapLeaflet(props) {
                 style={{ width:32, height:32, padding:0, borderColor:showSavedPanel?"#f97316":undefined, background:showSavedPanel?"#f97316":undefined }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={showSavedPanel?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
               </button>
-              {/* Plan Trip (mobile) */}
-              {isPro && (
-                <button onClick={onToggleTripMode} title="Plan trip"
-                  className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
-                  style={{ width:32, height:32, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
-                  </svg>
-                </button>
-              )}
             </div>
           )}
 
@@ -1896,6 +1885,16 @@ export default function SSTHeatmapLeaflet(props) {
               className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
               style={{ width:30, height:30, padding:0, borderColor: showSavedPanel?"#f97316":undefined, background: showSavedPanel?"#f97316":undefined }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={showSavedPanel?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            {/* Plan Trip */}
+            <button
+              onClick={onToggleTripMode}
+              title={tripMode ? "Exit trip planning" : "Plan trip"}
+              className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
+              style={{ width:30, height:30, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
+              </svg>
             </button>
           </div>
 
