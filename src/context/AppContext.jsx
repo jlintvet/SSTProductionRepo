@@ -63,26 +63,22 @@ function pickInitialLocation(regionConfig, regionKey, userDefault) {
   const locations = regionConfig.locations ?? [];
   if (!locations.length) return null;
 
-  // 1. User preference passed in
   if (userDefault) {
     const match = locations.find(l => l.label === userDefault);
     if (match) return match;
   }
 
-  // 2. localStorage from previous session (must match current region)
   const ls = readLocalStorage();
   if (ls && ls.region === regionKey) {
     const match = locations.find(l => l.label === ls.label);
     if (match) return match;
   }
 
-  // 3. Region-defined default
   if (regionConfig.defaultLocation) {
     const match = locations.find(l => l.label === regionConfig.defaultLocation);
     if (match) return match;
   }
 
-  // 4. First location as ultimate fallback
   return locations[0];
 }
 
@@ -91,12 +87,10 @@ export function AppProvider({ region, children }) {
   const regionConfig = useMemo(() => getRegionConfig(regionKey), [regionKey]);
   const daysLeft     = useSupabaseTrial();
 
-  // User preference: read from Supabase user_profiles.default_departure (optional field).
-  // Falls back gracefully if the column doesn't exist yet.
-  const [userDefault, setUserDefault]           = useState(null);
-  const userDefaultFetchedRef                   = useRef(false);
-  const [userSettings, setUserSettings]         = useState(DEFAULT_SETTINGS);
-  const [userId, setUserId]                     = useState(null);
+  const [userDefault, setUserDefault]   = useState(null);
+  const userDefaultFetchedRef           = useRef(false);
+  const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS);
+  const [userId, setUserId]             = useState(null);
 
   useEffect(() => {
     if (userDefaultFetchedRef.current) return;
@@ -115,7 +109,7 @@ export function AppProvider({ region, children }) {
         .then(({ data: profile }) => {
           if (profile?.default_departure) setUserDefault(profile.default_departure);
         })
-        .catch(() => { /* column may not exist yet — ignore */ });
+        .catch(() => {});
 
       loadUserSettings(uid).then(s => setUserSettings(s));
     });
@@ -125,7 +119,6 @@ export function AppProvider({ region, children }) {
     () => pickInitialLocation(regionConfig, regionKey, null)
   );
 
-  // When user preference loads, apply it if user hasn't manually picked
   useEffect(() => {
     if (!userDefault) return;
     const match = regionConfig.locations.find(l => l.label === userDefault);
@@ -137,7 +130,6 @@ export function AppProvider({ region, children }) {
     }
   }, [userDefault, regionConfig, regionKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If region changes, validate selection still belongs
   useEffect(() => {
     if (
       !selectedLocation ||
@@ -147,12 +139,10 @@ export function AppProvider({ region, children }) {
     }
   }, [regionConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Persist every selection change to localStorage
   useEffect(() => {
     if (selectedLocation?.label) writeLocalStorage(regionKey, selectedLocation.label);
   }, [selectedLocation?.label, regionKey]);
 
-  // Weather panel state — viewport-aware default
   const [weatherPanel, setWeatherPanel] = useState(() => {
     if (typeof window === "undefined") return "expanded";
     return window.matchMedia("(min-width: 640px)").matches ? "expanded" : "hidden";
@@ -170,4 +160,18 @@ export function AppProvider({ region, children }) {
       daysLeft,
       userId,
       userSettings,
-      s
+      setUserSettings,
+    }),
+    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings]
+  );
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+export function useAppContext() {
+  const ctx = useContext(AppContext);
+  if (!ctx) {
+    throw new Error("useAppContext must be used inside <AppProvider>");
+  }
+  return ctx;
+}
