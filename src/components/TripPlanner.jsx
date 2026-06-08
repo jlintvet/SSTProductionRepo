@@ -1,25 +1,11 @@
 // src/components/TripPlanner.jsx
 // Phase 2: Route/Trip Planning panel (Pro feature)
 // Rendered in-flow as a sibling below the map — no portal needed.
-//
-// Supabase DDL for saved_routes (run once):
-//   create table if not exists public.saved_routes (
-//     id uuid primary key default gen_random_uuid(),
-//     user_id uuid references auth.users(id) on delete cascade,
-//     name text,
-//     waypoints jsonb not null,
-//     cruise_speed_kts numeric,
-//     created_at timestamptz default now()
-//   );
-//   alter table public.saved_routes enable row level security;
-//   create policy "own routes" on public.saved_routes
-//     using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAppContext } from "@/context/AppContext";
 
-// ── Geo math ──────────────────────────────────────────────────────────────────
 function haversineNm(lat1, lon1, lat2, lon2) {
   const R = 3440.065;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -75,7 +61,6 @@ function calcSunrise(lat, lon, date) {
   return d;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }) {
   const { userSettings } = useAppContext();
   const cruiseSpeedKts = Number(userSettings?.cruise_speed_kts) || 0;
@@ -94,15 +79,21 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
     now.setSeconds(0, 0);
     return now.toISOString().slice(0, 16);
   });
+
   const [speedOverride, setSpeedOverride] = useState("");
-  const [routeName, setRouteName]         = useState("");
-  const [saving, setSaving]               = useState(false);
-  const [savedMsg, setSavedMsg]           = useState("");
-  const [collapsed, setCollapsed]         = useState(false);
+  const [routeName,     setRouteName]     = useState("");
+  const [saving,        setSaving]        = useState(false);
+  const [savedMsg,      setSavedMsg]      = useState("");
+  const [collapsed,     setCollapsed]     = useState(false);
+
+  // Saved routes dropdown
+  const [showRoutes,    setShowRoutes]    = useState(false);
+  const [savedRoutes,   setSavedRoutes]   = useState([]);
+  const [loadingRoutes, setLoadingRoutes] = useState(false);
+  const routeDropRef = useRef(null);
 
   const speed = Number(speedOverride) || cruiseSpeedKts;
 
-  // ── Computed legs ────────────────────────────────────────────────────────────
   const legs = useMemo(() => {
     const result = [];
     let cumNm = 0, cumHrs = 0;
@@ -125,6 +116,51 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
   const totalNm  = legs.length > 0 ? legs[legs.length - 1].cumNm : 0;
   const totalHrs = speed > 0 && totalNm > 0 ? totalNm / speed : null;
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showRoutes) return;
+    function handler(e) {
+      if (routeDropRef.current && !routeDropRef.current.contains(e.target)) setShowRoutes(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showRoutes]);
+
+  async function openRoutes() {
+    setShowRoutes(v => {
+      if (v) return false;
+      return true;
+    });
+    if (savedRoutes.length === 0) {
+      setLoadingRoutes(true);
+      const { data, error } = await supabase
+        .from("saved_routes")
+        .select("id, name, waypoints, cruise_speed_kts, created_at")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      setLoadingRoutes(false);
+      if (!error && data) setSavedRoutes(data);
+      else console.error("[TripPlanner] load routes error:", error);
+    }
+  }
+
+  function loadRoute(r) {
+    const wps = (r.waypoints || []).map(w => ({
+      ...w,
+      id: w.id || crypto.randomUUID(),
+    }));
+    setWaypoints(wps);
+    setRouteName(r.name || "");
+    if (r.cruise_speed_kts) setSpeedOverride(String(r.cruise_speed_kts));
+    setShowRoutes(false);
+  }
+
+  async function deleteRoute(id, e) {
+    e.stopPropagation();
+    await supabase.from("saved_routes").delete().eq("id", id);
+    setSavedRoutes(prev => prev.filter(r => r.id !== id));
+  }
+
   function removeWaypoint(id) {
     setWaypoints(prev => prev.filter(w => w.id !== id));
   }
@@ -134,33 +170,35 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
 
   async function saveRoute() {
     if (!userId || waypoints.length < 2) {
-      console.warn("[TripPlanner] saveRoute skipped — userId:", userId, "wps:", waypoints.length);
+      console.warn("[TripPlanner] saveRoute — userId:", userId, "wps:", waypoints.length);
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("saved_routes").insert({
-      user_id:         userId,
-      name:            routeName.trim() || `Route ${new Date().toLocaleDateString()}`,
-      waypoints:       waypoints,
+    const name = routeName.trim() || `Route ${new Date().toLocaleDateString()}`;
+    const { data, error } = await supabase.from("saved_routes").insert({
+      user_id:          userId,
+      name,
+      waypoints:        waypoints,
       cruise_speed_kts: speed || null,
-    });
+    }).select().single();
     setSaving(false);
     if (error) {
       console.error("[TripPlanner] save error:", error);
-      setSavedMsg("Error saving");
+      setSavedMsg("Save failed");
     } else {
       setSavedMsg("Saved ✓");
+      if (data) setSavedRoutes(prev => [data, ...prev]);
     }
     setTimeout(() => setSavedMsg(""), 3000);
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="flex-shrink-0 bg-white border-t border-slate-200 shadow-inner"
-         style={{ height: collapsed ? "40px" : "220px", overflow: "hidden", transition: "height 0.2s" }}>
+         style={{ height: collapsed ? "40px" : "220px", overflow: "hidden", transition: "height 0.15s" }}>
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 h-10 min-w-0">
+      <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10 min-w-0">
+
         {/* Route name */}
         <input
           type="text"
@@ -169,9 +207,10 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
           onChange={e => setRouteName(e.target.value)}
           className="text-[11px] font-semibold text-slate-700 placeholder-slate-400 bg-transparent focus:outline-none focus:bg-slate-100 rounded px-1.5 py-0.5 w-32 shrink-0"
         />
+
         <div className="w-px h-4 bg-slate-200 shrink-0"/>
 
-        {/* Departure time */}
+        {/* Departure */}
         <label className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">Depart</label>
         <input
           type="datetime-local"
@@ -179,6 +218,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
           onChange={e => setDepartureTime(e.target.value)}
           className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
         />
+
         <div className="w-px h-4 bg-slate-200 shrink-0"/>
 
         {/* Speed */}
@@ -191,6 +231,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
           className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-12 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
         />
         <span className="text-[10px] text-slate-400 shrink-0">kts</span>
+
         <div className="w-px h-4 bg-slate-200 shrink-0"/>
 
         {/* Stats */}
@@ -202,6 +243,53 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
         )}
 
         <div className="flex-1 min-w-0"/>
+
+        {/* My Routes dropdown */}
+        <div className="relative shrink-0" ref={routeDropRef}>
+          <button
+            onClick={openRoutes}
+            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 border border-slate-200 rounded px-2 py-1 transition-colors"
+            title="My saved routes"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            My Routes
+          </button>
+          {showRoutes && (
+            <div className="absolute right-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-xs max-h-56 overflow-y-auto">
+              {loadingRoutes ? (
+                <div className="px-3 py-4 text-center text-slate-400">Loading…</div>
+              ) : savedRoutes.length === 0 ? (
+                <div className="px-3 py-4 text-center text-slate-400">No saved routes yet</div>
+              ) : savedRoutes.map(r => (
+                <div
+                  key={r.id}
+                  onClick={() => loadRoute(r)}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-slate-700 truncate">{r.name || "Unnamed route"}</div>
+                    <div className="text-[10px] text-slate-400">
+                      {r.waypoints?.length || 0} wpts
+                      {r.cruise_speed_kts ? ` · ${r.cruise_speed_kts} kts` : ""}
+                      {" · "}{new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => deleteRoute(r.id, e)}
+                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all p-0.5"
+                    title="Delete route"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Save */}
         {waypoints.length >= 2 && (
@@ -225,20 +313,14 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
         )}
 
         {/* Collapse */}
-        <button
-          onClick={() => setCollapsed(v => !v)}
-          className="text-slate-400 hover:text-slate-700 p-1 transition-colors shrink-0"
-        >
+        <button onClick={() => setCollapsed(v => !v)} className="text-slate-400 hover:text-slate-700 p-1 transition-colors shrink-0">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             {collapsed ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
           </svg>
         </button>
 
         {/* Close */}
-        <button
-          onClick={onClose}
-          className="text-slate-400 hover:text-slate-700 p-1 transition-colors shrink-0"
-        >
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 transition-colors shrink-0">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -249,8 +331,8 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
       {!collapsed && (
         <div className="overflow-auto" style={{ height: "180px" }}>
           {waypoints.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-slate-400 text-xs text-center px-4">
-              Click anywhere on the map to add waypoints
+            <div className="flex items-center justify-center h-full text-slate-400 text-xs">
+              Click the map to add waypoints
             </div>
           ) : (
             <table className="w-full text-[11px] border-collapse">
