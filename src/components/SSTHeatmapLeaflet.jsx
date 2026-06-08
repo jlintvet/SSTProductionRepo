@@ -424,7 +424,7 @@ export default function SSTHeatmapLeaflet(props) {
     isPro,
     currentsData, currentsLoading, showCurrents, setShowCurrents,
     altimetryData, onSlaRange,
-    tripMode, waypoints, onAddWaypoint, onMoveWaypoint,
+    tripMode, waypoints, onAddWaypoint, onMoveWaypoint, onToggleTripMode, onEndTripAtDeparture,
   } = props;
 
   const { latSet, lonSet, grid } = data;
@@ -524,6 +524,7 @@ export default function SSTHeatmapLeaflet(props) {
   const interactionModeRef = useRef("pan");
   const tripModeRef        = useRef(false);
   const tripLayerRef       = useRef(null);
+  const waypointsRef       = useRef([]);
   const [touchMarker, setTouchMarker] = useState(null);
   const [showSavedPanel, setShowSavedPanel] = useState(false);
   const [panelCollapsed,  setPanelCollapsed] = useState(false);
@@ -531,7 +532,14 @@ export default function SSTHeatmapLeaflet(props) {
   const [shareLocation,   setShareLocation]   = useState(null);
 
   // ── Trip mode ref sync ───────────────────────────────────────────────────────
-  useEffect(() => { tripModeRef.current = !!tripMode; }, [tripMode]);
+  useEffect(() => { waypointsRef.current = waypoints || []; }, [waypoints]);
+
+  useEffect(() => {
+    tripModeRef.current = !!tripMode;
+    const map = mapRef.current; if (!map) return;
+    const c = map.getContainer();
+    c.style.cursor = tripMode ? "crosshair" : "";
+  }, [tripMode]);
 
   // ── Waypoint layer ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -658,7 +666,18 @@ export default function SSTHeatmapLeaflet(props) {
     map.on("drag", () => { map.panInsideBounds(llBounds, { animate: false }); });
 
     map.on("click", (e) => {
-      if (tripModeRef.current) { onAddWaypoint?.(e.latlng.lat, e.latlng.lng); return; }
+      if (tripModeRef.current) {
+        const { lat, lng } = e.latlng;
+        // Check if clicking near departure (waypoint 1) to offer "end trip"
+        const wps = waypointsRef.current;
+        if (wps && wps.length >= 2) {
+          const dep = wps[0];
+          const dist = Math.sqrt((lat - dep.lat) ** 2 + (lng - dep.lng) ** 2);
+          if (dist < 0.08) { onEndTripAtDeparture?.(); return; }
+        }
+        onAddWaypoint?.(lat, lng);
+        return;
+      }
       if (interactionModeRef.current !== "crosshair") return;
       if (selectedMarker) { setSelectedMarker(null); return; }
       const { lat, lng: lon } = e.latlng;

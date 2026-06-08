@@ -63,10 +63,38 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
   const { userSettings } = useAppContext();
   const cruiseSpeedKts = Number(userSettings?.cruise_speed_kts) || 0;
 
+  // ── Sunrise helper ──────────────────────────────────────────────────────────
+  function calcSunrise(lat, lon, date) {
+    const D2R = Math.PI / 180;
+    const start = new Date(date.getFullYear(), 0, 0);
+    const dayOfYear = Math.round((date - start) / 86400000);
+    const B = (360 / 365) * (dayOfYear - 81) * D2R;
+    const eqT = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+    const decl = 23.45 * Math.sin((360 / 365) * (dayOfYear - 81) * D2R) * D2R;
+    const cosHA = (Math.cos(90.833 * D2R) - Math.sin(lat * D2R) * Math.sin(decl)) /
+      (Math.cos(lat * D2R) * Math.cos(decl));
+    if (cosHA > 1 || cosHA < -1) return null;
+    const haMin = Math.acos(cosHA) * (180 / Math.PI) * 4; // minutes
+    const sunriseMin = 720 - 4 * lon - haMin - eqT;
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCMinutes(Math.round(sunriseMin));
+    return d;
+  }
+
   const [departureTime, setDepartureTime] = useState(() => {
+    const dep = waypoints?.[0];
+    if (dep) {
+      const sunrise = calcSunrise(dep.lat, dep.lng, new Date());
+      if (sunrise) {
+        sunrise.setMinutes(sunrise.getMinutes() - 30);
+        sunrise.setSeconds(0, 0);
+        return sunrise.toISOString().slice(0, 16);
+      }
+    }
     const now = new Date();
     now.setSeconds(0, 0);
-    return now.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
+    return now.toISOString().slice(0, 16);
   });
   const [speedOverride, setSpeedOverride] = useState("");
   const [routeName, setRouteName] = useState("");
