@@ -320,12 +320,35 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
               Clear
             </button>
           )}
+
+          {/* Depart + Speed — desktop only (inline in row 2) */}
+          <div className="hidden sm:flex items-center gap-2 ml-auto shrink-0">
+            <div className="w-px h-4 bg-slate-200"/>
+            <label className="text-[10px] text-slate-400 whitespace-nowrap">Depart</label>
+            <input
+              type="datetime-local"
+              value={departureTime}
+              onChange={e => setDepartureTime(e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700"
+              style={{ width: 180 }}
+            />
+            <div className="w-px h-4 bg-slate-200"/>
+            <label className="text-[10px] text-slate-400 whitespace-nowrap">Speed</label>
+            <input
+              type="number"
+              value={speedOverride}
+              placeholder={cruiseSpeedKts ? String(cruiseSpeedKts) : "—"}
+              onChange={e => setSpeedOverride(e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-14 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700"
+            />
+            <span className="text-[10px] text-slate-400">kts</span>
+          </div>
         </div>
       )}
 
-      {/* ── Header row 3: depart / speed / stats ── */}
+      {/* ── Header row 3: depart / speed — mobile only ── */}
       {!collapsed && (
-        <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10 flex-shrink-0">
+        <div className="sm:hidden flex items-center gap-2 px-3 border-b border-slate-100 h-10 flex-shrink-0">
           <label className="text-[10px] text-slate-400 whitespace-nowrap">Depart</label>
           <input
             type="datetime-local"
