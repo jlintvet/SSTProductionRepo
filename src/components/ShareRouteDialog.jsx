@@ -130,12 +130,11 @@ export default function ShareRouteDialog({
 
   async function handleShare(type) {
     if (!shareToken) return;
-    const text = buildShareText(route, shareToken);
-    const url  = buildShareUrl(shareToken);
+    const text  = buildShareText(route, shareToken);
+    const url   = buildShareUrl(shareToken);
     const rName = route.name || "Fishing Route";
-    const blob = imgBlobRef.current;
+    const blob  = imgBlobRef.current;
 
-    // Try Web Share API with image (mobile native share sheet)
     if (blob && navigator.canShare) {
       const file = new File([blob], "fishing-route.png", { type: "image/png" });
       if (navigator.canShare({ files: [file] })) {
@@ -143,12 +142,11 @@ export default function ShareRouteDialog({
           await navigator.share({ files: [file], title: rName, text, url });
           return;
         } catch (e) {
-          if (e.name === "AbortError") return; // user cancelled
+          if (e.name === "AbortError") return;
         }
       }
     }
 
-    // Fallback (desktop / no file share support)
     if (type === "text") {
       window.location.href = `sms:?body=${encodeURIComponent(text)}`;
     } else {
@@ -256,4 +254,20 @@ export default function ShareRouteDialog({
             className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors disabled:opacity-40"
           >
             <Mail className="w-5 h-5" />
-            <span className="text-[11px] font
+            <span className="text-[11px] font-semibold">Email</span>
+          </button>
+          <button
+            onClick={handleCopy}
+            disabled={!shareToken || generating}
+            className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors disabled:opacity-40"
+          >
+            {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+            <span className={`text-[11px] font-semibold ${copied ? "text-emerald-600" : ""}`}>
+              {copied ? "Copied!" : "Copy"}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
