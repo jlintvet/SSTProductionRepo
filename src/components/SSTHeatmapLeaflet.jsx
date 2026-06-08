@@ -723,10 +723,22 @@ export default function SSTHeatmapLeaflet(props) {
         const { lat, lng } = e.target.getLatLng();
         onMoveWaypoint?.(wp.id, lat, lng);
       });
-      // Prevent clicks on waypoint markers from bubbling to the map click handler
-      // (which would add duplicate waypoints or incorrectly trigger end-trip prompt)
-      marker.on("click",      (e) => { L.DomEvent.stopPropagation(e); });
-      marker.on("touchstart", (e) => { L.DomEvent.stopPropagation(e); L.DomEvent.preventDefault(e); });
+      // Block click propagation to the map (prevents duplicate waypoints on click).
+      // Exception: clicking the departure marker (index 0) when ≥2 waypoints exist
+      // should still trigger the end-trip prompt — replicate the map-click logic here.
+      marker.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        if (i === 0 && waypoints.length >= 2) {
+          onEndTripAtDeparture?.();
+        }
+      });
+      marker.on("touchstart", (e) => {
+        L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+        if (i === 0 && waypoints.length >= 2) {
+          onEndTripAtDeparture?.();
+        }
+      });
     });
   }, [waypoints, tripMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
