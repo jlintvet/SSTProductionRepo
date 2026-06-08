@@ -7,6 +7,16 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { AlertTriangle, Plus, Check, Loader2, Navigation } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+function decodeRouteData(d) {
+  try {
+    const b64 = d.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "==".slice(0, (4 - b64.length % 4) % 4);
+    return JSON.parse(atob(padded));
+  } catch (_) {
+    return null;
+  }
+}
+
 function fmtCoord(val, isLat) {
   const abs = Math.abs(parseFloat(val)).toFixed(4);
   const dir = isLat ? (parseFloat(val) >= 0 ? "N" : "S") : (parseFloat(val) >= 0 ? "E" : "W");
@@ -17,6 +27,7 @@ export default function SharedRouteLanding() {
   const [searchParams] = useSearchParams();
   const navigate        = useNavigate();
   const token           = searchParams.get("token");
+  const dataParam       = searchParams.get("d");
 
   const [route,     setRoute]     = useState(null);
   const [loading,   setLoading]   = useState(true);
@@ -33,8 +44,20 @@ export default function SharedRouteLanding() {
     });
   }, []);
 
-  // ── Fetch route by token ─────────────────────────────────────────────────
+  // ── Load route — from URL data param (no auth needed) or token lookup ──────
   useEffect(() => {
+    // Primary: decode route data from URL (works for all recipients)
+    if (dataParam) {
+      const decoded = decodeRouteData(dataParam);
+      if (decoded && decoded.waypoints?.length) {
+        setRoute({ ...decoded, id: null, share_token: token || null });
+        document.title = `${decoded.name || "Fishing Route"} — SSTLive`;
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Fallback: legacy token-only links (requires Supabase public read policy)
     if (!token) {
       setNotFound(true);
       setLoading(false);
@@ -64,7 +87,8 @@ export default function SharedRouteLanding() {
     }
 
     load();
-  }, [token]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Save to my routes ─────────────────────────────────────────────────────
   async function handleSave() {

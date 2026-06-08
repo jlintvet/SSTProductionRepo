@@ -12,8 +12,25 @@ function uuidv4() {
   });
 }
 
-function buildShareUrl(token) {
-  return `${window.location.origin}/share/route?token=${token}`;
+function encodeRouteData(route) {
+  const payload = {
+    name: route.name || "Fishing Route",
+    waypoints: (route.waypoints || []).map(w => ({
+      lat: w.lat, lng: w.lng, id: w.id, label: w.label || null,
+    })),
+    cruise_speed_kts: route.cruise_speed_kts || null,
+  };
+  return btoa(JSON.stringify(payload))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function buildShareUrl(token, route) {
+  const base = `${window.location.origin}/share/route`;
+  if (route) {
+    const d = encodeRouteData(route);
+    return token ? `${base}?token=${token}&d=${d}` : `${base}?d=${d}`;
+  }
+  return `${base}?token=${token}`;
 }
 
 function haversineNm(lat1, lon1, lat2, lon2) {
@@ -33,7 +50,7 @@ function routeDistanceNm(waypoints) {
 }
 
 function buildShareText(route, token) {
-  const url  = buildShareUrl(token);
+  const url  = buildShareUrl(token, route);
   const name = route.name || "Fishing Route";
   const wps  = route.waypoints || [];
   const distNm = wps.length > 1 ? routeDistanceNm(wps) : 0;
@@ -149,7 +166,7 @@ export default function ShareRouteDialog({
   async function handleShare(type) {
     if (!shareToken) return;
     const text  = buildShareText(route, shareToken);
-    const url   = buildShareUrl(shareToken);
+    const url   = buildShareUrl(shareToken, route);
     const rName = route.name || "Fishing Route";
     const blob  = imgBlobRef.current;
 
