@@ -194,10 +194,10 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
 
   return (
     <div className="flex-shrink-0 bg-white border-t border-slate-200 shadow-inner"
-         style={{ height: collapsed ? "40px" : "220px", overflow: "hidden", transition: "height 0.15s" }}>
+         style={{ height: collapsed ? "40px" : "220px", transition: "height 0.15s" }}>
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10 min-w-0">
+      <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10 min-w-0" style={{ overflow: "visible", position: "relative", zIndex: 20 }}>
 
         {/* Route name */}
         <input
@@ -257,7 +257,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
             My Routes
           </button>
           {showRoutes && (
-            <div className="absolute right-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-xs max-h-56 overflow-y-auto">
+            <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-xs max-h-56 overflow-y-auto">
               {loadingRoutes ? (
                 <div className="px-3 py-4 text-center text-slate-400">Loading…</div>
               ) : savedRoutes.length === 0 ? (
@@ -329,7 +329,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
 
       {/* ── Body ── */}
       {!collapsed && (
-        <div className="overflow-auto" style={{ height: "180px" }}>
+        <div className="overflow-auto" style={{ height: "180px", overflowX: "hidden" }}>
           {waypoints.length === 0 ? (
             <div className="flex items-center justify-center h-full text-slate-400 text-xs">
               Click the map to add waypoints

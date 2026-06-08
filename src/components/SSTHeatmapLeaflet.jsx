@@ -5,6 +5,119 @@ import { Crosshair, Move, Wind } from "lucide-react";
 import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
+
+// ── SavedPanel: tabbed Locations + Routes panel ───────────────────────────────
+function SavedPanel({
+  savedLocations, fetchSavedLocations, clearMarkersRef, flyToRef,
+  highlightedLocation, setHighlightedLocation, onShare, isPro, userId,
+  onClose, sliderHeight, mobile, onMobileSelect, className,
+}) {
+  const [tab, setTab] = React.useState("locations");
+  const [routes, setRoutes] = React.useState(null); // null = not loaded yet
+  const [loadingRoutes, setLoadingRoutes] = React.useState(false);
+
+  async function loadRoutes() {
+    if (routes !== null) return;
+    setLoadingRoutes(true);
+    const { data, error } = await supabase
+      .from("saved_routes")
+      .select("id, name, waypoints, cruise_speed_kts, created_at")
+      .order("created_at", { ascending: false })
+      .limit(30);
+    setLoadingRoutes(false);
+    if (!error) setRoutes(data || []);
+  }
+
+  function switchTab(t) {
+    setTab(t);
+    if (t === "routes") loadRoutes();
+  }
+
+  async function deleteRoute(id, e) {
+    e.stopPropagation();
+    await supabase.from("saved_routes").delete().eq("id", id);
+    setRoutes(prev => (prev || []).filter(r => r.id !== id));
+  }
+
+  const posStyle = mobile
+    ? { bottom: 0, zIndex: 2000, maxHeight: "50vh" }
+    : { bottom: (sliderHeight || 0) + 48, width: 240, maxHeight: "55%", zIndex: 900 };
+
+  const baseClass = mobile
+    ? "fixed left-0 right-0 bg-white border-t border-slate-200 shadow-xl flex flex-col"
+    : "absolute left-2 bg-white border border-slate-200 rounded-xl shadow-xl flex flex-col";
+
+  return (
+    <div className={`${baseClass} ${className || ""}`} style={posStyle}>
+      {/* Header + tabs */}
+      <div className="flex items-center justify-between px-3 pt-2 pb-0 border-b border-slate-200 flex-shrink-0">
+        <div className="flex gap-3">
+          <button
+            onClick={() => switchTab("locations")}
+            className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "locations" ? "border-orange-400 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+          >
+            Locations ({savedLocations?.length ?? 0})
+          </button>
+          <button
+            onClick={() => switchTab("routes")}
+            className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "routes" ? "border-cyan-500 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+          >
+            Routes {routes !== null ? `(${routes.length})` : ""}
+          </button>
+        </div>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 pb-1.5">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-2">
+        {tab === "locations" ? (
+          <SavedLocations
+            locations={savedLocations} onRefresh={fetchSavedLocations}
+            onClearMarkers={id => clearMarkersRef.current?.(id)}
+            onSelectLocation={(idx, loc) => {
+              if (!loc) { setHighlightedLocation(null); return; }
+              flyToRef.current?.(loc.lat, loc.lon);
+              setHighlightedLocation(loc);
+              onMobileSelect?.();
+            }}
+            highlightedId={highlightedLocation?.id} onShare={onShare} isPro={isPro}
+          />
+        ) : loadingRoutes ? (
+          <div className="text-center text-xs text-slate-400 py-6">Loading…</div>
+        ) : !routes?.length ? (
+          <div className="text-center text-xs text-slate-400 py-6">No saved routes yet.<br/>Use Plan Trip to create one.</div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {routes.map(r => (
+              <div key={r.id} className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-2 text-xs group">
+                <div className="flex items-start justify-between gap-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-slate-800 truncate">{r.name || "Unnamed route"}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {r.waypoints?.length || 0} waypoints
+                      {r.cruise_speed_kts ? ` · ${r.cruise_speed_kts} kts` : ""}
+                      {" · "}{new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => deleteRoute(r.id, e)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-all"
+                    title="Delete route"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 import ShareLocationDialog from "@/components/ShareLocationDialog";
 import SSTLegend from "@/components/SSTLegend";
 import SSTRangeControl from "@/components/SSTRangeControl";
@@ -1638,6 +1751,16 @@ export default function SSTHeatmapLeaflet(props) {
                 style={{ width:32, height:32, padding:0, borderColor:showSavedPanel?"#f97316":undefined, background:showSavedPanel?"#f97316":undefined }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={showSavedPanel?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
               </button>
+              {/* Plan Trip (mobile) */}
+              {isPro && (
+                <button onClick={onToggleTripMode} title="Plan trip"
+                  className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                  style={{ width:32, height:32, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
+                  </svg>
+                </button>
+              )}
             </div>
           )}
 
@@ -1772,18 +1895,15 @@ export default function SSTHeatmapLeaflet(props) {
 
           {/* Mobile saved panel */}
           {showSavedPanel&&(
-            <div className="sm:hidden fixed left-0 right-0 bg-white border-t border-slate-200 shadow-xl flex flex-col" style={{bottom: 0, zIndex:2000, maxHeight:"50vh", overflowY:"auto"}}>
-              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 flex-shrink-0">
-                <span className="text-xs font-semibold text-slate-700">Saved Locations ({savedLocations?.length??0})</span>
-                <button onClick={()=>setShowSavedPanel(false)} className="text-slate-400 hover:text-slate-700"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2">
-                <SavedLocations locations={savedLocations} onRefresh={fetchSavedLocations}
-                  onClearMarkers={id => clearMarkersRef.current?.(id)}
-                  onSelectLocation={(idx, loc) => { if (!loc) { setHighlightedLocation(null); return; } flyToRef.current?.(loc.lat, loc.lon); setHighlightedLocation(loc); setShowSavedPanel(false); }}
-                  highlightedId={highlightedLocation?.id} onShare={onShare} isPro={isPro}/>
-              </div>
-            </div>
+            <SavedPanel
+              savedLocations={savedLocations} fetchSavedLocations={fetchSavedLocations}
+              clearMarkersRef={clearMarkersRef} flyToRef={flyToRef}
+              highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
+              onShare={onShare} isPro={isPro} userId={userId}
+              onClose={()=>setShowSavedPanel(false)}
+              mobile onMobileSelect={()=>setShowSavedPanel(false)}
+              className="sm:hidden"
+            />
           )}
 
           {/* Mobile focused drawers — one per layer icon */}
@@ -2295,18 +2415,15 @@ export default function SSTHeatmapLeaflet(props) {
 
           {/* Desktop saved panel */}
           {showSavedPanel?(
-            <div className="hidden sm:flex absolute left-2 bg-white border border-slate-200 rounded-xl shadow-xl flex-col" style={{bottom: sliderHeight + 48, width:240, maxHeight:"55%", zIndex:900}}>
-              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 flex-shrink-0">
-                <span className="text-xs font-semibold text-slate-700">Saved Locations ({savedLocations?.length??0})</span>
-                <button onClick={()=>setShowSavedPanel(false)} className="text-slate-400 hover:text-slate-700"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2">
-                <SavedLocations locations={savedLocations} onRefresh={fetchSavedLocations}
-                  onClearMarkers={id => clearMarkersRef.current?.(id)}
-                  onSelectLocation={(idx, loc) => { if (!loc) { setHighlightedLocation(null); return; } flyToRef.current?.(loc.lat, loc.lon); setHighlightedLocation(loc); }}
-                  highlightedId={highlightedLocation?.id} onShare={onShare} isPro={isPro}/>
-              </div>
-            </div>
+            <SavedPanel
+              savedLocations={savedLocations} fetchSavedLocations={fetchSavedLocations}
+              clearMarkersRef={clearMarkersRef} flyToRef={flyToRef}
+              highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
+              onShare={onShare} isPro={isPro} userId={userId}
+              onClose={()=>setShowSavedPanel(false)}
+              sliderHeight={sliderHeight}
+              className="hidden sm:flex"
+            />
           ):(
             <button onClick={()=>setShowSavedPanel(true)} className="hidden sm:flex absolute left-2 bg-white border border-slate-200 rounded-full shadow-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 items-center gap-1.5" style={{bottom:sliderHeight+8,zIndex:900}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
