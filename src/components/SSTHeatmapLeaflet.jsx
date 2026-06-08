@@ -685,7 +685,7 @@ export default function SSTHeatmapLeaflet(props) {
   const boatTrackLineRef = useRef(null);
 
   useEffect(() => {
-    if (!map) return;
+    const map = mapRef.current; if (!map) return;
     if (!gpsActive || !boatPosition) {
       if (boatMarkerRef.current) { boatMarkerRef.current.remove(); boatMarkerRef.current = null; }
       return;
@@ -708,10 +708,10 @@ export default function SSTHeatmapLeaflet(props) {
     } else {
       boatMarkerRef.current = L.marker([boatPosition.lat, boatPosition.lon], { icon, zIndexOffset: 1500 }).addTo(map);
     }
-  }, [map, gpsActive, boatPosition]);
+  }, [gpsActive, boatPosition]);
 
   useEffect(() => {
-    if (!map) return;
+    const map = mapRef.current; if (!map) return;
     if (!gpsActive || !boatTrack || boatTrack.length < 2) {
       if (boatTrackLineRef.current) { boatTrackLineRef.current.remove(); boatTrackLineRef.current = null; }
       return;
@@ -723,7 +723,7 @@ export default function SSTHeatmapLeaflet(props) {
         color: "#06b6d4", weight: 2, opacity: 0.55, dashArray: "5 5"
       }).addTo(map);
     }
-  }, [map, gpsActive, boatTrack]);
+  }, [gpsActive, boatTrack]);
 
   useEffect(() => {
     return () => {
