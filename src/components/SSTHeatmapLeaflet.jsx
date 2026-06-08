@@ -1678,6 +1678,8 @@ export default function SSTHeatmapLeaflet(props) {
             compositeData={compositeData} compositeGenerated={compositeGenerated}
             compositeDateIndex={compositeDateIndex} setCompositeDateIndex={setCompositeDateIndex} compositeDates={compositeDates}
             isPro={isPro}
+            tripMode={tripMode}
+            onToggleTripMode={onToggleTripMode}
           />
 
           {windLoading&&(windActive||windData===null)&&(

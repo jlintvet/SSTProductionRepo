@@ -346,8 +346,9 @@ function SSTPageBody() {
   const [selectedFishSpecies,setSelectedFishSpecies] = useState("yellowfin");
   const [showHotspots,   setShowHotspots]   = useState(false);
   const [wreckRemovedKeys, setWreckRemovedKeys] = useState(new Set());
-  const [tripMode,    setTripMode]    = useState(false);
-  const [waypoints,   setWaypoints]   = useState([]);
+  const [tripMode,       setTripMode]       = useState(false);
+  const [waypoints,      setWaypoints]      = useState([]);
+  const [endTripPrompt,  setEndTripPrompt]  = useState(false);
 
   // WreckReview entity was Base44-only; stubbed out pending Supabase migration
   useEffect(() => { setWreckRemovedKeys(new Set()); }, []);
@@ -437,6 +438,15 @@ function SSTPageBody() {
   }
   function handleMoveWaypoint(id, lat, lng) {
     setWaypoints(prev => prev.map(w => w.id === id ? { ...w, lat, lng } : w));
+  }
+  function activateTripMode() {
+    if (tripMode) { setTripMode(false); setWaypoints([]); return; }
+    const dep = selectedLocation;
+    const firstWp = dep
+      ? [{ id: crypto.randomUUID(), lat: dep.lat, lng: dep.lon, label: dep.label || "Departure" }]
+      : [];
+    setWaypoints(firstWp);
+    setTripMode(true);
   }
 
   async function fetchSavedLocations() { const { data, error } = await supabase.from("saved_locations").select("*").order("created_at",{ascending:false}).limit(100); if(!error&&data)setSavedLocations(data); }
@@ -548,37 +558,6 @@ function SSTPageBody() {
       ):(
         <>
           <div className="flex-1 overflow-hidden relative">
-            {/* Plan Trip button — Pro feature */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[700] pointer-events-none flex justify-center">
-              {isPro ? (
-                <button
-                  onClick={() => setTripMode(v => !v)}
-                  className={`pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-lg transition-all border ${
-                    tripMode
-                      ? "bg-cyan-500 text-white border-cyan-600"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
-                  </svg>
-                  {tripMode ? "Planning…" : "Plan Trip"}
-                  {tripMode && waypoints.length > 0 && (
-                    <span className="ml-1 bg-white text-cyan-600 rounded-full px-1.5 py-0 text-[10px] font-bold">
-                      {waypoints.length}
-                    </span>
-                  )}
-                </button>
-              ) : (
-                <div className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-md bg-white text-slate-400 border border-slate-200 cursor-default select-none" title="Pro feature">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
-                  </svg>
-                  Plan Trip
-                  <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0 rounded-full font-bold">Pro</span>
-                </div>
-              )}
-            </div>
             <SSTHeatmapLeaflet
               data={heatmapData} sstMin={sstMin} sstMax={sstMax}
               date={selectedDate} dataSource={dataSource} setDataSource={setDataSource}
@@ -625,6 +604,8 @@ function SSTPageBody() {
               waypoints={waypoints}
               onAddWaypoint={handleAddWaypoint}
               onMoveWaypoint={handleMoveWaypoint}
+              onToggleTripMode={activateTripMode}
+              onEndTripAtDeparture={() => setEndTripPrompt(true)}
             />
           </div>
           {tripMode && (
@@ -634,6 +615,32 @@ function SSTPageBody() {
               userId={userId}
               onClose={() => { setTripMode(false); setWaypoints([]); }}
             />
+          )}
+
+          {endTripPrompt && (
+            <div className="fixed inset-0 z-[9500] flex items-center justify-center bg-black/30">
+              <div className="bg-white rounded-2xl shadow-2xl px-6 py-5 max-w-xs w-full mx-4 text-center">
+                <div className="text-2xl mb-2">⚓</div>
+                <p className="text-sm font-semibold text-slate-800 mb-1">Return to departure?</p>
+                <p className="text-xs text-slate-500 mb-4">
+                  Add {waypoints[0]?.label || "departure"} as your final waypoint and close the route.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const dep = waypoints[0];
+                      if (dep) setWaypoints(prev => [...prev, { id: crypto.randomUUID(), lat: dep.lat, lng: dep.lng, label: dep.label }]);
+                      setEndTripPrompt(false);
+                    }}
+                    className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-semibold py-2 rounded-xl transition-colors"
+                  >Yes, close route</button>
+                  <button
+                    onClick={() => setEndTripPrompt(false)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 rounded-xl transition-colors"
+                  >Cancel</button>
+                </div>
+              </div>
+            </div>
           )}
 
           {shareLocation && (
