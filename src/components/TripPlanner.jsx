@@ -70,7 +70,7 @@ function calcSunrise(lat, lon, date) {
   return d;
 }
 
-export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro, loadedRoute }) {
+export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro, loadedRoute, heatmapData, sstMin, sstMax, sstRange }) {
   const { userSettings } = useAppContext();
   const cruiseSpeedKts = Number(userSettings?.cruise_speed_kts) || 0;
 
@@ -407,6 +407,10 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
           route={sharingRoute}
           onClose={() => setSharingRoute(null)}
           onTokenSaved={(id, token) => setSharingRoute(prev => prev?.id === id ? { ...prev, share_token: token } : prev)}
+          heatmapData={heatmapData}
+          sstMin={sstMin}
+          sstMax={sstMax}
+          sstRange={sstRange}
         />
       )}
     </div>

@@ -96,8 +96,8 @@ export default function SharedRouteLanding() {
   // ── Open app with this route ──────────────────────────────────────────────
   function handleOpenApp() {
     if (!route?.waypoints?.length) { navigate("/"); return; }
-    const first = route.waypoints[0];
-    navigate(`/?lat=${first.lat}&lon=${first.lng}`);
+    sessionStorage.setItem("sst_pending_route", JSON.stringify(route));
+    navigate("/");
   }
 
   // ── Loading ──────────────────────────────────────────────────────────────

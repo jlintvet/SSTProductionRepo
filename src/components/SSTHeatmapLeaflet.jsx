@@ -13,6 +13,7 @@ function SavedPanel({
   highlightedLocation, setHighlightedLocation, onShare, isPro, userId,
   onClose, sliderHeight, mobile, onMobileSelect, className, onLoadRoute, onRoutesCountChange,
   tripMode, onAddWaypoint,
+  heatmapDataForShare, sstMinForShare, sstMaxForShare, sstRangeForShare,
 }) {
   const [tab, setTab]             = React.useState("locations");
   const [sharingRoute, setSharingRoute] = React.useState(null);
@@ -149,6 +150,10 @@ function SavedPanel({
             setRoutes(prev => (prev || []).map(r => r.id === id ? { ...r, share_token: token } : r));
             setSharingRoute(prev => prev?.id === id ? { ...prev, share_token: token } : prev);
           }}
+          heatmapData={heatmapDataForShare}
+          sstMin={sstMinForShare}
+          sstMax={sstMaxForShare}
+          sstRange={sstRangeForShare}
         />,
         document.body
       )}
@@ -2046,6 +2051,7 @@ export default function SSTHeatmapLeaflet(props) {
               mobile onMobileSelect={()=>setShowSavedPanel(false)}
               tripMode={tripMode}
               onAddWaypoint={onAddWaypoint}
+              heatmapDataForShare={data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
               className="sm:hidden"
             />
           )}
@@ -2578,6 +2584,7 @@ export default function SSTHeatmapLeaflet(props) {
               sliderHeight={sliderHeight}
               tripMode={tripMode}
               onAddWaypoint={onAddWaypoint}
+              heatmapDataForShare={data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
               className="hidden sm:flex"
             />
           ):(

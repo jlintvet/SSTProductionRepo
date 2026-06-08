@@ -356,6 +356,25 @@ function SSTPageBody() {
   const [boatTrack,      setBoatTrack]      = useState([]);
   const gpsWatchRef = useRef(null);
 
+  // Auto-load shared route passed via sessionStorage (from SharedRouteLanding "View on Map")
+  useEffect(() => {
+    const pending = sessionStorage.getItem("sst_pending_route");
+    if (!pending) return;
+    try {
+      const route = JSON.parse(pending);
+      sessionStorage.removeItem("sst_pending_route");
+      const wps = (route.waypoints || []).map(w => ({ ...w, id: w.id || crypto.randomUUID() }));
+      if (wps.length) {
+        setWaypoints(wps);
+        setTripMode(true);
+        setLoadedRoute(route);
+      }
+    } catch (e) {
+      console.warn("sst_pending_route parse error:", e);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // WreckReview entity was Base44-only; stubbed out pending Supabase migration
   useEffect(() => { setWreckRemovedKeys(new Set()); }, []);
 
@@ -660,6 +679,10 @@ function SSTPageBody() {
               isPro={isPro}
               loadedRoute={loadedRoute}
               onClose={() => { setTripMode(false); setWaypoints([]); setLoadedRoute(null); }}
+              heatmapData={heatmapData}
+              sstMin={sstMin}
+              sstMax={sstMax}
+              sstRange={sstRange}
             />
           )}
 
