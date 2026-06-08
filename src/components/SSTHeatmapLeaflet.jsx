@@ -47,7 +47,7 @@ function SavedPanel({
   }
 
   const posStyle = mobile
-    ? { bottom: 0, zIndex: 2000, maxHeight: "50vh" }
+    ? { bottom: 0, zIndex: 2000, maxHeight: "38vh" }
     : { bottom: (sliderHeight || 0) + 48, width: 240, maxHeight: "55%", zIndex: 900 };
 
   const baseClass = mobile
@@ -758,7 +758,7 @@ export default function SSTHeatmapLeaflet(props) {
 
   // ── Waypoint layer ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const map = mapRef.current; if (!map) return;
+    const map = mapRef.current; if (!mapReady || !map) return;
     if (!tripLayerRef.current) {
       tripLayerRef.current = L.layerGroup().addTo(map);
     }
@@ -796,7 +796,7 @@ export default function SSTHeatmapLeaflet(props) {
       marker.on("click", (e) => { L.DomEvent.stopPropagation(e); handleWpClick(); });
       marker.on("touchstart", (e) => { L.DomEvent.stopPropagation(e); L.DomEvent.preventDefault(e); handleWpClick(); });
     });
-  }, [waypoints, tripMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [waypoints, tripMode, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cleanup trip layer on unmount ────────────────────────────────────────────
   useEffect(() => {
