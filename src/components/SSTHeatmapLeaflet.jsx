@@ -1345,8 +1345,8 @@ export default function SSTHeatmapLeaflet(props) {
     const maxSpd = currentsData.maxSpeed ?? 2.0;
     const currentsLayer = L.velocityLayer({
       lineWidth: 3.5,
-      particleMultiplier: 0.0002,
-      particleAge: 60,
+      particleMultiplier: 0.00023,
+      particleAge: 75,
       displayOptions: {
         velocityType: "Current", position: "bottomleft", emptyString: "No current data",
         angleConvention: "bearingCW", showCardinal: false,
@@ -1970,12 +1970,12 @@ export default function SSTHeatmapLeaflet(props) {
               <Wind style={{ width:14, height:14, color: mobilePanel==="wind" ? "#fff" : windActive ? "#0284c7" : "#64748b" }}/>
             </button>
             {/* Currents */}
-            <button onClick={() => setMobilePanel(p => p === "currents" ? null : "currents")} title="Currents"
+            <button onClick={() => setShowCurrents(p => !p)} title="Currents"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
-                background: mobilePanel==="currents" ? "#0284c7" : showCurrents ? "rgba(2,132,199,0.15)" : "rgba(255,255,255,0.9)",
-                borderColor: mobilePanel==="currents" ? "#0284c7" : showCurrents ? "#0284c7" : "#e2e8f0" }}>
-              <span style={{ fontSize:9, fontWeight:700, color: mobilePanel==="currents" ? "#fff" : showCurrents ? "#0284c7" : "#64748b", lineHeight:1 }}>CUR</span>
+                background: showCurrents ? "#0284c7" : "rgba(255,255,255,0.9)",
+                borderColor: showCurrents ? "#0284c7" : "#e2e8f0" }}>
+              <span style={{ fontSize:9, fontWeight:700, color: showCurrents ? "#fff" : "#64748b", lineHeight:1 }}>CUR</span>
             </button>
             {/* Altimetry */}
             <button onClick={() => setMobilePanel(p => p === "altimetry" ? null : "altimetry")} title="Altimetry"
