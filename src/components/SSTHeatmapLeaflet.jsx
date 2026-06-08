@@ -576,6 +576,7 @@ export default function SSTHeatmapLeaflet(props) {
     currentsData, currentsLoading, showCurrents, setShowCurrents,
     altimetryData, onSlaRange,
     tripMode, waypoints, onAddWaypoint, onMoveWaypoint, onRemoveWaypoint, onToggleTripMode, onEndTripAtDeparture, onLoadRoute,
+    gpsActive, onToggleGps, boatPosition, boatTrack,
   } = props;
 
   const { latSet, lonSet, grid } = data;
@@ -678,6 +679,58 @@ export default function SSTHeatmapLeaflet(props) {
   const waypointsRef       = useRef([]);
   const [touchMarker, setTouchMarker] = useState(null);
   const [wpDeletePopup,    setWpDeletePopup]    = useState(null); // {id, label, px, py}
+
+  // ── GPS boat marker ──────────────────────────────────────────────
+  const boatMarkerRef = useRef(null);
+  const boatTrackLineRef = useRef(null);
+
+  useEffect(() => {
+    if (!map) return;
+    if (!gpsActive || !boatPosition) {
+      if (boatMarkerRef.current) { boatMarkerRef.current.remove(); boatMarkerRef.current = null; }
+      return;
+    }
+    const hdg = boatPosition.heading ?? 0;
+    const icon = L.divIcon({
+      className: "",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      html: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+        <g transform="rotate(${hdg},16,16)">
+          <polygon points="16,3 24,26 16,21 8,26" fill="#06b6d4" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <circle cx="16" cy="16" r="2.5" fill="white" opacity="0.8"/>
+        </g>
+      </svg>`
+    });
+    if (boatMarkerRef.current) {
+      boatMarkerRef.current.setLatLng([boatPosition.lat, boatPosition.lon]);
+      boatMarkerRef.current.setIcon(icon);
+    } else {
+      boatMarkerRef.current = L.marker([boatPosition.lat, boatPosition.lon], { icon, zIndexOffset: 1500 }).addTo(map);
+    }
+  }, [map, gpsActive, boatPosition]);
+
+  useEffect(() => {
+    if (!map) return;
+    if (!gpsActive || !boatTrack || boatTrack.length < 2) {
+      if (boatTrackLineRef.current) { boatTrackLineRef.current.remove(); boatTrackLineRef.current = null; }
+      return;
+    }
+    if (boatTrackLineRef.current) {
+      boatTrackLineRef.current.setLatLngs(boatTrack);
+    } else {
+      boatTrackLineRef.current = L.polyline(boatTrack, {
+        color: "#06b6d4", weight: 2, opacity: 0.55, dashArray: "5 5"
+      }).addTo(map);
+    }
+  }, [map, gpsActive, boatTrack]);
+
+  useEffect(() => {
+    return () => {
+      if (boatMarkerRef.current) { boatMarkerRef.current.remove(); boatMarkerRef.current = null; }
+      if (boatTrackLineRef.current) { boatTrackLineRef.current.remove(); boatTrackLineRef.current = null; }
+    };
+  }, []);
   const [showSavedPanel,    setShowSavedPanel]    = useState(false);
   const [savedRoutesCount, setSavedRoutesCount] = useState(0);
   useEffect(() => {
@@ -1867,6 +1920,8 @@ export default function SSTHeatmapLeaflet(props) {
             isPro={isPro}
             tripMode={tripMode}
             onToggleTripMode={onToggleTripMode}
+            gpsActive={gpsActive}
+            onToggleGps={onToggleGps}
           />
 
           {windLoading&&(windActive||windData===null)&&(
@@ -2520,6 +2575,32 @@ export default function SSTHeatmapLeaflet(props) {
           {isWindMap && (
             <div className="sm:hidden absolute left-0 right-0 px-2" style={{ bottom: 64, zIndex: 600, pointerEvents: "none" }}>
               <WindLegend isWindMap={true} />
+            </div>
+          )}
+
+          {/* GPS HUD */}
+          {gpsActive && boatPosition && (
+            <div style={{ position: "absolute", bottom: 72, left: 8, zIndex: 800, pointerEvents: "none",
+                          background: "rgba(15,23,42,0.82)", color: "#e2e8f0", borderRadius: 10,
+                          padding: "7px 11px", fontSize: 11, fontFamily: "ui-monospace, monospace",
+                          backdropFilter: "blur(4px)", border: "1px solid rgba(6,182,212,0.35)" }}>
+              <div style={{ color: "#22d3ee", fontWeight: 700, marginBottom: 3, display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+                               background: "#22d3ee", boxShadow: "0 0 6px #22d3ee" }}/>
+                GPS Active
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: 10.5 }}>
+                {boatPosition.lat.toFixed(5)}° N &nbsp; {Math.abs(boatPosition.lon).toFixed(5)}° W
+              </div>
+              {boatPosition.speedKts != null && (
+                <div>SPD <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{boatPosition.speedKts}</span> kts</div>
+              )}
+              {boatPosition.heading != null && (
+                <div>HDG <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{Math.round(boatPosition.heading)}°</span></div>
+              )}
+              {boatPosition.accuracy != null && (
+                <div style={{ color: "#64748b", fontSize: 10 }}>±{Math.round(boatPosition.accuracy)} m</div>
+              )}
             </div>
           )}
 

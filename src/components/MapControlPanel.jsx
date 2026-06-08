@@ -290,6 +290,7 @@ export default function MapControlPanel({
   isPro,
   // trip planning
   tripMode, onToggleTripMode,
+  gpsActive, onToggleGps,
   // departure
   selectedLocation,
   // collapsed state (controlled externally so collapse button in map header works)
@@ -571,10 +572,17 @@ export default function MapControlPanel({
           </ProGate>
           <ProGate isPro={isPro} label="Trip planning is available on the Pro plan.">
             <ToolBtn active={tripMode} color="cyan" onClick={onToggleTripMode}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
-              </svg>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/></svg>
               {tripMode ? "Planning…" : "Plan Trip"}
+            </ToolBtn>
+          </ProGate>
+          <ProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
+            <ToolBtn active={gpsActive} color="green" onClick={onToggleGps}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+                <path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
+              </svg>
+              {gpsActive ? "GPS On" : "Real Time"}
             </ToolBtn>
           </ProGate>
         </div>

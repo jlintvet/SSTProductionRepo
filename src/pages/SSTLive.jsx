@@ -350,6 +350,11 @@ function SSTPageBody() {
   const [waypoints,      setWaypoints]      = useState([]);
   const [loadedRoute,    setLoadedRoute]    = useState(null);
   const [endTripPrompt,  setEndTripPrompt]  = useState(false);
+  // GPS / Real-Time tracking
+  const [gpsActive,      setGpsActive]      = useState(false);
+  const [boatPosition,   setBoatPosition]   = useState(null);
+  const [boatTrack,      setBoatTrack]      = useState([]);
+  const gpsWatchRef = useRef(null);
 
   // WreckReview entity was Base44-only; stubbed out pending Supabase migration
   useEffect(() => { setWreckRemovedKeys(new Set()); }, []);
@@ -452,6 +457,29 @@ function SSTPageBody() {
     setWaypoints(firstWp);
     setTripMode(true);
   }
+  function toggleGps() {
+    if (gpsActive) {
+      if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
+      gpsWatchRef.current = null;
+      setGpsActive(false);
+      setBoatPosition(null);
+      setBoatTrack([]);
+    } else {
+      if (!navigator.geolocation) { alert("GPS not available on this device"); return; }
+      gpsWatchRef.current = navigator.geolocation.watchPosition(
+        pos => {
+          const { latitude, longitude, heading, speed, accuracy } = pos.coords;
+          const speedKts = speed != null ? +(speed * 1.94384).toFixed(1) : null;
+          setBoatPosition({ lat: latitude, lon: longitude, heading, speedKts, accuracy });
+          setBoatTrack(prev => [...prev.slice(-500), [latitude, longitude]]);
+        },
+        err => console.warn("GPS error:", err.message),
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+      );
+      setGpsActive(true);
+    }
+  }
+
   function handleLoadRoute(route) {
     const wps = (route.waypoints || []).map(w => ({ ...w, id: w.id || crypto.randomUUID() }));
     setWaypoints(wps);
@@ -618,6 +646,10 @@ function SSTPageBody() {
               onToggleTripMode={activateTripMode}
               onEndTripAtDeparture={() => setEndTripPrompt(true)}
               onLoadRoute={handleLoadRoute}
+              gpsActive={gpsActive}
+              onToggleGps={toggleGps}
+              boatPosition={boatPosition}
+              boatTrack={boatTrack}
             />
           </div>
           {tripMode && (
@@ -735,8 +767,4 @@ export default function SSTLive() {
   if (!authed) return <InlineLogin />;
 
   return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
-      <SSTPageBody />
-    </AppShell>
-  );
-}
+    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade
