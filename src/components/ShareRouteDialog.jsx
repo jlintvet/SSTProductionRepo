@@ -16,13 +16,31 @@ function buildShareUrl(token) {
   return `${window.location.origin}/share/route?token=${token}`;
 }
 
+function haversineNm(lat1, lon1, lat2, lon2) {
+  const R = 3440.065; // nautical miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function routeDistanceNm(waypoints) {
+  let d = 0;
+  for (let i = 1; i < waypoints.length; i++) {
+    d += haversineNm(waypoints[i-1].lat, waypoints[i-1].lng, waypoints[i].lat, waypoints[i].lng);
+  }
+  return d;
+}
+
 function buildShareText(route, token) {
   const url  = buildShareUrl(token);
   const name = route.name || "Fishing Route";
   const wps  = route.waypoints || [];
+  const distNm = wps.length > 1 ? routeDistanceNm(wps) : 0;
+  const distStr = distNm > 0 ? ` · ${distNm.toFixed(1)} nm` : "";
   const lines = [
     name,
-    `${wps.length} waypoint${wps.length !== 1 ? "s" : ""}${route.cruise_speed_kts ? ` · ${route.cruise_speed_kts} kts` : ""}`,
+    `${wps.length} waypoint${wps.length !== 1 ? "s" : ""}${distStr}`,
     "",
     url,
   ];
