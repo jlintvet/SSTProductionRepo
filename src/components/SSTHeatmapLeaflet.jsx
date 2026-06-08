@@ -1763,6 +1763,7 @@ export default function SSTHeatmapLeaflet(props) {
   const showRangeControl = activeDataLayer === "sst";
 
   return (
+    <>
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full p-0 overflow-hidden w-full">
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <div className="relative bg-slate-100 flex-1 flex flex-col overflow-hidden min-h-0">
@@ -2569,5 +2570,6 @@ export default function SSTHeatmapLeaflet(props) {
       </div>,
       document.body
     )}
+    </>
   );
 }
