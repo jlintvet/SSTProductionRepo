@@ -348,6 +348,7 @@ function SSTPageBody() {
   const [wreckRemovedKeys, setWreckRemovedKeys] = useState(new Set());
   const [tripMode,       setTripMode]       = useState(false);
   const [waypoints,      setWaypoints]      = useState([]);
+  const [loadedRoute,    setLoadedRoute]    = useState(null);
   const [endTripPrompt,  setEndTripPrompt]  = useState(false);
 
   // WreckReview entity was Base44-only; stubbed out pending Supabase migration
@@ -451,6 +452,7 @@ function SSTPageBody() {
   function handleLoadRoute(route) {
     const wps = (route.waypoints || []).map(w => ({ ...w, id: w.id || crypto.randomUUID() }));
     setWaypoints(wps);
+    setLoadedRoute(route);
     setTripMode(true);
   }
 
@@ -620,7 +622,8 @@ function SSTPageBody() {
               setWaypoints={setWaypoints}
               userId={userId}
               isPro={isPro}
-              onClose={() => { setTripMode(false); setWaypoints([]); }}
+              loadedRoute={loadedRoute}
+              onClose={() => { setTripMode(false); setWaypoints([]); setLoadedRoute(null); }}
             />
           )}
 
@@ -728,8 +731,4 @@ export default function SSTLive() {
   if (!authed) return <InlineLogin />;
 
   return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
-      <SSTPageBody />
-    </AppShell>
-  );
-}
+    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade

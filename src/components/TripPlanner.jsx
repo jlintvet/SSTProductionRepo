@@ -62,7 +62,7 @@ function calcSunrise(lat, lon, date) {
   return d;
 }
 
-export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro }) {
+export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro, loadedRoute }) {
   const { userSettings } = useAppContext();
   const cruiseSpeedKts = Number(userSettings?.cruise_speed_kts) || 0;
 
@@ -127,6 +127,14 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showRoutes]);
+
+  // Sync state when a route is loaded externally (from SavedPanel)
+  useEffect(() => {
+    if (!loadedRoute) return;
+    setRouteName(loadedRoute.name || "");
+    if (loadedRoute.cruise_speed_kts) setSpeedOverride(String(loadedRoute.cruise_speed_kts));
+    setSavedRouteData(loadedRoute);
+  }, [loadedRoute]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openRoutes() {
     setShowRoutes(v => {

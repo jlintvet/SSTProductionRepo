@@ -1694,6 +1694,11 @@ export default function SSTHeatmapLeaflet(props) {
       const icon = L.divIcon({ className:"", html: pinHtml, iconSize:[14,19], iconAnchor:[7,19] });
       const m = L.marker([mk.lat, mk.lon], { icon, interactive: true });
       const openMarker = () => {
+        if (tripModeRef.current) {
+          // In trip-planning mode: add this saved location as a waypoint
+          onAddWaypoint?.(mk.lat, mk.lon, mk.label || mk.name || "");
+          return;
+        }
         const containerPt = map.latLngToContainerPoint([mk.lat, mk.lon]);
         setSelectedMarker({ px: containerPt.x, py: containerPt.y, mk: { ...mk, index: i } });
         setClickInfo(null);
