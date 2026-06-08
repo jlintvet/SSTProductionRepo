@@ -2020,6 +2020,17 @@ export default function SSTHeatmapLeaflet(props) {
                 <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
               </svg>
             </button>
+            {/* Real Time GPS */}
+            <button
+              onClick={onToggleGps}
+              title={gpsActive ? "GPS On — tap to stop" : "Real-time GPS"}
+              className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
+              style={{ width:30, height:30, padding:0, borderColor:gpsActive?"#16a34a":undefined, background:gpsActive?"#16a34a":undefined }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={gpsActive?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+                <path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
+              </svg>
+            </button>
           </div>
 
           {/* Mobile saved panel */}
@@ -2383,6 +2394,14 @@ export default function SSTHeatmapLeaflet(props) {
                         <button onClick={() => setShowWrecks(w => !w)}
                           className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showWrecks ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-600 border-slate-300"}`}>
                           {wrecksLoading ? "Loading…" : "Bottom Features"}
+                        </button>
+                      </MobileProGate>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <MobileProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
+                        <button onClick={onToggleGps}
+                          className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${gpsActive ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                          📡 {gpsActive ? "GPS On" : "Real Time"}
                         </button>
                       </MobileProGate>
                     </div>
