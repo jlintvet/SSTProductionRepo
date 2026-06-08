@@ -278,4 +278,15 @@ export default function ShareLocationDialog({
 
           <button
             onClick={handleCopy}
-            className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text
+            className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+          >
+            {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+            <span className={`text-[11px] font-semibold ${copied ? "text-emerald-600" : ""}`}>
+              {copied ? "Copied!" : "Copy"}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
