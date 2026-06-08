@@ -141,28 +141,6 @@ function SavedPanel({
         )}
       </div>
 
-      {/* Waypoint delete popup */}
-    {wpDeletePopup && createPortal(
-      <div
-        style={{ position: "fixed", left: wpDeletePopup.px, top: wpDeletePopup.py - 48,
-                 transform: "translateX(-50%)", zIndex: 9000, pointerEvents: "auto" }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="bg-white rounded-xl shadow-2xl border border-slate-200 px-3 py-2.5 flex items-center gap-2.5 text-xs">
-          <span className="text-slate-600 font-medium max-w-[120px] truncate">{wpDeletePopup.label}</span>
-          <button
-            onClick={() => { onRemoveWaypoint?.(wpDeletePopup.id); setWpDeletePopup(null); }}
-            className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
-          >Delete</button>
-          <button
-            onClick={() => setWpDeletePopup(null)}
-            className="px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors"
-          >✕</button>
-        </div>
-      </div>,
-      document.body
-    )}
-
     {sharingRoute && createPortal(
         <ShareRouteDialogModal
           route={sharingRoute}
@@ -2569,5 +2547,27 @@ export default function SSTHeatmapLeaflet(props) {
         </div>
       </div>
     </div>
+
+    {/* Waypoint delete popup — rendered at root so it's never clipped */}
+    {wpDeletePopup && createPortal(
+      <div
+        style={{ position: "fixed", left: wpDeletePopup.px, top: wpDeletePopup.py - 48,
+                 transform: "translateX(-50%)", zIndex: 9000, pointerEvents: "auto" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-white rounded-xl shadow-2xl border border-slate-200 px-3 py-2.5 flex items-center gap-2.5 text-xs">
+          <span className="text-slate-600 font-medium max-w-[120px] truncate">{wpDeletePopup.label}</span>
+          <button
+            onClick={() => { onRemoveWaypoint?.(wpDeletePopup.id); setWpDeletePopup(null); }}
+            className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
+          >Delete</button>
+          <button
+            onClick={() => setWpDeletePopup(null)}
+            className="px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors"
+          >✕</button>
+        </div>
+      </div>,
+      document.body
+    )}
   );
 }
