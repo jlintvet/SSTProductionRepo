@@ -5,6 +5,7 @@ import { Crosshair, Move, Wind } from "lucide-react";
 import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
+import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 
 // ── SavedPanel: tabbed Locations + Routes panel ───────────────────────────────
 function SavedPanel({
@@ -21,7 +22,7 @@ function SavedPanel({
     setLoadingRoutes(true);
     const { data, error } = await supabase
       .from("saved_routes")
-      .select("id, name, waypoints, cruise_speed_kts, created_at")
+      .select("id, name, waypoints, cruise_speed_kts, created_at, share_token")
       .order("created_at", { ascending: false })
       .limit(30);
     setLoadingRoutes(false);
@@ -73,73 +74,6 @@ function SavedPanel({
           <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </button>
       </div>
-
-      {/* Share Route dialog (inline modal) */}
-      {sharingRoute && (
-        <div className="absolute inset-0 bg-white z-10 flex flex-col rounded-xl">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 flex-shrink-0">
-            <span className="text-xs font-semibold text-slate-700">Share Route</span>
-            <button onClick={() => setSharingRoute(null)} className="text-slate-400 hover:text-slate-700">
-              <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-            <div>
-              <div className="text-xs font-semibold text-slate-800">{sharingRoute.name || "Unnamed route"}</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">{sharingRoute.waypoints?.length || 0} waypoints{sharingRoute.cruise_speed_kts ? ` · ${sharingRoute.cruise_speed_kts} kts` : ""}</div>
-            </div>
-            <div className="bg-slate-50 rounded-lg p-2 text-[10px] text-slate-600 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
-              {(() => {
-                const wps = sharingRoute.waypoints || [];
-                const lines = [`🗺️ ${sharingRoute.name || "Route"}`, `📍 ${wps.length} waypoints`];
-                wps.forEach((w, i) => {
-                  const lat = Math.abs(w.lat).toFixed(4) + (w.lat >= 0 ? "°N" : "°S");
-                  const lon = Math.abs(w.lng).toFixed(4) + (w.lng >= 0 ? "°E" : "°W");
-                  lines.push(`${i+1}. ${w.label || `WP ${i+1}`}  ${lat}, ${lon}`);
-                });
-                lines.push("\nPlan your trip: " + window.location.origin);
-                return lines.join("\n");
-              })()}
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => {
-                  const wps = sharingRoute.waypoints || [];
-                  const lines = [`🗺️ ${sharingRoute.name || "Route"}`, `📍 ${wps.length} waypoints`];
-                  wps.forEach((w, i) => {
-                    const lat = Math.abs(w.lat).toFixed(4) + (w.lat >= 0 ? "°N" : "°S");
-                    const lon = Math.abs(w.lng).toFixed(4) + (w.lng >= 0 ? "°E" : "°W");
-                    lines.push(`${i+1}. ${w.label || `WP ${i+1}`}  ${lat}, ${lon}`);
-                  });
-                  lines.push(`Plan your trip: ${window.location.origin}`);
-                  navigator.clipboard?.writeText(lines.join("\n"));
-                }}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                Copy to clipboard
-              </button>
-              <button
-                onClick={() => {
-                  const wps = sharingRoute.waypoints || [];
-                  const lines = [`🗺️ ${sharingRoute.name || "Route"}`, `📍 ${wps.length} waypoints`];
-                  wps.forEach((w, i) => {
-                    const lat = Math.abs(w.lat).toFixed(4) + (w.lat >= 0 ? "°N" : "°S");
-                    const lon = Math.abs(w.lng).toFixed(4) + (w.lng >= 0 ? "°E" : "°W");
-                    lines.push(`${i+1}. ${w.label || `WP ${i+1}`}  ${lat}, ${lon}`);
-                  });
-                  lines.push(`Plan your trip: ${window.location.origin}`);
-                  window.open(`sms:?&body=${encodeURIComponent(lines.join("\n"))}`);
-                }}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-semibold rounded-lg transition-colors"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                Send via SMS
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-2">
@@ -200,6 +134,18 @@ function SavedPanel({
           </div>
         )}
       </div>
+
+      {sharingRoute && createPortal(
+        <ShareRouteDialogModal
+          route={sharingRoute}
+          onClose={() => setSharingRoute(null)}
+          onTokenSaved={(id, token) => {
+            setRoutes(prev => (prev || []).map(r => r.id === id ? { ...r, share_token: token } : r));
+            setSharingRoute(prev => prev?.id === id ? { ...prev, share_token: token } : prev);
+          }}
+        />,
+        document.body
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import SSTLive from "@/pages/SSTLive";
 import LandingPage from "@/pages/LandingPage";
 import ResetPassword from "@/pages/ResetPassword";
 import SharedLocationLanding from "@/pages/SharedLocationLanding";
+import SharedRouteLanding from "@/pages/SharedRouteLanding";
 import WreckReviewAdmin from "@/pages/WreckReviewAdmin";
 
 // Loading spinner
@@ -79,19 +80,11 @@ function AppRoot() {
         {/* Public routes — no auth required */}
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/share" element={<SharedLocationLanding />} />
+        <Route path="/share/route" element={<SharedRouteLanding />} />
 
         {/* Protected routes */}
         <Route path="/wreck-review" element={
           <ProtectedRoute authed={authed}><WreckReviewAdmin /></ProtectedRoute>
         } />
         <Route path="/*" element={
-          <ProtectedRoute authed={authed}><SSTLive /></ProtectedRoute>
-        } />
-      </Routes>
-    </Router>
-  );
-}
-
-export default function App() {
-  return <AppRoot />;
-}
+          <ProtectedRoute authed={authed}><SST

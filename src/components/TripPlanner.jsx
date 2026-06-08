@@ -5,6 +5,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAppContext } from "@/context/AppContext";
+import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 
 function haversineNm(lat1, lon1, lat2, lon2) {
   const R = 3440.065;
@@ -61,7 +62,7 @@ function calcSunrise(lat, lon, date) {
   return d;
 }
 
-export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }) {
+export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro }) {
   const { userSettings } = useAppContext();
   const cruiseSpeedKts = Number(userSettings?.cruise_speed_kts) || 0;
 
@@ -83,6 +84,8 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
   const [routeName,     setRouteName]     = useState(() => `Route ${new Date().toLocaleDateString()}`);
   const [saving,        setSaving]        = useState(false);
   const [savedMsg,      setSavedMsg]      = useState("");
+  const [savedRouteData,setSavedRouteData]= useState(null);
+  const [sharingRoute,  setSharingRoute]  = useState(null);
   const [collapsed,     setCollapsed]     = useState(false);
 
   // Saved routes dropdown
@@ -186,7 +189,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
       setSavedMsg("Save failed");
     } else {
       setSavedMsg("Saved ✓");
-      if (data) setSavedRoutes(prev => [data, ...prev]);
+      if (data) { setSavedRoutes(prev => [data, ...prev]); setSavedRouteData(data); }
     }
     setTimeout(() => setSavedMsg(""), 3000);
   }
@@ -301,10 +304,21 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
           </button>
         )}
 
+        {/* Share (Pro) — appears after saving a route */}
+        {savedRouteData && isPro && (
+          <button
+            onClick={() => setSharingRoute(savedRouteData)}
+            className="p-1 text-slate-400 hover:text-cyan-500 transition-colors shrink-0"
+            title="Share saved route"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </button>
+        )}
+
         {/* Clear */}
         {waypoints.length > 0 && (
           <button
-            onClick={() => setWaypoints([])}
+            onClick={() => { setWaypoints([]); setSavedRouteData(null); }}
             className="text-[10px] text-slate-400 hover:text-red-500 transition-colors px-1.5 py-1 shrink-0"
           >
             Clear
@@ -380,6 +394,13 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
             </table>
           )}
         </div>
+      )}
+      {sharingRoute && (
+        <ShareRouteDialogModal
+          route={sharingRoute}
+          onClose={() => setSharingRoute(null)}
+          onTokenSaved={(id, token) => setSharingRoute(prev => prev?.id === id ? { ...prev, share_token: token } : prev)}
+        />
       )}
     </div>
   );
