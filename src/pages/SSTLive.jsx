@@ -735,4 +735,8 @@ export default function SSTLive() {
   if (!authed) return <InlineLogin />;
 
   return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade
+    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
+      <SSTPageBody />
+    </AppShell>
+  );
+}
