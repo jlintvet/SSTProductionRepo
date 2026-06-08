@@ -1061,7 +1061,7 @@ export default function SSTHeatmapLeaflet(props) {
       },
       data: hourData.velocityJSON, minVelocity: 0, maxVelocity: maxSpd,
       velocityScale: 0.04,
-      colorScale: ["rgba(255,255,255,0.4)","rgba(255,255,255,0.65)","rgba(255,255,255,0.85)","rgba(255,255,255,0.95)"],
+      colorScale: ["rgba(255,255,255,0.7)","rgba(255,255,255,0.82)","rgba(255,255,255,0.92)","rgba(255,255,255,1.0)"],
     });
     currentsLayer.addTo(map);
     currentsLayerRef.current = currentsLayer;
@@ -2282,4 +2282,3 @@ export default function SSTHeatmapLeaflet(props) {
     </div>
   );
 }
-       
