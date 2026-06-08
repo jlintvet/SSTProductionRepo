@@ -8,6 +8,7 @@ import SSTLegend from "@/components/SSTLegend";
 import ShareLocationDialog from "@/components/ShareLocationDialog";
 import { WindLegend } from "@/components/WindTimeSlider";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
+import TripPlanner from "@/components/TripPlanner";
 
 // ── Leaflet / velocity side-effects (must run once) ───────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("leaflet-velocity-script")) {
@@ -345,6 +346,8 @@ function SSTPageBody() {
   const [selectedFishSpecies,setSelectedFishSpecies] = useState("yellowfin");
   const [showHotspots,   setShowHotspots]   = useState(false);
   const [wreckRemovedKeys, setWreckRemovedKeys] = useState(new Set());
+  const [tripMode,    setTripMode]    = useState(false);
+  const [waypoints,   setWaypoints]   = useState([]);
 
   // WreckReview entity was Base44-only; stubbed out pending Supabase migration
   useEffect(() => { setWreckRemovedKeys(new Set()); }, []);
@@ -428,6 +431,13 @@ function SSTPageBody() {
       .catch(e=>console.error("[FISH] fetch failed:",e))
       .finally(()=>setHotspotLoading(false));
   },[showHotspots]);
+
+  function handleAddWaypoint(lat, lng) {
+    setWaypoints(prev => [...prev, { id: crypto.randomUUID(), lat, lng, label: "" }]);
+  }
+  function handleMoveWaypoint(id, lat, lng) {
+    setWaypoints(prev => prev.map(w => w.id === id ? { ...w, lat, lng } : w));
+  }
 
   async function fetchSavedLocations() { const { data, error } = await supabase.from("saved_locations").select("*").order("created_at",{ascending:false}).limit(100); if(!error&&data)setSavedLocations(data); }
   useEffect(()=>{const run=()=>fetchSavedLocations();if(typeof requestIdleCallback==="function"){const h=requestIdleCallback(run,{timeout:2000});return()=>cancelIdleCallback(h);}const t=setTimeout(run,500);return()=>clearTimeout(t);},[]);
@@ -537,7 +547,38 @@ function SSTPageBody() {
         </div>
       ):(
         <>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden relative">
+            {/* Plan Trip button — Pro feature */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[700] pointer-events-none flex justify-center">
+              {isPro ? (
+                <button
+                  onClick={() => setTripMode(v => !v)}
+                  className={`pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-lg transition-all border ${
+                    tripMode
+                      ? "bg-cyan-500 text-white border-cyan-600"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
+                  </svg>
+                  {tripMode ? "Planning…" : "Plan Trip"}
+                  {tripMode && waypoints.length > 0 && (
+                    <span className="ml-1 bg-white text-cyan-600 rounded-full px-1.5 py-0 text-[10px] font-bold">
+                      {waypoints.length}
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <div className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-md bg-white text-slate-400 border border-slate-200 cursor-default select-none" title="Pro feature">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
+                  </svg>
+                  Plan Trip
+                  <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0 rounded-full font-bold">Pro</span>
+                </div>
+              )}
+            </div>
             <SSTHeatmapLeaflet
               data={heatmapData} sstMin={sstMin} sstMax={sstMax}
               date={selectedDate} dataSource={dataSource} setDataSource={setDataSource}
@@ -580,8 +621,21 @@ function SSTPageBody() {
               onNotesUpdated={(id, newNotes) => {
                 setSavedLocations(prev => prev.map(l => l.id === id ? { ...l, notes: newNotes } : l));
               }}
+              tripMode={tripMode}
+              waypoints={waypoints}
+              onAddWaypoint={handleAddWaypoint}
+              onMoveWaypoint={handleMoveWaypoint}
             />
           </div>
+          {tripMode && (
+            <TripPlanner
+              waypoints={waypoints}
+              setWaypoints={setWaypoints}
+              userId={userId}
+              onClose={() => { setTripMode(false); setWaypoints([]); }}
+            />
+          )}
+
           {shareLocation && (
             <ShareLocationDialog
               location={shareLocation} userId={userId} onClose={() => setShareLocation(null)}
@@ -593,75 +647,4 @@ function SSTPageBody() {
             {isWindMap
               ? null
               : activeDataLayer === "chlorophyll"
-              ? <GradientLegend gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
-                  dataMin={chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01}
-                  dataMax={chlData?.days?.[chlDateIndex]?.stats?.max ?? 10}
-                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
-                  hoverVal={legendHoverSst}
-                  onClick={() => rangeControlOpenRef.current?.()}/>
-              : activeDataLayer === "seacolor"
-              ? <GradientLegend gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
-                  dataMin={seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01}
-                  dataMax={seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50}
-                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
-                  hoverVal={legendHoverSst}
-                  onClick={() => rangeControlOpenRef.current?.()}/>
-              : activeDataLayer === "altimetry"
-              ? <GradientLegend gradient={SLA_GRADIENT} label="Sea level" unit=" m"
-                  dataMin={slaRange.min} dataMax={slaRange.max}
-                  hoverVal={legendHoverSst}/>
-              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max} onClick={() => rangeControlOpenRef.current?.()}/>
-            }
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-export default function SSTLive() {
-  // Start false — show login immediately; flip to true only after confirmed auth
-  const [authed, setAuthed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    supabase.auth.getUser()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        const user = data?.user;
-        const ok = !error && !!user?.email;
-        console.log("[SST:AUTH] getUser →", { email: user?.email ?? null, error: error?.message ?? null, ok });
-        if (ok) setAuthed(true);
-      })
-      .catch(err => {
-        console.log("[SST:AUTH] getUser threw →", err?.message);
-      });
-
-    let sub;
-    try {
-      const result = supabase.auth.onAuthStateChange((event, s) => {
-        if (cancelled) return;
-        const ok = !!s?.user?.email;
-        console.log("[SST:AUTH] onAuthStateChange →", event, s?.user?.email ?? null, "ok:", ok);
-        setAuthed(ok);
-      });
-      sub = result?.data?.subscription ?? result;
-    } catch (e) {
-      console.log("[SST:AUTH] onAuthStateChange setup error:", e?.message);
-    }
-
-    return () => {
-      cancelled = true;
-      try { sub?.unsubscribe?.(); } catch (_) {}
-    };
-  }, []);
-
-  if (!authed) return <InlineLogin />;
-
-  return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
-      <SSTPageBody />
-    </AppShell>
-  );
-}
+              ?
