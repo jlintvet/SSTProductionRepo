@@ -70,7 +70,6 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
     if (dep) {
       const sunrise = calcSunrise(dep.lat, dep.lng, new Date());
       if (sunrise) {
-        sunrise.setMinutes(sunrise.getMinutes() - 30);
         sunrise.setSeconds(0, 0);
         return sunrise.toISOString().slice(0, 16);
       }
@@ -81,7 +80,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
   });
 
   const [speedOverride, setSpeedOverride] = useState("");
-  const [routeName,     setRouteName]     = useState("");
+  const [routeName,     setRouteName]     = useState(() => `Route ${new Date().toLocaleDateString()}`);
   const [saving,        setSaving]        = useState(false);
   const [savedMsg,      setSavedMsg]      = useState("");
   const [collapsed,     setCollapsed]     = useState(false);

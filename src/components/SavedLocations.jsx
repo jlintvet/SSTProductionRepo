@@ -183,7 +183,7 @@ export default function SavedLocations({
 
               {/* Action buttons */}
               <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-                {onShare && (
+                {onShare && isPro && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onShare(loc); }}
                     className="p-1.5 rounded-md hover:bg-sky-100 text-sky-400 hover:text-sky-600 transition-colors"
