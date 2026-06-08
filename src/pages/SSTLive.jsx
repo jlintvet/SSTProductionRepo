@@ -448,6 +448,11 @@ function SSTPageBody() {
     setWaypoints(firstWp);
     setTripMode(true);
   }
+  function handleLoadRoute(route) {
+    const wps = (route.waypoints || []).map(w => ({ ...w, id: w.id || crypto.randomUUID() }));
+    setWaypoints(wps);
+    setTripMode(true);
+  }
 
   async function fetchSavedLocations() { const { data, error } = await supabase.from("saved_locations").select("*").order("created_at",{ascending:false}).limit(100); if(!error&&data)setSavedLocations(data); }
   useEffect(()=>{const run=()=>fetchSavedLocations();if(typeof requestIdleCallback==="function"){const h=requestIdleCallback(run,{timeout:2000});return()=>cancelIdleCallback(h);}const t=setTimeout(run,500);return()=>clearTimeout(t);},[]);
@@ -606,6 +611,7 @@ function SSTPageBody() {
               onMoveWaypoint={handleMoveWaypoint}
               onToggleTripMode={activateTripMode}
               onEndTripAtDeparture={() => setEndTripPrompt(true)}
+              onLoadRoute={handleLoadRoute}
             />
           </div>
           {tripMode && (

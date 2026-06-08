@@ -10,7 +10,7 @@ import SavedLocations from "@/components/SavedLocations";
 function SavedPanel({
   savedLocations, fetchSavedLocations, clearMarkersRef, flyToRef,
   highlightedLocation, setHighlightedLocation, onShare, isPro, userId,
-  onClose, sliderHeight, mobile, onMobileSelect, className,
+  onClose, sliderHeight, mobile, onMobileSelect, className, onLoadRoute,
 }) {
   const [tab, setTab] = React.useState("locations");
   const [routes, setRoutes] = React.useState(null); // null = not loaded yet
@@ -91,7 +91,11 @@ function SavedPanel({
         ) : (
           <div className="flex flex-col gap-1.5">
             {routes.map(r => (
-              <div key={r.id} className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-2 text-xs group">
+              <div
+                key={r.id}
+                onClick={() => { if (onLoadRoute) { onLoadRoute(r); onClose(); } }}
+                className={`rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs group ${onLoadRoute ? "hover:bg-cyan-50 hover:border-cyan-200 cursor-pointer" : ""}`}
+              >
                 <div className="flex items-start justify-between gap-1">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-slate-800 truncate">{r.name || "Unnamed route"}</div>
@@ -103,10 +107,12 @@ function SavedPanel({
                   </div>
                   <button
                     onClick={e => deleteRoute(r.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-all flex-shrink-0"
                     title="Delete route"
                   >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -537,7 +543,7 @@ export default function SSTHeatmapLeaflet(props) {
     isPro,
     currentsData, currentsLoading, showCurrents, setShowCurrents,
     altimetryData, onSlaRange,
-    tripMode, waypoints, onAddWaypoint, onMoveWaypoint, onToggleTripMode, onEndTripAtDeparture,
+    tripMode, waypoints, onAddWaypoint, onMoveWaypoint, onToggleTripMode, onEndTripAtDeparture, onLoadRoute,
   } = props;
 
   const { latSet, lonSet, grid } = data;
@@ -1901,6 +1907,7 @@ export default function SSTHeatmapLeaflet(props) {
               highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
               onShare={onShare} isPro={isPro} userId={userId}
               onClose={()=>setShowSavedPanel(false)}
+              onLoadRoute={onLoadRoute}
               mobile onMobileSelect={()=>setShowSavedPanel(false)}
               className="sm:hidden"
             />
@@ -2421,6 +2428,7 @@ export default function SSTHeatmapLeaflet(props) {
               highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
               onShare={onShare} isPro={isPro} userId={userId}
               onClose={()=>setShowSavedPanel(false)}
+              onLoadRoute={onLoadRoute}
               sliderHeight={sliderHeight}
               className="hidden sm:flex"
             />
