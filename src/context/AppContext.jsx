@@ -18,6 +18,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { getRegionConfig, DEFAULT_REGION } from "@/config/regionConfig";
+import { loadUserSettings, DEFAULT_SETTINGS } from "@/components/auth/UserSettingsModal";
 
 function useSupabaseTrial() {
   const [daysLeft, setDaysLeft] = useState(undefined);
@@ -94,6 +95,8 @@ export function AppProvider({ region, children }) {
   // Falls back gracefully if the column doesn't exist yet.
   const [userDefault, setUserDefault]           = useState(null);
   const userDefaultFetchedRef                   = useRef(false);
+  const [userSettings, setUserSettings]         = useState(DEFAULT_SETTINGS);
+  const [userId, setUserId]                     = useState(null);
 
   useEffect(() => {
     if (userDefaultFetchedRef.current) return;
@@ -102,6 +105,7 @@ export function AppProvider({ region, children }) {
     supabase.auth.getUser().then(({ data }) => {
       const uid = data?.user?.id;
       if (!uid) return;
+      setUserId(uid);
 
       supabase
         .from("user_profiles")
@@ -112,6 +116,8 @@ export function AppProvider({ region, children }) {
           if (profile?.default_departure) setUserDefault(profile.default_departure);
         })
         .catch(() => { /* column may not exist yet — ignore */ });
+
+      loadUserSettings(uid).then(s => setUserSettings(s));
     });
   }, []);
 
@@ -162,17 +168,6 @@ export function AppProvider({ region, children }) {
       setWeatherPanel,
       userDefault,
       daysLeft,
-    }),
-    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft]
-  );
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-}
-
-export function useAppContext() {
-  const ctx = useContext(AppContext);
-  if (!ctx) {
-    throw new Error("useAppContext must be used inside <AppProvider>");
-  }
-  return ctx;
-}
+      userId,
+      userSettings,
+      s

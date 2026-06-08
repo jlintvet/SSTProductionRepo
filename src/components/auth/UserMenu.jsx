@@ -3,11 +3,15 @@ import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
+import { useAppContext } from "@/context/AppContext";
+import UserSettingsModal from "@/components/auth/UserSettingsModal";
 
 export default function UserMenu({ onUpgrade }) {
   const { user } = useAuth();
   const { tier, daysLeft, permittedRegions } = useRegionAccess();
+  const { userId, setUserSettings } = useAppContext();
   const [open, setOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -87,13 +91,4 @@ export default function UserMenu({ onUpgrade }) {
           )}
 
           <button
-            onClick={() => supabase.auth.signOut()}
-            className="w-full text-left px-3 py-2 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+            onClick={() => { setO
