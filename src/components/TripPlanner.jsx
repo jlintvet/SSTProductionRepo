@@ -213,7 +213,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
   return (
     <div className="flex-shrink-0 bg-white border-t border-slate-200 shadow-inner"
-         style={{ height: collapsed ? "40px" : "340px", transition: "height 0.15s",
+         style={{ height: collapsed ? "40px" : "300px", transition: "height 0.15s",
                   position: "relative", zIndex: 1100 }}>
 
       {/* ── Header row 1: route name + collapse + close ── */}
@@ -344,21 +344,12 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
             className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-14 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
           />
           <span className="text-[10px] text-slate-400 shrink-0">kts</span>
-          {waypoints.length > 0 && (
-            <>
-              <div className="w-px h-4 bg-slate-200 shrink-0"/>
-              <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
-                {waypoints.length} wpts · {totalNm.toFixed(1)} nm
-                {totalHrs != null && ` · ${Math.floor(totalHrs)}h ${Math.round((totalHrs % 1) * 60)}m`}
-              </span>
-            </>
-          )}
         </div>
       )}
 
       {/* ── Body ── */}
       {!collapsed && (
-        <div className="overflow-auto" style={{ height: "220px", overflowX: "hidden" }}>
+        <div className="overflow-auto" style={{ height: "180px", overflowX: "hidden" }}>
           {waypoints.length === 0 ? (
             <div className="flex items-center justify-center h-full text-slate-400 text-xs">
               Click the map to add waypoints
