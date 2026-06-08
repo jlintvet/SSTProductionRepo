@@ -38,6 +38,14 @@ function fmtTime(date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// datetime-local inputs require a "YYYY-MM-DDTHH:mm" string in LOCAL time.
+// Date.toISOString() returns UTC, so we compensate for the timezone offset.
+function toLocalInputStr(date) {
+  const off = date.getTimezoneOffset(); // minutes behind UTC (positive for west)
+  const local = new Date(date.getTime() - off * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 function fmtCoord(v, isLat) {
   const abs = Math.abs(v).toFixed(4);
   const dir = isLat ? (v >= 0 ? "N" : "S") : (v >= 0 ? "E" : "W");
@@ -72,12 +80,12 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
       const sunrise = calcSunrise(dep.lat, dep.lng, new Date());
       if (sunrise) {
         sunrise.setSeconds(0, 0);
-        return sunrise.toISOString().slice(0, 16);
+        return toLocalInputStr(sunrise);
       }
     }
     const now = new Date();
     now.setSeconds(0, 0);
-    return now.toISOString().slice(0, 16);
+    return toLocalInputStr(now);
   });
 
   const [speedOverride, setSpeedOverride] = useState("");
@@ -205,10 +213,13 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
   return (
     <div className="flex-shrink-0 bg-white border-t border-slate-200 shadow-inner"
-         style={{ height: collapsed ? "40px" : "220px", transition: "height 0.15s" }}>
+         style={{ height: collapsed ? "40px" : "220px", transition: "height 0.15s",
+                  position: "relative", zIndex: 1100 }}>
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10 min-w-0" style={{ overflow: "visible", position: "relative", zIndex: 20 }}>
+      <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10"
+           style={{ overflowX: "auto", overflowY: "visible", position: "relative", zIndex: 20,
+                    scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}>
 
         {/* Route name */}
         <input
