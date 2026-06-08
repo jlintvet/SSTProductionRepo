@@ -433,8 +433,8 @@ function SSTPageBody() {
       .finally(()=>setHotspotLoading(false));
   },[showHotspots]);
 
-  function handleAddWaypoint(lat, lng) {
-    setWaypoints(prev => [...prev, { id: crypto.randomUUID(), lat, lng, label: "" }]);
+  function handleAddWaypoint(lat, lng, label) {
+    setWaypoints(prev => [...prev, { id: crypto.randomUUID(), lat, lng, label: label || "" }]);
   }
   function handleMoveWaypoint(id, lat, lng) {
     setWaypoints(prev => prev.map(w => w.id === id ? { ...w, lat, lng } : w));

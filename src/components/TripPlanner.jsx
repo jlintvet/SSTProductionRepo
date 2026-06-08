@@ -137,7 +137,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
       setLoadingRoutes(true);
       const { data, error } = await supabase
         .from("saved_routes")
-        .select("id, name, waypoints, cruise_speed_kts, created_at")
+        .select("id, name, waypoints, cruise_speed_kts, created_at, share_token")
         .order("created_at", { ascending: false })
         .limit(20);
       setLoadingRoutes(false);
@@ -154,6 +154,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setWaypoints(wps);
     setRouteName(r.name || "");
     if (r.cruise_speed_kts) setSpeedOverride(String(r.cruise_speed_kts));
+    setSavedRouteData(r);
     setShowRoutes(false);
   }
 

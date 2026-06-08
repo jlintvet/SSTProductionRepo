@@ -12,6 +12,7 @@ function SavedPanel({
   savedLocations, fetchSavedLocations, clearMarkersRef, flyToRef,
   highlightedLocation, setHighlightedLocation, onShare, isPro, userId,
   onClose, sliderHeight, mobile, onMobileSelect, className, onLoadRoute, onRoutesCountChange,
+  tripMode, onAddWaypoint,
 }) {
   const [tab, setTab]             = React.useState("locations");
   const [sharingRoute, setSharingRoute] = React.useState(null);
@@ -22,7 +23,7 @@ function SavedPanel({
     setLoadingRoutes(true);
     const { data, error } = await supabase
       .from("saved_routes")
-      .select("id, name, waypoints, cruise_speed_kts, created_at, share_token")
+      .select("id, name, waypoints, cruise_speed_kts, created_at")
       .order("created_at", { ascending: false })
       .limit(30);
     setLoadingRoutes(false);
@@ -83,6 +84,11 @@ function SavedPanel({
             onClearMarkers={id => clearMarkersRef.current?.(id)}
             onSelectLocation={(idx, loc) => {
               if (!loc) { setHighlightedLocation(null); return; }
+              if (tripMode && onAddWaypoint) {
+                onAddWaypoint(parseFloat(loc.lat), parseFloat(loc.lon), loc.label || loc.name || "");
+                onClose();
+                return;
+              }
               flyToRef.current?.(loc.lat, loc.lon);
               setHighlightedLocation(loc);
               onMobileSelect?.();
@@ -1941,6 +1947,8 @@ export default function SSTHeatmapLeaflet(props) {
               onLoadRoute={onLoadRoute}
               onRoutesCountChange={setSavedRoutesCount}
               mobile onMobileSelect={()=>setShowSavedPanel(false)}
+              tripMode={tripMode}
+              onAddWaypoint={onAddWaypoint}
               className="sm:hidden"
             />
           )}
@@ -2463,6 +2471,8 @@ export default function SSTHeatmapLeaflet(props) {
               onLoadRoute={onLoadRoute}
               onRoutesCountChange={setSavedRoutesCount}
               sliderHeight={sliderHeight}
+              tripMode={tripMode}
+              onAddWaypoint={onAddWaypoint}
               className="hidden sm:flex"
             />
           ):(
