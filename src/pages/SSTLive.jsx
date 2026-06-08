@@ -647,4 +647,75 @@ function SSTPageBody() {
             {isWindMap
               ? null
               : activeDataLayer === "chlorophyll"
-              ?
+              ? <GradientLegend gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
+                  dataMin={chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01}
+                  dataMax={chlData?.days?.[chlDateIndex]?.stats?.max ?? 10}
+                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
+                  hoverVal={legendHoverSst}
+                  onClick={() => rangeControlOpenRef.current?.()}/>
+              : activeDataLayer === "seacolor"
+              ? <GradientLegend gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
+                  dataMin={seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01}
+                  dataMax={seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50}
+                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
+                  hoverVal={legendHoverSst}
+                  onClick={() => rangeControlOpenRef.current?.()}/>
+              : activeDataLayer === "altimetry"
+              ? <GradientLegend gradient={SLA_GRADIENT} label="Sea level" unit=" m"
+                  dataMin={slaRange.min} dataMax={slaRange.max}
+                  hoverVal={legendHoverSst}/>
+              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max} onClick={() => rangeControlOpenRef.current?.()}/>
+            }
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function SSTLive() {
+  // Start false — show login immediately; flip to true only after confirmed auth
+  const [authed, setAuthed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    supabase.auth.getUser()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        const user = data?.user;
+        const ok = !error && !!user?.email;
+        console.log("[SST:AUTH] getUser →", { email: user?.email ?? null, error: error?.message ?? null, ok });
+        if (ok) setAuthed(true);
+      })
+      .catch(err => {
+        console.log("[SST:AUTH] getUser threw →", err?.message);
+      });
+
+    let sub;
+    try {
+      const result = supabase.auth.onAuthStateChange((event, s) => {
+        if (cancelled) return;
+        const ok = !!s?.user?.email;
+        console.log("[SST:AUTH] onAuthStateChange →", event, s?.user?.email ?? null, "ok:", ok);
+        setAuthed(ok);
+      });
+      sub = result?.data?.subscription ?? result;
+    } catch (e) {
+      console.log("[SST:AUTH] onAuthStateChange setup error:", e?.message);
+    }
+
+    return () => {
+      cancelled = true;
+      try { sub?.unsubscribe?.(); } catch (_) {}
+    };
+  }, []);
+
+  if (!authed) return <InlineLogin />;
+
+  return (
+    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
+      <SSTPageBody />
+    </AppShell>
+  );
+}
