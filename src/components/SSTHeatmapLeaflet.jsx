@@ -1731,7 +1731,18 @@ export default function SSTHeatmapLeaflet(props) {
     if (refMarkerRef.current) { map.removeLayer(refMarkerRef.current); refMarkerRef.current = null; }
     if (!selectedLocation) return;
     const icon = L.divIcon({ className:"", html:'<div style="width:14px;height:14px;background:#3b82f6;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>', iconSize:[14,14], iconAnchor:[7,7] });
-    const m = L.marker([selectedLocation.lat, selectedLocation.lon], { icon }).bindPopup(selectedLocation.label);
+    const m = L.marker([selectedLocation.lat, selectedLocation.lon], { icon });
+    // In trip mode: clicking the selected-location blue dot adds it as a waypoint
+    // instead of opening the popup (which would swallow the click).
+    m.on("click", (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (tripModeRef.current) {
+        onAddWaypoint?.(selectedLocation.lat, selectedLocation.lon, selectedLocation.label || "");
+      } else {
+        m.openPopup();
+      }
+    });
+    m.bindPopup(selectedLocation.label);
     m.addTo(map); refMarkerRef.current = m;
   }, [mapReady, selectedLocation]);
 
