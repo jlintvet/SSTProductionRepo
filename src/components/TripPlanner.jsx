@@ -17,6 +17,7 @@
 //     using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 import React, { useState, useMemo } from "react";
+import ReactDOM from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { useAppContext } from "@/context/AppContext";
 
@@ -152,9 +153,9 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
     }
   }
 
-  return (
+  const panel = (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[800] bg-white border-t border-slate-200 shadow-2xl"
+      className="fixed bottom-0 left-0 right-0 z-[9000] bg-white border-t border-slate-200 shadow-2xl"
       style={{ maxHeight: collapsed ? "48px" : "46vh" }}
     >
       {/* ── Header ── */}
@@ -324,4 +325,5 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId }
       )}
     </div>
   );
+  return ReactDOM.createPortal(panel, document.body);
 }

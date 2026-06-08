@@ -288,8 +288,6 @@ export default function MapControlPanel({
   wrecksLoading,
   // tier
   isPro,
-  // trip planning
-  tripMode, onToggleTripMode,
   // departure
   selectedLocation,
   // collapsed state (controlled externally so collapse button in map header works)
@@ -567,12 +565,6 @@ export default function MapControlPanel({
           <ProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
             <ToolBtn active={showCurrents} color="cyan" onClick={() => setShowCurrents(v => !v)}>
               &#x1F30A; {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
-            </ToolBtn>
-          </ProGate>
-          <ProGate isPro={isPro} label="Trip planning is available on the Pro plan.">
-            <ToolBtn active={tripMode} color="cyan" onClick={onToggleTripMode}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/></svg>
-              {tripMode ? "Planning…" : "Plan Trip"}
             </ToolBtn>
           </ProGate>
         </div>
