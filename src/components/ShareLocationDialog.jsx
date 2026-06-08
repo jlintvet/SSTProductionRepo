@@ -27,10 +27,10 @@ function coordStr(lat, lon) {
 function buildShareText(location, notes) {
   const name  = location.name || location.label || "Fishing Spot";
   const url   = buildShareUrl(location, notes);
-  const lines = [`📍 ${name}`, `📌 ${coordStr(location.lat, location.lon)}`];
-  if (location.sst != null) lines.push(`🌡️ ${parseFloat(location.sst).toFixed(1)}°F`);
-  if (notes?.trim())        lines.push(`📝 ${notes.trim()}`);
-  lines.push(`\n👉 ${url}`);
+  const lines = [name, coordStr(location.lat, location.lon)];
+  if (location.sst != null) lines.push(`${parseFloat(location.sst).toFixed(1)}°F`);
+  if (notes?.trim())        lines.push(notes.trim());
+  lines.push(`\n${url}`);
   return lines.join("\n");
 }
 
@@ -54,6 +54,7 @@ export default function ShareLocationDialog({
 
   const notesTimerRef = useRef(null);
   const previewUrlRef = useRef(null);
+  const imgBlobRef    = useRef(null);
 
   // ── Generate map preview on mount ────────────────────────────────────────
   useEffect(() => {
@@ -83,6 +84,7 @@ export default function ShareLocationDialog({
           locationName: location.name || location.label,
         });
         if (cancelled || !blob) return;
+        imgBlobRef.current = blob;
         const url = URL.createObjectURL(blob);
         previewUrlRef.current = url;
         setImgPreview(url);
@@ -123,16 +125,33 @@ export default function ShareLocationDialog({
     notesTimerRef.current = setTimeout(() => persistNotes(val), 800);
   }
 
-  // ── Text / SMS ────────────────────────────────────────────────────────────
-  function handleTextShare() {
-    window.location.href = `sms:?body=${encodeURIComponent(buildShareText(location, notes))}`;
-  }
+  // ── Text / Email — Web Share API with image when available ──────────────
+  async function handleShare(type) {
+    const text  = buildShareText(location, notes);
+    const url   = buildShareUrl(location, notes);
+    const lName = location.name || location.label || "Fishing Spot";
+    const blob  = imgBlobRef.current;
 
-  // ── Email ─────────────────────────────────────────────────────────────────
-  function handleEmail() {
-    const name = location.name || location.label || "Fishing Spot";
-    const subj = encodeURIComponent(`Fishing spot: ${name}`);
-    window.location.href = `mailto:?subject=${subj}&body=${encodeURIComponent(buildShareText(location, notes))}`;
+    // Try Web Share API with image (mobile native share sheet)
+    if (blob && navigator.canShare) {
+      const file = new File([blob], "fishing-spot.png", { type: "image/png" });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: lName, text, url });
+          return;
+        } catch (e) {
+          if (e.name === "AbortError") return; // user cancelled
+        }
+      }
+    }
+
+    // Fallback (desktop / no file share support)
+    if (type === "text") {
+      window.location.href = `sms:?body=${encodeURIComponent(text)}`;
+    } else {
+      const subj = encodeURIComponent(`Fishing spot: ${lName}`);
+      window.location.href = `mailto:?subject=${subj}&body=${encodeURIComponent(text)}`;
+    }
   }
 
   // ── Copy ──────────────────────────────────────────────────────────────────
@@ -242,7 +261,7 @@ export default function ShareLocationDialog({
         {/* Share buttons */}
         <div className="px-4 pb-5 grid grid-cols-3 gap-2">
           <button
-            onClick={handleTextShare}
+            onClick={() => handleShare("text")}
             className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white transition-colors"
           >
             <MessageSquare className="w-5 h-5" />
@@ -250,7 +269,7 @@ export default function ShareLocationDialog({
           </button>
 
           <button
-            onClick={handleEmail}
+            onClick={() => handleShare("email")}
             className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
           >
             <Mail className="w-5 h-5" />
@@ -259,15 +278,4 @@ export default function ShareLocationDialog({
 
           <button
             onClick={handleCopy}
-            className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-          >
-            {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
-            <span className={`text-[11px] font-semibold ${copied ? "text-emerald-600" : ""}`}>
-              {copied ? "Copied!" : "Copy"}
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+            className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text

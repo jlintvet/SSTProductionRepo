@@ -21,10 +21,10 @@ function buildShareText(route, token) {
   const name = route.name || "Fishing Route";
   const wps  = route.waypoints || [];
   const lines = [
-    `🗺️ ${name}`,
-    `📍 ${wps.length} waypoint${wps.length !== 1 ? "s" : ""}${route.cruise_speed_kts ? ` · ${route.cruise_speed_kts} kts` : ""}`,
+    name,
+    `${wps.length} waypoint${wps.length !== 1 ? "s" : ""}${route.cruise_speed_kts ? ` · ${route.cruise_speed_kts} kts` : ""}`,
     "",
-    `👉 ${url}`,
+    url,
   ];
   return lines.join("\n");
 }
@@ -58,6 +58,7 @@ export default function ShareRouteDialog({
   const [imgLoading,  setImgLoading]  = useState(true);
   const didGenRef = useRef(false);
   const previewUrlRef = useRef(null);
+  const imgBlobRef = useRef(null);
 
   // ── Generate share_token ──────────────────────────────────────────────────
   useEffect(() => {
@@ -109,6 +110,7 @@ export default function ShareRouteDialog({
           routeName: route.name || "Fishing Route",
         });
         if (cancelled || !blob) return;
+        imgBlobRef.current = blob;
         const url = URL.createObjectURL(blob);
         previewUrlRef.current = url;
         setImgPreview(url);
@@ -126,16 +128,33 @@ export default function ShareRouteDialog({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleText() {
+  async function handleShare(type) {
     if (!shareToken) return;
-    window.location.href = `sms:?body=${encodeURIComponent(buildShareText(route, shareToken))}`;
-  }
+    const text = buildShareText(route, shareToken);
+    const url  = buildShareUrl(shareToken);
+    const rName = route.name || "Fishing Route";
+    const blob = imgBlobRef.current;
 
-  function handleEmail() {
-    if (!shareToken) return;
-    const name = route.name || "Fishing Route";
-    const subj = encodeURIComponent(`Fishing route: ${name}`);
-    window.location.href = `mailto:?subject=${subj}&body=${encodeURIComponent(buildShareText(route, shareToken))}`;
+    // Try Web Share API with image (mobile native share sheet)
+    if (blob && navigator.canShare) {
+      const file = new File([blob], "fishing-route.png", { type: "image/png" });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: rName, text, url });
+          return;
+        } catch (e) {
+          if (e.name === "AbortError") return; // user cancelled
+        }
+      }
+    }
+
+    // Fallback (desktop / no file share support)
+    if (type === "text") {
+      window.location.href = `sms:?body=${encodeURIComponent(text)}`;
+    } else {
+      const subj = encodeURIComponent(`Fishing route: ${rName}`);
+      window.location.href = `mailto:?subject=${subj}&body=${encodeURIComponent(text)}`;
+    }
   }
 
   function handleCopy() {
@@ -224,7 +243,7 @@ export default function ShareRouteDialog({
         {/* Share buttons */}
         <div className="px-4 pb-5 grid grid-cols-3 gap-2">
           <button
-            onClick={handleText}
+            onClick={() => handleShare("text")}
             disabled={!shareToken || generating}
             className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white transition-colors disabled:opacity-40"
           >
@@ -232,25 +251,9 @@ export default function ShareRouteDialog({
             <span className="text-[11px] font-semibold">Text</span>
           </button>
           <button
-            onClick={handleEmail}
+            onClick={() => handleShare("email")}
             disabled={!shareToken || generating}
             className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors disabled:opacity-40"
           >
             <Mail className="w-5 h-5" />
-            <span className="text-[11px] font-semibold">Email</span>
-          </button>
-          <button
-            onClick={handleCopy}
-            disabled={!shareToken || generating}
-            className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors disabled:opacity-40"
-          >
-            {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
-            <span className={`text-[11px] font-semibold ${copied ? "text-emerald-600" : ""}`}>
-              {copied ? "Copied!" : "Copy"}
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+            <span className="text-[11px] font
