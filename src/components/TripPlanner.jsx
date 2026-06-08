@@ -213,13 +213,12 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
   return (
     <div className="flex-shrink-0 bg-white border-t border-slate-200 shadow-inner"
-         style={{ height: collapsed ? "40px" : "220px", transition: "height 0.15s",
+         style={{ height: collapsed ? "40px" : "300px", transition: "height 0.15s",
                   position: "relative", zIndex: 1100 }}>
 
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10"
-           style={{ overflowX: "auto", overflowY: "visible", position: "relative", zIndex: 20,
-                    scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}>
+      {/* ── Header row 1: route name + action buttons ── */}
+      <div className="flex items-center gap-1.5 px-3 border-b border-slate-100 h-10 flex-shrink-0"
+           style={{ position: "relative", zIndex: 20 }}>
 
         {/* Route name */}
         <input
@@ -227,42 +226,8 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
           value={routeName}
           placeholder="Route name…"
           onChange={e => setRouteName(e.target.value)}
-          className="text-[11px] font-semibold text-slate-700 placeholder-slate-400 bg-transparent focus:outline-none focus:bg-slate-100 rounded px-1.5 py-0.5 w-32 shrink-0"
+          className="text-[11px] font-semibold text-slate-700 placeholder-slate-400 bg-transparent focus:outline-none focus:bg-slate-100 rounded px-1.5 py-0.5 flex-1 min-w-0"
         />
-
-        <div className="w-px h-4 bg-slate-200 shrink-0"/>
-
-        {/* Departure */}
-        <label className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">Depart</label>
-        <input
-          type="datetime-local"
-          value={departureTime}
-          onChange={e => setDepartureTime(e.target.value)}
-          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
-        />
-
-        <div className="w-px h-4 bg-slate-200 shrink-0"/>
-
-        {/* Speed */}
-        <label className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">Speed</label>
-        <input
-          type="number"
-          value={speedOverride}
-          placeholder={cruiseSpeedKts ? String(cruiseSpeedKts) : "—"}
-          onChange={e => setSpeedOverride(e.target.value)}
-          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-12 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
-        />
-        <span className="text-[10px] text-slate-400 shrink-0">kts</span>
-
-        <div className="w-px h-4 bg-slate-200 shrink-0"/>
-
-        {/* Stats */}
-        {waypoints.length > 0 && (
-          <span className="text-[11px] text-slate-400 whitespace-nowrap shrink-0">
-            {waypoints.length} wpts · {totalNm.toFixed(1)} nm
-            {totalHrs != null && ` · ${Math.floor(totalHrs)}h ${Math.round((totalHrs % 1) * 60)}m`}
-          </span>
-        )}
 
         <div className="flex-1 min-w-0"/>
 
@@ -360,9 +325,42 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
         </button>
       </div>
 
+      {/* ── Header row 2: depart / speed / stats ── */}
+      {!collapsed && (
+        <div className="flex items-center gap-2 px-3 border-b border-slate-100 h-10 flex-shrink-0">
+          <label className="text-[10px] text-slate-400 whitespace-nowrap">Depart</label>
+          <input
+            type="datetime-local"
+            value={departureTime}
+            onChange={e => setDepartureTime(e.target.value)}
+            className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700"
+            style={{ minWidth: 0, flex: "1 1 160px", maxWidth: 200 }}
+          />
+          <div className="w-px h-4 bg-slate-200 shrink-0"/>
+          <label className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">Speed</label>
+          <input
+            type="number"
+            value={speedOverride}
+            placeholder={cruiseSpeedKts ? String(cruiseSpeedKts) : "—"}
+            onChange={e => setSpeedOverride(e.target.value)}
+            className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-14 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
+          />
+          <span className="text-[10px] text-slate-400 shrink-0">kts</span>
+          {waypoints.length > 0 && (
+            <>
+              <div className="w-px h-4 bg-slate-200 shrink-0"/>
+              <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
+                {waypoints.length} wpts · {totalNm.toFixed(1)} nm
+                {totalHrs != null && ` · ${Math.floor(totalHrs)}h ${Math.round((totalHrs % 1) * 60)}m`}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Body ── */}
       {!collapsed && (
-        <div className="overflow-auto" style={{ height: "180px", overflowX: "hidden" }}>
+        <div className="overflow-auto" style={{ height: "220px", overflowX: "hidden" }}>
           {waypoints.length === 0 ? (
             <div className="flex items-center justify-center h-full text-slate-400 text-xs">
               Click the map to add waypoints

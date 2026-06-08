@@ -440,6 +440,9 @@ function SSTPageBody() {
   function handleMoveWaypoint(id, lat, lng) {
     setWaypoints(prev => prev.map(w => w.id === id ? { ...w, lat, lng } : w));
   }
+  function handleRemoveWaypoint(id) {
+    setWaypoints(prev => prev.filter(w => w.id !== id));
+  }
   function activateTripMode() {
     if (tripMode) { setTripMode(false); setWaypoints([]); return; }
     const dep = selectedLocation;
@@ -611,6 +614,7 @@ function SSTPageBody() {
               waypoints={waypoints}
               onAddWaypoint={handleAddWaypoint}
               onMoveWaypoint={handleMoveWaypoint}
+              onRemoveWaypoint={handleRemoveWaypoint}
               onToggleTripMode={activateTripMode}
               onEndTripAtDeparture={() => setEndTripPrompt(true)}
               onLoadRoute={handleLoadRoute}
@@ -731,8 +735,4 @@ export default function SSTLive() {
   if (!authed) return <InlineLogin />;
 
   return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
-      <SSTPageBody />
-    </AppShell>
-  );
-}
+    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade
