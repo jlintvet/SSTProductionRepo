@@ -1,0 +1,51 @@
+{
+  "name": "WreckReview",
+  "type": "object",
+  "properties": {
+    "wreck_key": {
+      "type": "string",
+      "description": "Stable unique key for this wreck feature"
+    },
+    "lat": {
+      "type": "number"
+    },
+    "lon": {
+      "type": "number"
+    },
+    "name": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "depth_ft": {
+      "type": "number"
+    },
+    "year_sunk": {
+      "type": "number"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "keep",
+        "remove",
+        "pending"
+      ],
+      "default": "pending",
+      "description": "Admin decision for this wreck"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "reviewed_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "wreck_key"
+  ]
+}

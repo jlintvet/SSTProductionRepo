@@ -1,0 +1,54 @@
+{
+  "name": "SavedLocation",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string",
+      "description": "User-defined label for this location"
+    },
+    "lat": {
+      "type": "number",
+      "description": "Latitude"
+    },
+    "lon": {
+      "type": "number",
+      "description": "Longitude"
+    },
+    "sst": {
+      "type": "number",
+      "description": "Sea surface temperature at click (\u00b0F)"
+    },
+    "depth_ft": {
+      "type": "number",
+      "description": "Estimated water depth in feet"
+    },
+    "depth_fathoms": {
+      "type": "number",
+      "description": "Estimated water depth in fathoms"
+    },
+    "dist_nm": {
+      "type": "number",
+      "description": "Distance in nautical miles from reference location"
+    },
+    "bearing_deg": {
+      "type": "number",
+      "description": "Compass bearing in degrees from reference location"
+    },
+    "bearing_cardinal": {
+      "type": "string",
+      "description": "Cardinal direction (e.g. NNE, SSW)"
+    },
+    "from_location": {
+      "type": "string",
+      "description": "Name of the reference location (e.g. Hatteras, NC)"
+    },
+    "date": {
+      "type": "string",
+      "description": "SST date when this was saved"
+    }
+  },
+  "required": [
+    "lat",
+    "lon"
+  ]
+}

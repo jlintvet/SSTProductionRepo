@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fish Spot Tuner — Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:#1a1a2e;color:#e0e0e0}
+#shell{display:grid;grid-template-columns:310px 1fr;grid-template-rows:44px 1fr 36px;height:100vh}
+#topbar{grid-column:1/3;display:flex;align-items:center;gap:10px;padding:0 14px;background:#12122a;border-bottom:1px solid #2a2a4a;z-index:10}
+#topbar h1{font-size:14px;font-weight:600;color:#e0e0e0;letter-spacing:.02em}
+.badge{font-size:10px;padding:2px 7px;border-radius:4px;background:#2d1b69;color:#a78bfa;border:1px solid #4c1d95}
+.spacer{flex:1}
+button{cursor:pointer;border:1px solid #3a3a5a;border-radius:5px;background:#1e1e3a;color:#c0c0d8;font-size:12px;padding:5px 12px;transition:background .15s}
+button:hover{background:#2a2a4a}
+button:disabled{opacity:.4;cursor:default}
+.btn-primary{background:#065f46;border-color:#059669;color:#6ee7b7}
+.btn-primary:hover{background:#047857}
+.btn-warn{background:#7c2d12;border-color:#c2410c;color:#fdba74}
+.btn-warn:hover{background:#9a3412}
+
+#left{overflow-y:auto;border-right:1px solid #2a2a4a;background:#141428;padding:10px 12px;display:flex;flex-direction:column;gap:0}
+#map-wrap{position:relative}
+#map{width:100%;height:100%}
+#statusbar{grid-column:1/3;display:flex;align-items:center;gap:8px;padding:0 12px;background:#12122a;border-top:1px solid #2a2a4a;font-size:11px;color:#6b7280}
+#status-text{flex:1}
+.status-ok{color:#34d399}
+.status-warn{color:#f59e0b}
+.status-err{color:#f87171}
+
+/* Species tabs */
+.sp-tabs{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:10px}
+.sp-tab{padding:3px 7px;border-radius:4px;border:1px solid #3a3a5a;font-size:11px;cursor:pointer;background:#1e1e3a;color:#9ca3af;transition:all .12s}
+.sp-tab:hover{background:#2a2a4a;color:#e0e0e0}
+.sp-tab.active{color:#fff;border-color:transparent}
+
+/* Section */
+.sec{margin-bottom:12px}
+.sec-label{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;border-bottom:1px solid #2a2a4a;padding-bottom:3px}
+
+/* Slider row */
+.srow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px;margin-bottom:6px}
+.srow label{font-size:11px;color:#9ca3af}
+.sval{font-size:11px;font-weight:600;color:#e0e0e0;min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:#059669;height:3px;margin:2px 0 0}
+
+/* Dual input row */
+.drow{display:grid;grid-template-columns:1fr 14px 1fr;align-items:center;gap:4px;margin-bottom:6px}
+.drow-label{font-size:11px;color:#9ca3af;grid-column:1/4;margin-bottom:2px}
+.drow span{text-align:center;color:#4b5563;font-size:11px}
+input[type=number]{width:100%;background:#1e1e3a;border:1px solid #3a3a5a;border-radius:4px;color:#e0e0e0;font-size:11px;padding:3px 5px;text-align:center}
+input[type=number]:focus{outline:none;border-color:#059669}
+
+/* Weights */
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
+.witem label{font-size:10px;color:#9ca3af;display:flex;justify-content:space-between;margin-bottom:1px}
+
+/* Toggle */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.toggle-row span{font-size:11px;color:#9ca3af}
+.toggle{width:30px;height:16px;border-radius:8px;background:#374151;border:none;padding:0;position:relative;cursor:pointer;transition:background .2s}
+.toggle.on{background:#059669}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle.on::after{transform:translateX(14px)}
+
+/* Zone score readout */
+#zone-readout{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.zone-chip{background:#1e1e3a;border:1px solid #3a3a5a;border-radius:5px;padding:5px 8px;font-size:11px}
+.zone-chip .zc-title{font-weight:600;margin-bottom:2px}
+.zone-chip .zc-row{display:flex;justify-content:space-between;color:#9ca3af;font-size:10px}
+.zone-chip .zc-bar{height:3px;background:#374151;border-radius:2px;margin-top:4px}
+.zone-chip .zc-fill{height:100%;border-radius:2px;background:#059669}
+
+/* Score overlay in map */
+#score-overlay{position:absolute;top:8px;right:8px;background:rgba(20,20,40,.88);border:1px solid #3a3a5a;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:140px}
+#score-overlay .so-title{font-weight:600;color:#a78bfa;margin-bottom:5px;font-size:11px}
+.so-row{display:flex;justify-content:space-between;gap:12px;color:#9ca3af;margin-bottom:2px}
+.so-val{color:#e0e0e0;font-variant-numeric:tabular-nums}
+
+/* Loading overlay */
+#loading{position:absolute;inset:0;background:rgba(20,20,40,.7);display:flex;align-items:center;justify-content:center;z-index:2000;font-size:13px;color:#a78bfa;flex-direction:column;gap:8px}
+.spinner{width:24px;height:24px;border:2px solid #3a3a5a;border-top-color:#a78bfa;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* CHL warning */
+.chl-note{background:#1c1a10;border:1px solid #713f12;border-radius:4px;padding:5px 7px;font-size:10px;color:#d97706;margin-bottom:8px;line-height:1.4}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="topbar">
+    <h1>&#127789; fish spot tuner</h1>
+    <span class="badge">admin</span>
+    <div class="spacer"></div>
+    <button id="btn-bathy" class="btn-primary" style="background:#1e3a5f;border-color:#2563eb;color:#93c5fd">&#9643; Bathy</button>
+    <button id="btn-rescore" class="btn-primary">&#9654; re-score</button>
+    <button id="btn-export" class="btn-warn">&#8659; export config</button>
+  </div>
+
+  <div id="left">
+    <div class="sp-tabs" id="sp-tabs"></div>
+
+    <div class="chl-note" id="chl-status" style="background:#0a1a10;border-color:#065f46;color:#34d399">&#9679; Loading CHL &amp; kd490…</div>
+
+    <div class="sec">
+      <div class="sec-label">SST (&deg;F)</div>
+      <div class="drow">
+        <div class="drow-label">range</div>
+        <input type="number" id="sst_min" step="1">
+        <span>&ndash;</span>
+        <input type="number" id="sst_max" step="1">
+      </div>
+      <div class="srow">
+        <label>target</label>
+        <span class="sval" id="sst_target_v">--</span>
+      </div>
+      <input type="range" id="sst_target" min="50" max="90" step="1">
+      <div class="drow" style="margin-top:6px">
+        <div class="drow-label">sweet spot</div>
+        <input type="number" id="sst_sweet_min" step="1">
+        <span>&ndash;</span>
+        <input type="number" id="sst_sweet_max" step="1">
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-label">Depth (ft)</div>
+      <div class="drow">
+        <div class="drow-label">range</div>
+        <input type="number" id="depth_min" step="10">
+        <span>&ndash;</span>
+        <input type="number" id="depth_max" step="10">
+      </div>
+      <div class="drow" style="margin-top:4px">
+        <div class="drow-label">ideal range</div>
+        <input type="number" id="depth_ideal_min" step="10">
+        <span>&ndash;</span>
+        <input type="number" id="depth_ideal_max" step="10">
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-label">CHL (mg/m&sup3;)</div>
+      <div class="drow">
+        <div class="drow-label">range</div>
+        <input type="number" id="chl_min" step="0.01">
+        <span>&ndash;</span>
+        <input type="number" id="chl_max" step="0.01">
+      </div>
+      <div class="srow">
+        <label>kd490 max</label>
+        <span class="sval" id="kd490_max_v">--</span>
+      </div>
+      <input type="range" id="kd490_max" min="0.02" max="0.50" step="0.01">
+    </div>
+
+    <div class="sec">
+      <div class="sec-label">Weights <span style="font-weight:400;color:#4b5563">(auto-normalize)</span></div>
+      <div class="wgrid" id="wgrid"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-label">Thresholds</div>
+      <div class="srow">
+        <label>min zone score</label>
+        <span class="sval" id="min_zone_v">--</span>
+      </div>
+      <input type="range" id="min_zone_score" min="0.30" max="0.90" step="0.01">
+      <div class="srow" style="margin-top:8px">
+        <label>max zone cells</label>
+        <span class="sval" id="max_cluster_v">--</span>
+      </div>
+      <input type="range" id="max_cluster_cells" min="10" max="600" step="10">
+      <div class="toggle-row" style="margin-top:6px">
+        <span>break required</span>
+        <button class="toggle" id="break_required"></button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-label">Zones found</div>
+      <div id="zone-readout"><div style="color:#4b5563;font-size:11px">Score to see zones</div></div>
+    </div>
+  </div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="score-overlay">
+      <div class="so-title">last score</div>
+      <div class="so-row"><span>points</span><span class="so-val" id="so-pts">—</span></div>
+      <div class="so-row"><span>hot cells</span><span class="so-val" id="so-hot">—</span></div>
+      <div class="so-row"><span>zones</span><span class="so-val" id="so-zones">—</span></div>
+      <div class="so-row"><span>time</span><span class="so-val" id="so-time">—</span></div>
+    </div>
+    <div id="loading">
+      <div class="spinner"></div>
+      <div id="loading-msg">Loading data…</div>
+    </div>
+  </div>
+
+  <div id="statusbar">
+    <span id="status-text">Initializing…</span>
+    <div class="spacer"></div>
+    <span id="status-date" style="color:#4b5563"></span>
+  </div>
+</div>
+
+<script>
+// ─── Data URLs ───────────────────────────────────────────────────────────────
+const COMPOSITE_URL  = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/viirs_composite.json";
+const BATHY_URL      = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_grid.json";
+const CONFIG_URL     = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/species_config.json";
+const CHL_BASE       = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll";
+const BATHY_CONTOURS_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json";
+const SEACOLOR_BASE  = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor";
+const CHL_LOOKBACK   = 10;
+
+// ─── Constants (mirror Python) ───────────────────────────────────────────────
+const BREAK_WEAK     = 0.4;
+const BREAK_MOD      = 0.8;
+const BREAK_STRONG   = 1.5;
+const CLUSTER_MIN    = 8;
+let   clusterMax     = 150;   // UI-controlled max cells per zone
+const SEAS_PEAK      = 1.00;
+const SEAS_PRIME     = 0.80;
+const SEAS_OFF       = 0.45;
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let compositeData = null, bathyData = null, speciesConfig = null;
+let compositeLookup = {}, gradientLookup = {}, bathyLookup = {}, chlLookup = {}, kd490Lookup = {};
+let compositeStep = 0.04;
+let currentSpecies = "yellowfin";
+let editedConfig = null;   // deep copy of speciesConfig.species, user edits applied here
+let zoneLayer = null;
+let bathyContourLayer = null;
+let showBathy = true;
+let debounceTimer = null;
+let map = null;
+let sstCanvas = null;
+
+// ─── Scoring (JS port of FishingHotspotAnalyzer.py) ─────────────────────────
+function scoreSST(sst_f, target, sst_min, sst_max) {
+  if (sst_f < sst_min || sst_f > sst_max) return 0;
+  const sigma = (sst_max - sst_min) / 4;
+  return Math.exp(-0.5 * Math.pow((sst_f - target) / sigma, 2));
+}
+
+function scoreBreak(grad) {
+  if (grad == null) return 0.3;
+  if (grad >= BREAK_STRONG) return 1.0;
+  if (grad >= BREAK_MOD)    return 0.75;
+  if (grad >= BREAK_WEAK)   return 0.45;
+  return 0.15;
+}
+
+function scoreDepth(depth, dMin, dMax, dIdealMin, dIdealMax) {
+  if (depth == null) return 0;
+  if (depth < dMin || depth > dMax) return 0;
+  if (depth >= dIdealMin && depth <= dIdealMax) return 1;
+  if (depth < dIdealMin) {
+    const span = Math.max(dIdealMin - dMin, 1);
+    return (depth - dMin) / span;
+  }
+  const span = Math.max(dMax - dIdealMax, 1);
+  return (dMax - depth) / span;
+}
+
+function scoreCHL(chl, chlMin, chlMax) {
+  if (chl == null) return 0.45;
+  if (chl <= 0) return 0.1;
+  if (chl >= chlMin && chl <= chlMax) return 1;
+  const center = (chlMin + chlMax) / 2;
+  const spread = (chlMax - chlMin) / 2;
+  const dist   = Math.abs(chl - center) - spread;
+  return Math.max(0, 1 - dist / spread);
+}
+
+function scoreColor(kd490, kd490Max) {
+  if (kd490 == null) return 0.50;
+  if (kd490 <= kd490Max * 0.5) return 1;
+  if (kd490 <= kd490Max) return 0.75;
+  const excess = (kd490 - kd490Max) / kd490Max;
+  return Math.max(0, 0.5 - excess * 0.5);
+}
+
+function scoreSeasonality(month, primeMonths, peakMonths) {
+  if (peakMonths.includes(month))  return SEAS_PEAK;
+  if (primeMonths.includes(month)) return SEAS_PRIME;
+  return SEAS_OFF;
+}
+
+function breakLabel(grad) {
+  if (grad == null || grad < BREAK_WEAK) return "none";
+  if (grad < BREAK_MOD)    return "weak";
+  if (grad < BREAK_STRONG) return "moderate";
+  return "strong";
+}
+
+// ─── Build lookups from composite JSON ───────────────────────────────────────
+function buildCompositeLookup(composite) {
+  const lats = composite.latSet, lons = composite.lonSet;
+  const sst  = composite.sst;
+  const nLon = lons.length;
+  const grid = {};
+  for (let li = 0; li < lats.length; li++) {
+    for (let loi = 0; loi < lons.length; loi++) {
+      const v = sst[li * nLon + loi];
+      if (v != null && v > 0) {
+        grid[r3(lats[li]) + "," + r3(lons[loi])] = v;
+      }
+    }
+  }
+  return grid;
+}
+
+function buildGradientLookup(composite) {
+  const lats = composite.latSet, lons = composite.lonSet;
+  const sst  = composite.sst;
+  const nLat = lats.length, nLon = lons.length;
+  const dLat = (lats[nLat-1] - lats[0]) / Math.max(nLat-1,1);
+  const dLon = (lons[nLon-1] - lons[0]) / Math.max(nLon-1,1);
+  const grad = {};
+
+  function val(li, loi) {
+    if (li < 0 || li >= nLat || loi < 0 || loi >= nLon) return null;
+    const v = sst[li * nLon + loi];
+    return (v != null && v > 0) ? v : null;
+  }
+
+  for (let li = 0; li < nLat; li++) {
+    for (let loi = 0; loi < nLon; loi++) {
+      const v = val(li, loi);
+      if (v == null) continue;
+      const vN = val(li+1, loi), vS = val(li-1, loi);
+      const vE = val(li, loi+1), vW = val(li, loi-1);
+      let dlat = 0, dlon = 0;
+      if (vN != null && vS != null) dlat = (vN - vS) / (2 * dLat);
+      else if (vN != null && li === 0) dlat = (vN - v) / dLat;
+      else if (vS != null && li === nLat-1) dlat = (v - vS) / dLat;
+      if (vE != null && vW != null) dlon = (vE - vW) / (2 * dLon);
+      else if (vE != null && loi === 0) dlon = (vE - v) / dLon;
+      else if (vW != null && loi === nLon-1) dlon = (v - vW) / dLon;
+      const mag = Math.sqrt(dlat*dlat + dlon*dlon);
+      grad[r3(lats[li]) + "," + r3(lons[loi])] = mag;
+    }
+  }
+  return grad;
+}
+
+function buildBathyLookup(bathy) {
+  const lats = bathy.lats, lons = bathy.lons, grid = bathy.depth_ft;
+
+  // Build raw lookup at exact r2 keys
+  const raw = {};
+  for (let li = 0; li < lats.length; li++) {
+    for (let loi = 0; loi < lons.length; loi++) {
+      const v = grid[li][loi];
+      if (v != null) raw[r2(lats[li]) + "," + r2(lons[loi])] = v;
+    }
+  }
+
+  // Sorted unique lat/lon values for nearest-neighbour snapping
+  const rawLats = [...new Set(lats.map(v => r2(v)))].sort((a,b) => a-b);
+  const rawLons = [...new Set(lons.map(v => r2(v)))].sort((a,b) => a-b);
+
+  function nearest(arr, v) {
+    let lo = 0, hi = arr.length - 1;
+    while (lo < hi) { const mid = (lo+hi)>>1; if (arr[mid] < v) lo=mid+1; else hi=mid; }
+    if (lo > 0 && Math.abs(arr[lo-1]-v) < Math.abs(arr[lo]-v)) return arr[lo-1];
+    return arr[lo];
+  }
+
+  const latStep = lats.length > 1 ? Math.abs((lats[lats.length-1]-lats[0])/(lats.length-1)) : 0.05;
+  const lonStep = lons.length > 1 ? Math.abs((lons[lons.length-1]-lons[0])/(lons.length-1)) : 0.05;
+  const snapLat = latStep/2 + 0.005;
+  const snapLon = lonStep/2 + 0.005;
+
+  // Walk r2 grid over the bathy extent and snap each candidate key
+  const result = {};
+  const latMin = r2(Math.min(...lats) - snapLat);
+  const latMax = r2(Math.max(...lats) + snapLat);
+  const lonMin = r2(Math.min(...lons) - snapLon);
+  const lonMax = r2(Math.max(...lons) + snapLon);
+
+  for (let cLat = latMin; cLat <= latMax + 1e-9; cLat = r2(cLat + 0.01)) {
+    const nLat = nearest(rawLats, cLat);
+    if (Math.abs(nLat - cLat) > snapLat) continue;
+    for (let cLon = lonMin; cLon <= lonMax + 1e-9; cLon = r2(cLon + 0.01)) {
+      const nLon = nearest(rawLons, cLon);
+      if (Math.abs(nLon - cLon) > snapLon) continue;
+      const v = raw[r2(nLat) + "," + r2(nLon)];
+      if (v != null) result[r2(cLat) + "," + r2(cLon)] = v;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : raw;
+}
+
+// ─── Score grid for one species ───────────────────────────────────────────────
+function buildScoreGrid(sp) {
+  const w = sp.weights;
+  const [sstMin, sstMax]       = sp.sst_range_f;
+  const [dMin, dMax]           = sp.depth_range_ft;
+  const [dIdMin, dIdMax]       = sp.depth_ideal_ft;
+  const [chlMin, chlMax]       = sp.chl_range_mg_m3;
+  const kd490Max               = sp.kd490_max;
+  const breakReq               = sp.break_required || false;
+  const chlReq                 = sp.chl_required   || false;
+  const sstScoreMin            = sp.sst_score_min  || 0;
+  const results = [];
+
+  // Renormalize weights for globally unavailable data sources
+  const chlAvail   = Object.keys(chlLookup).length > 0;
+  const kd490Avail = Object.keys(kd490Lookup).length > 0;
+  const effW = { sst: w.sst, break: w.break, depth: w.depth };
+  if (chlAvail)   effW.chl   = w.chl;
+  if (kd490Avail) effW.color = w.color;
+  const wTotal = Object.values(effW).reduce((a,b) => a+b, 0) || 1;
+  Object.keys(effW).forEach(k => effW[k] /= wTotal);
+
+  for (const [key, sst_f] of Object.entries(compositeLookup)) {
+    const sSst = scoreSST(sst_f, sp.sst_target_f, sstMin, sstMax);
+    if (sSst === 0) continue;
+    if (sstScoreMin > 0 && sSst < sstScoreMin) continue;
+
+    const [latS, lonS] = key.split(",");
+    const lat = parseFloat(latS), lon = parseFloat(lonS);
+    const lat2 = r2(lat) + "," + r2(lon);
+    const lat3 = key;
+
+    const gradient = gradientLookup[lat3] != null ? gradientLookup[lat3] : null;
+    const depth    = bathyLookup[lat2] != null ? bathyLookup[lat2] : null;
+    const lat1     = r1(lat) + "," + r1(lon);
+    const chl      = chlAvail   ? (chlLookup[lat2]    ?? null) : null;
+    const kd490    = kd490Avail ? (kd490Lookup[lat1]  ?? null) : null;
+
+    // Hard gate: no depth = land or uncharted nearshore — skip
+    if (depth == null) continue;
+    // Hard gate: depth <= 10 ft = land/beach
+    if (depth <= 10) continue;
+
+    // Hard gate: chl_required — skip points with no CHL or below 60% of floor
+    if (chlReq) {
+      if (!chlAvail || chl == null) continue;
+      if (chl < chlMin * 0.6) continue;
+    }
+
+    const sDepth = scoreDepth(depth, dMin, dMax, dIdMin, dIdMax);
+    if (depth != null && sDepth === 0) continue;
+
+    const sBreak = scoreBreak(gradient);
+
+    // Per-point renormalization (depth always present past the gate above)
+    const ptFactors = { sst: [w.sst, sSst], break: [w.break, sBreak], depth: [w.depth, sDepth] };
+    if (chlAvail)      ptFactors.chl   = [w.chl,   scoreCHL(chl, chlMin, chlMax)];
+    if (kd490Avail)    ptFactors.color = [w.color,  scoreColor(kd490, kd490Max)];
+    const ptWSum = Object.values(ptFactors).reduce((s,[wt]) => s+wt, 0) || 1;
+    let total = Object.values(ptFactors).reduce((s,[wt,sc]) => s + (wt/ptWSum)*sc, 0);
+
+    if (breakReq && sBreak < 0.3) total = Math.min(0.50, total);
+
+    results.push({
+      lat, lon, score: Math.round(total * 10000) / 10000,
+      sst_f, gradient, depth,
+      sSst, sBreak, sDepth
+    });
+  }
+  return results;
+}
+
+// ─── BFS clustering ───────────────────────────────────────────────────────────
+function clusterHotCells(scored, minScore) {
+  const gs = compositeStep;
+  const hot = {};
+  for (const p of scored) {
+    if (p.score >= minScore) hot[r3(p.lat) + "," + r3(p.lon)] = p;
+  }
+  const visited = new Set();
+  const clusters = [];
+  for (const key of Object.keys(hot)) {
+    if (visited.has(key)) continue;
+    const cluster = [];
+    const queue = [key];
+    visited.add(key);
+    while (queue.length) {
+      if (cluster.length >= clusterMax) break;
+      const k = queue.shift();
+      cluster.push(hot[k]);
+      const [la, lo] = k.split(",").map(Number);
+      for (const dlat of [-gs, 0, gs]) {
+        for (const dlon of [-gs, 0, gs]) {
+          if (dlat === 0 && dlon === 0) continue;
+          const nk = r3(la + dlat) + "," + r3(lo + dlon);
+          if (hot[nk] && !visited.has(nk)) { visited.add(nk); queue.push(nk); }
+        }
+      }
+    }
+    clusters.push(cluster);
+  }
+  return clusters;
+}
+
+// ─── Grid boundary trace (directed half-edges, no self-crossings) ─────────────
+// Each boundary face becomes a directed half-edge with cluster interior on right.
+// At each vertex we pick the most-clockwise outgoing edge — standard planar face
+// traversal — guaranteeing a clean, non-self-intersecting outline.
+function clusterBoundaryPolygon(cluster) {
+  const gs   = compositeStep;
+  const half = gs / 2;
+  const R    = 4;
+  const cellSet = new Set(cluster.map(p => p.lat.toFixed(R) + "," + p.lon.toFixed(R)));
+  const ptKey = (lo, la) => lo.toFixed(5) + "," + la.toFixed(5);
+
+  // Directed half-edges: interior on right → traces outer boundary clockwise
+  const outgoing = {};   // fromKey -> [{key, dx, dy}]
+  let firstFrom = null, firstDx = 0, firstDy = 0;
+
+  const addHE = (lo1, la1, lo2, la2) => {
+    const k1 = ptKey(lo1, la1);
+    if (!outgoing[k1]) outgoing[k1] = [];
+    const dx = lo2-lo1, dy = la2-la1;
+    outgoing[k1].push({ key: ptKey(lo2, la2), dx, dy });
+    if (!firstFrom) { firstFrom = k1; firstDx = dx; firstDy = dy; }
+  };
+
+  for (const p of cluster) {
+    const la = p.lat, lo = p.lon;
+    if (!cellSet.has((la+gs).toFixed(R)+","+ lo.toFixed(R))) addHE(lo-half, la+half, lo+half, la+half); // N face →
+    if (!cellSet.has((la-gs).toFixed(R)+","+ lo.toFixed(R))) addHE(lo+half, la-half, lo-half, la-half); // S face ←
+    if (!cellSet.has(la.toFixed(R)+","+(lo+gs).toFixed(R))) addHE(lo+half, la+half, lo+half, la-half); // E face ↓
+    if (!cellSet.has(la.toFixed(R)+","+(lo-gs).toFixed(R))) addHE(lo-half, la-half, lo-half, la+half); // W face ↑
+  }
+
+  if (!firstFrom) return cluster.map(p => [p.lat, p.lon]);
+
+  // Walk: at each vertex pick the most-clockwise outgoing edge
+  // (= smallest CCW angle from current direction = most negative atan2 value)
+  const poly = [];
+  const usedEdges = new Set();
+  let curKey = firstFrom, curDx = firstDx, curDy = firstDy;
+  const startKey = firstFrom;
+  let limit = Object.keys(outgoing).length * 3 + 10;
+
+  while (limit-- > 0) {
+    poly.push(curKey.split(",").map(Number));  // [lon, lat]
+    const nexts = outgoing[curKey] || [];
+    let best = null, bestAngle = Infinity;
+    for (const n of nexts) {
+      const eKey = curKey + ">" + n.key;
+      if (usedEdges.has(eKey)) continue;
+      // CCW angle from current direction to candidate; prefer most clockwise (most negative)
+      let angle = Math.atan2(curDx * n.dy - curDy * n.dx, curDx * n.dx + curDy * n.dy);
+      if (angle < bestAngle) { bestAngle = angle; best = n; }
+    }
+    if (!best) break;
+    usedEdges.add(curKey + ">" + best.key);
+    curDx = best.dx; curDy = best.dy;
+    curKey = best.key;
+    if (curKey === startKey && poly.length > 2) break;
+  }
+
+  // Laplacian smoothing (3 passes)
+  let pts = poly;
+  for (let pass = 0; pass < 3; pass++) {
+    const n = pts.length;
+    pts = pts.map((pt, i) => {
+      const a = pts[(i-1+n)%n], b = pts[(i+1)%n];
+      return [(a[0]+pt[0]+b[0])/3, (a[1]+pt[1]+b[1])/3];
+    });
+  }
+
+  return pts.map(p => [p[1], p[0]]); // → [lat, lon] for Leaflet
+}
+
+// Keep convexHull as fallback for < 3-cell clusters
+function convexHull(pts) {
+  if (pts.length < 3) return pts;
+  const sorted = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+  const lo = [], hi = [];
+  for (const p of sorted) {
+    while (lo.length >= 2 && cross(lo[lo.length-2], lo[lo.length-1], p) <= 0) lo.pop();
+    lo.push(p);
+  }
+  for (let i = sorted.length-1; i >= 0; i--) {
+    const p = sorted[i];
+    while (hi.length >= 2 && cross(hi[hi.length-2], hi[hi.length-1], p) <= 0) hi.pop();
+    hi.push(p);
+  }
+  hi.pop(); lo.pop();
+  return lo.concat(hi);
+}
+
+// ─── Zone from cluster ────────────────────────────────────────────────────────
+function zoneFromCluster(cluster, rank) {
+  const scores = cluster.map(p => p.score);
+  const wSum   = scores.reduce((a,b) => a+b, 0);
+  const cLat   = cluster.reduce((s,p) => s + p.lat * p.score, 0) / wSum;
+  const cLon   = cluster.reduce((s,p) => s + p.lon * p.score, 0) / wSum;
+  const avgScore = wSum / cluster.length;
+  const peakScore = Math.max(...scores);
+  const bestP = cluster[scores.indexOf(peakScore)];
+  const boundaryPts = clusterBoundaryPolygon(cluster);
+  return {
+    rank, habitat_score: Math.round(avgScore * 1000) / 1000,
+    peak_score: peakScore, cell_count: cluster.length,
+    center: [Math.round(cLat * 10000)/10000, Math.round(cLon * 10000)/10000],
+    polygon: boundaryPts.map(p => [Math.round(p[0]*10000)/10000, Math.round(p[1]*10000)/10000]),
+    conditions: {
+      sst_f: bestP.sst_f,
+      break_strength: breakLabel(bestP.gradient),
+      depth_ft: bestP.depth != null ? Math.round(bestP.depth) : null,
+    }
+  };
+}
+
+// ─── Full scoring run ─────────────────────────────────────────────────────────
+function runScore() {
+  const sp = editedConfig[currentSpecies];
+  const month = new Date().getMonth() + 1;
+  const minScore = sp.min_zone_score || 0.60;
+  const t0 = performance.now();
+  const scored = buildScoreGrid(sp);
+  const hotCount = scored.filter(p => p.score >= minScore).length;
+  const clusters = clusterHotCells(scored, minScore).filter(c => c.length >= CLUSTER_MIN);
+  clusters.sort((a, b) => {
+    const avgA = a.reduce((s,p) => s+p.score,0)/a.length;
+    const avgB = b.reduce((s,p) => s+p.score,0)/b.length;
+    return avgB - avgA;
+  });
+  const top3 = clusters.slice(0, 3);
+  const seasMult = scoreSeasonality(month, sp.prime_months || [], sp.peak_months || []);
+  const zones = top3.map((c, i) => {
+    const z = zoneFromCluster(c, i+1);
+    z.seasonal_factor = seasMult;
+    z.score = Math.round(z.habitat_score * seasMult * 1000) / 1000;
+    return z;
+  });
+  zones.sort((a,b) => b.score - a.score);
+  zones.forEach((z,i) => z.rank = i+1);
+  const elapsed = Math.round(performance.now() - t0);
+  updateMapZones(zones, sp);
+  updateScorePanel(scored.length, hotCount, zones.length, elapsed);
+  updateZoneReadout(zones, sp);
+}
+
+// ─── SST color helpers (match production app exactly) ────────────────────────
+function interpColor(t, stops) {
+  let lower = stops[0], upper = stops[stops.length-1];
+  for (let i = 0; i < stops.length-1; i++) {
+    if (t >= stops[i][0] && t <= stops[i+1][0]) { lower = stops[i]; upper = stops[i+1]; break; }
+  }
+  const lt = (t - lower[0]) / (upper[0] - lower[0]);
+  return [
+    Math.round(lower[1][0] + (upper[1][0] - lower[1][0]) * lt),
+    Math.round(lower[1][1] + (upper[1][1] - lower[1][1]) * lt),
+    Math.round(lower[1][2] + (upper[1][2] - lower[1][2]) * lt),
+  ];
+}
+const SST_STOPS = [[0,[15,40,140]],[0.2,[0,130,200]],[0.4,[0,200,180]],[0.6,[50,210,50]],[0.75,[255,220,0]],[0.9,[255,120,0]],[1,[220,30,30]]];
+
+function sstColorProd(val, valMin, valMax) {
+  if (val == null || !isFinite(val)) return null;
+  return interpColor(Math.max(0, Math.min(1, (val - valMin) / (valMax - valMin))), SST_STOPS);
+}
+
+// ─── SST Canvas layer (Mercator projection, matches production) ───────────────
+function createSSTLayer() {
+  if (!compositeData) { setStatus("SST: no composite data", "err"); return; }
+  if (sstCanvas) { map.removeLayer(sstCanvas); sstCanvas = null; }
+
+  const lats = compositeData.latSet, lons = compositeData.lonSet;
+  const sstArr = compositeData.sst;
+  if (!lats || !lons || !sstArr) { setStatus("SST: composite missing latSet/lonSet/sst fields", "err"); return; }
+
+  const nLon = lons.length;
+
+  // Sample first non-null SST value to detect Celsius vs Fahrenheit
+  let sampleSST = null;
+  for (let i = 0; i < sstArr.length; i++) {
+    if (sstArr[i] != null && sstArr[i] > 0) { sampleSST = sstArr[i]; break; }
+  }
+  // If values look like Celsius (0-40), convert to F; if Fahrenheit (50-100), use as-is
+  const isCelsius = sampleSST != null && sampleSST < 50;
+
+  // Build grid lookup keyed "lat_lon" for bilinear interpolation
+  const grid = {};
+  for (let li = 0; li < lats.length; li++) {
+    for (let loi = 0; loi < nLon; loi++) {
+      let v = sstArr[li * nLon + loi];
+      if (v != null && v > 0) {
+        if (isCelsius) v = v * 9/5 + 32; // convert C→F
+        grid[lats[li] + "_" + lons[loi]] = v;
+      }
+    }
+  }
+
+  const gridSize = Object.keys(grid).length;
+  if (gridSize === 0) { setStatus("SST: composite has no valid data points", "err"); return; }
+
+  // Ensure latNorth > latSouth regardless of array direction
+  const latFirst = lats[0], latLast = lats[lats.length-1];
+  const latNorth = Math.max(latFirst, latLast);
+  const latSouth = Math.min(latFirst, latLast);
+  const lonWest  = Math.min(lons[0], lons[lons.length-1]);
+  const lonEast  = Math.max(lons[0], lons[lons.length-1]);
+  const lonRange = lonEast - lonWest || 1;
+  const latStep  = lats.length > 1 ? Math.abs((latLast - latFirst) / (lats.length - 1)) : 0.05;
+  const lonStep  = lons.length > 1 ? Math.abs((lons[lons.length-1] - lons[0]) / (lons.length - 1)) : 0.05;
+
+  // Compute p2/p98 percentile range — identical to production app
+  const allVals = Object.values(grid).sort((a,b) => a-b);
+  const valMin = allVals[Math.floor(allVals.length * 0.02)];
+  const valMax = allVals[Math.floor(allVals.length * 0.98)];
+
+  const CANVAS_W = 512, CANVAS_H = 400;
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_W; canvas.height = CANVAS_H;
+  const ctx = canvas.getContext("2d");
+  const img = ctx.createImageData(CANVAS_W, CANVAS_H);
+  const d = img.data;
+
+  // Mercator helpers (identical to production gridToDataURL)
+  const mercY    = lat => Math.log(Math.tan(Math.PI/4 + (lat * Math.PI/180) / 2));
+  const invMercY = y   => (2 * Math.atan(Math.exp(y)) - Math.PI/2) * 180 / Math.PI;
+  const mercYNorth = mercY(latNorth), mercYSouth = mercY(latSouth);
+  const mercYRange = mercYNorth - mercYSouth || 1;
+
+  let pixelsFilled = 0;
+  for (let py = 0; py < CANVAS_H; py++) {
+    const mY  = mercYNorth - (py / (CANVAS_H-1)) * mercYRange;
+    const lat = invMercY(mY);
+    if (lat < latSouth || lat > latNorth) continue;
+    // latFloat: 0 = northernmost row, increases toward south
+    const latFloat = (latNorth - lat) / latStep;
+    const latIdx0  = Math.max(0, Math.min(lats.length-2, Math.floor(latFloat)));
+    const latFrac  = Math.max(0, Math.min(1, latFloat - latIdx0));
+    // Map index to actual lat values — ascending array (S→N): high index = north; descending (N→S): low index = north
+    const gLat0 = latFirst < latLast ? lats[lats.length-1-latIdx0]   : lats[latIdx0];
+    const gLat1 = latFirst < latLast ? lats[lats.length-2-latIdx0] : lats[latIdx0+1];
+
+    for (let px = 0; px < CANVAS_W; px++) {
+      const lon = lonWest + (px / (CANVAS_W-1)) * lonRange;
+      const lonFloat = (lon - lonWest) / lonStep;
+      const lonIdx0  = Math.max(0, Math.min(lons.length-2, Math.floor(lonFloat)));
+      const lonFrac  = Math.max(0, Math.min(1, lonFloat - lonIdx0));
+      const gLon0 = lons[lonIdx0], gLon1 = lons[lonIdx0+1];
+
+      const vNW = grid[gLat0+"_"+gLon0], vNE = grid[gLat0+"_"+gLon1];
+      const vSW = grid[gLat1+"_"+gLon0], vSE = grid[gLat1+"_"+gLon1];
+      const wNW = (1-latFrac)*(1-lonFrac), wNE = (1-latFrac)*lonFrac;
+      const wSW = latFrac*(1-lonFrac),     wSE = latFrac*lonFrac;
+      let sum = 0, wsum = 0;
+      if (vNW != null && isFinite(vNW)) { sum += vNW*wNW; wsum += wNW; }
+      if (vNE != null && isFinite(vNE)) { sum += vNE*wNE; wsum += wNE; }
+      if (vSW != null && isFinite(vSW)) { sum += vSW*wSW; wsum += wSW; }
+      if (vSE != null && isFinite(vSE)) { sum += vSE*wSE; wsum += wSE; }
+      if (wsum < 0.25) continue;
+      const val = sum / wsum;
+
+      const rgb = sstColorProd(val, valMin, valMax);
+      if (!rgb) continue;
+      const i = (py * CANVAS_W + px) * 4;
+      d[i] = rgb[0]; d[i+1] = rgb[1]; d[i+2] = rgb[2]; d[i+3] = 210;
+      pixelsFilled++;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  if (pixelsFilled === 0) {
+    const sampleVal = sampleSST != null ? (isCelsius ? (sampleSST*9/5+32).toFixed(1)+"°F (was "+sampleSST.toFixed(1)+"°C)" : sampleSST.toFixed(1)+"°F") : "null";
+    setStatus(`SST canvas: 0 pixels filled. Grid=${gridSize} pts, sample=${sampleVal}, lats=${latFirst}→${latLast}, range=55–90°F`, "err");
+    return;
+  }
+
+  const bounds = [[latSouth - latStep/2, lonWest - lonStep/2],
+                  [latNorth + latStep/2, lonEast + lonStep/2]];
+  sstCanvas = L.imageOverlay(canvas.toDataURL("image/png"), bounds, { opacity: 0.85 }).addTo(map);
+  setStatus(`SST layer rendered (${gridSize} pts, ${pixelsFilled} px, sample=${sampleSST?.toFixed(1)}${isCelsius?"°C":"°F"})`, "ok");
+}
+
+// ─── Map zone rendering ───────────────────────────────────────────────────────
+function updateMapZones(zones, sp) {
+  if (zoneLayer) map.removeLayer(zoneLayer);
+  zoneLayer = L.layerGroup().addTo(map);
+  const color = sp.color || "#f59e0b";
+  zones.forEach(z => {
+    if (!z.polygon || z.polygon.length < 3) return;
+    const poly = L.polygon(z.polygon, {
+      color, weight: 2, opacity: 0.9,
+      fillColor: color, fillOpacity: 0.12,
+      smoothFactor: 1
+    }).addTo(zoneLayer);
+    const cond = z.conditions;
+    poly.bindPopup(`
+      <b>Zone ${z.rank} &middot; ${(z.score*100).toFixed(0)}% match</b><br>
+      SST: ${cond.sst_f ?? "—"}°F &middot; Break: ${cond.break_strength ?? "—"}<br>
+      Depth: ${cond.depth_ft != null ? Math.round(cond.depth_ft)+"ft" : "—"}<br>
+      Habitat: ${(z.habitat_score*100).toFixed(1)}% &times; ${z.seasonal_factor?.toFixed(2)} seasonal
+    `);
+    const icon = L.divIcon({
+      className: "",
+      html: `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)">${z.rank}</div>`,
+      iconSize: [18,18], iconAnchor: [9,9]
+    });
+    L.marker(z.center, { icon }).addTo(zoneLayer);
+  });
+}
+
+function updateScorePanel(pts, hot, zones, ms) {
+  document.getElementById("so-pts").textContent   = pts.toLocaleString();
+  document.getElementById("so-hot").textContent   = hot.toLocaleString();
+  document.getElementById("so-zones").textContent = zones;
+  document.getElementById("so-time").textContent  = ms + "ms";
+}
+
+function updateZoneReadout(zones, sp) {
+  const el = document.getElementById("zone-readout");
+  if (!zones.length) { el.innerHTML = '<div style="color:#4b5563;font-size:11px">No zones above threshold</div>'; return; }
+  el.innerHTML = zones.map(z => {
+    const pct = Math.round(z.score * 100);
+    const c = z.conditions;
+    return `<div class="zone-chip">
+      <div class="zc-title" style="color:${sp.color||'#f59e0b'}">Zone ${z.rank} &middot; ${pct}%</div>
+      <div class="zc-row"><span>SST</span><span>${c.sst_f ?? "—"}°F</span></div>
+      <div class="zc-row"><span>break</span><span>${c.break_strength ?? "—"}</span></div>
+      <div class="zc-row"><span>depth</span><span>${c.depth_ft != null ? Math.round(c.depth_ft)+"ft" : "—"}</span></div>
+      <div class="zc-bar"><div class="zc-fill" style="width:${pct}%;background:${sp.color||'#f59e0b'}"></div></div>
+    </div>`;
+  }).join("");
+}
+
+// ─── UI building ──────────────────────────────────────────────────────────────
+function buildSpeciesTabs() {
+  const el = document.getElementById("sp-tabs");
+  el.innerHTML = "";
+  for (const [key, sp] of Object.entries(editedConfig)) {
+    if (!sp.enabled) continue;
+    const btn = document.createElement("button");
+    btn.className = "sp-tab" + (key === currentSpecies ? " active" : "");
+    btn.textContent = sp.display_name.replace(" Tuna","").replace(" Mackerel","").replace(" Mahi","");
+    btn.style.setProperty("--sp-color", sp.color || "#9ca3af");
+    if (key === currentSpecies) { btn.style.background = sp.color || "#9ca3af"; btn.style.color = "#fff"; }
+    btn.onclick = () => { readControls(); currentSpecies = key; buildSpeciesTabs(); loadSpeciesControls(); scheduleScore(); };
+    el.appendChild(btn);
+  }
+}
+
+function loadSpeciesControls() {
+  const sp = editedConfig[currentSpecies];
+  setValue("sst_min",       sp.sst_range_f[0]);
+  setValue("sst_max",       sp.sst_range_f[1]);
+  setSlider("sst_target",   sp.sst_target_f, "sst_target_v", "°F");
+  setValue("sst_sweet_min", sp.sst_sweet_spot_f[0]);
+  setValue("sst_sweet_max", sp.sst_sweet_spot_f[1]);
+  setValue("depth_min",     sp.depth_range_ft[0]);
+  setValue("depth_max",     sp.depth_range_ft[1]);
+  setValue("depth_ideal_min", sp.depth_ideal_ft[0]);
+  setValue("depth_ideal_max", sp.depth_ideal_ft[1]);
+  setValue("chl_min",       sp.chl_range_mg_m3[0]);
+  setValue("chl_max",       sp.chl_range_mg_m3[1]);
+  setSlider("kd490_max",    sp.kd490_max, "kd490_max_v", "");
+  setSlider("min_zone_score", sp.min_zone_score, "min_zone_v", "");
+  // max cluster cells — per-species, stored in editedConfig
+  clusterMax = sp.max_cluster_cells || 150;
+  const mcEl = document.getElementById("max_cluster_cells");
+  if (mcEl) { mcEl.value = clusterMax; document.getElementById("max_cluster_v").textContent = clusterMax; }
+  const tog = document.getElementById("break_required");
+  if (sp.break_required) tog.classList.add("on"); else tog.classList.remove("on");
+  buildWeights(sp);
+}
+
+function buildWeights(sp) {
+  const el = document.getElementById("wgrid");
+  el.innerHTML = "";
+  const keys = ["sst","break","depth","chl","color"];
+  for (const k of keys) {
+    const v = sp.weights[k] || 0;
+    const div = document.createElement("div");
+    div.className = "witem";
+    const colSpan = k === "color" ? "grid-column:1/3" : "";
+    div.style.cssText = colSpan;
+    div.innerHTML = `<label><span>${k}</span><span id="w_v_${k}">${v.toFixed(2)}</span></label>
+      <input type="range" id="w_${k}" min="0" max="100" step="1" value="${Math.round(v*100)}" style="width:100%">`;
+    el.appendChild(div);
+    div.querySelector(`#w_${k}`).addEventListener("input", () => {
+      normalizeWeights();
+      scheduleScore();
+    });
+  }
+}
+
+function normalizeWeights() {
+  const sp = editedConfig[currentSpecies];
+  const keys = ["sst","break","depth","chl","color"];
+  const raw = keys.map(k => parseInt(document.getElementById("w_"+k).value) || 0);
+  const total = raw.reduce((a,b) => a+b, 0) || 1;
+  keys.forEach((k, i) => {
+    const norm = raw[i] / total;
+    sp.weights[k] = Math.round(norm * 1000) / 1000;
+    document.getElementById("w_v_"+k).textContent = sp.weights[k].toFixed(2);
+  });
+}
+
+function setValue(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.value = v;
+}
+
+function setSlider(id, v, labelId, suffix) {
+  const el = document.getElementById(id);
+  if (el) el.value = v;
+  const lbl = document.getElementById(labelId);
+  if (lbl) lbl.textContent = parseFloat(v).toFixed(id === "kd490_max" ? 2 : id === "min_zone_score" ? 2 : 0) + suffix;
+}
+
+function wireControls() {
+  // SST range / sweet spot / target
+  ["sst_min","sst_max","sst_sweet_min","sst_sweet_max"].forEach(id => {
+    document.getElementById(id).addEventListener("change", () => { readControls(); scheduleScore(); });
+  });
+  document.getElementById("sst_target").addEventListener("input", e => {
+    const v = parseFloat(e.target.value);
+    editedConfig[currentSpecies].sst_target_f = v;
+    document.getElementById("sst_target_v").textContent = v + "°F";
+    scheduleScore();
+  });
+  // Depth
+  ["depth_min","depth_max","depth_ideal_min","depth_ideal_max"].forEach(id => {
+    document.getElementById(id).addEventListener("change", () => { readControls(); scheduleScore(); });
+  });
+  // CHL
+  ["chl_min","chl_max"].forEach(id => {
+    document.getElementById(id).addEventListener("change", () => { readControls(); scheduleScore(); });
+  });
+  document.getElementById("kd490_max").addEventListener("input", e => {
+    const v = parseFloat(e.target.value);
+    editedConfig[currentSpecies].kd490_max = v;
+    document.getElementById("kd490_max_v").textContent = v.toFixed(2);
+    scheduleScore();
+  });
+  // Min zone score
+  document.getElementById("min_zone_score").addEventListener("input", e => {
+    const v = parseFloat(e.target.value);
+    editedConfig[currentSpecies].min_zone_score = v;
+    document.getElementById("min_zone_v").textContent = v.toFixed(2);
+    scheduleScore();
+  });
+  // Max cluster cells
+  document.getElementById("max_cluster_cells").addEventListener("input", e => {
+    clusterMax = parseInt(e.target.value);
+    editedConfig[currentSpecies].max_cluster_cells = clusterMax;
+    document.getElementById("max_cluster_v").textContent = clusterMax;
+    scheduleScore();
+  });
+  // Break required toggle
+  document.getElementById("break_required").addEventListener("click", () => {
+    const tog = document.getElementById("break_required");
+    const sp  = editedConfig[currentSpecies];
+    sp.break_required = !sp.break_required;
+    if (sp.break_required) tog.classList.add("on"); else tog.classList.remove("on");
+    scheduleScore();
+  });
+  // Buttons
+  document.getElementById("btn-rescore").addEventListener("click", runScore);
+  document.getElementById("btn-bathy").addEventListener("click", () => {
+    showBathy = !showBathy;
+    const btn = document.getElementById("btn-bathy");
+    btn.style.background = showBathy ? "#1e3a5f" : "#1e1e3a";
+    btn.style.color = showBathy ? "#93c5fd" : "#6b7280";
+    renderBathyContours();
+  });
+  document.getElementById("btn-export").addEventListener("click", exportConfig);
+}
+
+function readControls() {
+  const sp = editedConfig[currentSpecies];
+  sp.sst_range_f      = [parseFloat(document.getElementById("sst_min").value), parseFloat(document.getElementById("sst_max").value)];
+  sp.sst_sweet_spot_f = [parseFloat(document.getElementById("sst_sweet_min").value), parseFloat(document.getElementById("sst_sweet_max").value)];
+  sp.depth_range_ft   = [parseFloat(document.getElementById("depth_min").value), parseFloat(document.getElementById("depth_max").value)];
+  sp.depth_ideal_ft   = [parseFloat(document.getElementById("depth_ideal_min").value), parseFloat(document.getElementById("depth_ideal_max").value)];
+  sp.chl_range_mg_m3  = [parseFloat(document.getElementById("chl_min").value), parseFloat(document.getElementById("chl_max").value)];
+}
+
+function scheduleScore() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(runScore, 350);
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+function exportConfig() {
+  readControls();
+  const out = JSON.parse(JSON.stringify(speciesConfig));
+  for (const [k, v] of Object.entries(editedConfig)) {
+    out.species[k] = { ...out.species[k], ...v };
+  }
+  out.updated = new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "species_config.json";
+  a.click();
+  setStatus("Exported species_config.json — commit to GitHub to apply changes.", "ok");
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function r3(v) { return Math.round(v * 1000) / 1000; }
+function r2(v) { return Math.round(v * 100) / 100; }
+function r1(v) { return Math.round(v * 10) / 10; }
+
+function setStatus(msg, type) {
+  const el = document.getElementById("status-text");
+  el.textContent = msg;
+  el.className = type === "ok" ? "status-ok" : type === "err" ? "status-err" : type === "warn" ? "status-warn" : "";
+}
+
+function setLoading(show, msg) {
+  document.getElementById("loading").style.display = show ? "flex" : "none";
+  if (msg) document.getElementById("loading-msg").textContent = msg;
+}
+
+// ─── CHL / kd490 loaders ─────────────────────────────────────────────────────
+function localDateStr(daysBack) {
+  const d = new Date(Date.now() - daysBack * 864e5);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y + m + day;
+}
+
+function buildCHLLookup(data) {
+  const result = {};
+  for (const row of data.rows || []) {
+    const v = parseFloat(row.chlorophyll);
+    if (!isFinite(v) || v <= 0) continue;
+    const lat = Math.round(parseFloat(row.lat) * 100) / 100;
+    const lon = Math.round(parseFloat(row.lon) * 100) / 100;
+    result[lat + "," + lon] = v;
+  }
+  return result;
+}
+
+function buildKd490Lookup(data) {
+  // SeaColor rows have kd490 field; precision=1 in Python
+  const COLOR_MAP = { blue_water: 0.06, mixed: 0.10, green_water: 0.20 };
+  const result = {};
+  for (const row of data.rows || []) {
+    let v = null;
+    if (row.kd490 != null) {
+      v = parseFloat(row.kd490);
+      if (!isFinite(v) || v <= 0) v = null;
+    } else if (row.color_class && COLOR_MAP[row.color_class]) {
+      v = COLOR_MAP[row.color_class];
+    }
+    if (v == null) continue;
+    const lat = Math.round(parseFloat(row.lat) * 10) / 10;
+    const lon = Math.round(parseFloat(row.lon) * 10) / 10;
+    result[lat + "," + lon] = v;
+  }
+  return result;
+}
+
+async function fetchWithLookback(baseUrl, prefix, suffix, buildFn, labelEl) {
+  for (let i = 0; i <= CHL_LOOKBACK; i++) {
+    const dateStr = localDateStr(i);
+    const url = `${baseUrl}/${prefix}${dateStr}${suffix}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const lookup = buildFn(data);
+      if (Object.keys(lookup).length > 0) {
+        if (labelEl) labelEl.textContent = `${prefix.replace('_','')} loaded (${i}d old, ${Object.keys(lookup).length} pts)`;
+        return lookup;
+      }
+    } catch(e) { /* try next day */ }
+  }
+  if (labelEl) labelEl.textContent = `${prefix.replace('_','')} unavailable — neutral scoring`;
+  return {};
+}
+
+// ─── Bathy contours ──────────────────────────────────────────────────────────
+let bathyContoursData = null;
+
+function renderBathyContours() {
+  if (bathyContourLayer) { map.removeLayer(bathyContourLayer); bathyContourLayer = null; }
+  if (!showBathy || !bathyContoursData) return;
+  bathyContourLayer = L.geoJSON(bathyContoursData, {
+    interactive: false,
+    style: f => {
+      const d = f.properties.depth_ft;
+      if (d >= 1200) return { color: "rgba(40,55,85,0.65)",  weight: 1.3, opacity: 0.70 };
+      if (d >= 600)  return { color: "rgba(50,65,95,0.55)",  weight: 1.0, opacity: 0.60 };
+      if (d >= 300)  return { color: "rgba(60,75,105,0.48)", weight: 0.8, opacity: 0.52 };
+      if (d >= 100)  return { color: "rgba(70,85,115,0.40)", weight: 0.7, opacity: 0.45 };
+      if (d >= 60)   return { color: "rgba(80,95,125,0.32)", weight: 0.6, opacity: 0.38 };
+      return              { color: "rgba(90,105,135,0.25)", weight: 0.5, opacity: 0.30 };
+    }
+  }).addTo(map);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  // Init Leaflet map
+  map = L.map("map", { center: [36.5, -75.5], zoom: 7 });
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    attribution: "CartoDB", subdomains: "abcd", maxZoom: 14
+  }).addTo(map);
+
+  setLoading(true, "Loading species config…");
+  try {
+    const cfgRes = await fetch(CONFIG_URL);
+    speciesConfig = await cfgRes.json();
+    editedConfig = JSON.parse(JSON.stringify(speciesConfig.species));
+    setStatus("Config loaded", "ok");
+  } catch(e) {
+    setStatus("Failed to load species_config.json: " + e.message, "err");
+    setLoading(false);
+    return;
+  }
+
+  setLoading(true, "Loading composite SST…");
+  try {
+    const cRes = await fetch(COMPOSITE_URL);
+    compositeData = await cRes.json();
+    compositeLookup = buildCompositeLookup(compositeData);
+    gradientLookup  = buildGradientLookup(compositeData);
+    const lats = compositeData.latSet, lons = compositeData.lonSet;
+    const dLat = Math.abs((lats[lats.length-1] - lats[0]) / (lats.length-1));
+    const dLon = Math.abs((lons[lons.length-1] - lons[0]) / (lons.length-1));
+    compositeStep = Math.min(dLat, dLon);
+    document.getElementById("status-date").textContent =
+      "composite: " + (compositeData.date || compositeData.generated?.slice(0,10) || "unknown");
+    setStatus("Composite loaded — " + Object.keys(compositeLookup).length + " SST points", "ok");
+    createSSTLayer();
+  } catch(e) {
+    setStatus("Failed to load composite SST: " + e.message, "warn");
+  }
+
+  // Load bathy contours for visual overlay (separate from grid used for scoring)
+  fetch(BATHY_CONTOURS_URL).then(r=>r.json()).then(d=>{
+    bathyContoursData = d;
+    renderBathyContours();
+  }).catch(()=>setStatus("Bathy contours unavailable", "warn"));
+
+  setLoading(true, "Loading bathymetry…");
+  try {
+    const bRes = await fetch(BATHY_URL);
+    bathyData = await bRes.json();
+    bathyLookup = buildBathyLookup(bathyData);
+    setStatus("Bathymetry loaded — " + Object.keys(bathyLookup).length + " depth points", "ok");
+  } catch(e) {
+    setStatus("Bathymetry unavailable — depth scoring neutral: " + e.message, "warn");
+  }
+
+  setLoading(true, "Loading chlorophyll…");
+  const chlStatus = document.getElementById("chl-status");
+  chlLookup = await fetchWithLookback(CHL_BASE, "CHL_", ".json", buildCHLLookup, null);
+  setLoading(true, "Loading sea color (kd490)…");
+  kd490Lookup = await fetchWithLookback(SEACOLOR_BASE, "SEACOLOR_", ".json", buildKd490Lookup, null);
+  const chlPts = Object.keys(chlLookup).length;
+  const kdPts  = Object.keys(kd490Lookup).length;
+  if (chlPts > 0 || kdPts > 0) {
+    chlStatus.style.background = "#0a1a10";
+    chlStatus.style.borderColor = "#065f46";
+    chlStatus.style.color = "#34d399";
+    chlStatus.textContent = `✓ CHL: ${chlPts.toLocaleString()} pts  |  kd490: ${kdPts.toLocaleString()} pts`;
+  } else {
+    chlStatus.style.background = "#1c1a10";
+    chlStatus.style.borderColor = "#713f12";
+    chlStatus.style.color = "#d97706";
+    chlStatus.textContent = "⚠ CHL & kd490 unavailable — scoring with neutral values";
+  }
+
+  setLoading(false);
+  buildSpeciesTabs();
+  loadSpeciesControls();
+  wireControls();
+  // Note: tuner uses today's composite; live app hotspots were scored on a previous day.
+  // Zones will differ due to changing SST — this is expected. Use tuner to tune params, not match exactly.
+  const compositeDate = compositeData?.date || compositeData?.generated?.slice(0,10) || "?";
+  setStatus(`Ready — composite: ${compositeDate}. Zones differ from app (different-day SST data — expected).`, "warn");
+  runScore();
+}
+
+init();
+</script>
+</body>
+</html>
