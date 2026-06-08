@@ -97,10 +97,8 @@ function SavedPanel({
                   const lon = Math.abs(w.lng).toFixed(4) + (w.lng >= 0 ? "°E" : "°W");
                   lines.push(`${i+1}. ${w.label || `WP ${i+1}`}  ${lat}, ${lon}`);
                 });
-                lines.push(`
-Plan your trip: ${window.location.origin}`);
-                return lines.join("
-");
+                lines.push("\nPlan your trip: " + window.location.origin);
+                return lines.join("\n");
               })()}
             </div>
             <div className="flex flex-col gap-2">
@@ -114,8 +112,7 @@ Plan your trip: ${window.location.origin}`);
                     lines.push(`${i+1}. ${w.label || `WP ${i+1}`}  ${lat}, ${lon}`);
                   });
                   lines.push(`Plan your trip: ${window.location.origin}`);
-                  navigator.clipboard?.writeText(lines.join("
-"));
+                  navigator.clipboard?.writeText(lines.join("\n"));
                 }}
                 className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
               >
@@ -132,8 +129,7 @@ Plan your trip: ${window.location.origin}`);
                     lines.push(`${i+1}. ${w.label || `WP ${i+1}`}  ${lat}, ${lon}`);
                   });
                   lines.push(`Plan your trip: ${window.location.origin}`);
-                  window.open(`sms:?&body=${encodeURIComponent(lines.join("
-"))}`);
+                  window.open(`sms:?&body=${encodeURIComponent(lines.join("\n"))}`);
                 }}
                 className="flex items-center justify-center gap-2 px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-semibold rounded-lg transition-colors"
               >
