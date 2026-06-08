@@ -619,7 +619,6 @@ function SSTPageBody() {
               waypoints={waypoints}
               setWaypoints={setWaypoints}
               userId={userId}
-              isPro={isPro}
               onClose={() => { setTripMode(false); setWaypoints([]); }}
             />
           )}

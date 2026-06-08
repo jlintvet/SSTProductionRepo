@@ -52,22 +52,22 @@ function AppRoot() {
     supabase.auth.getUser()
       .then(({ data, error }) => {
         const ok = !error && !!data?.user?.email;
-        console.log("[APP:AUTH] getUser →", { email: data?.user?.email ?? null, error: error?.message ?? null, ok });
+        console.log("[APP:AUTH] getUser ->", { email: data?.user?.email ?? null, error: error?.message ?? null, ok });
         setAuthed(ok);
       })
       .catch(err => {
-        console.log("[APP:AUTH] getUser threw →", err?.message);
+        console.log("[APP:AUTH] getUser threw ->", err?.message);
         setAuthed(false);
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // PASSWORD_RECOVERY: Supabase auto-signs in the user to validate the token,
-      // but we don't want that to count as "authenticated" — let ResetPassword
+      // but we do not want that to count as "authenticated" -- let ResetPassword
       // handle it via its own onAuthStateChange listener.
       if (event === "PASSWORD_RECOVERY") return;
 
       const ok = !!session?.user?.email;
-      console.log("[APP:AUTH] change →", event, session?.user?.email ?? null, ok);
+      console.log("[APP:AUTH] change ->", event, session?.user?.email ?? null, ok);
       setAuthed(ok);
     });
 
@@ -77,7 +77,7 @@ function AppRoot() {
   return (
     <Router>
       <Routes>
-        {/* Public routes — no auth required */}
+        {/* Public routes -- no auth required */}
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/share" element={<SharedLocationLanding />} />
         <Route path="/share/route" element={<SharedRouteLanding />} />
@@ -87,4 +87,13 @@ function AppRoot() {
           <ProtectedRoute authed={authed}><WreckReviewAdmin /></ProtectedRoute>
         } />
         <Route path="/*" element={
-          <ProtectedRoute authed={authed}><SST
+          <ProtectedRoute authed={authed}><SSTLive /></ProtectedRoute>
+        } />
+      </Routes>
+    </Router>
+  );
+}
+
+export default function App() {
+  return <AppRoot />;
+}
