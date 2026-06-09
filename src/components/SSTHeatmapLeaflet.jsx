@@ -427,29 +427,16 @@ function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<
 
 // ── Submarine Canyon Labels (Mid-Atlantic + New England) ─────────────────────
 const CANYON_LABELS = [
-  // Mid-Atlantic Bight — NOAA reference positions, N→S along shelf break
-  { name: "Hudson Canyon",        lat: 39.95, lon: -72.50 },  // ~39°57'N 72°30'W
-  { name: "Hendrickson Canyon",   lat: 39.65, lon: -72.62 },
-  { name: "Toms Canyon",          lat: 39.45, lon: -72.75 },  // ~39°27'N 72°45'W
-  { name: "Carteret Canyon",      lat: 39.20, lon: -72.90 },
-  { name: "Lindenkohl Canyon",    lat: 38.88, lon: -73.05 },
-  { name: "Spencer Canyon",       lat: 38.68, lon: -73.08 },
-  { name: "Wilmington Canyon",    lat: 38.55, lon: -73.12 },
-  { name: "Baltimore Canyon",     lat: 38.35, lon: -73.22 },  // ~38°27'N 73°12'W
-  { name: "Poor Man's Canyon",    lat: 38.05, lon: -73.38 },
-  { name: "Washington Canyon",    lat: 37.92, lon: -73.60 },  // ~37°57'N 73°36'W
-  { name: "Norfolk Canyon",       lat: 37.10, lon: -74.35 },  // ~37°06'N 74°24'W
-  { name: "Hatteras Canyon",      lat: 35.28, lon: -75.08 },
-  // New England / southern Georges Bank
-  { name: "Block Canyon",         lat: 40.50, lon: -70.92 },
-  { name: "Alvin Canyon",         lat: 38.88, lon: -70.82 },
-  { name: "Heezen Canyon",        lat: 38.52, lon: -70.68 },
-  { name: "Veatch Canyon",        lat: 40.22, lon: -69.58 },
-  { name: "Atlantis Canyon",      lat: 40.28, lon: -69.18 },
-  { name: "Corsair Canyon",       lat: 40.22, lon: -68.72 },
-  { name: "Lydonia Canyon",       lat: 40.62, lon: -67.78 },
-  { name: "Oceanographer Canyon", lat: 40.48, lon: -67.98 },
-  { name: "Hydrographer Canyon",  lat: 40.38, lon: -68.18 },
+  { name: "Hatteras Canyon",   lat: 34.9509, lon: -75.1509 },
+  { name: "Pamlico Canyon",    lat: 34.7859, lon: -75.3500 },
+  { name: "Keller Canyon",     lat: 35.5377, lon: -74.7680 },
+  { name: "Norfolk Canyon",    lat: 37.0347, lon: -74.5470 },
+  { name: "Washington Canyon", lat: 37.3645, lon: -74.3261 },
+  { name: "Poor Man's Canyon", lat: 37.7679, lon: -74.0137 },
+  { name: "Baltimore Canyon",  lat: 38.0384, lon: -73.7240 },
+  { name: "Wilmington Canyon", lat: 38.3194, lon: -73.4772 },
+  { name: "Spencer Canyon",    lat: 38.5760, lon: -73.1220 },
+  { name: "Lindenkohl Canyon", lat: 38.7550, lon: -72.9457 },
 ];
 
 // ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
