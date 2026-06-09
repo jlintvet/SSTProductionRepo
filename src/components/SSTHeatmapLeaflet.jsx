@@ -427,27 +427,29 @@ function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<
 
 // ── Submarine Canyon Labels (Mid-Atlantic + New England) ─────────────────────
 const CANYON_LABELS = [
-  { name: "Hudson Canyon",        lat: 38.80, lon: -72.60 },
-  { name: "Toms Canyon",          lat: 39.00, lon: -73.10 },
-  { name: "Ryan Canyon",          lat: 39.55, lon: -72.55 },
-  { name: "Gilbert Canyon",       lat: 39.35, lon: -72.35 },
-  { name: "Carteret Canyon",      lat: 38.75, lon: -73.35 },
-  { name: "Lindenkohl Canyon",    lat: 38.55, lon: -73.25 },
-  { name: "Baltimore Canyon",     lat: 38.35, lon: -73.60 },
-  { name: "Washington Canyon",    lat: 37.85, lon: -73.80 },
-  { name: "Norfolk Canyon",       lat: 36.80, lon: -74.60 },
-  { name: "Hatteras Canyon",      lat: 34.90, lon: -75.50 },
-  { name: "Block Canyon",         lat: 40.50, lon: -70.95 },
-  { name: "Alvin Canyon",         lat: 39.30, lon: -70.60 },
-  { name: "Heezen Canyon",        lat: 38.90, lon: -70.90 },
-  { name: "Veatch Canyon",        lat: 40.15, lon: -69.55 },
-  { name: "Atlantis Canyon",      lat: 40.20, lon: -69.10 },
-  { name: "Corsair Canyon",       lat: 40.20, lon: -68.65 },
-  { name: "Spencer Canyon",       lat: 40.30, lon: -68.40 },
-  { name: "Hydrographer Canyon",  lat: 40.35, lon: -68.10 },
-  { name: "Oceanographer Canyon", lat: 40.45, lon: -67.95 },
-  { name: "Lydonia Canyon",       lat: 40.60, lon: -67.75 },
-  { name: "Wilmington Canyon",    lat: 38.90, lon: -73.00 },
+  // Mid-Atlantic Bight — placed at canyon head (shelf break entry)
+  { name: "Hudson Canyon",        lat: 40.10, lon: -72.62 },  // head at shelf edge ~200fa
+  { name: "Ryan Canyon",          lat: 39.72, lon: -72.50 },
+  { name: "Toms Canyon",          lat: 39.48, lon: -72.72 },
+  { name: "Gilbert Canyon",       lat: 39.58, lon: -72.42 },
+  { name: "Carteret Canyon",      lat: 38.92, lon: -72.90 },
+  { name: "Wilmington Canyon",    lat: 38.68, lon: -73.05 },
+  { name: "Lindenkohl Canyon",    lat: 38.58, lon: -73.15 },
+  { name: "Baltimore Canyon",     lat: 38.45, lon: -73.25 },
+  { name: "Washington Canyon",    lat: 38.22, lon: -73.48 },  // was 37.85 — far too south
+  { name: "Norfolk Canyon",       lat: 37.12, lon: -74.42 },  // was 36.80 — too south
+  { name: "Hatteras Canyon",      lat: 35.28, lon: -75.08 },
+  // New England / southern Georges Bank
+  { name: "Block Canyon",         lat: 40.50, lon: -70.92 },
+  { name: "Alvin Canyon",         lat: 38.88, lon: -70.82 },
+  { name: "Heezen Canyon",        lat: 38.52, lon: -70.68 },
+  { name: "Veatch Canyon",        lat: 40.22, lon: -69.58 },
+  { name: "Atlantis Canyon",      lat: 40.28, lon: -69.18 },
+  { name: "Corsair Canyon",       lat: 40.22, lon: -68.72 },
+  { name: "Spencer Canyon",       lat: 40.32, lon: -68.45 },
+  { name: "Hydrographer Canyon",  lat: 40.38, lon: -68.18 },
+  { name: "Oceanographer Canyon", lat: 40.48, lon: -67.98 },
+  { name: "Lydonia Canyon",       lat: 40.62, lon: -67.78 },
 ];
 
 // ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
@@ -1820,7 +1822,7 @@ export default function SSTHeatmapLeaflet(props) {
     CANYON_LABELS.forEach(({ name, lat, lon }) => {
       const icon = L.divIcon({
         className: "",
-        html: `<div style="font-size:11px;font-style:italic;font-weight:600;font-family:Georgia,serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
+        html: `<div style="font-size:11px;font-style:italic;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
         iconSize: null,
         iconAnchor: [0, 6],
       });
