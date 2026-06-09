@@ -425,19 +425,6 @@ function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity){
 // ── Ocean mask ────────────────────────────────────────────────────────────────
 function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];if((yi>py)!==(yj>py)&&px<((xj-xi)*(py-yi))/(yj-yi)+xi)inside=!inside;}return inside;}
 
-// ── Canyon validation points (DMS from fishing charts — for bathy alignment check)
-const CANYON_VALIDATION_POINTS = [
-  { name: "Norfolk 100fa Tip",      lat: 37.091667, lon: -74.758333 },
-  { name: "Norfolk 100fa Bight",    lat: 37.058333, lon: -74.65     },
-  { name: "Norfolk 500fa Tip",      lat: 37.033333, lon: -74.616667 },
-  { name: "Washington 100fa Tip",   lat: 37.486667, lon: -74.508333 },
-  { name: "Washington 100fa Bight", lat: 37.436667, lon: -74.433333 },
-  { name: "Washington 500fa Tip",   lat: 37.413333, lon: -74.43     },
-  { name: "Wilmington 100fa Tip",   lat: 38.506667, lon: -73.495    },
-  { name: "Wilmington 100fa Bight", lat: 38.376667, lon: -73.483333 },
-  { name: "Wilmington 500fa Tip",   lat: 38.388333, lon: -73.54     },
-];
-
 // ── Submarine Canyon Labels (Mid-Atlantic + New England) ─────────────────────
 const CANYON_LABELS = [
   // Mid-Atlantic Bight — NOAA reference positions, N→S along shelf break
@@ -580,8 +567,7 @@ function buildLoranGrid(map, waterMask) {
 }
 
 const OCEAN_MASK_URL="https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/ocean_mask.json";
-const COASTLINE_CHECK_URL="https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson";
-const BATHY_COASTLINE_URL="https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/noaa_coastline.json";
+
 async function loadPrebakedMask(){try{const t0=performance.now();const res=await fetch(OCEAN_MASK_URL);if(!res.ok){console.warn("[MASK] prebaked not available, HTTP",res.status);return null;}const obj=await res.json();const{bounds,step,rows,cols,packed}=obj;const bin=atob(packed);const bits=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bits[i]=bin.charCodeAt(i);console.log(`[MASK] prebaked loaded in ${(performance.now()-t0).toFixed(0)}ms (${rows}x${cols}, ${bits.length} bytes)`);return(lat,lon)=>{const ri=Math.round((bounds.n-lat)/step);const ci=Math.round((lon-bounds.w)/step);if(ri<0||ri>=rows||ci<0||ci>=cols)return false;const idx=ri*cols+ci;return(bits[idx>>3]&(0x80>>(idx&7)))!==0;};}catch(e){console.warn("[MASK] prebaked load failed:",e);return null;}}
 async function buildOceanMaskFromLand(bounds){const prebaked=await loadPrebakedMask();if(prebaked)return prebaked;console.warn("[MASK] falling back to live Natural Earth download");try{const res=await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson");const gj=await res.json();let polys=[];for(const f of gj.features){const g=f.geometry;if(g.type==="Polygon")polys.push(g.coordinates);else if(g.type==="MultiPolygon")g.coordinates.forEach(p=>polys.push(p));}polys=polys.filter(poly=>{const r=poly[0];let mnLon=Infinity,mxLon=-Infinity,mnLat=Infinity,mxLat=-Infinity;for(const[lo,la]of r){if(lo<mnLon)mnLon=lo;if(lo>mxLon)mxLon=lo;if(la<mnLat)mnLat=la;if(la>mxLat)mxLat=la;}return mxLon>=bounds.west&&mnLon<=bounds.east&&mxLat>=bounds.south&&mnLat<=bounds.north;});if(!polys.length)return null;const STEP=0.02;const ocean=new Set();for(let lat=bounds.south;lat<=bounds.north+STEP*0.5;lat+=STEP){for(let lon=bounds.west;lon<=bounds.east+STEP*0.5;lon+=STEP){let isLand=false;for(const poly of polys){if(pointInRing(lon,lat,poly[0])){let inHole=false;for(let h=1;h<poly.length;h++){if(pointInRing(lon,lat,poly[h])){inHole=true;break;}}if(!inHole){isLand=true;break;}}}if(!isLand)ocean.add(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}}if(!ocean.size)return null;return(lat,lon)=>ocean.has(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}catch(e){console.error("[MASK] fallback also failed:",e);return null;}}
 
@@ -792,9 +778,7 @@ export default function SSTHeatmapLeaflet(props) {
   const slaOverlayContourLayerRef = useRef(null);
   const loranLayerRef = useRef(null);
   const canyonLabelLayerRef = useRef(null);
-  const coastlineCheckLayerRef = useRef(null);
-  const bathyCoastlineLayerRef = useRef(null);
-  const validationPtsLayerRef = useRef(null);
+
   const blobUrlsRef         = useRef([]);
 
   const selectedLocationRef = useRef(selectedLocation);
@@ -862,7 +846,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [showIsotherm,         setShowIsotherm]         = useState(false);
   const [showAltimetryOverlay, setShowAltimetryOverlay] = useState(false);
   const [showLoranGrid, setShowLoranGrid] = useState(false);
-  const [showCoastlineCheck, setShowCoastlineCheck] = useState(false);
+  const [showCanyonLabels, setShowCanyonLabels] = useState(true);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(71);
   const [isothermalSensitivity,setIsothermalSensitivity]= useState(2.0);
   const effectiveTargetTemp = isothermalTargetTemp ?? Math.round((sstMin + sstMax) / 2);
@@ -1742,60 +1726,25 @@ export default function SSTHeatmapLeaflet(props) {
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
   }, [mapReady, showLoranGrid, waterMaskVersion]);
 
-  // ── Coastline alignment check ─────────────────────────────────────────────
-  // Red  = Natural Earth 10m fetched directly (independent source)
-  // Blue = noaa_coastline.json from SSTv2 pipeline (same source as bathy masking)
-  // If red ≠ blue → pipeline introduced an offset. Both vs basemap = registration test.
+  // ── Canyon name labels (standalone overlay) ──────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!mapReady || !map) return;
-    if (coastlineCheckLayerRef.current) { map.removeLayer(coastlineCheckLayerRef.current); coastlineCheckLayerRef.current = null; }
-    if (bathyCoastlineLayerRef.current) { map.removeLayer(bathyCoastlineLayerRef.current); bathyCoastlineLayerRef.current = null; }
-    if (!showCoastlineCheck) return;
-    // Red: raw Natural Earth (no pipeline processing)
-    fetch(COASTLINE_CHECK_URL)
-      .then(r => r.json())
-      .then(geojson => {
-        if (!mapRef.current) return;
-        const lyr = L.geoJSON(geojson, {
-          interactive: false,
-          style: { color: "#ef4444", weight: 2.5, opacity: 0.85 },
-        });
-        lyr.addTo(mapRef.current);
-        coastlineCheckLayerRef.current = lyr;
-      })
-      .catch(e => console.warn("[COASTLINE CHECK] red fetch failed:", e));
-    // Blue: noaa_coastline.json from bathy pipeline (same coordinate processing as bathy)
-    fetch(BATHY_COASTLINE_URL)
-      .then(r => r.json())
-      .then(geojson => {
-        if (!mapRef.current) return;
-        const lyr = L.geoJSON(geojson, {
-          interactive: false,
-          style: { color: "#3b82f6", weight: 2, opacity: 0.9 },
-        });
-        lyr.addTo(mapRef.current);
-        bathyCoastlineLayerRef.current = lyr;
-      })
-      .catch(e => console.warn("[COASTLINE CHECK] blue fetch failed:", e));
-    // Validation points — small orange circles with labels, from fishing chart DMS coords
-    if (validationPtsLayerRef.current) { map.removeLayer(validationPtsLayerRef.current); validationPtsLayerRef.current = null; }
-    const valGroup = L.layerGroup();
-    CANYON_VALIDATION_POINTS.forEach(({ name, lat, lon }) => {
-      const color = name.startsWith("Norfolk") ? "#f97316"
-                  : name.startsWith("Washington") ? "#a855f7"
-                  : "#10b981";
-      L.circleMarker([lat, lon], {
-        radius: 6, color: "#fff", weight: 1.5,
-        fillColor: color, fillOpacity: 0.95, interactive: true,
-      })
-        .bindTooltip(name, { permanent: true, direction: "right", offset: [8, 0],
-          className: "val-pt-tooltip" })
-        .addTo(valGroup);
+    if (canyonLabelLayerRef.current) { map.removeLayer(canyonLabelLayerRef.current); canyonLabelLayerRef.current = null; }
+    if (!showCanyonLabels) return;
+    const grp = L.layerGroup();
+    CANYON_LABELS.forEach(({ name, lat, lon }) => {
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="font-size:11px;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
+        iconSize: null,
+        iconAnchor: [0, 11],
+      });
+      L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(grp);
     });
-    valGroup.addTo(map);
-    validationPtsLayerRef.current = valGroup;
-  }, [mapReady, showCoastlineCheck]);
+    grp.addTo(map);
+    canyonLabelLayerRef.current = grp;
+  }, [mapReady, showCanyonLabels]);
 
   // ── Wind raster ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1875,7 +1824,6 @@ export default function SSTHeatmapLeaflet(props) {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (bathyLayerRef.current) { map.removeLayer(bathyLayerRef.current); bathyLayerRef.current = null; }
     if (bathyLabelRef.current) { map.removeLayer(bathyLabelRef.current); bathyLabelRef.current = null; }
-    if (canyonLabelLayerRef.current) { map.removeLayer(canyonLabelLayerRef.current); canyonLabelLayerRef.current = null; }
     if (!showBathyLayer || !jsonContours) return;
     const lyr = L.geoJSON(jsonContours, {
       interactive: false,
@@ -1890,20 +1838,6 @@ export default function SSTHeatmapLeaflet(props) {
       },
     });
     lyr.addTo(map); bathyLayerRef.current = lyr;
-
-    // Canyon name labels — persistent at all zoom levels
-    const canyonGroup = L.layerGroup();
-    CANYON_LABELS.forEach(({ name, lat, lon }) => {
-      const icon = L.divIcon({
-        className: "",
-        html: `<div style="font-size:11px;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
-        iconSize: null,
-        iconAnchor: [0, 6],
-      });
-      L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(canyonGroup);
-    });
-    canyonGroup.addTo(map);
-    canyonLabelLayerRef.current = canyonGroup;
 
     const LABEL_ZOOM = 10;
     function buildLabelLayer() {
@@ -1936,7 +1870,6 @@ export default function SSTHeatmapLeaflet(props) {
     return () => {
       map.off("zoomend", buildLabelLayer); map.off("moveend", buildLabelLayer);
       if (bathyLabelRef.current) { map.removeLayer(bathyLabelRef.current); bathyLabelRef.current = null; }
-      if (canyonLabelLayerRef.current) { map.removeLayer(canyonLabelLayerRef.current); canyonLabelLayerRef.current = null; }
     };
   }, [mapReady, showBathyLayer, jsonContours]);
 
@@ -2307,7 +2240,7 @@ export default function SSTHeatmapLeaflet(props) {
             currentsLoading={currentsLoading} showCurrents={showCurrents} setShowCurrents={setShowCurrents}
             showAltimetryOverlay={showAltimetryOverlay} setShowAltimetryOverlay={setShowAltimetryOverlay}
             showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
-            showCoastlineCheck={showCoastlineCheck} setShowCoastlineCheck={setShowCoastlineCheck}
+            showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             selectedLocation={selectedLocation}
