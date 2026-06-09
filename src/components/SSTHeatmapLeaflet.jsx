@@ -502,7 +502,7 @@ function buildLoranGrid(map, waterMask) {
   function drawLL(levelLines, majClr, minClr) {
     for (const { level, lines } of levelLines) {
       const maj = level % 100 === 0;
-      const wt = maj ? 0.9 : 0.45; const op = maj ? 0.45 : 0.18;
+      const wt = maj ? 1.1 : 0.55; const op = maj ? 0.62 : 0.28;
       for (const seg of lines) {
         const ll = seg.map(([ln, la]) => [la, ln]);
         L.polyline(ll, { color: "rgba(255,255,255,0.25)", weight: wt + 0.7, opacity: 0.2, interactive: false }).addTo(group);
