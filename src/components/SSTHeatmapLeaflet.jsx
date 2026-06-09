@@ -36,6 +36,19 @@ function SavedPanel({
 
   function switchTab(t) { setTab(t); }
 
+  async function clearAllLocations() {
+    if (!window.confirm("Delete all saved locations?")) return;
+    await supabase.from("saved_locations").delete().eq("user_id", userId);
+    (savedLocations || []).forEach(l => clearMarkersRef.current?.(l.id));
+    fetchSavedLocations?.();
+  }
+
+  async function clearAllRoutes() {
+    if (!window.confirm("Delete all saved routes?")) return;
+    await supabase.from("saved_routes").delete().eq("user_id", userId);
+    setRoutes([]); onRoutesCountChange?.(0);
+  }
+
   async function deleteRoute(id, e) {
     e.stopPropagation();
     await supabase.from("saved_routes").delete().eq("id", id);
@@ -72,9 +85,17 @@ function SavedPanel({
             Routes{routes !== null ? ` (${routes.length})` : ""}
           </button>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 pb-1.5">
-          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-        </button>
+        <div className="flex items-center gap-2 pb-1.5">
+          {tab === "locations" && (savedLocations?.length ?? 0) > 0 && (
+            <button onClick={clearAllLocations} className="text-[10px] text-slate-400 hover:text-red-500 transition-colors">Clear all</button>
+          )}
+          {tab === "routes" && routes?.length > 0 && (
+            <button onClick={clearAllRoutes} className="text-[10px] text-slate-400 hover:text-red-500 transition-colors">Clear all</button>
+          )}
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+            <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          </button>
+        </div>
       </div>
 
       {/* Body */}
@@ -117,24 +138,26 @@ function SavedPanel({
                       {" · "}{new Date(r.created_at).toLocaleDateString()}
                     </div>
                   </div>
+                  <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
                   {isPro && (
                     <button
                       onClick={e => { e.stopPropagation(); setSharingRoute(r); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-cyan-500 transition-all flex-shrink-0"
+                      className="p-1.5 rounded-md hover:bg-sky-100 text-sky-400 hover:text-sky-600 transition-colors flex-shrink-0"
                       title="Share route"
                     >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     </button>
                   )}
                   <button
                     onClick={e => deleteRoute(r.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-all flex-shrink-0"
+                    className="p-1.5 rounded-md hover:bg-red-100 text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
                     title="Delete route"
                   >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                     </svg>
                   </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1344,8 +1367,8 @@ export default function SSTHeatmapLeaflet(props) {
     if (!hourData?.velocityJSON) return;
     const maxSpd = currentsData.maxSpeed ?? 2.0;
     const currentsLayer = L.velocityLayer({
-      lineWidth: 3.5,
-      particleMultiplier: 0.00023,
+      lineWidth: 3.0,
+      particleMultiplier: 0.0005,
       particleAge: 75,
       displayOptions: {
         velocityType: "Current", position: "bottomleft", emptyString: "No current data",
