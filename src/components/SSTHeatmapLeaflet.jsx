@@ -444,7 +444,7 @@ export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,r
       if(!rgb)continue;
       const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=220;}}
   ctx.putImageData(img,0,0);
-  return new Promise((resolve)=>{canvas.toBlob((blob)=>{if(!blob){resolve(null);return;}resolve({dataURL:URL.createObjectURL(blob),west:lonWest-lonStep/2,east:lonEast+lonStep/2,north:latNorth+latStep/2,south:latSouth-latStep/2});},"image/png");});
+  return new Promise((resolve)=>{canvas.toBlob((blob)=>{if(!blob){resolve(null);return;}resolve({dataURL:URL.createObjectURL(blob),west:lonWest-lonStep/2,east:lonEast+lonStep/2,north:latNorth,south:latSouth});},"image/png");});
 }
 
 // ── IsothermControls (extracted to components/IsothermControls.jsx) ───────────
