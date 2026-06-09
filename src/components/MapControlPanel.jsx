@@ -282,6 +282,7 @@ export default function MapControlPanel({
   showWindOverlay, setShowWindOverlay,
   currentsLoading, showCurrents, setShowCurrents,
   showAltimetryOverlay, setShowAltimetryOverlay,
+  showLoranGrid, setShowLoranGrid,
   // overlays
   showBathyLayer, setShowBathyLayer,
   jsonContoursLoading,
@@ -603,6 +604,9 @@ export default function MapControlPanel({
               {wrecksLoading ? "Loading…" : "Bottom Features"}
             </ToolBtn>
           </ProGate>
+          <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
+            {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+          </ToolBtn>
         </div>
       )}
 

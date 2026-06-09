@@ -424,6 +424,112 @@ function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity){
 
 // ── Ocean mask ────────────────────────────────────────────────────────────────
 function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];if((yi>py)!==(yj>py)&&px<((xj-xi)*(py-yi))/(yj-yi)+xi)inside=!inside;}return inside;}
+
+// ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
+// Emission delays back-calculated from Mid-Atlantic spot references (Hudson Canyon etc.)
+const LORAN_MASTER = { lat: 41.2528, lon: -69.9775 };
+const LORAN_STATIONS = {
+  W: { lat: 42.3857, lon: -76.8253, ed: 26069 }, // Seneca, NY
+  Y: { lat: 41.3898, lon: -84.3752, ed: 41503 }, // Dana, IN
+};
+function loranHaversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371.009, r = Math.PI / 180;
+  const dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function computeLoranTD(lat, lon, stKey) {
+  const st = LORAN_STATIONS[stKey];
+  return st.ed + (loranHaversineKm(lat, lon, st.lat, st.lon) - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
+}
+function buildLoranGrid(map) {
+  const LSTEP = 0.1, LAT_MAX = 48, LAT_MIN = 24, LON_MIN = -82, LON_MAX = -60;
+  const latSet = [], lonSet = [];
+  for (let la = LAT_MAX; la >= LAT_MIN - 0.001; la = Math.round((la - LSTEP) * 1e4) / 1e4) latSet.push(la);
+  for (let lo = LON_MIN; lo <= LON_MAX + 0.001; lo = Math.round((lo + LSTEP) * 1e4) / 1e4) lonSet.push(lo);
+
+  const wGrid = {}, yGrid = {};
+  for (const la of latSet) for (const lo of lonSet) {
+    const k = `${la}_${lo}`;
+    wGrid[k] = computeLoranTD(la, lo, "W");
+    yGrid[k] = computeLoranTD(la, lo, "Y");
+  }
+
+  const { field: wField, rows, cols } = buildField(latSet, lonSet, wGrid);
+  const { field: yField } = buildField(latSet, lonSet, yGrid);
+
+  function rangeFor(grid) {
+    const vals = Object.values(grid).filter(Number.isFinite).sort((a,b)=>a-b);
+    return [Math.ceil(vals[0] / 20) * 20, Math.floor(vals[vals.length-1] / 20) * 20];
+  }
+  const [wLo, wHi] = rangeFor(wGrid);
+  const [yLo, yHi] = rangeFor(yGrid);
+
+  const wLL = [], yLL = [];
+  for (let l = wLo; l <= wHi; l += 20) { const lines = marchingSquares(latSet, lonSet, wField, rows, cols, l); if (lines.length) wLL.push({ level: l, lines }); }
+  for (let l = yLo; l <= yHi; l += 20) { const lines = marchingSquares(latSet, lonSet, yField, rows, cols, l); if (lines.length) yLL.push({ level: l, lines }); }
+
+  const group = L.layerGroup();
+  function drawLL(levelLines, majClr, minClr) {
+    for (const { level, lines } of levelLines) {
+      const maj = level % 100 === 0;
+      const wt = maj ? 1.4 : 0.65; const op = maj ? 0.8 : 0.4;
+      for (const seg of lines) {
+        const ll = seg.map(([ln, la]) => [la, ln]);
+        L.polyline(ll, { color: "rgba(255,255,255,0.5)", weight: wt + 1.4, opacity: 0.6, interactive: false }).addTo(group);
+        L.polyline(ll, { color: maj ? majClr : minClr, weight: wt, opacity: op, interactive: false }).addTo(group);
+      }
+    }
+  }
+  drawLL(wLL, "#1e3a8a", "rgba(30,58,138,0.55)");
+  drawLL(yLL, "#7c2d12", "rgba(124,45,18,0.55)");
+
+  const lbl = { layer: null };
+  function buildLoranLabels() {
+    if (lbl.layer) { map.removeLayer(lbl.layer); lbl.layer = null; }
+    if (map.getZoom() < 8) return;
+    const mb = map.getBounds();
+    const lg = L.layerGroup();
+    function addLbls(levelLines, prefix, color) {
+      const cnt = {};
+      for (const { level, lines } of levelLines) {
+        if (level % 100 !== 0) continue;
+        for (const line of lines) {
+          let best = [], cur = [];
+          for (const [ln, la] of line) {
+            if (mb.contains([la, ln])) cur.push([ln, la]);
+            else { if (cur.length > best.length) best = cur; cur = []; }
+          }
+          if (cur.length > best.length) best = cur;
+          if (best.length < 8) continue;
+          if ((cnt[level] || 0) >= 3) continue;
+          cnt[level] = (cnt[level] || 0) + 1;
+          const [ln, la] = best[Math.floor(best.length / 2)];
+          L.marker([la, ln], {
+            icon: L.divIcon({
+              className: "",
+              html: `<div style="font-size:9px;font-weight:700;font-family:system-ui,sans-serif;color:${color};text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1;">${prefix}${level}</div>`,
+              iconSize: null, iconAnchor: [0, 5],
+            }),
+            interactive: false, keyboard: false,
+          }).addTo(lg);
+        }
+      }
+    }
+    addLbls(wLL, "W", "#1e3a8a");
+    addLbls(yLL, "Y", "#7c2d12");
+    lg.addTo(map); lbl.layer = lg;
+  }
+  buildLoranLabels();
+  map.on("zoomend", buildLoranLabels);
+  map.on("moveend", buildLoranLabels);
+  group._loranCleanup = () => {
+    map.off("zoomend", buildLoranLabels); map.off("moveend", buildLoranLabels);
+    if (lbl.layer) { map.removeLayer(lbl.layer); lbl.layer = null; }
+  };
+  return group;
+}
+
 const OCEAN_MASK_URL="https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/ocean_mask.json";
 async function loadPrebakedMask(){try{const t0=performance.now();const res=await fetch(OCEAN_MASK_URL);if(!res.ok){console.warn("[MASK] prebaked not available, HTTP",res.status);return null;}const obj=await res.json();const{bounds,step,rows,cols,packed}=obj;const bin=atob(packed);const bits=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bits[i]=bin.charCodeAt(i);console.log(`[MASK] prebaked loaded in ${(performance.now()-t0).toFixed(0)}ms (${rows}x${cols}, ${bits.length} bytes)`);return(lat,lon)=>{const ri=Math.round((bounds.n-lat)/step);const ci=Math.round((lon-bounds.w)/step);if(ri<0||ri>=rows||ci<0||ci>=cols)return false;const idx=ri*cols+ci;return(bits[idx>>3]&(0x80>>(idx&7)))!==0;};}catch(e){console.warn("[MASK] prebaked load failed:",e);return null;}}
 async function buildOceanMaskFromLand(bounds){const prebaked=await loadPrebakedMask();if(prebaked)return prebaked;console.warn("[MASK] falling back to live Natural Earth download");try{const res=await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson");const gj=await res.json();let polys=[];for(const f of gj.features){const g=f.geometry;if(g.type==="Polygon")polys.push(g.coordinates);else if(g.type==="MultiPolygon")g.coordinates.forEach(p=>polys.push(p));}polys=polys.filter(poly=>{const r=poly[0];let mnLon=Infinity,mxLon=-Infinity,mnLat=Infinity,mxLat=-Infinity;for(const[lo,la]of r){if(lo<mnLon)mnLon=lo;if(lo>mxLon)mxLon=lo;if(la<mnLat)mnLat=la;if(la>mxLat)mxLat=la;}return mxLon>=bounds.west&&mnLon<=bounds.east&&mxLat>=bounds.south&&mnLat<=bounds.north;});if(!polys.length)return null;const STEP=0.02;const ocean=new Set();for(let lat=bounds.south;lat<=bounds.north+STEP*0.5;lat+=STEP){for(let lon=bounds.west;lon<=bounds.east+STEP*0.5;lon+=STEP){let isLand=false;for(const poly of polys){if(pointInRing(lon,lat,poly[0])){let inHole=false;for(let h=1;h<poly.length;h++){if(pointInRing(lon,lat,poly[h])){inHole=true;break;}}if(!inHole){isLand=true;break;}}}if(!isLand)ocean.add(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}}if(!ocean.size)return null;return(lat,lon)=>ocean.has(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}catch(e){console.error("[MASK] fallback also failed:",e);return null;}}
@@ -633,6 +739,7 @@ export default function SSTHeatmapLeaflet(props) {
   const currentsLayerRef    = useRef(null);
   const slaContourLayerRef  = useRef(null);
   const slaOverlayContourLayerRef = useRef(null);
+  const loranLayerRef = useRef(null);
   const blobUrlsRef         = useRef([]);
 
   const selectedLocationRef = useRef(selectedLocation);
@@ -699,6 +806,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [hotspotWarningOpen,   setHotspotWarningOpen]   = useState(false);
   const [showIsotherm,         setShowIsotherm]         = useState(false);
   const [showAltimetryOverlay, setShowAltimetryOverlay] = useState(false);
+  const [showLoranGrid, setShowLoranGrid] = useState(false);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(71);
   const [isothermalSensitivity,setIsothermalSensitivity]= useState(2.0);
   const effectiveTargetTemp = isothermalTargetTemp ?? Math.round((sstMin + sstMax) / 2);
@@ -1568,6 +1676,16 @@ export default function SSTHeatmapLeaflet(props) {
     if (grp) { grp.addTo(map); slaOverlayContourLayerRef.current = grp; }
   }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, repaintTrigger]);
 
+  // ── Loran-C phantom grid overlay ────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    if (loranLayerRef.current) { loranLayerRef.current._loranCleanup?.(); map.removeLayer(loranLayerRef.current); loranLayerRef.current = null; }
+    if (!showLoranGrid) return;
+    const grp = buildLoranGrid(map);
+    if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
+  }, [mapReady, showLoranGrid]);
+
   // ── Wind raster ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -2060,6 +2178,7 @@ export default function SSTHeatmapLeaflet(props) {
             showWindOverlay={showWindOverlay} setShowWindOverlay={setShowWindOverlay}
             currentsLoading={currentsLoading} showCurrents={showCurrents} setShowCurrents={setShowCurrents}
             showAltimetryOverlay={showAltimetryOverlay} setShowAltimetryOverlay={setShowAltimetryOverlay}
+            showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             selectedLocation={selectedLocation}
@@ -2552,6 +2671,12 @@ export default function SSTHeatmapLeaflet(props) {
                           {wrecksLoading ? "Loading…" : "Bottom Features"}
                         </button>
                       </MobileProGate>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <button onClick={() => setShowLoranGrid(v => !v)}
+                        className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors col-span-2 ${showLoranGrid ? "bg-slate-700 text-white border-slate-700" : "bg-white text-slate-600 border-slate-300"}`}>
+                        {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+                      </button>
                     </div>
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <MobileProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
