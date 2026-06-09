@@ -484,12 +484,12 @@ export default function MapControlPanel({
 
           <ProGate isPro={isPro} label="Sea level anomaly (altimetry) is available on the Pro plan.">
             <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
-              🌊 Altimetry
+              Altimetry
             </LayerBtn>
           </ProGate>
 
           <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
-            <Wind className="w-3 h-3" />{windLoading ? "Loading…" : "Wind map"}
+            {windLoading ? "Loading…" : "Wind map"}
           </LayerBtn>
         </div>
       )}
@@ -528,7 +528,7 @@ export default function MapControlPanel({
           {isSST && (
             <ProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
               <ToolBtn active={showIsotherm} color="sky" onClick={() => setShowIsotherm(v => !v)}>
-                <span className="text-sm leading-none">~</span> Temp break
+                Temp break
               </ToolBtn>
               {showIsotherm && (
                 <IsothermSubControls
@@ -544,7 +544,7 @@ export default function MapControlPanel({
 
           <ProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
             <ToolBtn active={showHotspots} color="amber" onClick={() => setShowHotspots(h => !h)}>
-              🎣 {hotspotLoading ? "Loading…" : "Hot spots"}
+              {hotspotLoading ? "Loading…" : "Hot spots"}
             </ToolBtn>
             {showHotspots && (
               <div className="flex flex-wrap gap-1 mt-0.5">
@@ -559,30 +559,13 @@ export default function MapControlPanel({
             )}
           </ProGate>
 
-          {!isWindMap && (
-            <ProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
-              <ToolBtn active={showWindOverlay} color="cyan" onClick={() => setShowWindOverlay(v => !v)}>
-                <Wind className="w-3 h-3" />{windLoading ? "Loading…" : showWindOverlay ? "Wind on" : "Wind overlay"}
-              </ToolBtn>
-            </ProGate>
-          )}
-          <ProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
-            <ToolBtn active={showCurrents} color="cyan" onClick={() => setShowCurrents(v => !v)}>
-              &#x1F30A; {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
-            </ToolBtn>
-          </ProGate>
           <ProGate isPro={isPro} label="Trip planning is available on the Pro plan.">
             <ToolBtn active={tripMode} color="cyan" onClick={onToggleTripMode}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/></svg>
               {tripMode ? "Planning…" : "Plan Trip"}
             </ToolBtn>
           </ProGate>
           <ProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
             <ToolBtn active={gpsActive} color="green" onClick={onToggleGps}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-                <path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
-              </svg>
               {gpsActive ? "GPS On" : "Real Time"}
             </ToolBtn>
           </ProGate>
@@ -598,9 +581,21 @@ export default function MapControlPanel({
           <ToolBtn active={showBathyLayer} color="blue" onClick={() => setShowBathyLayer(b => !b)}>
             {jsonContoursLoading ? "Loading…" : "Bathy"}
           </ToolBtn>
+          {!isWindMap && (
+            <ProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
+              <ToolBtn active={showWindOverlay} color="cyan" onClick={() => setShowWindOverlay(v => !v)}>
+                {windLoading ? "Loading…" : showWindOverlay ? "Wind on" : "Wind overlay"}
+              </ToolBtn>
+            </ProGate>
+          )}
+          <ProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
+            <ToolBtn active={showCurrents} color="cyan" onClick={() => setShowCurrents(v => !v)}>
+              {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
+            </ToolBtn>
+          </ProGate>
           <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
             <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
-              〰 {showAltimetryOverlay ? "SLA Overlay on" : "SLA Overlay"}
+              {showAltimetryOverlay ? "SLA Overlay on" : "SLA Overlay"}
             </ToolBtn>
           </ProGate>
           <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
