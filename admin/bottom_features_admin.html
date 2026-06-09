@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bottom Features Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* Top bar */
+#topbar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0}
+#topbar h1{font-size:14px;font-weight:700;color:#f8fafc;margin-right:4px;white-space:nowrap}
+.stat-pill{background:#334155;border-radius:10px;padding:2px 9px;font-size:11px;color:#94a3b8;white-space:nowrap}
+.stat-pill span{color:#f8fafc;font-weight:600}
+.stat-pill.red span{color:#f87171}
+.stat-pill.amber span{color:#fbbf24}
+#tokenWrap{margin-left:auto;display:flex;align-items:center;gap:6px}
+#tokenInput{background:#334155;border:1px solid #475569;border-radius:6px;padding:4px 8px;color:#e2e8f0;font-size:12px;width:200px}
+#commitBtn{background:#2563eb;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+#commitBtn:disabled{background:#475569;cursor:not-allowed}
+#commitBtn:hover:not(:disabled){background:#1d4ed8}
+
+/* Main layout */
+#main{display:flex;flex:1;overflow:hidden}
+
+/* Left panel */
+#leftPanel{width:310px;flex-shrink:0;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column}
+#filterBar{padding:8px;border-bottom:1px solid #334155;display:flex;flex-direction:column;gap:6px}
+#searchInput{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px}
+#searchInput::placeholder{color:#64748b}
+.filter-row{display:flex;gap:5px}
+.filter-sel{flex:1;background:#334155;border:1px solid #475569;border-radius:4px;padding:3px 5px;color:#e2e8f0;font-size:11px}
+.list-count{padding:4px 10px;font-size:10px;color:#64748b;border-bottom:1px solid #334155}
+#featureList{flex:1;overflow-y:auto}
+.feat-item{display:flex;align-items:center;gap:7px;padding:6px 10px;border-bottom:1px solid #1e293b;cursor:pointer;transition:background 0.08s;user-select:none}
+.feat-item:hover{background:#283548}
+.feat-item.selected{background:#1d3a5c;border-left:2px solid #3b82f6}
+.feat-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:background 0.15s}
+.feat-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.feat-name.strike{text-decoration:line-through;color:#475569}
+.feat-region{font-size:10px;color:#64748b;flex-shrink:0}
+
+/* Map */
+#mapWrap{flex:1;position:relative;min-width:0}
+#map{width:100%;height:100%}
+#keyHints{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.85);border-radius:8px;padding:4px 14px;font-size:11px;color:#94a3b8;z-index:1000;pointer-events:none;white-space:nowrap}
+
+/* Right panel */
+#rightPanel{width:272px;flex-shrink:0;background:#1e293b;border-left:1px solid #334155;display:flex;flex-direction:column;overflow:hidden}
+#panelEmpty{flex:1;display:flex;align-items:center;justify-content:center;color:#475569;font-size:12px;text-align:center;padding:24px}
+#panelContent{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.plabel{font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.pinput{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:13px}
+.pinput:focus{outline:none;border-color:#3b82f6}
+.sym-toggle{display:flex;gap:6px}
+.sym-btn{flex:1;padding:5px 4px;border:1px solid #475569;border-radius:6px;background:#334155;color:#94a3b8;font-size:12px;cursor:pointer;transition:all .1s}
+.sym-btn.aw{background:#ef4444;border-color:#ef4444;color:white}
+.sym-btn.ar{background:#d97706;border-color:#d97706;color:white}
+.dec-btns{display:flex;gap:6px}
+.dec-btn{flex:1;padding:6px 2px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .1s}
+.dec-btn.keep{background:#1a4731;color:#86efac}
+.dec-btn.keep:hover,.dec-btn.keep.active{background:#22c55e;color:white}
+.dec-btn.pend{background:#3b2910;color:#fcd34d}
+.dec-btn.pend:hover,.dec-btn.pend.active{background:#f59e0b;color:white}
+.dec-btn.rem{background:#3b1111;color:#fca5a5}
+.dec-btn.rem:hover,.dec-btn.rem.active{background:#ef4444;color:white}
+.coord-row{display:flex;gap:6px}
+.coord-val{flex:1;background:#0f172a;border-radius:4px;padding:4px 7px;font-size:11px;color:#64748b;font-family:monospace}
+.notes-ta{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;resize:vertical;min-height:56px;font-family:system-ui}
+.notes-ta:focus{outline:none;border-color:#3b82f6}
+#dmsNote{font-size:10px;color:#64748b;margin-top:3px}
+
+/* Progress modal */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center}
+#modal.show{display:flex}
+#modalBox{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px;width:420px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:14px}
+.prog-line{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;line-height:1.4}
+.prog-icon{width:18px;text-align:center;flex-shrink:0;margin-top:1px}
+.prog-text{flex:1;color:#94a3b8}
+.prog-text.ok{color:#86efac}
+.prog-text.err{color:#fca5a5}
+.prog-text.cur{color:#e2e8f0}
+#modalClose{margin-top:14px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px}
+#modalClose:hover{background:#475569}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>⚓ Bottom Features Admin</h1>
+  <div class="stat-pill">Total <span id="sTotal">—</span></div>
+  <div class="stat-pill">Pending <span id="sPending">—</span></div>
+  <div class="stat-pill red">Remove <span id="sRemove">—</span></div>
+  <div class="stat-pill amber">Edited <span id="sEdited">—</span></div>
+  <div id="tokenWrap">
+    <input id="tokenInput" type="password" placeholder="GitHub token…" autocomplete="off"
+           oninput="localStorage.setItem('bf_gh_token',this.value)"/>
+    <button id="commitBtn" onclick="startCommit()">Commit to GitHub</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="leftPanel">
+    <div id="filterBar">
+      <input id="searchInput" type="text" placeholder="Search by name…"/>
+      <div class="filter-row">
+        <select id="fRegion" class="filter-sel">
+          <option value="">All regions</option>
+          <option value="HatterasNC">Hatteras NC</option>
+          <option value="MoreheadNC">Morehead NC</option>
+          <option value="ChesapeakeMD">Chesapeake MD</option>
+          <option value="OceanCityMD">Ocean City MD</option>
+        </select>
+        <select id="fSymbol" class="filter-sel">
+          <option value="">All symbols</option>
+          <option value="Wreck">Wreck</option>
+          <option value="Rocks">Rocks</option>
+        </select>
+        <select id="fDecision" class="filter-sel">
+          <option value="">All decisions</option>
+          <option value="pending">Pending</option>
+          <option value="keep">Keep</option>
+          <option value="remove">Remove</option>
+        </select>
+      </div>
+    </div>
+    <div class="list-count" id="listCount">Loading…</div>
+    <div id="featureList"></div>
+  </div>
+
+  <div id="mapWrap">
+    <div id="map"></div>
+    <div id="keyHints">K = keep &nbsp;·&nbsp; X = remove &nbsp;·&nbsp; ↑↓ = prev/next &nbsp;·&nbsp; Tab = next pending</div>
+  </div>
+
+  <div id="rightPanel">
+    <div id="panelEmpty">Select a feature<br>to review or edit</div>
+    <div id="panelContent" style="display:none">
+      <div>
+        <div class="plabel">Name</div>
+        <input id="eName" class="pinput" type="text" placeholder="Feature name"/>
+      </div>
+      <div>
+        <div class="plabel">Symbol / Type</div>
+        <div class="sym-toggle">
+          <button class="sym-btn" id="sWreck" onclick="setSym('Wreck')">⚓ Wreck</button>
+          <button class="sym-btn" id="sRocks" onclick="setSym('Rocks')">🪨 Rocks</button>
+        </div>
+        <div id="dmsNote" style="display:none">Symbol field not in text-format file — won't be saved to GPX</div>
+      </div>
+      <div>
+        <div class="plabel">Decision</div>
+        <div class="dec-btns">
+          <button class="dec-btn keep" id="dKeep" onclick="setDec('keep')">✓ Keep</button>
+          <button class="dec-btn pend" id="dPend" onclick="setDec('pending')">? Pending</button>
+          <button class="dec-btn rem"  id="dRem"  onclick="setDec('remove')">✗ Remove</button>
+        </div>
+      </div>
+      <div>
+        <div class="plabel">Coordinates</div>
+        <div class="coord-row">
+          <div class="coord-val" id="cLat">—</div>
+          <div class="coord-val" id="cLon">—</div>
+        </div>
+      </div>
+      <div>
+        <div class="plabel">Region</div>
+        <div id="cRegion" style="font-size:12px;color:#94a3b8;padding:2px 0"></div>
+      </div>
+      <div>
+        <div class="plabel">Notes</div>
+        <textarea id="eNotes" class="notes-ta" placeholder="Optional notes…"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress modal -->
+<div id="modal">
+  <div id="modalBox">
+    <div class="modal-title" id="modalTitle">Committing to GitHub…</div>
+    <div id="modalLines"></div>
+    <button id="modalClose" style="display:none" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+const WRECKS_URL = 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/wrecks.json';
+const REPO       = 'jlintvet/SSTv2';
+const API        = 'https://api.github.com';
+const REGION_GPX = {
+  HatterasNC:   { path: 'DailySST/Fishing_Spots_HatterasNC.gpx',  fmt: 'xml' },
+  MoreheadNC:   { path: 'DailySST/Fishing_Spots_MoreheadNC.gpx',  fmt: 'xml' },
+  ChesapeakeMD: { path: 'DailySST/Fishing_spots_ChesapeakeMD.gpx', fmt: 'xml' },
+  OceanCityMD:  { path: 'DailySST/Fishing_Spots_OceanCityMD.gpx', fmt: 'dms' },
+};
+const REGION_LABEL = {
+  HatterasNC:'Hatteras, NC', MoreheadNC:'Morehead City, NC',
+  ChesapeakeMD:'Chesapeake, MD', OceanCityMD:'Ocean City, MD',
+};
+const STORE_DECISIONS = 'bf_admin_decisions_v1';
+const STORE_TOKEN     = 'bf_gh_token';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let features = [];      // GeoJSON features from wrecks.json
+let decisions = {};     // key → { decision, newName, newSymbol, notes }
+let selKey    = null;
+let spatialOrder = []; // indices into features[]
+let spatialPos   = 0;
+let map, markersMap = {};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fKey = f => {
+  const [lo,la] = f.geometry.coordinates;
+  return `${(f.properties?.name??'').trim()}_${la.toFixed(4)}_${lo.toFixed(4)}`;
+};
+const getDec  = k => decisions[k]?.decision ?? 'pending';
+const getName = (k,f) => decisions[k]?.newName  ?? f.properties?.name  ?? '';
+const getSym  = (k,f) => decisions[k]?.newSymbol ?? f.properties?.symbol ?? 'Rocks';
+
+function findFeature(k) { return features.find(f => fKey(f) === k); }
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+function saveDecisions() {
+  try { localStorage.setItem(STORE_DECISIONS, JSON.stringify(decisions)); } catch(_){}
+}
+function loadDecisions() {
+  try { const s = localStorage.getItem(STORE_DECISIONS); if(s) decisions = JSON.parse(s); } catch(_){}
+}
+
+// ─── Spatial ordering ─────────────────────────────────────────────────────────
+function d2(a,b) {
+  const [lo1,la1]=a.geometry.coordinates, [lo2,la2]=b.geometry.coordinates;
+  return (la1-la2)**2+(lo1-lo2)**2;
+}
+function buildSpatialOrder(feats) {
+  const n = feats.length; if(!n) return [];
+  let sLa=0,sLo=0;
+  feats.forEach(f=>{const[lo,la]=f.geometry.coordinates;sLa+=la;sLo+=lo;});
+  const cen={geometry:{coordinates:[sLo/n,sLa/n]}};
+  let si=0,sd=Infinity;
+  feats.forEach((f,i)=>{const d=d2(f,cen);if(d<sd){sd=d;si=i;}});
+  const vis=new Uint8Array(n), ord=[si]; vis[si]=1;
+  for(let s=1;s<n;s++){
+    const cur=feats[ord[ord.length-1]];
+    let bi=-1,bd=Infinity;
+    for(let i=0;i<n;i++){if(vis[i])continue;const d=d2(cur,feats[i]);if(d<bd){bd=d;bi=i;}}
+    if(bi<0)break; ord.push(bi); vis[bi]=1;
+  }
+  return ord;
+}
+
+// ─── Map ──────────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map',{center:[36.8,-74.8],zoom:7});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© CartoDB',maxZoom:19
+  }).addTo(map);
+}
+
+function dotColor(k,f) {
+  const dec=getDec(k);
+  if(dec==='keep')   return '#22c55e';
+  if(dec==='remove') return '#ef4444';
+  return getSym(k,f)==='Wreck' ? '#ef4444' : '#f59e0b';
+}
+
+function mkIcon(k,f,sel) {
+  const c=dotColor(k,f), op=getDec(k)==='remove'?0.35:1;
+  const ring=sel?`<circle cx="10" cy="10" r="9" fill="none" stroke="white" stroke-width="2"/>`:'';
+  return L.divIcon({
+    className:'',
+    html:`<svg width="20" height="20" viewBox="0 0 20 20" style="opacity:${op}">
+      <circle cx="10" cy="10" r="6" fill="${c}" stroke="white" stroke-width="1.5"/>${ring}</svg>`,
+    iconSize:[20,20],iconAnchor:[10,10],
+  });
+}
+
+function refreshMarker(k) {
+  const m=markersMap[k]; if(!m)return;
+  const f=findFeature(k); if(!f)return;
+  m.setIcon(mkIcon(k,f,k===selKey));
+}
+
+function buildAllMarkers() {
+  Object.values(markersMap).forEach(m=>map.removeLayer(m));
+  markersMap={};
+  features.forEach(f=>{
+    const k=fKey(f);
+    const [lo,la]=f.geometry.coordinates;
+    const m=L.marker([la,lo],{icon:mkIcon(k,f,false)});
+    m.on('click',()=>select(k,false));
+    m.addTo(map);
+    markersMap[k]=m;
+  });
+}
+
+// ─── Selection ────────────────────────────────────────────────────────────────
+function select(k, flyTo=false) {
+  const prev=selKey; selKey=k;
+  if(prev) refreshMarker(prev);
+  refreshMarker(k);
+  if(flyTo) {
+    const f=findFeature(k);
+    if(f){const[lo,la]=f.geometry.coordinates; map.setView([la,lo],Math.max(map.getZoom(),10),{animate:true});}
+  }
+  const idx=features.findIndex(f=>fKey(f)===k);
+  const si=spatialOrder.indexOf(idx);
+  if(si>=0) spatialPos=si;
+  renderPanel();
+  renderList();
+  updateStats();
+  // Scroll list item into view
+  setTimeout(()=>{
+    const el=document.querySelector(`#featureList .feat-item.selected`);
+    if(el) el.scrollIntoView({block:'nearest'});
+  },0);
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function navDelta(delta) {
+  if(!spatialOrder.length) return;
+  spatialPos=((spatialPos+delta)+spatialOrder.length)%spatialOrder.length;
+  select(fKey(features[spatialOrder[spatialPos]]),true);
+}
+function navNextPending() {
+  for(let i=1;i<=spatialOrder.length;i++){
+    const p=(spatialPos+i)%spatialOrder.length;
+    const k=fKey(features[spatialOrder[p]]);
+    if(getDec(k)==='pending'){spatialPos=p;select(k,true);return;}
+  }
+}
+
+// ─── Setters ──────────────────────────────────────────────────────────────────
+function setDec(dec) {
+  if(!selKey) return;
+  if(!decisions[selKey]) decisions[selKey]={};
+  decisions[selKey].decision=dec;
+  saveDecisions(); refreshMarker(selKey); renderPanel(); renderList(); updateStats();
+}
+function setDecAndNext(dec) { setDec(dec); navDelta(1); }
+function setSym(sym) {
+  if(!selKey) return;
+  if(!decisions[selKey]) decisions[selKey]={};
+  decisions[selKey].newSymbol=sym;
+  saveDecisions(); refreshMarker(selKey); renderPanel(); updateStats();
+}
+function commitName() {
+  if(!selKey) return;
+  const v=document.getElementById('eName').value.trim();
+  if(!decisions[selKey]) decisions[selKey]={};
+  decisions[selKey].newName=v||undefined;
+  saveDecisions(); renderList(); updateStats();
+}
+function commitNotes() {
+  if(!selKey) return;
+  const v=document.getElementById('eNotes').value;
+  if(!decisions[selKey]) decisions[selKey]={};
+  decisions[selKey].notes=v||undefined;
+  saveDecisions();
+}
+
+// Wire up name/notes inputs
+document.getElementById('eName').addEventListener('change', commitName);
+document.getElementById('eName').addEventListener('keydown', e=>{if(e.key==='Enter')commitName();});
+document.getElementById('eNotes').addEventListener('change', commitNotes);
+
+// ─── Keyboard ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  const tag=e.target.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+  if(e.key==='k'||e.key==='K'){setDecAndNext('keep');e.preventDefault();}
+  else if(e.key==='x'||e.key==='X'){setDecAndNext('remove');e.preventDefault();}
+  else if(e.key==='ArrowDown'){navDelta(1);e.preventDefault();}
+  else if(e.key==='ArrowUp'){navDelta(-1);e.preventDefault();}
+  else if(e.key==='Tab'){navNextPending();e.preventDefault();}
+});
+
+// ─── Filters ──────────────────────────────────────────────────────────────────
+function getFiltered() {
+  const reg=document.getElementById('fRegion').value;
+  const sym=document.getElementById('fSymbol').value;
+  const dec=document.getElementById('fDecision').value;
+  const q=document.getElementById('searchInput').value.trim().toLowerCase();
+  return features.filter(f=>{
+    const k=fKey(f);
+    if(reg&&f.properties.region!==reg) return false;
+    if(sym&&getSym(k,f)!==sym) return false;
+    if(dec&&getDec(k)!==dec) return false;
+    if(q&&!getName(k,f).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+['fRegion','fSymbol','fDecision'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{renderList();updateStats();});
+});
+document.getElementById('searchInput').addEventListener('input',()=>{renderList();updateStats();});
+
+// ─── Render: list ─────────────────────────────────────────────────────────────
+function renderList() {
+  const filtered=getFiltered();
+  document.getElementById('listCount').textContent=`${filtered.length} of ${features.length} features`;
+  const list=document.getElementById('featureList');
+  if(!filtered.length){
+    list.innerHTML='<div style="padding:20px;text-align:center;color:#475569">No matches</div>';
+    return;
+  }
+  list.innerHTML=filtered.map(f=>{
+    const k=fKey(f);
+    const dec=getDec(k);
+    const name=getName(k,f)||'(unnamed)';
+    const dc=dotColor(k,f);
+    const op=dec==='remove'?0.35:1;
+    const strike=dec==='remove'?' strike':'';
+    const sel=k===selKey?' selected':'';
+    const rl=REGION_LABEL[f.properties.region]??f.properties.region;
+    // Use data-key for event delegation; avoid inline JS with special chars
+    return `<div class="feat-item${sel}" data-key="${encodeURIComponent(k)}">
+      <div class="feat-dot" style="background:${dc};opacity:${op}"></div>
+      <div class="feat-name${strike}" title="${name.replace(/"/g,'&quot;')}">${name.replace(/</g,'&lt;')}</div>
+      <div class="feat-region">${rl}</div>
+    </div>`;
+  }).join('');
+}
+
+// Event delegation for list clicks
+document.getElementById('featureList').addEventListener('click',e=>{
+  const item=e.target.closest('[data-key]');
+  if(item) select(decodeURIComponent(item.dataset.key),true);
+});
+
+// ─── Render: right panel ──────────────────────────────────────────────────────
+function renderPanel() {
+  const empty=document.getElementById('panelEmpty');
+  const content=document.getElementById('panelContent');
+  if(!selKey||!findFeature(selKey)){empty.style.display='flex';content.style.display='none';return;}
+  empty.style.display='none'; content.style.display='flex';
+
+  const f=findFeature(selKey);
+  const dec=getDec(selKey);
+  const name=getName(selKey,f);
+  const sym=getSym(selKey,f);
+  const [lo,la]=f.geometry.coordinates;
+  const region=f.properties.region;
+  const isDms=region==='OceanCityMD';
+
+  document.getElementById('eName').value=name;
+  document.getElementById('eNotes').value=decisions[selKey]?.notes??'';
+  document.getElementById('cLat').textContent=la.toFixed(5)+'° N';
+  document.getElementById('cLon').textContent=Math.abs(lo).toFixed(5)+'° W';
+  document.getElementById('cRegion').textContent=REGION_LABEL[region]??region;
+  document.getElementById('dmsNote').style.display=isDms?'block':'none';
+
+  document.getElementById('sWreck').className='sym-btn'+(sym==='Wreck'?' aw':'');
+  document.getElementById('sRocks').className='sym-btn'+(sym==='Rocks'?' ar':'');
+
+  ['keep','pend','rem'].forEach(cls=>{
+    const mapd={keep:'keep',pend:'pending',rem:'remove'};
+    const btn=document.getElementById('d'+cls.charAt(0).toUpperCase()+cls.slice(1));
+    if(btn) btn.className=`dec-btn ${cls}`+(dec===mapd[cls]?' active':'');
+  });
+}
+
+// ─── Stats bar ────────────────────────────────────────────────────────────────
+function updateStats() {
+  const total=features.length;
+  const pending=features.filter(f=>getDec(fKey(f))==='pending').length;
+  const remove=features.filter(f=>getDec(fKey(f))==='remove').length;
+  const edited=features.filter(f=>{
+    const k=fKey(f), d=decisions[k];
+    return d&&(d.newName!=null||d.newSymbol!=null||(d.decision&&d.decision!=='pending'));
+  }).length;
+  document.getElementById('sTotal').textContent=total;
+  document.getElementById('sPending').textContent=pending;
+  document.getElementById('sRemove').textContent=remove;
+  document.getElementById('sEdited').textContent=edited;
+  const hasWork=remove>0||edited>0;
+  document.getElementById('commitBtn').disabled=!hasWork;
+}
+
+// ─── Load features ────────────────────────────────────────────────────────────
+async function loadFeatures() {
+  document.getElementById('listCount').textContent='Loading…';
+  document.getElementById('commitBtn').disabled=true;
+  try {
+    const res=await fetch(WRECKS_URL+'?t='+Date.now());
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    features=data.features??[];
+    spatialOrder=buildSpatialOrder(features);
+    loadDecisions();
+    buildAllMarkers();
+    renderList();
+    updateStats();
+    if(features.length) select(fKey(features[spatialOrder[0]]),true);
+  } catch(e) {
+    document.getElementById('listCount').textContent='Load failed: '+e.message;
+  }
+  // Restore saved token
+  const t=localStorage.getItem(STORE_TOKEN);
+  if(t) document.getElementById('tokenInput').value=t;
+}
+
+// ─── GPX manipulation ─────────────────────────────────────────────────────────
+
+// Parse + apply changes to XML GPX content
+function applyToXmlGpx(xmlStr, regionChanges) {
+  const parser=new DOMParser();
+  const doc=parser.parseFromString(xmlStr,'application/xml');
+  const err=doc.querySelector('parsererror');
+  if(err) throw new Error('GPX parse error: '+err.textContent.slice(0,100));
+
+  // Works with namespaced or bare tags
+  const all=doc.querySelectorAll('wpt,[*|wpt]');
+  const toRemove=[];
+
+  all.forEach(wpt=>{
+    const lat=parseFloat(wpt.getAttribute('lat'));
+    const lon=parseFloat(wpt.getAttribute('lon'));
+    if(isNaN(lat)||isNaN(lon)) return;
+    const nameEl=wpt.querySelector('name')||wpt.getElementsByTagNameNS('*','name')[0];
+    const symEl =wpt.querySelector('sym') ||wpt.getElementsByTagNameNS('*','sym')[0];
+    const name=(nameEl?.textContent??'').trim();
+    const k=`${name}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
+    const ch=regionChanges[k];
+    if(!ch) return;
+    if(ch.decision==='remove'){toRemove.push(wpt);return;}
+    if(ch.newName&&nameEl) nameEl.textContent=ch.newName;
+    if(ch.newSymbol&&symEl) symEl.textContent=ch.newSymbol;
+  });
+
+  toRemove.forEach(wpt=>wpt.parentNode.removeChild(wpt));
+
+  const ser=new XMLSerializer();
+  return ser.serializeToString(doc);
+}
+
+// Apply changes to plain-text DMS file (OceanCityMD)
+const DMS_RE=/^(.+?)\s+(\d+)[°oO]\s*(\d+)'\s*(\d+(?:\.\d+)?)"?\s*N\s+(\d+)[°oO]\s*(\d+)'\s*(\d+(?:\.\d+)?)"?\s*W\s*$/;
+function dmsDD(d,m,s){return parseFloat(d)+parseFloat(m)/60+parseFloat(s)/3600;}
+
+function applyToDmsFile(text, regionChanges) {
+  return text.split('\n').map(raw=>{
+    const line=raw.trim();
+    if(!line) return raw;
+    const m=DMS_RE.exec(line);
+    if(!m) return raw;
+    const [,name,ld,lm,ls,od,om,os]=m;
+    const lat=dmsDD(ld,lm,ls), lon=dmsDD(od,om,os);
+    const k=`${name.trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
+    const ch=regionChanges[k];
+    if(!ch) return raw;
+    if(ch.decision==='remove') return null; // skip
+    if(ch.newName) return raw.replace(name,ch.newName);
+    return raw;
+  }).filter(l=>l!==null).join('\n');
+}
+
+// ─── GitHub API helpers ───────────────────────────────────────────────────────
+function ghHeaders(token) {
+  return {
+    'Authorization':'Bearer '+token,
+    'Accept':'application/vnd.github+json',
+    'X-GitHub-Api-Version':'2022-11-28',
+    'Content-Type':'application/json',
+  };
+}
+
+async function ghGet(token, path) {
+  const res=await fetch(`${API}/repos/${REPO}/${path}`,{headers:ghHeaders(token)});
+  if(!res.ok) throw new Error(`GET ${path} → ${res.status} ${await res.text()}`);
+  return res.json();
+}
+async function ghPost(token, path, body) {
+  const res=await fetch(`${API}/repos/${REPO}/${path}`,{method:'POST',headers:ghHeaders(token),body:JSON.stringify(body)});
+  if(!res.ok) throw new Error(`POST ${path} → ${res.status} ${await res.text()}`);
+  return res.json();
+}
+async function ghPatch(token, path, body) {
+  const res=await fetch(`${API}/repos/${REPO}/${path}`,{method:'PATCH',headers:ghHeaders(token),body:JSON.stringify(body)});
+  if(!res.ok) throw new Error(`PATCH ${path} → ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+// UTF-8 safe base64 encode
+function toBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function fromBase64(b64) {
+  return decodeURIComponent(escape(atob(b64.replace(/\n/g,''))));
+}
+
+// ─── Commit orchestration ─────────────────────────────────────────────────────
+let progLines=[];
+
+function logProg(icon, text, cls='cur') {
+  progLines.push({icon,text,cls});
+  const html=progLines.map(l=>`
+    <div class="prog-line">
+      <div class="prog-icon">${l.icon}</div>
+      <div class="prog-text ${l.cls}">${l.text}</div>
+    </div>`).join('');
+  document.getElementById('modalLines').innerHTML=html;
+  // scroll to bottom
+  const box=document.getElementById('modalBox');
+  box.scrollTop=box.scrollHeight;
+}
+function updateLastProg(icon, text, cls) {
+  if(!progLines.length) return;
+  const l=progLines[progLines.length-1];
+  l.icon=icon; l.text=text; l.cls=cls;
+  const html=progLines.map(p=>`
+    <div class="prog-line">
+      <div class="prog-icon">${p.icon}</div>
+      <div class="prog-text ${p.cls}">${p.text}</div>
+    </div>`).join('');
+  document.getElementById('modalLines').innerHTML=html;
+}
+
+async function startCommit() {
+  const token=document.getElementById('tokenInput').value.trim();
+  if(!token){alert('Enter a GitHub token first.');return;}
+
+  // Determine which regions have actionable changes
+  const regionChanges={}; // region → { key: { decision, newName, newSymbol } }
+  features.forEach(f=>{
+    const k=fKey(f), d=decisions[k];
+    if(!d) return;
+    const hasChange=(d.decision==='remove'||d.decision==='keep'||d.newName||d.newSymbol);
+    if(!hasChange) return;
+    // Only write to GPX for remove, name, or symbol changes (keep is a no-op for the file)
+    if(d.decision!=='remove'&&!d.newName&&!d.newSymbol) return;
+    const r=f.properties.region;
+    if(!regionChanges[r]) regionChanges[r]={};
+    regionChanges[r][k]=d;
+  });
+
+  const affectedRegions=Object.keys(regionChanges);
+  if(!affectedRegions.length){alert('No file-level changes to commit (only keep decisions, no removals or edits).');return;}
+
+  // Open modal
+  progLines=[];
+  document.getElementById('modalTitle').textContent='Committing to GitHub…';
+  document.getElementById('modalClose').style.display='none';
+  document.getElementById('modal').classList.add('show');
+
+  const removeCount=features.filter(f=>getDec(fKey(f))==='remove').length;
+  const nameCount  =features.filter(f=>decisions[fKey(f)]?.newName).length;
+  const symCount   =features.filter(f=>decisions[fKey(f)]?.newSymbol&&f.properties.region!=='OceanCityMD').length;
+
+  try {
+    // 1. Get HEAD
+    logProg('⏳','Getting current HEAD…');
+    const refData=await ghGet(token,'git/refs/heads/main');
+    const headSha=refData.object.sha;
+    updateLastProg('✓',`HEAD: ${headSha.slice(0,7)}`,'ok');
+
+    // 2. Get tree SHA
+    logProg('⏳','Getting commit tree…');
+    const commitData=await ghGet(token,`git/commits/${headSha}`);
+    const treeSha=commitData.tree.sha;
+    updateLastProg('✓',`Tree: ${treeSha.slice(0,7)}`,'ok');
+
+    // 3. For each affected region, fetch GPX, apply changes, create blob
+    const newTreeItems=[];
+    for(const region of affectedRegions) {
+      const gpxInfo=REGION_GPX[region];
+      if(!gpxInfo){logProg('⚠️',`No GPX mapping for region: ${region}`,'err');continue;}
+
+      logProg('⏳',`Fetching ${gpxInfo.path}…`);
+      const contentsData=await ghGet(token,`contents/${gpxInfo.path}`);
+      const originalContent=fromBase64(contentsData.content);
+      updateLastProg('✓',`Fetched ${gpxInfo.path} (${originalContent.length.toLocaleString()} chars)`,'ok');
+
+      logProg('⏳',`Applying changes to ${region}…`);
+      let modified;
+      if(gpxInfo.fmt==='xml') {
+        modified=applyToXmlGpx(originalContent, regionChanges[region]);
+      } else {
+        modified=applyToDmsFile(originalContent, regionChanges[region]);
+      }
+      const rc=Object.values(regionChanges[region]);
+      const rCount=rc.filter(c=>c.decision==='remove').length;
+      const nCount=rc.filter(c=>c.newName).length;
+      const sCount=rc.filter(c=>c.newSymbol&&gpxInfo.fmt==='xml').length;
+      updateLastProg('✓',`Applied: ${rCount} removed, ${nCount} renamed, ${sCount} retyped`,'ok');
+
+      logProg('⏳',`Creating blob for ${gpxInfo.path}…`);
+      const blobData=await ghPost(token,'git/blobs',{content:toBase64(modified),encoding:'base64'});
+      updateLastProg('✓',`Blob: ${blobData.sha.slice(0,7)}`,'ok');
+      newTreeItems.push({path:gpxInfo.path,mode:'100644',type:'blob',sha:blobData.sha});
+    }
+
+    // 4. Create new tree
+    logProg('⏳','Creating new tree…');
+    const treeData=await ghPost(token,'git/trees',{base_tree:treeSha,tree:newTreeItems});
+    updateLastProg('✓',`Tree: ${treeData.sha.slice(0,7)}`,'ok');
+
+    // 5. Create commit
+    const parts=[];
+    if(removeCount) parts.push(`${removeCount} removed`);
+    if(nameCount)   parts.push(`${nameCount} renamed`);
+    if(symCount)    parts.push(`${symCount} retyped`);
+    const msg=`data: bottom features batch update (${parts.join(', ')})`;
+    logProg('⏳','Creating commit…');
+    const newCommit=await ghPost(token,'git/commits',{message:msg,tree:treeData.sha,parents:[headSha]});
+    updateLastProg('✓',`Commit: ${newCommit.sha.slice(0,7)}`,'ok');
+
+    // 6. Update ref
+    logProg('⏳','Updating main branch…');
+    await ghPatch(token,'git/refs/heads/main',{sha:newCommit.sha});
+    updateLastProg('✓','main updated','ok');
+
+    logProg('🎉',`Done — ${msg}`,'ok');
+    document.getElementById('modalTitle').textContent='Commit successful';
+
+    // Clear only the "remove" decisions and name/symbol edits that were committed
+    affectedRegions.forEach(region=>{
+      Object.keys(regionChanges[region]).forEach(k=>{
+        if(decisions[k]){
+          delete decisions[k].newName;
+          delete decisions[k].newSymbol;
+          // Keep decision state so the list still shows green/red
+        }
+      });
+    });
+    saveDecisions();
+
+  } catch(err) {
+    logProg('✗','Error: '+err.message,'err');
+    document.getElementById('modalTitle').textContent='Commit failed';
+  }
+
+  document.getElementById('modalClose').style.display='inline-block';
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initMap();
+loadFeatures();
+</script>
+</body>
+</html>
