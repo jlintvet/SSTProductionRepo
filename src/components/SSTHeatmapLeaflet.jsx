@@ -567,6 +567,7 @@ function buildLoranGrid(map, waterMask) {
 }
 
 const OCEAN_MASK_URL="https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/ocean_mask.json";
+const COASTLINE_CHECK_URL="https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_coastline.geojson";
 async function loadPrebakedMask(){try{const t0=performance.now();const res=await fetch(OCEAN_MASK_URL);if(!res.ok){console.warn("[MASK] prebaked not available, HTTP",res.status);return null;}const obj=await res.json();const{bounds,step,rows,cols,packed}=obj;const bin=atob(packed);const bits=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bits[i]=bin.charCodeAt(i);console.log(`[MASK] prebaked loaded in ${(performance.now()-t0).toFixed(0)}ms (${rows}x${cols}, ${bits.length} bytes)`);return(lat,lon)=>{const ri=Math.round((bounds.n-lat)/step);const ci=Math.round((lon-bounds.w)/step);if(ri<0||ri>=rows||ci<0||ci>=cols)return false;const idx=ri*cols+ci;return(bits[idx>>3]&(0x80>>(idx&7)))!==0;};}catch(e){console.warn("[MASK] prebaked load failed:",e);return null;}}
 async function buildOceanMaskFromLand(bounds){const prebaked=await loadPrebakedMask();if(prebaked)return prebaked;console.warn("[MASK] falling back to live Natural Earth download");try{const res=await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson");const gj=await res.json();let polys=[];for(const f of gj.features){const g=f.geometry;if(g.type==="Polygon")polys.push(g.coordinates);else if(g.type==="MultiPolygon")g.coordinates.forEach(p=>polys.push(p));}polys=polys.filter(poly=>{const r=poly[0];let mnLon=Infinity,mxLon=-Infinity,mnLat=Infinity,mxLat=-Infinity;for(const[lo,la]of r){if(lo<mnLon)mnLon=lo;if(lo>mxLon)mxLon=lo;if(la<mnLat)mnLat=la;if(la>mxLat)mxLat=la;}return mxLon>=bounds.west&&mnLon<=bounds.east&&mxLat>=bounds.south&&mnLat<=bounds.north;});if(!polys.length)return null;const STEP=0.02;const ocean=new Set();for(let lat=bounds.south;lat<=bounds.north+STEP*0.5;lat+=STEP){for(let lon=bounds.west;lon<=bounds.east+STEP*0.5;lon+=STEP){let isLand=false;for(const poly of polys){if(pointInRing(lon,lat,poly[0])){let inHole=false;for(let h=1;h<poly.length;h++){if(pointInRing(lon,lat,poly[h])){inHole=true;break;}}if(!inHole){isLand=true;break;}}}if(!isLand)ocean.add(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}}if(!ocean.size)return null;return(lat,lon)=>ocean.has(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}catch(e){console.error("[MASK] fallback also failed:",e);return null;}}
 
@@ -777,6 +778,7 @@ export default function SSTHeatmapLeaflet(props) {
   const slaOverlayContourLayerRef = useRef(null);
   const loranLayerRef = useRef(null);
   const canyonLabelLayerRef = useRef(null);
+  const coastlineCheckLayerRef = useRef(null);
   const blobUrlsRef         = useRef([]);
 
   const selectedLocationRef = useRef(selectedLocation);
@@ -844,6 +846,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [showIsotherm,         setShowIsotherm]         = useState(false);
   const [showAltimetryOverlay, setShowAltimetryOverlay] = useState(false);
   const [showLoranGrid, setShowLoranGrid] = useState(false);
+  const [showCoastlineCheck, setShowCoastlineCheck] = useState(false);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(71);
   const [isothermalSensitivity,setIsothermalSensitivity]= useState(2.0);
   const effectiveTargetTemp = isothermalTargetTemp ?? Math.round((sstMin + sstMax) / 2);
@@ -1723,6 +1726,26 @@ export default function SSTHeatmapLeaflet(props) {
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
   }, [mapReady, showLoranGrid, waterMaskVersion]);
 
+  // ── Coastline alignment check ─────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    if (coastlineCheckLayerRef.current) { map.removeLayer(coastlineCheckLayerRef.current); coastlineCheckLayerRef.current = null; }
+    if (!showCoastlineCheck) return;
+    fetch(COASTLINE_CHECK_URL)
+      .then(r => r.json())
+      .then(geojson => {
+        if (!mapRef.current) return;
+        const lyr = L.geoJSON(geojson, {
+          interactive: false,
+          style: { color: "#ef4444", weight: 2.5, opacity: 0.9 },
+        });
+        lyr.addTo(mapRef.current);
+        coastlineCheckLayerRef.current = lyr;
+      })
+      .catch(e => console.warn("[COASTLINE CHECK] fetch failed:", e));
+  }, [mapReady, showCoastlineCheck]);
+
   // ── Wind raster ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -2233,6 +2256,7 @@ export default function SSTHeatmapLeaflet(props) {
             currentsLoading={currentsLoading} showCurrents={showCurrents} setShowCurrents={setShowCurrents}
             showAltimetryOverlay={showAltimetryOverlay} setShowAltimetryOverlay={setShowAltimetryOverlay}
             showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
+            showCoastlineCheck={showCoastlineCheck} setShowCoastlineCheck={setShowCoastlineCheck}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             selectedLocation={selectedLocation}

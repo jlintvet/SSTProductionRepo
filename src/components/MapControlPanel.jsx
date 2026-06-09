@@ -283,6 +283,7 @@ export default function MapControlPanel({
   currentsLoading, showCurrents, setShowCurrents,
   showAltimetryOverlay, setShowAltimetryOverlay,
   showLoranGrid, setShowLoranGrid,
+  showCoastlineCheck, setShowCoastlineCheck,
   // overlays
   showBathyLayer, setShowBathyLayer,
   jsonContoursLoading,
@@ -606,6 +607,9 @@ export default function MapControlPanel({
           </ProGate>
           <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
             {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+          </ToolBtn>
+          <ToolBtn active={showCoastlineCheck} color="red" onClick={() => setShowCoastlineCheck(v => !v)}>
+            {showCoastlineCheck ? "Coastline on" : "Coastline check"}
           </ToolBtn>
         </div>
       )}
