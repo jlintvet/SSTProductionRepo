@@ -510,8 +510,8 @@ function buildLoranGrid(map, waterMask) {
       }
     }
   }
-  drawLL(wLL, "#1e3a8a", "rgba(30,58,138,0.55)");
-  drawLL(yLL, "#7c2d12", "rgba(124,45,18,0.55)");
+  // W family lines hidden — not used offshore fishing
+  drawLL(yLL, "rgba(110,110,110,0.75)", "rgba(110,110,110,0.38)");
 
   const lbl = { layer: null };
   function buildLoranLabels() {
@@ -530,7 +530,7 @@ function buildLoranGrid(map, waterMask) {
             else { if (cur.length > best.length) best = cur; cur = []; }
           }
           if (cur.length > best.length) best = cur;
-          if (best.length < 8) continue;
+          if (best.length < 3) continue;
           if ((cnt[level] || 0) >= 3) continue;
           cnt[level] = (cnt[level] || 0) + 1;
           const [ln, la] = best[Math.floor(best.length / 2)];
@@ -545,8 +545,8 @@ function buildLoranGrid(map, waterMask) {
         }
       }
     }
-    addLbls(wLL, "W", "#1e3a8a");
-    addLbls(yLL, "Y", "#7c2d12");
+    // W labels hidden
+    addLbls(yLL, "Y", "#444444");
     lg.addTo(map); lbl.layer = lg;
   }
   buildLoranLabels();
