@@ -427,15 +427,17 @@ function SSTPageBody() {
   }, [currentsActive]);
 
   const altimetryActive = activeDataLayer === "altimetry";
+  // Fetch on mount — needed for both the altimetry layer AND the altimetry overlay
+  // (overlay can be enabled while SST is active, so can't gate on altimetryActive)
   useEffect(() => {
-    if (!altimetryActive || altimetryData || altimetryLoading) return;
+    if (altimetryData || altimetryLoading) return;
     setAltimetryLoading(true);
     fetch(ALTIMETRY_URL)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => setAltimetryData(d))
       .catch(e => console.error("[ALTIMETRY] fetch failed:", e))
       .finally(() => setAltimetryLoading(false));
-  }, [altimetryActive]);
+  }, []);
 
 
   useEffect(()=>{
