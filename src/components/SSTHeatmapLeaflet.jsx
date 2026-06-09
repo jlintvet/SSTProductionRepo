@@ -425,6 +425,19 @@ function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity){
 // ── Ocean mask ────────────────────────────────────────────────────────────────
 function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];if((yi>py)!==(yj>py)&&px<((xj-xi)*(py-yi))/(yj-yi)+xi)inside=!inside;}return inside;}
 
+// ── Canyon validation points (DMS from fishing charts — for bathy alignment check)
+const CANYON_VALIDATION_POINTS = [
+  { name: "Norfolk 100fa Tip",      lat: 37.091667, lon: -74.758333 },
+  { name: "Norfolk 100fa Bight",    lat: 37.058333, lon: -74.65     },
+  { name: "Norfolk 500fa Tip",      lat: 37.033333, lon: -74.616667 },
+  { name: "Washington 100fa Tip",   lat: 37.486667, lon: -74.508333 },
+  { name: "Washington 100fa Bight", lat: 37.436667, lon: -74.433333 },
+  { name: "Washington 500fa Tip",   lat: 37.413333, lon: -74.43     },
+  { name: "Wilmington 100fa Tip",   lat: 38.506667, lon: -73.495    },
+  { name: "Wilmington 100fa Bight", lat: 38.376667, lon: -73.483333 },
+  { name: "Wilmington 500fa Tip",   lat: 38.388333, lon: -73.54     },
+];
+
 // ── Submarine Canyon Labels (Mid-Atlantic + New England) ─────────────────────
 const CANYON_LABELS = [
   // Mid-Atlantic Bight — NOAA reference positions, N→S along shelf break
@@ -781,6 +794,7 @@ export default function SSTHeatmapLeaflet(props) {
   const canyonLabelLayerRef = useRef(null);
   const coastlineCheckLayerRef = useRef(null);
   const bathyCoastlineLayerRef = useRef(null);
+  const validationPtsLayerRef = useRef(null);
   const blobUrlsRef         = useRef([]);
 
   const selectedLocationRef = useRef(selectedLocation);
@@ -1764,6 +1778,23 @@ export default function SSTHeatmapLeaflet(props) {
         bathyCoastlineLayerRef.current = lyr;
       })
       .catch(e => console.warn("[COASTLINE CHECK] blue fetch failed:", e));
+    // Validation points — small orange circles with labels, from fishing chart DMS coords
+    if (validationPtsLayerRef.current) { map.removeLayer(validationPtsLayerRef.current); validationPtsLayerRef.current = null; }
+    const valGroup = L.layerGroup();
+    CANYON_VALIDATION_POINTS.forEach(({ name, lat, lon }) => {
+      const color = name.startsWith("Norfolk") ? "#f97316"
+                  : name.startsWith("Washington") ? "#a855f7"
+                  : "#10b981";
+      L.circleMarker([lat, lon], {
+        radius: 6, color: "#fff", weight: 1.5,
+        fillColor: color, fillOpacity: 0.95, interactive: true,
+      })
+        .bindTooltip(name, { permanent: true, direction: "right", offset: [8, 0],
+          className: "val-pt-tooltip" })
+        .addTo(valGroup);
+    });
+    valGroup.addTo(map);
+    validationPtsLayerRef.current = valGroup;
   }, [mapReady, showCoastlineCheck]);
 
   // ── Wind raster ─────────────────────────────────────────────────────────────
