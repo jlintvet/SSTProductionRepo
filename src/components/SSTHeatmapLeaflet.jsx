@@ -2996,4 +2996,12 @@ export default function SSTHeatmapLeaflet(props) {
           >Delete</button>
           <button
             onClick={() => setWpDeletePopup(null)}
-            className="px-2 py-1 text-slate-400 hov
+            className="px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors"
+          >✕</button>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
+  );
+}
