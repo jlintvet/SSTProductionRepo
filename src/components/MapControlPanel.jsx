@@ -487,13 +487,6 @@ export default function MapControlPanel({
               🌊 Altimetry
             </LayerBtn>
           </ProGate>
-          {!isAlt && (
-            <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
-              <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
-                〰 {showAltimetryOverlay ? "ALT Overlay on" : "ALT Overlay"}
-              </ToolBtn>
-            </ProGate>
-          )}
 
           <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
             <Wind className="w-3 h-3" />{windLoading ? "Loading…" : "Wind map"}
@@ -605,6 +598,11 @@ export default function MapControlPanel({
           <ToolBtn active={showBathyLayer} color="blue" onClick={() => setShowBathyLayer(b => !b)}>
             {jsonContoursLoading ? "Loading…" : "Bathy"}
           </ToolBtn>
+          <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
+            <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
+              〰 {showAltimetryOverlay ? "SLA Overlay on" : "SLA Overlay"}
+            </ToolBtn>
+          </ProGate>
           <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
             <ToolBtn active={showWrecks} color="amber" onClick={() => setShowWrecks(w => !w)}>
               {wrecksLoading ? "Loading…" : "Bottom Features"}

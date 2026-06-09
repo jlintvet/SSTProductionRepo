@@ -1403,7 +1403,7 @@ export default function SSTHeatmapLeaflet(props) {
   }, [mapReady, showCurrents, currentsData, repaintTrigger]);
 
   // ── SLA contour lines helper (used by map mode + overlay mode) ─────────────
-  function buildSlaContourGroup(altData, overlayMode, map) {
+  function buildSlaContourGroup(altData, overlayMode, map, waterMask) {
     const { lats, lons, sla } = altData;
     if (!sla) return null;
     const rawLats = lats.map(v => Math.round(v * 1e5) / 1e5);
@@ -1453,7 +1453,11 @@ export default function SSTHeatmapLeaflet(props) {
       return { latSorted: newLats, lonSorted: newLons, grid: ng };
     }
 
-    const { latSorted: lsUp, lonSorted: loUp, grid } = upsampleGrid(latSorted, lonSorted, baseGrid, 4);
+    const { latSorted: lsUp, lonSorted: loUp, grid: rawGrid } = upsampleGrid(latSorted, lonSorted, baseGrid, 4);
+    // Apply water mask: blank out land cells so contours don't cross coastlines
+    const grid = waterMask ? Object.fromEntries(Object.entries(rawGrid).filter(([k]) => {
+      const [lat, lon] = k.split('_').map(Number); return waterMask(lat, lon);
+    })) : rawGrid;
 
     const slaVals = Object.values(baseGrid).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
     if (slaVals.length < 4) return null;
@@ -1550,7 +1554,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (slaContourLayerRef.current) { slaContourLayerRef.current._slaCleanup?.(); map.removeLayer(slaContourLayerRef.current); slaContourLayerRef.current = null; }
     if (activeDataLayer !== "altimetry" || !altimetryData?.lats?.length) return;
-    const grp = buildSlaContourGroup(altimetryData, false, map);
+    const grp = buildSlaContourGroup(altimetryData, false, map, waterMaskRef.current);
     if (grp) { grp.addTo(map); slaContourLayerRef.current = grp; }
   }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, repaintTrigger]);
 
@@ -1560,7 +1564,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (slaOverlayContourLayerRef.current) { slaOverlayContourLayerRef.current._slaCleanup?.(); map.removeLayer(slaOverlayContourLayerRef.current); slaOverlayContourLayerRef.current = null; }
     if (!showAltimetryOverlay || !altimetryData?.lats?.length) return;
-    const grp = buildSlaContourGroup(altimetryData, true, map);
+    const grp = buildSlaContourGroup(altimetryData, true, map, waterMaskRef.current);
     if (grp) { grp.addTo(map); slaOverlayContourLayerRef.current = grp; }
   }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, repaintTrigger]);
 
