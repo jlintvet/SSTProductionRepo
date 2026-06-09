@@ -147,6 +147,52 @@ def _static_cache_valid(path: pathlib.Path) -> bool:
 # ---------------------------------------------------------------------------
 _GPX_NS = {"gpx": "http://www.topografix.com/GPX/1/1"}
 
+# Matches plain-text DMS lines: "Name  DD°/o MM' SS[.S]" N  DD°/o MM' SS[.S]" W"
+# Degree symbol may be °, o, or O (common OCR/copy-paste variants).
+import re as _re
+_DMS_RE = _re.compile(
+    r'^(.+?)\s+'
+    r'(\d+)[°oO]\s*(\d+)\'\s*(\d+(?:\.\d+)?)"?\s*N\s+'
+    r'(\d+)[°oO]\s*(\d+)\'\s*(\d+(?:\.\d+)?)"?\s*W\s*$'
+)
+
+def _dms_to_dd(deg: str, mins: str, secs: str) -> float:
+    return float(deg) + float(mins) / 60.0 + float(secs) / 3600.0
+
+def _parse_text_dms_file(path: pathlib.Path, region: str) -> list[dict]:
+    """
+    Parse a plain-text file where each line is:
+        Name  DD° MM' SS[.S]" N  DD° MM' SS[.S]" W
+    Degree symbol may be °, o, or O. Lines without valid coordinates are skipped.
+    All waypoints are assigned symbol "Wreck" (no symbol field in this format).
+    """
+    features = []
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line:
+                continue
+            m = _DMS_RE.match(line)
+            if not m:
+                log.debug("  Skipping unparseable line in %s: %r", path.name, line[:80])
+                continue
+            name, lat_d, lat_m, lat_s, lon_d, lon_m, lon_s = m.groups()
+            lat = round(_dms_to_dd(lat_d, lat_m, lat_s),  5)
+            lon = round(_dms_to_dd(lon_d, lon_m, lon_s),  5)
+            lon = -lon  # file is always W longitude
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": {
+                    "name":   name.strip(),
+                    "symbol": "Wreck",
+                    "region": region,
+                    "source": WRECK_SOURCE_LABEL,
+                },
+            })
+    return features
+
+
 def _parse_gpx_file(path: pathlib.Path, region: str) -> list[dict]:
     """
     Parse a GPX 1.1 file and return a list of GeoJSON-style feature dicts.
@@ -164,9 +210,10 @@ def _parse_gpx_file(path: pathlib.Path, region: str) -> list[dict]:
     try:
         tree = ET.parse(path)
         root = tree.getroot()
-    except ET.ParseError as e:
-        log.warning("  Could not parse %s: %s", path.name, e)
-        return []
+    except ET.ParseError:
+        # Not valid XML — try plain-text DMS format
+        log.info("  %s is not XML; attempting plain-text DMS parse", path.name)
+        return _parse_text_dms_file(path, region)
 
     # Support both namespaced and bare GPX tags
     tag = root.tag
@@ -707,34 +754,4 @@ def write_land_mask(session: requests.Session) -> None:
              len(features), dest.stat().st_size / 1024)
 # ---------------------------------------------------------------------------
 # Main
-# ---------------------------------------------------------------------------
-def main() -> None:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    session = _make_session()
-    # ── Ocean mask polygons (needed for bathy masking) ──────────────────────
-    log.info("=== Ocean Mask ===")
-    ocean_rings = _fetch_ocean_rings(session)
-    # ── Bathymetry (contours + raw grid) ────────────────────────────────────
-    log.info("=== Bathymetry ===")
-    if _bathy_cache_valid():
-        log.info("Using cached bathymetry — skipping fetch.")
-    else:
-        rows = _fetch_bathymetry(session)
-        log.info("Building depth grid ...")
-        lats, lons, grid = _build_grid(rows, ocean_rings=ocean_rings)
-        log.info("Grid: %d lats × %d lons", len(lats), len(lons))
-        write_contours(lats, lons, grid)
-        write_bathymetry_grid(lats, lons, grid)
-    # ── Coastline lines ─────────────────────────────────────────────────────
-    log.info("=== Coastline ===")
-    if not _static_cache_valid(OUTPUT_DIR / "noaa_coastline.json"):
-        write_noaa_coastline(session)
-    # ── Land mask polygons ──────────────────────────────────────────────────
-    log.info("=== Land Mask ===")
-    if not _static_cache_valid(OUTPUT_DIR / "landmask.json"):
-        write_land_mask(session)
-    # ── Wrecks / fishing spots ───────────────────────────────────────────────
-    # Always rebuild — source GPX files can change between runs.
-    log.info("=== Wrecks ===")
-    write_wrecks_json()
-    log.info(
+# ----------------------------------------
