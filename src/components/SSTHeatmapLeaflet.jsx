@@ -2999,4 +2999,8 @@ export default function SSTHeatmapLeaflet(props) {
           >✕</button>
         </div>
       </div>,
-      documen
+      document.body
+    )}
+    </>
+  );
+}
