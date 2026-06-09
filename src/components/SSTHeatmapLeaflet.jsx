@@ -441,11 +441,12 @@ const CANYON_LABELS = [
 
 // ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
 // ED_W calibrated from Oregon Inlet (35°32.16'N 74°50.67'W) = W26580
-// ED_Y triangulated from NC/Mid-Atlantic shelf reference spots
-const LORAN_MASTER = { lat: 41.2528, lon: -69.9775 };
+// GRI 7980 — Southeast U.S. Chain. EDs back-calculated from NOAA chart values
+// at The Point (35.529°N, 74.833°W): W≈26760, Z≈40575
+const LORAN_MASTER = { lat: 26.9833, lon: -80.1167 }; // Jupiter, FL
 const LORAN_STATIONS = {
-  W: { lat: 42.3857, lon: -76.8253, ed: 26524 }, // Seneca, NY
-  Y: { lat: 41.3898, lon: -84.3752, ed: 42534 }, // Dana, IN
+  W: { lat: 30.9933, lon: -85.1783, ed: 26716 }, // Malone, FL
+  Z: { lat: 34.0633, lon: -77.9150, ed: 43080 }, // Carolina Beach, NC
 };
 function loranHaversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371.009, r = Math.PI / 180;
@@ -458,16 +459,16 @@ function computeLoranTD(lat, lon, stKey) {
   return st.ed + (loranHaversineKm(lat, lon, st.lat, st.lon) - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
 }
 function buildLoranGrid(map, waterMask) {
-  const LSTEP = 0.1, LAT_MAX = 48, LAT_MIN = 24, LON_MIN = -82, LON_MAX = -60;
+  const LSTEP = 0.1, LAT_MAX = 42, LAT_MIN = 24, LON_MIN = -87, LON_MAX = -60;
   const latSet = [], lonSet = [];
   for (let la = LAT_MAX; la >= LAT_MIN - 0.001; la = Math.round((la - LSTEP) * 1e4) / 1e4) latSet.push(la);
   for (let lo = LON_MIN; lo <= LON_MAX + 0.001; lo = Math.round((lo + LSTEP) * 1e4) / 1e4) lonSet.push(lo);
 
-  const wGrid = {}, yGrid = {};
+  const wGrid = {}, zGrid = {};
   for (const la of latSet) for (const lo of lonSet) {
     const k = `${la}_${lo}`;
     wGrid[k] = computeLoranTD(la, lo, "W");
-    yGrid[k] = computeLoranTD(la, lo, "Y");
+    zGrid[k] = computeLoranTD(la, lo, "Z");
   }
 
   // Apply ocean mask — blank out land cells so contours stop at coastlines
@@ -477,20 +478,20 @@ function buildLoranGrid(map, waterMask) {
       const [la, lo] = k.split("_").map(Number); return waterMask(la, lo);
     }));
   }
-  const wMasked = applyMask(wGrid), yMasked = applyMask(yGrid);
+  const wMasked = applyMask(wGrid), zMasked = applyMask(zGrid);
   const { field: wField, rows, cols } = buildField(latSet, lonSet, wMasked);
-  const { field: yField } = buildField(latSet, lonSet, yMasked);
+  const { field: zField } = buildField(latSet, lonSet, zMasked);
 
   function rangeFor(grid) {
     const vals = Object.values(grid).filter(Number.isFinite).sort((a,b)=>a-b);
     return [Math.ceil(vals[0] / 20) * 20, Math.floor(vals[vals.length-1] / 20) * 20];
   }
   const [wLo, wHi] = rangeFor(wGrid);
-  const [yLo, yHi] = rangeFor(yGrid);
+  const [zLo, zHi] = rangeFor(zGrid);
 
-  const wLL = [], yLL = [];
+  const wLL = [], zLL = [];
   for (let l = wLo; l <= wHi; l += 20) { const lines = marchingSquares(latSet, lonSet, wField, rows, cols, l); if (lines.length) wLL.push({ level: l, lines }); }
-  for (let l = yLo; l <= yHi; l += 20) { const lines = marchingSquares(latSet, lonSet, yField, rows, cols, l); if (lines.length) yLL.push({ level: l, lines }); }
+  for (let l = zLo; l <= zHi; l += 20) { const lines = marchingSquares(latSet, lonSet, zField, rows, cols, l); if (lines.length) zLL.push({ level: l, lines }); }
 
   const group = L.layerGroup();
   function drawLL(levelLines, majClr, minClr) {
@@ -505,7 +506,7 @@ function buildLoranGrid(map, waterMask) {
     }
   }
   drawLL(wLL, "#1e3a8a", "rgba(30,58,138,0.55)");
-  drawLL(yLL, "#7c2d12", "rgba(124,45,18,0.55)");
+  drawLL(zLL, "#7c2d12", "rgba(124,45,18,0.55)");
 
   const lbl = { layer: null };
   function buildLoranLabels() {
@@ -540,7 +541,7 @@ function buildLoranGrid(map, waterMask) {
       }
     }
     addLbls(wLL, "W", "#1e3a8a");
-    addLbls(yLL, "Y", "#7c2d12");
+    addLbls(zLL, "Z", "#7c2d12");
     lg.addTo(map); lbl.layer = lg;
   }
   buildLoranLabels();
@@ -2995,12 +2996,4 @@ export default function SSTHeatmapLeaflet(props) {
           >Delete</button>
           <button
             onClick={() => setWpDeletePopup(null)}
-            className="px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors"
-          >✕</button>
-        </div>
-      </div>,
-      document.body
-    )}
-    </>
-  );
-}
+            className="px-2 py-1 text-slate-400 hov
