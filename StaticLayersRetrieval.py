@@ -76,9 +76,10 @@ log = logging.getLogger(__name__)
 # wrecks.json is always rebuilt on every run (no cache check).
 # ---------------------------------------------------------------------------
 WRECK_GPX_FILES = {
-    "Fishing_Spots_HatterasNC.gpx":  "HatterasNC",
-    "Fishing_Spots_MoreheadNC.gpx":  "MoreheadNC",
+    "Fishing_Spots_HatterasNC.gpx":   "HatterasNC",
+    "Fishing_Spots_MoreheadNC.gpx":   "MoreheadNC",
     "Fishing_spots_ChesapeakeMD.gpx": "ChesapeakeMD",
+    "Fishing_Spots_OceanCityMD.gpx":  "OceanCityMD",
 }
 WRECK_SOURCE_LABEL = "Fishing Status (fishingstatus.com)"
 WRECK_SYMBOL_DESCRIPTIONS = {
@@ -736,6 +737,4 @@ def main() -> None:
     # Always rebuild — source GPX files can change between runs.
     log.info("=== Wrecks ===")
     write_wrecks_json()
-    log.info("=== Done. ===")
-if __name__ == "__main__":
-    main()
+    log.info(
