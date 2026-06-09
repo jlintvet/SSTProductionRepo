@@ -427,17 +427,18 @@ function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<
 
 // ── Submarine Canyon Labels (Mid-Atlantic + New England) ─────────────────────
 const CANYON_LABELS = [
-  // Mid-Atlantic Bight — placed at canyon head (shelf break entry)
-  { name: "Hudson Canyon",        lat: 40.10, lon: -72.62 },  // head at shelf edge ~200fa
-  { name: "Ryan Canyon",          lat: 39.72, lon: -72.50 },
-  { name: "Toms Canyon",          lat: 39.48, lon: -72.72 },
-  { name: "Gilbert Canyon",       lat: 39.58, lon: -72.42 },
-  { name: "Carteret Canyon",      lat: 38.92, lon: -72.90 },
-  { name: "Wilmington Canyon",    lat: 38.68, lon: -73.05 },
-  { name: "Lindenkohl Canyon",    lat: 38.58, lon: -73.15 },
-  { name: "Baltimore Canyon",     lat: 38.45, lon: -73.25 },
-  { name: "Washington Canyon",    lat: 38.22, lon: -73.48 },  // was 37.85 — far too south
-  { name: "Norfolk Canyon",       lat: 37.12, lon: -74.42 },  // was 36.80 — too south
+  // Mid-Atlantic Bight — NOAA reference positions, N→S along shelf break
+  { name: "Hudson Canyon",        lat: 39.95, lon: -72.50 },  // ~39°57'N 72°30'W
+  { name: "Hendrickson Canyon",   lat: 39.65, lon: -72.62 },
+  { name: "Toms Canyon",          lat: 39.45, lon: -72.75 },  // ~39°27'N 72°45'W
+  { name: "Carteret Canyon",      lat: 39.20, lon: -72.90 },
+  { name: "Lindenkohl Canyon",    lat: 38.88, lon: -73.05 },
+  { name: "Spencer Canyon",       lat: 38.68, lon: -73.08 },
+  { name: "Wilmington Canyon",    lat: 38.55, lon: -73.12 },
+  { name: "Baltimore Canyon",     lat: 38.35, lon: -73.22 },  // ~38°27'N 73°12'W
+  { name: "Poor Man's Canyon",    lat: 38.05, lon: -73.38 },
+  { name: "Washington Canyon",    lat: 37.92, lon: -73.60 },  // ~37°57'N 73°36'W
+  { name: "Norfolk Canyon",       lat: 37.10, lon: -74.35 },  // ~37°06'N 74°24'W
   { name: "Hatteras Canyon",      lat: 35.28, lon: -75.08 },
   // New England / southern Georges Bank
   { name: "Block Canyon",         lat: 40.50, lon: -70.92 },
@@ -446,10 +447,9 @@ const CANYON_LABELS = [
   { name: "Veatch Canyon",        lat: 40.22, lon: -69.58 },
   { name: "Atlantis Canyon",      lat: 40.28, lon: -69.18 },
   { name: "Corsair Canyon",       lat: 40.22, lon: -68.72 },
-  { name: "Spencer Canyon",       lat: 40.32, lon: -68.45 },
-  { name: "Hydrographer Canyon",  lat: 40.38, lon: -68.18 },
-  { name: "Oceanographer Canyon", lat: 40.48, lon: -67.98 },
   { name: "Lydonia Canyon",       lat: 40.62, lon: -67.78 },
+  { name: "Oceanographer Canyon", lat: 40.48, lon: -67.98 },
+  { name: "Hydrographer Canyon",  lat: 40.38, lon: -68.18 },
 ];
 
 // ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
@@ -1822,7 +1822,7 @@ export default function SSTHeatmapLeaflet(props) {
     CANYON_LABELS.forEach(({ name, lat, lon }) => {
       const icon = L.divIcon({
         className: "",
-        html: `<div style="font-size:11px;font-style:italic;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
+        html: `<div style="font-size:11px;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
         iconSize: null,
         iconAnchor: [0, 6],
       });
