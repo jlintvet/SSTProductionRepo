@@ -502,16 +502,16 @@ function buildLoranGrid(map, waterMask) {
   function drawLL(levelLines, majClr, minClr) {
     for (const { level, lines } of levelLines) {
       const maj = level % 100 === 0;
-      const wt = maj ? 1.4 : 0.65; const op = maj ? 0.8 : 0.4;
+      const wt = maj ? 0.9 : 0.45; const op = maj ? 0.45 : 0.18;
       for (const seg of lines) {
         const ll = seg.map(([ln, la]) => [la, ln]);
-        L.polyline(ll, { color: "rgba(255,255,255,0.5)", weight: wt + 1.4, opacity: 0.6, interactive: false }).addTo(group);
+        L.polyline(ll, { color: "rgba(255,255,255,0.25)", weight: wt + 0.7, opacity: 0.2, interactive: false }).addTo(group);
         L.polyline(ll, { color: maj ? majClr : minClr, weight: wt, opacity: op, interactive: false }).addTo(group);
       }
     }
   }
   // W family lines hidden — not used offshore fishing
-  drawLL(yLL, "rgba(110,110,110,0.75)", "rgba(110,110,110,0.38)");
+  drawLL(yLL, "rgba(140,140,140,1.0)", "rgba(140,140,140,1.0)");
 
   const lbl = { layer: null };
   function buildLoranLabels() {
