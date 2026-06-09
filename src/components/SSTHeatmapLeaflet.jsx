@@ -632,6 +632,7 @@ export default function SSTHeatmapLeaflet(props) {
   const windRasterOverlayRef= useRef(null);
   const currentsLayerRef    = useRef(null);
   const slaContourLayerRef  = useRef(null);
+  const slaOverlayContourLayerRef = useRef(null);
   const blobUrlsRef         = useRef([]);
 
   const selectedLocationRef = useRef(selectedLocation);
@@ -697,6 +698,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [hotspotPopup,         setHotspotPopup]         = useState(null); // { html, cloudWarning, x, y }
   const [hotspotWarningOpen,   setHotspotWarningOpen]   = useState(false);
   const [showIsotherm,         setShowIsotherm]         = useState(false);
+  const [showAltimetryOverlay, setShowAltimetryOverlay] = useState(false);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(71);
   const [isothermalSensitivity,setIsothermalSensitivity]= useState(2.0);
   const effectiveTargetTemp = isothermalTargetTemp ?? Math.round((sstMin + sstMax) / 2);
@@ -1290,20 +1292,30 @@ export default function SSTHeatmapLeaflet(props) {
       overlayGrid={};day.grid.forEach(d=>{overlayGrid[`${d.lat}_${d.lon}`]=d.kd490;});
       min2=day.stats.min;max2=day.stats.max;colorFn=kd490Color;
     } else if (activeDataLayer==="altimetry"&&altimetryData?.lats?.length) {
-      // No raster for altimetry — contour lines are drawn by the SLA contour useEffect.
-      // Update legend range only.
+      // Render SLA color raster; contours drawn by separate useEffect.
       const { lats, lons, sla } = altimetryData;
       if (!sla) return;
-      const slaFlat = [];
-      for (let i = 0; i < lats.length; i++) { const row = sla[i]; if (!row) continue; for (let j = 0; j < lons.length; j++) { const v = row[j]; if (v != null && Number.isFinite(v)) slaFlat.push(v); } }
-      slaFlat.sort((a, b) => a - b);
-      if (slaFlat.length > 10) {
-        const p5 = slaFlat[Math.floor(slaFlat.length * 0.05)];
-        const p95 = slaFlat[Math.floor(slaFlat.length * 0.95)];
+      const rawLats2 = lats.map(v => Math.round(v * 1e5) / 1e5);
+      const rawLons2 = lons.map(v => Math.round(v * 1e5) / 1e5);
+      latSet2 = [...rawLats2].sort((a, b) => b - a);
+      lonSet2 = [...rawLons2].sort((a, b) => a - b);
+      overlayGrid = {};
+      for (let i = 0; i < rawLats2.length; i++) {
+        const row = sla[i]; if (!row) continue;
+        for (let j = 0; j < rawLons2.length; j++) {
+          const v = row[j]; if (v != null && Number.isFinite(v)) overlayGrid[`${rawLats2[i]}_${rawLons2[j]}`] = v;
+        }
+      }
+      if (!latSet2.length) return;
+      const slaFlat2 = Object.values(overlayGrid).filter(v => Number.isFinite(v)).sort((a, b) => a - b);
+      if (slaFlat2.length > 10) {
+        const p5 = slaFlat2[Math.floor(slaFlat2.length * 0.05)];
+        const p95 = slaFlat2[Math.floor(slaFlat2.length * 0.95)];
         const autoRange = Math.min(0.4, Math.max(Math.abs(p5), Math.abs(p95)));
         onSlaRange?.({ min: -autoRange, max: autoRange });
-      }
-      return; // Contours drawn separately — no raster overlay
+        min2 = -autoRange; max2 = autoRange;
+      } else { min2 = -0.3; max2 = 0.3; }
+      colorFn = slaColor;
     } else { return; }
     if (!latSet2.length) return;
     let cancelled = false;
@@ -1390,30 +1402,24 @@ export default function SSTHeatmapLeaflet(props) {
     };
   }, [mapReady, showCurrents, currentsData, repaintTrigger]);
 
-  // ── SLA contour lines (altimetry layer) ────────────────────────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!mapReady || !map) return;
-    if (slaContourLayerRef.current) { map.removeLayer(slaContourLayerRef.current); slaContourLayerRef.current = null; }
-    if (activeDataLayer !== "altimetry" || !altimetryData?.lats?.length) return;
-    const { lats, lons, sla } = altimetryData;
-    if (!sla) return;
+  // ── SLA contour lines helper (used by map mode + overlay mode) ─────────────
+  function buildSlaContourGroup(altData, overlayMode) {
+    const { lats, lons, sla } = altData;
+    if (!sla) return null;
     const rawLats = lats.map(v => Math.round(v * 1e5) / 1e5);
     const rawLons = lons.map(v => Math.round(v * 1e5) / 1e5);
-    const latSet2 = [...rawLats].sort((a, b) => b - a);
-    const lonSet2 = [...rawLons].sort((a, b) => a - b);
-    const overlayGrid = {};
+    const latSorted = [...rawLats].sort((a, b) => b - a);
+    const lonSorted = [...rawLons].sort((a, b) => a - b);
+    const grid = {};
     for (let i = 0; i < rawLats.length; i++) {
       const row = sla[i]; if (!row) continue;
       for (let j = 0; j < rawLons.length; j++) {
-        const v = row[j];
-        if (v != null && Number.isFinite(v)) overlayGrid[`${rawLats[i]}_${rawLons[j]}`] = v;
+        const v = row[j]; if (v != null && Number.isFinite(v)) grid[`${rawLats[i]}_${rawLons[j]}`] = v;
       }
     }
-    if (!latSet2.length || !lonSet2.length) return;
-    // Compute contour levels at 0.05m intervals across 5th–95th percentile
-    const slaVals = Object.values(overlayGrid).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
-    if (slaVals.length < 4) return;
+    if (!latSorted.length || !lonSorted.length) return null;
+    const slaVals = Object.values(grid).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
+    if (slaVals.length < 4) return null;
     const p5  = slaVals[Math.floor(slaVals.length * 0.05)];
     const p95 = slaVals[Math.floor(slaVals.length * 0.95)];
     const STEP = 0.05;
@@ -1421,32 +1427,61 @@ export default function SSTHeatmapLeaflet(props) {
     const levelMax = Math.floor(p95 / STEP) * STEP;
     const levels = [];
     for (let l = levelMin; l <= levelMax + 0.001; l += STEP) levels.push(Math.round(l * 1000) / 1000);
-    // Color + weight per level
-    const levelStyle = (v) => {
-      const a = Math.abs(v);
-      if (a < 0.025) return { weight: 2.5 };
-      if (a >= 0.2)  return { weight: 2.0 };
-      if (a >= 0.1)  return { weight: 1.8 };
-      return { weight: 1.4 };
-    };
     try {
-      const { field, rows, cols } = buildField(latSet2, lonSet2, overlayGrid);
+      const { field, rows, cols } = buildField(latSorted, lonSorted, grid);
       const contourGroup = L.layerGroup();
       for (const level of levels) {
-        const lines = marchingSquares(latSet2, lonSet2, field, rows, cols, level);
+        const lines = marchingSquares(latSorted, lonSorted, field, rows, cols, level);
         if (!lines.length) continue;
-        const { weight } = levelStyle(level);
-        const isZero = Math.abs(level) < 0.025;
-        lines.forEach(seg => {
+        const isPos = level >= 0;
+        const weight = Math.abs(level) < 0.025 ? 2.5 : 1.8;
+        const dash   = isPos ? null : "5,4";
+        const lineColor    = overlayMode ? "rgba(10,10,10,0.75)"   : "rgba(255,255,255,0.95)";
+        const outlineColor = overlayMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.32)";
+        // Find longest segment for label
+        let labelSeg = lines[0];
+        for (const seg of lines) { if (seg.length > labelSeg.length) labelSeg = seg; }
+        const midIdx = Math.floor(labelSeg.length / 2);
+        const [midLon, midLat] = labelSeg[midIdx];
+        const labelCm = Math.round(level * 100);
+        const labelStr = (labelCm >= 0 ? "+" : "") + labelCm;
+        for (const seg of lines) {
           const latlngs = seg.map(([lon, lat]) => [lat, lon]);
-          L.polyline(latlngs, { color: "rgba(0,0,0,0.35)", weight: weight + 2, interactive: false }).addTo(contourGroup);
-          L.polyline(latlngs, { color: "#ffffff", weight: isZero ? weight + 1 : weight, opacity: 0.92, interactive: false }).addTo(contourGroup);
+          L.polyline(latlngs, { color: outlineColor, weight: weight + 2, opacity: 0.8, dashArray: dash, interactive: false }).addTo(contourGroup);
+          L.polyline(latlngs, { color: lineColor,    weight: weight,     opacity: 1.0, dashArray: dash, interactive: false }).addTo(contourGroup);
+        }
+        const iconBg  = overlayMode ? "rgba(255,255,255,0.88)" : "rgba(0,0,0,0.60)";
+        const iconTxt = overlayMode ? "#0f172a" : "#ffffff";
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="background:${iconBg};color:${iconTxt};border-radius:3px;padding:1px 3px;font-size:9px;font-weight:700;white-space:nowrap;pointer-events:none;line-height:1.3;border:1px solid rgba(0,0,0,0.18)">${labelStr}</div>`,
+          iconAnchor: [12, 8],
         });
+        L.marker([midLat, midLon], { icon, interactive: false, keyboard: false }).addTo(contourGroup);
       }
-      contourGroup.addTo(map);
-      slaContourLayerRef.current = contourGroup;
-    } catch(err) { console.error("[SLA contour]", err); }
+      return contourGroup;
+    } catch(err) { console.error("[SLA contour]", err); return null; }
+  }
+
+  // ── SLA contour — Altimetry Map mode ────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    if (slaContourLayerRef.current) { map.removeLayer(slaContourLayerRef.current); slaContourLayerRef.current = null; }
+    if (activeDataLayer !== "altimetry" || !altimetryData?.lats?.length) return;
+    const grp = buildSlaContourGroup(altimetryData, false);
+    if (grp) { grp.addTo(map); slaContourLayerRef.current = grp; }
   }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, repaintTrigger]);
+
+  // ── SLA contour — Altimetry Overlay mode ────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    if (slaOverlayContourLayerRef.current) { map.removeLayer(slaOverlayContourLayerRef.current); slaOverlayContourLayerRef.current = null; }
+    if (!showAltimetryOverlay || !altimetryData?.lats?.length) return;
+    const grp = buildSlaContourGroup(altimetryData, true);
+    if (grp) { grp.addTo(map); slaOverlayContourLayerRef.current = grp; }
+  }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, repaintTrigger]);
 
   // ── Wind raster ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1939,6 +1974,7 @@ export default function SSTHeatmapLeaflet(props) {
             selectedFishSpecies={selectedFishSpecies} setSelectedFishSpecies={setSelectedFishSpecies}
             showWindOverlay={showWindOverlay} setShowWindOverlay={setShowWindOverlay}
             currentsLoading={currentsLoading} showCurrents={showCurrents} setShowCurrents={setShowCurrents}
+            showAltimetryOverlay={showAltimetryOverlay} setShowAltimetryOverlay={setShowAltimetryOverlay}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             selectedLocation={selectedLocation}
@@ -2385,10 +2421,16 @@ export default function SSTHeatmapLeaflet(props) {
                   <div className="flex flex-col gap-1.5">
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Altimetry</div>
                     <MobileProGate isPro={isPro} label="Sea level anomaly layer is available on the Pro plan.">
-                      <button onClick={() => setActiveDataLayer(l => l === "altimetry" ? "sst" : "altimetry")}
-                        className={`text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center justify-center gap-1.5 transition-colors ${activeDataLayer === "altimetry" ? "bg-violet-600 text-white border-violet-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                        🌊 {activeDataLayer === "altimetry" ? "Altimetry on" : "Altimetry"}
-                      </button>
+                      <div className="grid grid-cols-2 gap-1">
+                        <button onClick={() => setActiveDataLayer(l => l === "altimetry" ? "sst" : "altimetry")}
+                          className={`text-[11px] font-semibold px-2 py-2 rounded-lg border flex items-center justify-center gap-1 transition-colors ${activeDataLayer === "altimetry" ? "bg-violet-600 text-white border-violet-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                          🌊 ALT Map
+                        </button>
+                        <button onClick={() => setShowAltimetryOverlay(v => !v)}
+                          className={`text-[11px] font-semibold px-2 py-2 rounded-lg border flex items-center justify-center gap-1 transition-colors ${showAltimetryOverlay ? "bg-violet-400 text-white border-violet-400" : "bg-white text-slate-600 border-slate-300"}`}>
+                          〰 ALT Overlay
+                        </button>
+                      </div>
                     </MobileProGate>
                   </div>
                 )}

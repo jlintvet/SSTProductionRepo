@@ -281,6 +281,7 @@ export default function MapControlPanel({
   selectedFishSpecies, setSelectedFishSpecies,
   showWindOverlay, setShowWindOverlay,
   currentsLoading, showCurrents, setShowCurrents,
+  showAltimetryOverlay, setShowAltimetryOverlay,
   // overlays
   showBathyLayer, setShowBathyLayer,
   jsonContoursLoading,
@@ -486,6 +487,13 @@ export default function MapControlPanel({
               🌊 Altimetry
             </LayerBtn>
           </ProGate>
+          {!isAlt && (
+            <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
+              <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
+                〰 {showAltimetryOverlay ? "ALT Overlay on" : "ALT Overlay"}
+              </ToolBtn>
+            </ProGate>
+          )}
 
           <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
             <Wind className="w-3 h-3" />{windLoading ? "Loading…" : "Wind map"}
