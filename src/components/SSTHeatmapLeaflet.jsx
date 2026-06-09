@@ -426,11 +426,12 @@ function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity){
 function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];if((yi>py)!==(yj>py)&&px<((xj-xi)*(py-yi))/(yj-yi)+xi)inside=!inside;}return inside;}
 
 // ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
-// Emission delays back-calculated from Mid-Atlantic spot references (Hudson Canyon etc.)
+// ED_W calibrated from Oregon Inlet (35°32.16'N 74°50.67'W) = W26580
+// ED_Y triangulated from NC/Mid-Atlantic shelf reference spots
 const LORAN_MASTER = { lat: 41.2528, lon: -69.9775 };
 const LORAN_STATIONS = {
-  W: { lat: 42.3857, lon: -76.8253, ed: 26069 }, // Seneca, NY
-  Y: { lat: 41.3898, lon: -84.3752, ed: 41503 }, // Dana, IN
+  W: { lat: 42.3857, lon: -76.8253, ed: 26524 }, // Seneca, NY
+  Y: { lat: 41.3898, lon: -84.3752, ed: 42534 }, // Dana, IN
 };
 function loranHaversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371.009, r = Math.PI / 180;
@@ -442,7 +443,7 @@ function computeLoranTD(lat, lon, stKey) {
   const st = LORAN_STATIONS[stKey];
   return st.ed + (loranHaversineKm(lat, lon, st.lat, st.lon) - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
 }
-function buildLoranGrid(map) {
+function buildLoranGrid(map, waterMask) {
   const LSTEP = 0.1, LAT_MAX = 48, LAT_MIN = 24, LON_MIN = -82, LON_MAX = -60;
   const latSet = [], lonSet = [];
   for (let la = LAT_MAX; la >= LAT_MIN - 0.001; la = Math.round((la - LSTEP) * 1e4) / 1e4) latSet.push(la);
@@ -455,8 +456,16 @@ function buildLoranGrid(map) {
     yGrid[k] = computeLoranTD(la, lo, "Y");
   }
 
-  const { field: wField, rows, cols } = buildField(latSet, lonSet, wGrid);
-  const { field: yField } = buildField(latSet, lonSet, yGrid);
+  // Apply ocean mask — blank out land cells so contours stop at coastlines
+  function applyMask(grid) {
+    if (!waterMask) return grid;
+    return Object.fromEntries(Object.entries(grid).filter(([k]) => {
+      const [la, lo] = k.split("_").map(Number); return waterMask(la, lo);
+    }));
+  }
+  const wMasked = applyMask(wGrid), yMasked = applyMask(yGrid);
+  const { field: wField, rows, cols } = buildField(latSet, lonSet, wMasked);
+  const { field: yField } = buildField(latSet, lonSet, yMasked);
 
   function rangeFor(grid) {
     const vals = Object.values(grid).filter(Number.isFinite).sort((a,b)=>a-b);
@@ -1682,9 +1691,9 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (loranLayerRef.current) { loranLayerRef.current._loranCleanup?.(); map.removeLayer(loranLayerRef.current); loranLayerRef.current = null; }
     if (!showLoranGrid) return;
-    const grp = buildLoranGrid(map);
+    const grp = buildLoranGrid(map, waterMaskRef.current);
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
-  }, [mapReady, showLoranGrid]);
+  }, [mapReady, showLoranGrid, waterMaskVersion]);
 
   // ── Wind raster ─────────────────────────────────────────────────────────────
   useEffect(() => {
