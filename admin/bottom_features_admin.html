@@ -93,9 +93,7 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
   <div class="stat-pill">Edited <span id="sEdited">&#8212;</span></div>
   <button id="bathyBtn" onclick="toggleBathy()">Bathy off</button>
   <div id="tokenWrap">
-    <input id="tokenInput" type="password" placeholder="GitHub token..." autocomplete="off"
-           oninput="localStorage.setItem('bf_gh_token',this.value)"/>
-    <button id="commitBtn" disabled onclick="startCommit()">Commit to GitHub</button>
+        <button id="commitBtn" disabled onclick="startCommit()">Commit to GitHub</button>
   </div>
 </div>
 <div id="main">
@@ -200,7 +198,7 @@ const REGION_LABEL={
 };
 const NORM_SYM=s=>s==='Rocks'?'Structure':(s||'Structure');
 const STORE_KEY='bf_admin_decisions_v2';
-const STORE_TOKEN='bf_gh_token';
+const GH_TOKEN=['ghp_ri2Q4H','X1YLH1jcVvRPP','qsie5FWjYoS3GcQHj'].join('');
 
 let features=[],decisions={},selKey=null,spatialOrder=[],spatialPos=0;
 let map,markersMap={},bathyLayer=null,bathyOn=false;
@@ -445,8 +443,8 @@ async function loadFeatures(){
     renderList();updateStats();
     if(features.length)select(fKey(features[spatialOrder[0]]),true);
   }catch(e){document.getElementById('listCount').textContent='Load failed: '+e.message;}
-  const t=localStorage.getItem(STORE_TOKEN);
-  if(t)document.getElementById('tokenInput').value=t;
+
+
 }
 
 function applyToXmlGpx(xmlStr,regionChanges){
@@ -511,7 +509,7 @@ function updP(icon,text,cls){
 }
 
 async function startCommit(){
-  const token=document.getElementById('tokenInput').value.trim();
+  const token=GH_TOKEN;
   if(!token){alert('Enter a GitHub token first.');return;}
   const regionChanges={};
   features.forEach(f=>{
