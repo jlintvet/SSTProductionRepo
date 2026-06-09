@@ -1315,7 +1315,7 @@ export default function SSTHeatmapLeaflet(props) {
         onSlaRange?.({ min: -autoRange, max: autoRange });
         min2 = -autoRange; max2 = autoRange;
       } else { min2 = -0.3; max2 = 0.3; }
-      colorFn = slaColor;
+      colorFn = (val, mn, mx) => sstColor(val, mn, mx);
     } else { return; }
     if (!latSet2.length) return;
     let cancelled = false;
@@ -1403,73 +1403,154 @@ export default function SSTHeatmapLeaflet(props) {
   }, [mapReady, showCurrents, currentsData, repaintTrigger]);
 
   // ── SLA contour lines helper (used by map mode + overlay mode) ─────────────
-  function buildSlaContourGroup(altData, overlayMode) {
+  function buildSlaContourGroup(altData, overlayMode, map) {
     const { lats, lons, sla } = altData;
     if (!sla) return null;
     const rawLats = lats.map(v => Math.round(v * 1e5) / 1e5);
     const rawLons = lons.map(v => Math.round(v * 1e5) / 1e5);
     const latSorted = [...rawLats].sort((a, b) => b - a);
     const lonSorted = [...rawLons].sort((a, b) => a - b);
-    const grid = {};
+    const baseGrid = {};
     for (let i = 0; i < rawLats.length; i++) {
       const row = sla[i]; if (!row) continue;
       for (let j = 0; j < rawLons.length; j++) {
-        const v = row[j]; if (v != null && Number.isFinite(v)) grid[`${rawLats[i]}_${rawLons[j]}`] = v;
+        const v = row[j]; if (v != null && Number.isFinite(v)) baseGrid[`${rawLats[i]}_${rawLons[j]}`] = v;
       }
     }
     if (!latSorted.length || !lonSorted.length) return null;
-    const slaVals = Object.values(grid).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
+
+    // Bilinear upsample for smoother contours
+    function upsampleGrid(latS, lonS, g, factor) {
+      const nL = latS.length, nLo = lonS.length;
+      const vals = [];
+      for (let i = 0; i < nL; i++) { vals.push([]); for (let j = 0; j < nLo; j++) vals[i].push(g[`${latS[i]}_${lonS[j]}`] ?? null); }
+      const newLats = [], newLons = [];
+      for (let i = 0; i < nL - 1; i++) for (let f = 0; f < factor; f++) newLats.push(latS[i] + (latS[i+1] - latS[i]) * f / factor);
+      newLats.push(latS[nL - 1]);
+      for (let j = 0; j < nLo - 1; j++) for (let f = 0; f < factor; f++) newLons.push(lonS[j] + (lonS[j+1] - lonS[j]) * f / factor);
+      newLons.push(lonS[nLo - 1]);
+      const ng = {};
+      for (let ni = 0; ni < newLats.length; ni++) {
+        const lat = newLats[ni];
+        let i0 = nL - 2;
+        for (let i = 0; i < nL - 1; i++) { if (latS[i] >= lat && lat >= latS[i+1]) { i0 = i; break; } }
+        const i1 = Math.min(i0 + 1, nL - 1);
+        const latF = latS[i0] === latS[i1] ? 0 : (latS[i0] - lat) / (latS[i0] - latS[i1]);
+        for (let nj = 0; nj < newLons.length; nj++) {
+          const lon = newLons[nj];
+          let j0 = nLo - 2;
+          for (let j = 0; j < nLo - 1; j++) { if (lonS[j] <= lon && lon <= lonS[j+1]) { j0 = j; break; } }
+          const j1 = Math.min(j0 + 1, nLo - 1);
+          const lonF = lonS[j0] === lonS[j1] ? 0 : (lon - lonS[j0]) / (lonS[j1] - lonS[j0]);
+          const vNW = vals[i0][j0], vNE = vals[i0][j1], vSW = vals[i1][j0], vSE = vals[i1][j1];
+          let sum = 0, wsum = 0;
+          const wNW=(1-latF)*(1-lonF), wNE=(1-latF)*lonF, wSW=latF*(1-lonF), wSE=latF*lonF;
+          if (vNW != null) { sum+=vNW*wNW; wsum+=wNW; } if (vNE != null) { sum+=vNE*wNE; wsum+=wNE; }
+          if (vSW != null) { sum+=vSW*wSW; wsum+=wSW; } if (vSE != null) { sum+=vSE*wSE; wsum+=wSE; }
+          if (wsum >= 0.25) ng[`${newLats[ni]}_${newLons[nj]}`] = sum / wsum;
+        }
+      }
+      return { latSorted: newLats, lonSorted: newLons, grid: ng };
+    }
+
+    const { latSorted: lsUp, lonSorted: loUp, grid } = upsampleGrid(latSorted, lonSorted, baseGrid, 4);
+
+    const slaVals = Object.values(baseGrid).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
     if (slaVals.length < 4) return null;
     const p5  = slaVals[Math.floor(slaVals.length * 0.05)];
     const p95 = slaVals[Math.floor(slaVals.length * 0.95)];
-    const STEP = 0.05;
+    const STEP = 0.025; // 2.5 cm intervals
     const levelMin = Math.ceil(p5 / STEP) * STEP;
     const levelMax = Math.floor(p95 / STEP) * STEP;
     const levels = [];
-    for (let l = levelMin; l <= levelMax + 0.001; l += STEP) levels.push(Math.round(l * 1000) / 1000);
+    for (let l = levelMin; l <= levelMax + 0.001; l += STEP) levels.push(Math.round(l * 4000) / 4000);
+
+    // Precompute all lines per level
+    const levelLines = [];
     try {
-      const { field, rows, cols } = buildField(latSorted, lonSorted, grid);
-      const contourGroup = L.layerGroup();
+      const { field, rows, cols } = buildField(lsUp, loUp, grid);
       for (const level of levels) {
-        const lines = marchingSquares(latSorted, lonSorted, field, rows, cols, level);
-        if (!lines.length) continue;
-        const isPos = level >= 0;
-        const weight = Math.abs(level) < 0.025 ? 2.5 : 1.8;
-        const dash   = isPos ? null : "5,4";
-        const lineColor    = overlayMode ? "rgba(10,10,10,0.75)"   : "rgba(255,255,255,0.95)";
-        const outlineColor = overlayMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.32)";
-        // Find longest segment for label
-        let labelSeg = lines[0];
-        for (const seg of lines) { if (seg.length > labelSeg.length) labelSeg = seg; }
-        const midIdx = Math.floor(labelSeg.length / 2);
-        const [midLon, midLat] = labelSeg[midIdx];
-        const labelCm = Math.round(level * 100);
-        const labelStr = (labelCm >= 0 ? "+" : "") + labelCm;
-        for (const seg of lines) {
-          const latlngs = seg.map(([lon, lat]) => [lat, lon]);
-          L.polyline(latlngs, { color: outlineColor, weight: weight + 2, opacity: 0.8, dashArray: dash, interactive: false }).addTo(contourGroup);
-          L.polyline(latlngs, { color: lineColor,    weight: weight,     opacity: 1.0, dashArray: dash, interactive: false }).addTo(contourGroup);
-        }
-        const iconBg  = overlayMode ? "rgba(255,255,255,0.88)" : "rgba(0,0,0,0.60)";
-        const iconTxt = overlayMode ? "#0f172a" : "#ffffff";
-        const icon = L.divIcon({
-          className: "",
-          html: `<div style="background:${iconBg};color:${iconTxt};border-radius:3px;padding:1px 3px;font-size:9px;font-weight:700;white-space:nowrap;pointer-events:none;line-height:1.3;border:1px solid rgba(0,0,0,0.18)">${labelStr}</div>`,
-          iconAnchor: [12, 8],
-        });
-        L.marker([midLat, midLon], { icon, interactive: false, keyboard: false }).addTo(contourGroup);
+        const lines = marchingSquares(lsUp, loUp, field, rows, cols, level);
+        if (lines.length) levelLines.push({ level, lines });
       }
-      return contourGroup;
     } catch(err) { console.error("[SLA contour]", err); return null; }
+    if (!levelLines.length) return null;
+
+    // Draw all polylines (once, permanent)
+    const contourGroup = L.layerGroup();
+    for (const { level, lines } of levelLines) {
+      const isZero  = Math.abs(level) < 0.013;
+      const isMajor = Math.abs(Math.round(level * 100)) % 10 === 0; // every 10cm = major
+      const isPos   = level >= 0;
+      const dash    = isPos ? null : "4,3";
+      const weight  = isZero ? 1.8 : isMajor ? 1.4 : 0.9;
+      const lineClr = overlayMode ? "rgba(30,41,59,0.75)"   : "rgba(30,41,59,0.65)";
+      const outClr  = overlayMode ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.45)";
+      for (const seg of lines) {
+        const latlngs = seg.map(([lon, lat]) => [lat, lon]);
+        L.polyline(latlngs, { color: outClr,   weight: weight + 1.5, opacity: 0.7, dashArray: dash, interactive: false }).addTo(contourGroup);
+        L.polyline(latlngs, { color: lineClr,  weight: weight,       opacity: 1.0, dashArray: dash, interactive: false }).addTo(contourGroup);
+      }
+    }
+
+    // Dynamic zoom-aware labels (bathy style)
+    const labelState = { layer: null };
+    const LABEL_ZOOM = 8;
+
+    function buildSlaLabels() {
+      if (labelState.layer) { map.removeLayer(labelState.layer); labelState.layer = null; }
+      if (map.getZoom() < LABEL_ZOOM) return;
+      const bounds = map.getBounds();
+      const labelGroup = L.layerGroup();
+      const levelCount = {};
+      const MAX_PER_LEVEL = 4;
+      for (const { level, lines } of levelLines) {
+        const cm = Math.round(level * 100);
+        if (Math.abs(cm) % 5 !== 0) continue; // only label multiples of 5cm
+        const labelStr = (cm >= 0 ? "+" : "") + cm;
+        for (const line of lines) {
+          let bestRun = [], currentRun = [];
+          for (const [lon, lat] of line) {
+            if (bounds.contains([lat, lon])) { currentRun.push([lon, lat]); }
+            else { if (currentRun.length > bestRun.length) bestRun = currentRun; currentRun = []; }
+          }
+          if (currentRun.length > bestRun.length) bestRun = currentRun;
+          if (bestRun.length < 10) continue;
+          const cnt = levelCount[cm] || 0; if (cnt >= MAX_PER_LEVEL) continue; levelCount[cm] = cnt + 1;
+          const [lon, lat] = bestRun[Math.floor(bestRun.length / 2)];
+          const color = "#1e293b";
+          const icon = L.divIcon({
+            className: "",
+            html: `<div style="font-size:10px;font-weight:600;font-family:system-ui,sans-serif;color:${color};text-shadow:1px 1px 0 rgba(255,255,255,0.92),-1px 1px 0 rgba(255,255,255,0.92),1px -1px 0 rgba(255,255,255,0.92),-1px -1px 0 rgba(255,255,255,0.92),0 1px 0 rgba(255,255,255,0.92),0 -1px 0 rgba(255,255,255,0.92);white-space:nowrap;pointer-events:none;line-height:1;">${labelStr}</div>`,
+            iconSize: null, iconAnchor: [0, 6],
+          });
+          L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(labelGroup);
+        }
+      }
+      labelGroup.addTo(map);
+      labelState.layer = labelGroup;
+    }
+
+    buildSlaLabels();
+    map.on("zoomend", buildSlaLabels);
+    map.on("moveend", buildSlaLabels);
+
+    contourGroup._slaCleanup = () => {
+      map.off("zoomend", buildSlaLabels);
+      map.off("moveend", buildSlaLabels);
+      if (labelState.layer) { map.removeLayer(labelState.layer); labelState.layer = null; }
+    };
+
+    return contourGroup;
   }
 
   // ── SLA contour — Altimetry Map mode ────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!mapReady || !map) return;
-    if (slaContourLayerRef.current) { map.removeLayer(slaContourLayerRef.current); slaContourLayerRef.current = null; }
+    if (slaContourLayerRef.current) { slaContourLayerRef.current._slaCleanup?.(); map.removeLayer(slaContourLayerRef.current); slaContourLayerRef.current = null; }
     if (activeDataLayer !== "altimetry" || !altimetryData?.lats?.length) return;
-    const grp = buildSlaContourGroup(altimetryData, false);
+    const grp = buildSlaContourGroup(altimetryData, false, map);
     if (grp) { grp.addTo(map); slaContourLayerRef.current = grp; }
   }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, repaintTrigger]);
 
@@ -1477,9 +1558,9 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!mapReady || !map) return;
-    if (slaOverlayContourLayerRef.current) { map.removeLayer(slaOverlayContourLayerRef.current); slaOverlayContourLayerRef.current = null; }
+    if (slaOverlayContourLayerRef.current) { slaOverlayContourLayerRef.current._slaCleanup?.(); map.removeLayer(slaOverlayContourLayerRef.current); slaOverlayContourLayerRef.current = null; }
     if (!showAltimetryOverlay || !altimetryData?.lats?.length) return;
-    const grp = buildSlaContourGroup(altimetryData, true);
+    const grp = buildSlaContourGroup(altimetryData, true, map);
     if (grp) { grp.addTo(map); slaOverlayContourLayerRef.current = grp; }
   }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, repaintTrigger]);
 
