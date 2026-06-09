@@ -425,6 +425,31 @@ function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity){
 // ── Ocean mask ────────────────────────────────────────────────────────────────
 function pointInRing(px,py,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];if((yi>py)!==(yj>py)&&px<((xj-xi)*(py-yi))/(yj-yi)+xi)inside=!inside;}return inside;}
 
+// ── Submarine Canyon Labels (Mid-Atlantic + New England) ─────────────────────
+const CANYON_LABELS = [
+  { name: "Hudson Canyon",        lat: 38.80, lon: -72.60 },
+  { name: "Toms Canyon",          lat: 39.00, lon: -73.10 },
+  { name: "Ryan Canyon",          lat: 39.55, lon: -72.55 },
+  { name: "Gilbert Canyon",       lat: 39.35, lon: -72.35 },
+  { name: "Carteret Canyon",      lat: 38.75, lon: -73.35 },
+  { name: "Lindenkohl Canyon",    lat: 38.55, lon: -73.25 },
+  { name: "Baltimore Canyon",     lat: 38.35, lon: -73.60 },
+  { name: "Washington Canyon",    lat: 37.85, lon: -73.80 },
+  { name: "Norfolk Canyon",       lat: 36.80, lon: -74.60 },
+  { name: "Hatteras Canyon",      lat: 34.90, lon: -75.50 },
+  { name: "Block Canyon",         lat: 40.50, lon: -70.95 },
+  { name: "Alvin Canyon",         lat: 39.30, lon: -70.60 },
+  { name: "Heezen Canyon",        lat: 38.90, lon: -70.90 },
+  { name: "Veatch Canyon",        lat: 40.15, lon: -69.55 },
+  { name: "Atlantis Canyon",      lat: 40.20, lon: -69.10 },
+  { name: "Corsair Canyon",       lat: 40.20, lon: -68.65 },
+  { name: "Spencer Canyon",       lat: 40.30, lon: -68.40 },
+  { name: "Hydrographer Canyon",  lat: 40.35, lon: -68.10 },
+  { name: "Oceanographer Canyon", lat: 40.45, lon: -67.95 },
+  { name: "Lydonia Canyon",       lat: 40.60, lon: -67.75 },
+  { name: "Wilmington Canyon",    lat: 38.90, lon: -73.00 },
+];
+
 // ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
 // ED_W calibrated from Oregon Inlet (35°32.16'N 74°50.67'W) = W26580
 // ED_Y triangulated from NC/Mid-Atlantic shelf reference spots
@@ -749,6 +774,7 @@ export default function SSTHeatmapLeaflet(props) {
   const slaContourLayerRef  = useRef(null);
   const slaOverlayContourLayerRef = useRef(null);
   const loranLayerRef = useRef(null);
+  const canyonLabelLayerRef = useRef(null);
   const blobUrlsRef         = useRef([]);
 
   const selectedLocationRef = useRef(selectedLocation);
@@ -1773,6 +1799,7 @@ export default function SSTHeatmapLeaflet(props) {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (bathyLayerRef.current) { map.removeLayer(bathyLayerRef.current); bathyLayerRef.current = null; }
     if (bathyLabelRef.current) { map.removeLayer(bathyLabelRef.current); bathyLabelRef.current = null; }
+    if (canyonLabelLayerRef.current) { map.removeLayer(canyonLabelLayerRef.current); canyonLabelLayerRef.current = null; }
     if (!showBathyLayer || !jsonContours) return;
     const lyr = L.geoJSON(jsonContours, {
       interactive: false,
@@ -1787,6 +1814,21 @@ export default function SSTHeatmapLeaflet(props) {
       },
     });
     lyr.addTo(map); bathyLayerRef.current = lyr;
+
+    // Canyon name labels — persistent at all zoom levels
+    const canyonGroup = L.layerGroup();
+    CANYON_LABELS.forEach(({ name, lat, lon }) => {
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="font-size:11px;font-style:italic;font-weight:600;font-family:Georgia,serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
+        iconSize: null,
+        iconAnchor: [0, 6],
+      });
+      L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(canyonGroup);
+    });
+    canyonGroup.addTo(map);
+    canyonLabelLayerRef.current = canyonGroup;
+
     const LABEL_ZOOM = 10;
     function buildLabelLayer() {
       if (bathyLabelRef.current) { map.removeLayer(bathyLabelRef.current); bathyLabelRef.current = null; }
@@ -1818,6 +1860,7 @@ export default function SSTHeatmapLeaflet(props) {
     return () => {
       map.off("zoomend", buildLabelLayer); map.off("moveend", buildLabelLayer);
       if (bathyLabelRef.current) { map.removeLayer(bathyLabelRef.current); bathyLabelRef.current = null; }
+      if (canyonLabelLayerRef.current) { map.removeLayer(canyonLabelLayerRef.current); canyonLabelLayerRef.current = null; }
     };
   }, [mapReady, showBathyLayer, jsonContours]);
 
