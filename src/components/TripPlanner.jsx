@@ -298,7 +298,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                     </div>
                     <button
                       onClick={e => deleteRoute(r.id, e)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all p-0.5"
+                      className="opacity-40 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-all p-0.5"
                       title="Delete route"
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

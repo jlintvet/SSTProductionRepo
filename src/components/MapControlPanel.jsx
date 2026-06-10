@@ -426,7 +426,7 @@ export default function MapControlPanel({
               <SubSourceBtn active={isComposite} onClick={() => setActiveDataLayer("composite")}>Composite 36h</SubSourceBtn>
 
               {isComposite && compositeData && (
-                compositeDates?.length > 1 ? (
+                compositeDates?.length >= 1 ? (
                   <DateNav
                     label={compositeDates[compositeDateIndex] ?? "—"} color="violet"
                     onPrev={() => setCompositeDateIndex(i => Math.max(0, i - 1))}

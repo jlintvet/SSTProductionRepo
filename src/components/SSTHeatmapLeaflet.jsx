@@ -1541,7 +1541,7 @@ export default function SSTHeatmapLeaflet(props) {
       const dir = dir_deg ?? ((Math.atan2(u || 0, v || 0) * 180 / Math.PI) + 360) % 360;
       const norm = Math.min(spd / maxSpd, 1);
       const opacity = (0.35 + 0.65 * norm).toFixed(2);
-      const html = `<div style="width:16px;height:16px;transform:rotate(${dir.toFixed(1)}deg);opacity:${opacity};"><svg viewBox="-5 -10 10 20" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="8" x2="0" y2="-5" stroke="#67e8f9" stroke-width="1.8" stroke-linecap="round"/><polygon points="0,-10 -3.5,-4 3.5,-4" fill="#67e8f9"/></svg></div>`;
+      const html = `<div style="width:16px;height:16px;transform:rotate(${dir.toFixed(1)}deg);opacity:${opacity};"><svg viewBox="-5 -10 10 20" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="8" x2="0" y2="-5" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/><polygon points="0,-10 -3.5,-4 3.5,-4" fill="#ffffff"/></svg></div>`;
       const icon = L.divIcon({ className: "", html, iconSize: [16, 16], iconAnchor: [8, 8] });
       L.marker([lat, lon], { icon, interactive: false }).addTo(group);
     });
@@ -2426,7 +2426,7 @@ export default function SSTHeatmapLeaflet(props) {
                     )}
 
                     {/* Composite DateNav */}
-                    {activeDataLayer === "composite" && compositeData && compositeDates?.length > 1 && (
+                    {activeDataLayer === "composite" && compositeData && compositeDates?.length >= 1 && (
                       <div className="flex items-center gap-1">
                         <button onClick={() => setCompositeDateIndex(i => Math.max(0, i - 1))} disabled={compositeDateIndex === 0}
                           className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
