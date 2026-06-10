@@ -287,6 +287,7 @@ export default function MapControlPanel({
   jsonContoursLoading,
   showWrecks, setShowWrecks,
   wrecksLoading,
+  showLoranGrid, setShowLoranGrid,
   // tier
   isPro,
   // trip planning
@@ -618,6 +619,9 @@ export default function MapControlPanel({
               {wrecksLoading ? "Loading…" : "Bottom Features"}
             </ToolBtn>
           </ProGate>
+          <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
+            {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+          </ToolBtn>
         </div>
       )}
 
