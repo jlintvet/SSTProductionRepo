@@ -10,6 +10,9 @@ import { WindLegend } from "@/components/WindTimeSlider";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
 import TripPlanner from "@/components/TripPlanner";
 
+// ── Deploy diagnostic ─────────────────────────────────────────────────────────
+if (typeof window !== "undefined") console.log("SST deploy check: 2026-06-10T01");
+
 // ── Leaflet / velocity side-effects (must run once) ───────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("leaflet-velocity-script")) {
   const link = document.createElement("link");
@@ -317,7 +320,7 @@ function SSTPageBody() {
   const rangeControlOpenRef = useRef(null);
   const [legendHoverSst, setLegendHoverSst] = useState(null);
   const [dataSource,     setDataSource]     = useState(() => localStorage.getItem("sst_source") || "MUR");
-  const [activeDataLayer,setActiveDataLayer]= useState("sst");
+  const [activeDataLayer,setActiveDataLayer]= useState(() => localStorage.getItem("sst_active_layer") || "sst");
   const [chlData,        setChlData]        = useState(null);
   const [chlLoading,     setChlLoading]     = useState(false);
   const [chlDateIndex,   setChlDateIndex]   = useState(0);
@@ -538,6 +541,7 @@ function SSTPageBody() {
   useEffect(()=>{if(dataSource==="MUR")fetchMUR();else if(dataSource==="VIIRS")fetchVIIRS();else if(dataSource==="VIIRSSNPP")fetchVIIRSNpp();else if(dataSource==="GOESCOMP")fetchGOESComposite();},[dataSource]);
   // Persist chosen SST source across sessions
   useEffect(()=>{ localStorage.setItem("sst_source", dataSource); },[dataSource]);
+  useEffect(()=>{ localStorage.setItem("sst_active_layer", activeDataLayer); },[activeDataLayer]);
 
   useEffect(() => {
     if (dataSource !== "VIIRS" || !viirsData?.days?.length) return;
@@ -601,24 +605,34 @@ function SSTPageBody() {
       {error&&<div className="flex-shrink-0 bg-red-50 border-b border-red-200 px-4 py-2 text-xs text-red-600">Error: {error}</div>}
       {gridHealth?.scattered && dataSource !== "VIIRS" &&<div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800">Backend returning scattered points. See console.</div>}
 
-      {loading?(
-        <div className="flex-1 flex items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-slate-200 border-t-cyan-500 rounded-full animate-spin"/><p className="text-sm text-slate-500 font-medium">Loading SST data...</p></div></div>
-      ):!activeGrid?.length?(
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-slate-400 text-sm max-w-md px-4">
-            <div className="text-2xl mb-2">🌊</div>
-            {currentSourceStatus==="empty"?(
-              <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} returned no data</div><div className="text-xs text-slate-400">The backend function ran successfully but produced no data points. Try a different SST source above.</div></>
-            ):currentSourceStatus==="malformed"?(
-              <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} response not recognized</div><div className="text-xs text-slate-400">Check the Base44 function output. See browser console for response details.</div></>
-            ):(
-              <><div>No data available for this source yet.</div><div className="text-xs mt-1 text-slate-300">Try switching to a different SST source.</div></>
-            )}
+      {(() => {
+        const hasAnyData = !!(murData?.days?.length || viirsData?.days?.length || viirsNppData?.days?.length || goesCompData?.days?.length || compositeData);
+        if (loading && !hasAnyData) return (
+          <div className="flex-1 flex items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-slate-200 border-t-cyan-500 rounded-full animate-spin"/><p className="text-sm text-slate-500 font-medium">Loading SST data...</p></div></div>
+        );
+        if (!activeGrid?.length && !loading) return (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-slate-400 text-sm max-w-md px-4">
+              <div className="text-2xl mb-2">🌊</div>
+              {currentSourceStatus==="empty"?(
+                <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} returned no data</div><div className="text-xs text-slate-400">The backend function ran successfully but produced no data points. Try a different SST source above.</div></>
+              ):currentSourceStatus==="malformed"?(
+                <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} response not recognized</div><div className="text-xs text-slate-400">Check the Base44 function output. See browser console for response details.</div></>
+              ):(
+                <><div>No data available for this source yet.</div><div className="text-xs mt-1 text-slate-300">Try switching to a different SST source.</div></>
+              )}
+            </div>
           </div>
-        </div>
-      ):(
+        );
+        return (
         <>
           <div className="flex-1 overflow-hidden relative">
+            {loading && hasAnyData && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2 pointer-events-none" style={{zIndex:600}}>
+                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
+                Switching source…
+              </div>
+            )}
             <SSTHeatmapLeaflet
               data={heatmapData} sstMin={sstMin} sstMax={sstMax}
               date={selectedDate} dataSource={dataSource} setDataSource={setDataSource}
@@ -748,7 +762,8 @@ function SSTPageBody() {
             }
           </div>
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }

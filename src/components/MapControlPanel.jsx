@@ -306,6 +306,7 @@ export default function MapControlPanel({
     tools:    true,
     overlays: true,
   });
+  const [loranHelpOpen, setLoranHelpOpen] = useState(false);
 
   function toggleSection(key) {
     setOpenSections(s => ({ ...s, [key]: !s[key] }));
@@ -619,9 +620,22 @@ export default function MapControlPanel({
               {wrecksLoading ? "Loading…" : "Bottom Features"}
             </ToolBtn>
           </ProGate>
-          <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
-            {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
-          </ToolBtn>
+          <div className="flex gap-1 items-stretch">
+            <div className="flex-1">
+              <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
+                {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+              </ToolBtn>
+            </div>
+            <button onClick={() => setLoranHelpOpen(o => !o)}
+              className={`px-2 rounded-lg border text-[12px] font-bold transition-colors flex-shrink-0 ${loranHelpOpen ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
+              title="About Loran-C">?</button>
+          </div>
+          {loranHelpOpen && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[10px] text-slate-600 leading-relaxed">
+              <p className="font-semibold text-slate-700 mb-1">About Loran-C</p>
+              The U.S. Loran-C system was officially decommissioned in 2010. This overlay approximates the position of these lines for common reference positioning — in practice, we only refer to the last 3 digits with a secondary depth reference, e.g. <em>"the bite&apos;s been hot in 100 fa at the 580"</em> (The Point off Oregon Inlet). Each <strong>major line</strong> is 10 miles apart — if a buddy reports mahi at the 680, that&apos;s a 10-mile run. Each <strong>minor line</strong> is 2 miles apart, making distance estimation easy.
+            </div>
+          )}
         </div>
       )}
 

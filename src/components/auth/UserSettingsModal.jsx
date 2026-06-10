@@ -11,6 +11,7 @@
 //     boat_length_ft numeric,
 //     fuel_tank_gal numeric,
 //     fuel_burn_gal_hr numeric,
+//     trolling_burn_gal_hr numeric,
 //     cruise_speed_kts numeric,
 //     gps_device_label text default '',
 //     updated_at timestamptz default now()
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS = {
   boat_length_ft: "",
   fuel_tank_gal: "",
   fuel_burn_gal_hr: "",
+  trolling_burn_gal_hr: "",
   cruise_speed_kts: "",
   gps_device_label: "",
 };
@@ -46,8 +48,9 @@ export async function loadUserSettings(userId) {
     boat_name:        data.boat_name        ?? "",
     boat_length_ft:   data.boat_length_ft   ?? "",
     fuel_tank_gal:    data.fuel_tank_gal    ?? "",
-    fuel_burn_gal_hr: data.fuel_burn_gal_hr ?? "",
-    cruise_speed_kts: data.cruise_speed_kts ?? "",
+    fuel_burn_gal_hr:     data.fuel_burn_gal_hr     ?? "",
+    trolling_burn_gal_hr: data.trolling_burn_gal_hr ?? "",
+    cruise_speed_kts:     data.cruise_speed_kts     ?? "",
     gps_device_label: data.gps_device_label ?? "",
   };
 }
@@ -60,8 +63,9 @@ export async function saveUserSettings(userId, settings) {
     boat_name:        settings.boat_name        || null,
     boat_length_ft:   settings.boat_length_ft   !== "" ? Number(settings.boat_length_ft)   : null,
     fuel_tank_gal:    settings.fuel_tank_gal    !== "" ? Number(settings.fuel_tank_gal)    : null,
-    fuel_burn_gal_hr: settings.fuel_burn_gal_hr !== "" ? Number(settings.fuel_burn_gal_hr) : null,
-    cruise_speed_kts: settings.cruise_speed_kts !== "" ? Number(settings.cruise_speed_kts) : null,
+    fuel_burn_gal_hr:     settings.fuel_burn_gal_hr     !== "" ? Number(settings.fuel_burn_gal_hr)     : null,
+    trolling_burn_gal_hr: settings.trolling_burn_gal_hr !== "" ? Number(settings.trolling_burn_gal_hr) : null,
+    cruise_speed_kts:     settings.cruise_speed_kts     !== "" ? Number(settings.cruise_speed_kts)     : null,
     gps_device_label: settings.gps_device_label || null,
     updated_at:       new Date().toISOString(),
   };
@@ -175,12 +179,20 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 onChange={v => set("fuel_tank_gal", v)}
               />
             </Row>
-            <Row label="Burn rate">
+            <Row label="Cruise Burn Rate">
               <NumInput
                 value={form.fuel_burn_gal_hr}
                 placeholder="e.g. 25"
                 unit="gal/hr"
                 onChange={v => set("fuel_burn_gal_hr", v)}
+              />
+            </Row>
+            <Row label="Trolling Burn Rate">
+              <NumInput
+                value={form.trolling_burn_gal_hr}
+                placeholder="e.g. 4"
+                unit="gal/hr"
+                onChange={v => set("trolling_burn_gal_hr", v)}
               />
             </Row>
             <Row label="Cruise speed">
