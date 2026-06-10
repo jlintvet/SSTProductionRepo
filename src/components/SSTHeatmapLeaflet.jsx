@@ -1366,6 +1366,20 @@ export default function SSTHeatmapLeaflet(props) {
     };
   }, [mapReady]);
 
+
+  // ── Reset map bounds/zoom when switching away from VIIRS ─────────────────
+  // VIIRS sets tight maxBounds + high minZoom. When source changes, the SST
+  // overlay effect early-returns if latSet is empty, leaving the map locked.
+  // This effect resets constraints immediately on dataSource change.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    if (dataSource !== "VIIRS") {
+      try { map.setMaxBounds(llBounds); } catch(_) {}
+      try { map.setMinZoom(1); } catch(_) {}
+    }
+  }, [mapReady, dataSource]);
+
   // ── SST overlay ────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
