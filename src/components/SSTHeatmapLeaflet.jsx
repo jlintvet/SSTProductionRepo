@@ -1544,7 +1544,7 @@ export default function SSTHeatmapLeaflet(props) {
       },
       data: hourData.velocityJSON, minVelocity: 0, maxVelocity: maxSpd,
       velocityScale: 0.04,
-      colorScale: ["rgba(255,255,255,0.7)","rgba(255,255,255,0.82)","rgba(255,255,255,0.92)","rgba(255,255,255,1.0)"],
+      colorScale: ["rgba(0,0,0,0.5)","rgba(0,0,0,0.65)","rgba(0,0,0,0.82)","rgba(0,0,0,0.95)"],
     });
     currentsLayer.addTo(map);
     currentsLayerRef.current = currentsLayer;
@@ -1709,7 +1709,8 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (slaContourLayerRef.current) { slaContourLayerRef.current._slaCleanup?.(); map.removeLayer(slaContourLayerRef.current); slaContourLayerRef.current = null; }
     if (activeDataLayer !== "altimetry" || !altimetryData?.lats?.length) return;
-    const grp = buildSlaContourGroup(altimetryData, false, map, waterMaskRef.current);
+    // If overlay is also on, let the overlay effect handle contours (avoids duplication)
+    const grp = buildSlaContourGroup(altimetryData, showAltimetryOverlay ? true : false, map, waterMaskRef.current);
     if (grp) { grp.addTo(map); slaContourLayerRef.current = grp; }
   }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, repaintTrigger]);
 
@@ -1900,7 +1901,7 @@ export default function SSTHeatmapLeaflet(props) {
       if (loc?.wreckRegion && props.region && props.region !== loc.wreckRegion) return;
       const fKey = `${(props.name ?? "").trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
       if (wreckRemovedKeys?.has(fKey)) return;
-      const m = L.circleMarker([lat, lon], { radius:5, color:"#fff", weight:1, fillColor:props.symbol==="Wreck"?"#ef4444":"#f59e0b", fillOpacity:0.9 });
+      const m = L.circleMarker([lat, lon], { radius:5, color:"#fff", weight:1, fillColor:props.symbol==="Wreck"?"#ef4444":"#67e8f9", fillOpacity:0.9 });
       m.on("mouseover", e => { const containerPt=map.latLngToContainerPoint(e.latlng); setHoveredWreck({px:containerPt.x,py:containerPt.y,props,lat,lon}); try{map.getContainer().style.cursor="pointer";}catch(_){} });
       m.on("mouseout", () => { setHoveredWreck(null); try{ const XHAIR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cline x1='8' y1='0' x2='8' y2='16' stroke='%23111' stroke-width='1.2'/%3E%3Cline x1='0' y1='8' x2='16' y2='8' stroke='%23111' stroke-width='1.2'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='none' stroke='%23111' stroke-width='1.2'/%3E%3C/svg%3E") 8 8, crosshair`; map.getContainer().style.cursor=interactionModeRef.current==="crosshair"?XHAIR:"grab";}catch(_){} });
       m.addTo(lyr);
@@ -2089,10 +2090,10 @@ export default function SSTHeatmapLeaflet(props) {
     const lyr = L.layerGroup();
     markers.forEach((mk, i) => {
       const isHighlighted = highlightedLocation && mk.id && String(mk.id) === String(highlightedLocation.id);
-      const pinHtml = isHighlighted
-        ? `<svg width="14" height="19" viewBox="0 0 22 30" xmlns="http://www.w3.org/2000/svg"><path d="M11 0C4.925 0 0 4.925 0 11c0 7.5 11 19 11 19s11-11.5 11-19C22 4.925 17.075 0 11 0z" fill="#f97316" stroke="#00BFFF" stroke-width="2"/><circle cx="11" cy="11" r="4" fill="#00BFFF" fill-opacity="0.95"/></svg>`
-        : `<svg width="14" height="19" viewBox="0 0 22 30" xmlns="http://www.w3.org/2000/svg"><path d="M11 0C4.925 0 0 4.925 0 11c0 7.5 11 19 11 19s11-11.5 11-19C22 4.925 17.075 0 11 0z" fill="#f97316" stroke="white" stroke-width="2"/><circle cx="11" cy="11" r="4" fill="white" fill-opacity="0.95"/></svg>`;
-      const icon = L.divIcon({ className:"", html: pinHtml, iconSize:[14,19], iconAnchor:[7,19] });
+      const dotHtml = isHighlighted
+        ? '<div style="width:14px;height:14px;background:#f97316;border:2.5px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #f97316,0 1px 4px rgba(0,0,0,0.4);"></div>'
+        : '<div style="width:12px;height:12px;background:#f97316;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>';
+      const icon = L.divIcon({ className:"", html: dotHtml, iconSize: isHighlighted ? [14,14] : [12,12], iconAnchor: isHighlighted ? [7,7] : [6,6] });
       const m = L.marker([mk.lat, mk.lon], { icon, interactive: true });
       const openMarker = () => {
         if (tripModeRef.current) {
@@ -2471,17 +2472,25 @@ export default function SSTHeatmapLeaflet(props) {
                       </div>
                     )}
 
-                    {/* GOES DateNav */}
-                    {activeDataLayer === "sst" && dataSource === "GOESCOMP" && goesCompData?.days?.length >= 1 && (
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setGoesCompDateIndex(i => Math.max(0, i - 1))} disabled={goesCompDateIndex === 0}
-                          className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
-                        <span className="flex-1 text-center text-[10px] font-semibold text-indigo-700 bg-indigo-50 rounded py-1 truncate">
-                          {activeGoesCompDay?.date ?? "—"}
-                        </span>
-                        <button onClick={() => setGoesCompDateIndex(i => Math.min(goesCompData.days.length - 1, i + 1))} disabled={goesCompDateIndex === goesCompData.days.length - 1}
-                          className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
-                      </div>
+                    {/* Composite DateNav */}
+                    {activeDataLayer === "composite" && compositeData && (
+                      compositeDates?.length > 1 ? (
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setCompositeDateIndex(i => Math.max(0, i - 1))} disabled={compositeDateIndex === 0}
+                            className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
+                          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1 truncate">
+                            {compositeDates[compositeDateIndex] ?? "—"}
+                          </span>
+                          <button onClick={() => setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1))} disabled={compositeDateIndex === compositeDates.length - 1}
+                            className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-violet-700 bg-violet-50 rounded px-2 py-1 text-center font-semibold">
+                          {compositeData.generated
+                            ? new Date(compositeData.generated).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })
+                            : "Latest composite"}
+                        </div>
+                      )
                     )}
 
                     {/* Temp gain */}

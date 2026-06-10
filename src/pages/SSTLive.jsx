@@ -316,7 +316,7 @@ function SSTPageBody() {
   const openControlPanelRef = useRef(null);
   const rangeControlOpenRef = useRef(null);
   const [legendHoverSst, setLegendHoverSst] = useState(null);
-  const [dataSource,     setDataSource]     = useState("MUR");
+  const [dataSource,     setDataSource]     = useState(() => localStorage.getItem("sst_source") || "MUR");
   const [activeDataLayer,setActiveDataLayer]= useState("sst");
   const [chlData,        setChlData]        = useState(null);
   const [chlLoading,     setChlLoading]     = useState(false);
@@ -536,6 +536,8 @@ function SSTPageBody() {
   async function fetchVIIRSNpp(){setLoading(true);setError(null);try{const res=await fetchVIIRSSST();const result=normalizeSSTResponse(res,"VIIRSSNPP","sst");applyResult("VIIRSSNPP",result,setViirsNppState);}catch(e){console.error("[SST:VIIRSSNPP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,VIIRSSNPP:"error"}));}setLoading(false);}
   async function fetchGOESComp(){setLoading(true);setError(null);try{const res=await fetchGOESComposite();const result=normalizeSSTResponse(res,"GOESCOMP","sst");applyResult("GOESCOMP",result,setGoesCompState);}catch(e){console.error("[SST:GOESCOMP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,GOESCOMP:"error"}));}setLoading(false);}
   useEffect(()=>{if(dataSource==="MUR")fetchMUR();else if(dataSource==="VIIRS")fetchVIIRS();else if(dataSource==="VIIRSSNPP")fetchVIIRSNpp();else if(dataSource==="GOESCOMP")fetchGOESComposite();},[dataSource]);
+  // Persist chosen SST source across sessions
+  useEffect(()=>{ localStorage.setItem("sst_source", dataSource); },[dataSource]);
 
   useEffect(() => {
     if (dataSource !== "VIIRS" || !viirsData?.days?.length) return;
