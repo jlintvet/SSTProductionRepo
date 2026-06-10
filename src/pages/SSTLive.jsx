@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Component } from "react";
 import { fetchMURSST, fetchVIIRSSST, fetchGOESComposite, fetchChlorophyll, fetchSeaColor } from "@/lib/dataFetchers";
 import { supabase } from "@/lib/supabase";
 import AppShell from "@/components/shell/AppShell";
@@ -612,7 +612,8 @@ function SSTPageBody() {
           <div className="flex-1 flex items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-slate-200 border-t-cyan-500 rounded-full animate-spin"/><p className="text-sm text-slate-500 font-medium">Loading SST data...</p></div></div>
         );
         const currentLayerHasData = !!(activeGrid?.length) || (activeDataLayer==="composite"&&!!compositeData) || (activeDataLayer==="chlorophyll"&&!!chlData?.days?.length) || (activeDataLayer==="seacolor"&&!!seaColorData?.days?.length) || activeDataLayer==="altimetry" || activeDataLayer==="windmap";
-        if (!currentLayerHasData && !loading) return (
+        const isStillLoading = loading || chlLoading || seaColorLoading || (activeDataLayer === "composite" && !compositeData);
+        if (!currentLayerHasData && !isStillLoading) return (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center text-slate-400 text-sm max-w-md px-4">
               <div className="text-2xl mb-2">🌊</div>
@@ -635,6 +636,7 @@ function SSTPageBody() {
                 Switching source…
               </div>
             )}
+            <SSTErrorBoundary>
             <SSTHeatmapLeaflet
               data={heatmapData} sstMin={sstMin} sstMax={sstMax}
               date={selectedDate} dataSource={dataSource} setDataSource={setDataSource}
@@ -690,6 +692,7 @@ function SSTPageBody() {
               boatPosition={boatPosition}
               boatTrack={boatTrack}
             />
+            </SSTErrorBoundary>
           </div>
           {tripMode && (
             <TripPlanner
@@ -709,7 +712,6 @@ function SSTPageBody() {
           {endTripPrompt && (
             <div className="fixed inset-0 z-[9500] flex items-center justify-center bg-black/30">
               <div className="bg-white rounded-2xl shadow-2xl px-6 py-5 max-w-xs w-full mx-4 text-center">
-                <div className="text-2xl mb-2">⚓</div>
                 <p className="text-sm font-semibold text-slate-800 mb-1">Return to departure?</p>
                 <p className="text-xs text-slate-500 mb-4">
                   Add {waypoints[0]?.label || "departure"} as your final waypoint and close the route.
@@ -768,6 +770,26 @@ function SSTPageBody() {
       })()}
     </div>
   );
+}
+
+
+// ── Error boundary — recovers from render crashes in the map component ────────
+class SSTErrorBoundary extends Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(err) { console.error("[SSTHeatmap] render error:", err); }
+  render() {
+    if (this.state.hasError) return (
+      <div className="flex-1 flex items-center justify-center flex-col gap-3">
+        <div className="text-slate-500 text-sm">Something went wrong loading the map.</div>
+        <button onClick={() => this.setState({ hasError: false })}
+          className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-semibold">
+          Try again
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
 }
 
 export default function SSTLive() {

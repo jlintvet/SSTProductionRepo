@@ -2751,18 +2751,32 @@ export default function SSTHeatmapLeaflet(props) {
                           className={`w-8 py-2 rounded-lg border text-[12px] font-bold flex-shrink-0 transition-colors ${loranHelpOpen ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
                           title="About Loran-C">?</button>
                       </div>
-                      {loranHelpOpen && (
-                        <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[10px] text-slate-600 leading-relaxed">
-                          <p className="font-semibold text-slate-700 mb-1">About Loran-C</p>
-                          The U.S. Loran-C system was officially decommissioned in 2010. This overlay approximates the position of these lines for common reference positioning — in practice, we only refer to the last 3 digits with a secondary depth reference, e.g. <em>"the bite's been hot in 100 fa at the 580"</em> (The Point off Oregon Inlet). Each <strong>major line</strong> is 10 miles apart — if a buddy reports mahi at the 680, that's a 10-mile run. Each <strong>minor line</strong> is 2 miles apart, making distance estimation easy.
-                        </div>
+                      {loranHelpOpen && createPortal(
+                        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4"
+                             onClick={() => setLoranHelpOpen(false)}>
+                          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden"
+                               onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                              <p className="font-semibold text-slate-800 text-sm">About Loran-C</p>
+                              <button onClick={() => setLoranHelpOpen(false)}
+                                className="text-slate-400 hover:text-slate-600 text-xl leading-none font-light">×</button>
+                            </div>
+                            <img src="/loran_ref_point.png" alt="The Point — Loran Y lines"
+                                 className="w-full object-cover" style={{maxHeight:200}}
+                                 onError={e => { e.currentTarget.style.display="none"; }} />
+                            <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
+                              The U.S. Loran-C system was officially decommissioned in 2010. This overlay approximates the position of these lines for common reference positioning — in practice, we only refer to the last 3 digits with a secondary depth reference, e.g. <em>&ldquo;the bite&apos;s been hot in 100 fa at the 580&rdquo;</em> (The Point off Oregon Inlet). Each <strong>major line</strong> is 10 miles apart — if a buddy reports mahi at the 680, that&apos;s a 10-mile run. Each <strong>minor line</strong> is 2 miles apart, making distance estimation easy.
+                            </div>
+                          </div>
+                        </div>,
+                        document.body
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <MobileProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
                         <button onClick={onToggleGps}
                           className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${gpsActive ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                          📡 {gpsActive ? "GPS On" : "Real Time"}
+                          {gpsActive ? "GPS On" : "Real Time"}
                         </button>
                       </MobileProGate>
                     </div>

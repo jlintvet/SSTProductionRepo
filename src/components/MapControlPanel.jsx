@@ -13,7 +13,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
-import { Crosshair, Move, Wind, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import SSTRangeControl from "@/components/SSTRangeControl";
 
 // ── ProGate (inlined — no separate file needed) ───────────────────────────────
@@ -370,7 +370,7 @@ export default function MapControlPanel({
               : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
           }`}
         >
-          <Move className="w-3.5 h-3.5" />Pan
+          Pan
         </button>
         <button
           onClick={() => setInteractionMode("crosshair")}
@@ -381,7 +381,7 @@ export default function MapControlPanel({
               : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
           }`}
         >
-          <Crosshair className="w-3.5 h-3.5" />Inspect
+          Inspect
         </button>
       </div>
 
@@ -496,12 +496,12 @@ export default function MapControlPanel({
 
           <ProGate isPro={isPro} label="Sea level anomaly (altimetry) is available on the Pro plan.">
             <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
-              🌊 Altimetry
+              Altimetry
             </LayerBtn>
           </ProGate>
 
           <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
-            <Wind className="w-3 h-3" />{windLoading ? "Loading…" : "Wind map"}
+            {windLoading ? "Loading\u2026" : "Wind map"}
           </LayerBtn>
         </div>
       )}
@@ -556,7 +556,7 @@ export default function MapControlPanel({
 
           <ProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
             <ToolBtn active={showHotspots} color="amber" onClick={() => setShowHotspots(h => !h)}>
-              🎣 {hotspotLoading ? "Loading…" : "Hot spots"}
+              {hotspotLoading ? "Loading…" : "Hot spots"}
             </ToolBtn>
             {showHotspots && (
               <div className="flex flex-wrap gap-1 mt-0.5">
@@ -574,27 +574,22 @@ export default function MapControlPanel({
           {!isWindMap && (
             <ProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
               <ToolBtn active={showWindOverlay} color="cyan" onClick={() => setShowWindOverlay(v => !v)}>
-                <Wind className="w-3 h-3" />{windLoading ? "Loading…" : showWindOverlay ? "Wind on" : "Wind overlay"}
+                {windLoading ? "Loading…" : showWindOverlay ? "Wind on" : "Wind overlay"}
               </ToolBtn>
             </ProGate>
           )}
           <ProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
             <ToolBtn active={showCurrents} color="cyan" onClick={() => setShowCurrents(v => !v)}>
-              &#x1F30A; {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
+              {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
             </ToolBtn>
           </ProGate>
           <ProGate isPro={isPro} label="Trip planning is available on the Pro plan.">
             <ToolBtn active={tripMode} color="cyan" onClick={onToggleTripMode}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/></svg>
-              {tripMode ? "Planning…" : "Plan Trip"}
+              {tripMode ? "Planning\u2026" : "Plan Trip"}
             </ToolBtn>
           </ProGate>
           <ProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
             <ToolBtn active={gpsActive} color="green" onClick={onToggleGps}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-                <path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
-              </svg>
               {gpsActive ? "GPS On" : "Real Time"}
             </ToolBtn>
           </ProGate>
@@ -608,33 +603,47 @@ export default function MapControlPanel({
       {openSections.overlays && (
         <div className="flex flex-col gap-1 px-2 pb-2">
           <ToolBtn active={showBathyLayer} color="blue" onClick={() => setShowBathyLayer(b => !b)}>
-            {jsonContoursLoading ? "Loading…" : "≈ Bathy"}
+            {jsonContoursLoading ? "Loading\u2026" : "Bathy"}
           </ToolBtn>
           <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
             <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
-              〰 {showAltimetryOverlay ? "ALT Overlay on" : "ALT Overlay"}
+              {showAltimetryOverlay ? "ALT Overlay on" : "ALT Overlay"}
             </ToolBtn>
           </ProGate>
           <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
             <ToolBtn active={showWrecks} color="amber" onClick={() => setShowWrecks(w => !w)}>
-              {wrecksLoading ? "Loading…" : "⚓ Bottom Features"}
+              {wrecksLoading ? "Loading\u2026" : "Bottom Features"}
             </ToolBtn>
           </ProGate>
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
-                {showLoranGrid ? "# Loran Grid on" : "# Loran Grid"}
+                {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
               </ToolBtn>
             </div>
             <button onClick={() => setLoranHelpOpen(o => !o)}
               className={`px-2 rounded-lg border text-[12px] font-bold transition-colors flex-shrink-0 ${loranHelpOpen ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
               title="About Loran-C">?</button>
           </div>
-          {loranHelpOpen && (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[10px] text-slate-600 leading-relaxed">
-              <p className="font-semibold text-slate-700 mb-1">About Loran-C</p>
-              The U.S. Loran-C system was officially decommissioned in 2010. This overlay approximates the position of these lines for common reference positioning — in practice, we only refer to the last 3 digits with a secondary depth reference, e.g. <em>"the bite&apos;s been hot in 100 fa at the 580"</em> (The Point off Oregon Inlet). Each <strong>major line</strong> is 10 miles apart — if a buddy reports mahi at the 680, that&apos;s a 10-mile run. Each <strong>minor line</strong> is 2 miles apart, making distance estimation easy.
-            </div>
+          {loranHelpOpen && ReactDOM.createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4"
+                 onClick={() => setLoranHelpOpen(false)}>
+              <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden"
+                   onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                  <p className="font-semibold text-slate-800 text-sm">About Loran-C</p>
+                  <button onClick={() => setLoranHelpOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 text-xl leading-none font-light">×</button>
+                </div>
+                <img src="/loran_ref_point.png" alt="The Point — Loran Y lines"
+                     className="w-full object-cover" style={{maxHeight:200}}
+                     onError={e => { e.currentTarget.style.display="none"; }} />
+                <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
+                  The U.S. Loran-C system was officially decommissioned in 2010. This overlay approximates the position of these lines for common reference positioning — in practice, we only refer to the last 3 digits with a secondary depth reference, e.g. <em>&ldquo;the bite&apos;s been hot in 100 fa at the 580&rdquo;</em> (The Point off Oregon Inlet). Each <strong>major line</strong> is 10 miles apart — if a buddy reports mahi at the 680, that&apos;s a 10-mile run. Each <strong>minor line</strong> is 2 miles apart, making distance estimation easy.
+                </div>
+              </div>
+            </div>,
+            document.body
           )}
         </div>
       )}
