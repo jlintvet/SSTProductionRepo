@@ -179,19 +179,20 @@ function Divider() {
 
 const HELP_CONFIG = {
   sst:         { title: "Sea Surface Temperature (SST)", image: "/help/sst.png",         text: "Placeholder — SST help content coming soon." },
-  chlorophyll: { title: "Chlorophyll",                   image: "/help/chlorophyll.png",  text: "Placeholder — Chlorophyll help content coming soon." },
+  chlorophyll: { title: "Chlorophyll",                   image: "/chl_ref_point.png",     text: "Placeholder — Chlorophyll help content coming soon." },
   seacolor:    { title: "Sea Color / Kd490",             image: "/help/seacolor.png",     text: "Placeholder — Sea color help content coming soon." },
-  altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/help/altimetry.png",    text: "Placeholder — Altimetry help content coming soon." },
+  altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/altimetry_ref.png",     text: "Placeholder — Altimetry help content coming soon." },
   windmap:     { title: "Wind Map",                      image: "/help/windmap.png",      text: "Placeholder — Wind map help content coming soon." },
   isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",     text: "Placeholder — Temp break help content coming soon." },
   hotspots:    { title: "Fish Hot Spots",                image: "/help/hotspots.png",     text: "Placeholder — Hot spots help content coming soon." },
   windoverlay: { title: "Wind Overlay",                  image: "/help/windoverlay.png",  text: "Placeholder — Wind overlay help content coming soon." },
   currents:    { title: "Ocean Currents",                image: "/help/currents.png",     text: "Placeholder — Currents overlay help content coming soon." },
-  trip:        { title: "Plan Trip",                     image: "/help/trip.png",         text: "Placeholder — Trip planning help content coming soon." },
+  trip:        { title: "Plan Trip",                     image: "/trip_plan_ref.png",     text: "Placeholder — Trip planning help content coming soon." },
   gps:         { title: "Real-Time GPS",                 image: "/help/gps.png",          text: "Placeholder — GPS tracking help content coming soon." },
   bathy:       { title: "Bathymetry Contours",           image: "/help/bathy.png",        text: "Placeholder — Bathymetry help content coming soon." },
-  altoverlay:  { title: "Altimetry Overlay",             image: "/help/altoverlay.png",   text: "Placeholder — ALT overlay help content coming soon." },
+  altoverlay:  { title: "Altimetry Overlay",             image: "/altimetry_ref.png",     text: "Placeholder — ALT overlay help content coming soon." },
   bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png",   text: "Placeholder — Bottom features help content coming soon." },
+  loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png",   text: "" },
 };
 
 // ── Fish species selector (shown when fish spots tool is active) ──────────────
@@ -314,6 +315,8 @@ export default function MapControlPanel({
   selectedLocation,
   // collapsed state (controlled externally so collapse button in map header works)
   collapsed, setCollapsed,
+  // wind slider height (so panel shrinks when slider is visible)
+  windSliderHeight,
   // panel hover callbacks
   onPointerEnter, onPointerLeave, panelRef,
 }) {
@@ -358,7 +361,7 @@ export default function MapControlPanel({
       className="hidden sm:flex flex-col bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl shadow-md overflow-hidden"
       style={{
         width: 160,
-        maxHeight: "calc(100% - 16px)",
+        maxHeight: `calc(100% - ${16 + (windSliderHeight || 0)}px)`,
         position: "absolute",
         right: 8,
         top: 8,

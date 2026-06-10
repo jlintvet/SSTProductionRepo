@@ -391,11 +391,11 @@ function SSTPageBody() {
         setCompositeGenerated(d.generated ?? null);
         setCompositeDate(d.date ?? null);
         // Use the contributing pass dates for the nav display
-        const dates = d.pass_dates ?? [];
-        if (dates.length) {
-          setCompositeDates(dates);
-          setCompositeDateIndex(dates.length - 1);
-        }
+        // Always have at least one date entry so DateNav renders
+        const rawDates = d.pass_dates ?? [];
+        const dates = rawDates.length ? rawDates : (d.date ? [d.date] : ["Latest"]);
+        setCompositeDates(dates);
+        setCompositeDateIndex(dates.length - 1);
       })
       .catch(e => console.warn("[COMPOSITE] fetch failed:", e));
   }, [activeDataLayer, compositeData]);

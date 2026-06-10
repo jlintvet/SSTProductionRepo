@@ -2248,6 +2248,7 @@ export default function SSTHeatmapLeaflet(props) {
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             selectedLocation={selectedLocation}
+            windSliderHeight={sliderHeight}
             collapsed={panelCollapsed} setCollapsed={setPanelCollapsed}
             compositeData={compositeData} compositeGenerated={compositeGenerated}
             compositeDateIndex={compositeDateIndex} setCompositeDateIndex={setCompositeDateIndex} compositeDates={compositeDates}
