@@ -775,14 +775,19 @@ function SSTPageBody() {
 
 // ── Error boundary — recovers from render crashes in the map component ────────
 class SSTErrorBoundary extends Component {
-  state = { hasError: false };
-  static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(err) { console.error("[SSTHeatmap] render error:", err); }
+  state = { hasError: false, errorMsg: "" };
+  static getDerivedStateFromError(err) { return { hasError: true, errorMsg: err?.message || String(err) }; }
+  componentDidCatch(err, info) { console.error("[SSTHeatmap] render error:", err, info?.componentStack); }
   render() {
     if (this.state.hasError) return (
-      <div className="flex-1 flex items-center justify-center flex-col gap-3">
+      <div className="flex-1 flex items-center justify-center flex-col gap-3 p-4">
         <div className="text-slate-500 text-sm">Something went wrong loading the map.</div>
-        <button onClick={() => this.setState({ hasError: false })}
+        {this.state.errorMsg && (
+          <div className="text-red-500 text-xs font-mono bg-red-50 border border-red-200 rounded px-3 py-2 max-w-xs break-all">
+            {this.state.errorMsg}
+          </div>
+        )}
+        <button onClick={() => this.setState({ hasError: false, errorMsg: "" })}
           className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-semibold">
           Try again
         </button>
