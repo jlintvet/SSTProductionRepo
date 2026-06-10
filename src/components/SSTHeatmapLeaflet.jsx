@@ -749,6 +749,8 @@ export default function SSTHeatmapLeaflet(props) {
     [regionBounds.south, regionBounds.west],
     [regionBounds.north, regionBounds.east]
   );
+  // Compute locally so mobile VIIRS date-nav never crashes with "can't find variable"
+  const activeViirsDay = viirsData?.days?.[viirsDateIndex] ?? null;
 
   const mapDivRef        = useRef(null);
   const mapRef           = useRef(null);
@@ -1503,6 +1505,11 @@ export default function SSTHeatmapLeaflet(props) {
       particleAge: 40, particleMultiplier: 0.0008, lineWidth: isOverlay ? 1.8 : 2.0,
     });
     velocityLayer.addTo(map); velocityLayerRef.current = velocityLayer;
+    // Disable pointer events on wind canvas so wreck/feature markers below receive clicks
+    try {
+      const vc = velocityLayer._canvasLayer?._canvas ?? velocityLayer._canvas ?? null;
+      if (vc) vc.style.pointerEvents = 'none';
+    } catch(_) {}
     if (velocityLayer._onLayerDidMove) {
       const _orig = velocityLayer._onLayerDidMove.bind(velocityLayer);
       velocityLayer._onLayerDidMove = function() { if (!this._map) return; try { _orig.call(this); } catch(e) {} };
