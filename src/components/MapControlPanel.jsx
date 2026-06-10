@@ -391,7 +391,7 @@ export default function MapControlPanel({
       <SectionHeader title="Data layer" open={openSections.layers} onToggle={() => toggleSection("layers")} />
       {openSections.layers && (
         <div className="flex flex-col gap-1 px-2 pb-2">
-          <LayerBtn active={isSSTGroup} color="cyan" onClick={() => { setActiveDataLayer("sst"); }}>SST</LayerBtn>
+          <LayerBtn active={isSSTGroup} color="cyan" onClick={() => { if(!isSSTGroup){ const s=localStorage.getItem("sst_sub_layer")||"sst"; setActiveDataLayer(s); } }}>SST</LayerBtn>
 
           {isSSTGroup && (
             <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
@@ -608,22 +608,22 @@ export default function MapControlPanel({
       {openSections.overlays && (
         <div className="flex flex-col gap-1 px-2 pb-2">
           <ToolBtn active={showBathyLayer} color="blue" onClick={() => setShowBathyLayer(b => !b)}>
-            {jsonContoursLoading ? "Loading…" : "Bathy"}
+            {jsonContoursLoading ? "Loading…" : "≈ Bathy"}
           </ToolBtn>
           <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
             <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
-              〰 {showAltimetryOverlay ? "SLA Overlay on" : "SLA Overlay"}
+              〰 {showAltimetryOverlay ? "ALT Overlay on" : "ALT Overlay"}
             </ToolBtn>
           </ProGate>
           <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
             <ToolBtn active={showWrecks} color="amber" onClick={() => setShowWrecks(w => !w)}>
-              {wrecksLoading ? "Loading…" : "Bottom Features"}
+              {wrecksLoading ? "Loading…" : "⚓ Bottom Features"}
             </ToolBtn>
           </ProGate>
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
-                {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+                {showLoranGrid ? "# Loran Grid on" : "# Loran Grid"}
               </ToolBtn>
             </div>
             <button onClick={() => setLoranHelpOpen(o => !o)}

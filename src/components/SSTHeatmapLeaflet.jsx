@@ -2257,7 +2257,7 @@ export default function SSTHeatmapLeaflet(props) {
           {/* Mobile floating controls — 5 layer icons + divider + inspect/pan/bookmark */}
           <div className="sm:hidden absolute flex flex-col gap-1" style={{ right: 8, top: 8, zIndex: 501 }}>
             {/* SST */}
-            <button onClick={() => { setMobilePanel(p => p === "sst" ? null : "sst"); setActiveDataLayer("sst"); }} title="SST"
+            <button onClick={() => { setMobilePanel(p => p === "sst" ? null : "sst"); if(activeDataLayer!=="sst"&&activeDataLayer!=="composite"){ const s=localStorage.getItem("sst_sub_layer")||"sst"; setActiveDataLayer(s); } }} title="SST"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
                 background: mobilePanel==="sst" ? "#0891b2" : "rgba(255,255,255,0.9)",
@@ -2302,7 +2302,7 @@ export default function SSTHeatmapLeaflet(props) {
               style={{ width:30, height:30, padding:0,
                 background: activeDataLayer==="altimetry" ? "#7c3aed" : "rgba(255,255,255,0.9)",
                 borderColor: activeDataLayer==="altimetry" ? "#7c3aed" : "#e2e8f0" }}>
-              <span style={{ fontSize:9, fontWeight:700, color: activeDataLayer==="altimetry" ? "#fff" : "#64748b", lineHeight:1 }}>SLA</span>
+              <span style={{ fontSize:9, fontWeight:700, color: activeDataLayer==="altimetry" ? "#fff" : "#64748b", lineHeight:1 }}>ALT</span>
             </button>
             {/* Tools */}
             <button onClick={() => setMobilePanel(p => p === "tools" ? null : "tools")} title="Tools"
@@ -2412,6 +2412,19 @@ export default function SSTHeatmapLeaflet(props) {
                         {compositeData.generated
                           ? new Date(compositeData.generated).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })
                           : "Latest composite"}
+                      </div>
+                    )}
+
+                    {/* Composite DateNav */}
+                    {activeDataLayer === "composite" && compositeData && compositeDates?.length > 1 && (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCompositeDateIndex(i => Math.max(0, i - 1))} disabled={compositeDateIndex === 0}
+                          className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
+                        <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1 truncate">
+                          {compositeDates[compositeDateIndex] ?? "—"}
+                        </span>
+                        <button onClick={() => setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1))} disabled={compositeDateIndex === compositeDates.length - 1}
+                          className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                       </div>
                     )}
 
@@ -2857,7 +2870,7 @@ export default function SSTHeatmapLeaflet(props) {
             );
           })()}
 
-          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:hoveredWreck.px+12,top:hoveredWreck.py-10,zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"⚓ Wreck":"🪸 Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{{HatterasNC:"Hatteras, NC",MoreheadNC:"Morehead City, NC",ChesapeakeMD:"Chesapeake, MD",OceanCityMD:"Ocean City, MD"}[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
+          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:hoveredWreck.px+12,top:hoveredWreck.py-10,zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{{HatterasNC:"Hatteras, NC",MoreheadNC:"Morehead City, NC",ChesapeakeMD:"Chesapeake, MD",OceanCityMD:"Ocean City, MD"}[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
 
           {clickInfo && (
             <MapClickInfo info={clickInfo} date={date} userId={userId} onClose={() => setClickInfo(null)}

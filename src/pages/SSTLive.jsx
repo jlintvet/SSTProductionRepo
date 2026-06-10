@@ -11,7 +11,7 @@ import { useRegionAccess } from "@/hooks/useRegionAccess";
 import TripPlanner from "@/components/TripPlanner";
 
 // ── Deploy diagnostic ─────────────────────────────────────────────────────────
-if (typeof window !== "undefined") console.log("SST deploy check: 2026-06-10T01");
+if (typeof window !== "undefined") console.log("SST deploy check: 2026-06-10T02");
 
 // ── Leaflet / velocity side-effects (must run once) ───────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("leaflet-velocity-script")) {
@@ -542,6 +542,7 @@ function SSTPageBody() {
   // Persist chosen SST source across sessions
   useEffect(()=>{ localStorage.setItem("sst_source", dataSource); },[dataSource]);
   useEffect(()=>{ localStorage.setItem("sst_active_layer", activeDataLayer); },[activeDataLayer]);
+  useEffect(()=>{ if(activeDataLayer==="sst"||activeDataLayer==="composite"){ localStorage.setItem("sst_sub_layer",activeDataLayer); } },[activeDataLayer]);
 
   useEffect(() => {
     if (dataSource !== "VIIRS" || !viirsData?.days?.length) return;
@@ -606,11 +607,12 @@ function SSTPageBody() {
       {gridHealth?.scattered && dataSource !== "VIIRS" &&<div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800">Backend returning scattered points. See console.</div>}
 
       {(() => {
-        const hasAnyData = !!(murData?.days?.length || viirsData?.days?.length || viirsNppData?.days?.length || goesCompData?.days?.length || compositeData);
+        const hasAnyData = !!(murData?.days?.length || viirsData?.days?.length || viirsNppData?.days?.length || goesCompData?.days?.length || compositeData || chlData?.days?.length || seaColorData?.days?.length);
         if (loading && !hasAnyData) return (
           <div className="flex-1 flex items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-slate-200 border-t-cyan-500 rounded-full animate-spin"/><p className="text-sm text-slate-500 font-medium">Loading SST data...</p></div></div>
         );
-        if (!activeGrid?.length && !loading) return (
+        const currentLayerHasData = !!(activeGrid?.length) || (activeDataLayer==="composite"&&!!compositeData) || (activeDataLayer==="chlorophyll"&&!!chlData?.days?.length) || (activeDataLayer==="seacolor"&&!!seaColorData?.days?.length) || activeDataLayer==="altimetry" || activeDataLayer==="windmap";
+        if (!currentLayerHasData && !loading) return (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center text-slate-400 text-sm max-w-md px-4">
               <div className="text-2xl mb-2">🌊</div>
