@@ -439,24 +439,29 @@ const CANYON_LABELS = [
   { name: "Lindenkohl Canyon", lat: 38.7550, lon: -72.9457 },
 ];
 
-// ── Loran-C GRI 9960 (Northeast US) ──────────────────────────────────────────
-// ED_W calibrated from Oregon Inlet (35°32.16'N 74°50.67'W) = W26580
-// GRI 7980 — Southeast U.S. Chain. EDs back-calculated from NOAA chart values
-// at The Point (35.529°N, 74.833°W): W≈26760, Z≈40575
-const LORAN_MASTER = { lat: 26.9833, lon: -80.1167 }; // Jupiter, FL
-const LORAN_STATIONS = {
-  W: { lat: 30.9933, lon: -85.1783, ed: 26716 }, // Malone, FL
-  Z: { lat: 34.0633, lon: -77.9150, ed: 43080 }, // Carolina Beach, NC
-};
+// ── Loran-C overlay — two crossing families ──────────────────────────────────
+// W family: GRI 7980 (Southeast US) — Jupiter FL master + Malone FL secondary
+//   runs NE-SW off NC coast; ~26760 at The Point (35.529°N, 74.833°W)
+// Y family: GRI 9960 (Northeast US) — Caribou ME master + Jupiter FL secondary
+//   runs WNW-ESE, crosses W at ~60°; ~40575 at The Point
+// Both calibrated from NOAA chart values at The Point.
+const LORAN_W_MASTER = { lat: 26.9783, lon: -80.1167 }; // Jupiter, FL
+const LORAN_W_SEC    = { lat: 30.9933, lon: -85.1783, ed: 26725 }; // Malone, FL
+const LORAN_Y_MASTER = { lat: 46.809,  lon: -67.928  }; // Caribou, ME
+const LORAN_Y_SEC    = { lat: 26.9783, lon: -80.1167, ed: 41592 }; // Jupiter, FL
 function loranHaversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371.009, r = Math.PI / 180;
   const dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-function computeLoranTD(lat, lon, stKey) {
-  const st = LORAN_STATIONS[stKey];
-  return st.ed + (loranHaversineKm(lat, lon, st.lat, st.lon) - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
+function computeLoranTD_W(lat, lon) {
+  return LORAN_W_SEC.ed + (loranHaversineKm(lat, lon, LORAN_W_SEC.lat, LORAN_W_SEC.lon)
+    - loranHaversineKm(lat, lon, LORAN_W_MASTER.lat, LORAN_W_MASTER.lon)) / 0.299709;
+}
+function computeLoranTD_Y(lat, lon) {
+  return LORAN_Y_SEC.ed + (loranHaversineKm(lat, lon, LORAN_Y_SEC.lat, LORAN_Y_SEC.lon)
+    - loranHaversineKm(lat, lon, LORAN_Y_MASTER.lat, LORAN_Y_MASTER.lon)) / 0.299709;
 }
 function buildLoranGrid(map, waterMask) {
   const LSTEP = 0.1, LAT_MAX = 42, LAT_MIN = 24, LON_MIN = -87, LON_MAX = -60;
@@ -464,11 +469,11 @@ function buildLoranGrid(map, waterMask) {
   for (let la = LAT_MAX; la >= LAT_MIN - 0.001; la = Math.round((la - LSTEP) * 1e4) / 1e4) latSet.push(la);
   for (let lo = LON_MIN; lo <= LON_MAX + 0.001; lo = Math.round((lo + LSTEP) * 1e4) / 1e4) lonSet.push(lo);
 
-  const wGrid = {}, zGrid = {};
+  const wGrid = {}, yGrid = {};
   for (const la of latSet) for (const lo of lonSet) {
     const k = `${la}_${lo}`;
-    wGrid[k] = computeLoranTD(la, lo, "W");
-    zGrid[k] = computeLoranTD(la, lo, "Z");
+    wGrid[k] = computeLoranTD_W(la, lo);
+    yGrid[k] = computeLoranTD_Y(la, lo);
   }
 
   // Apply ocean mask — blank out land cells so contours stop at coastlines
@@ -478,35 +483,35 @@ function buildLoranGrid(map, waterMask) {
       const [la, lo] = k.split("_").map(Number); return waterMask(la, lo);
     }));
   }
-  const wMasked = applyMask(wGrid), zMasked = applyMask(zGrid);
+  const wMasked = applyMask(wGrid), yMasked = applyMask(yGrid);
   const { field: wField, rows, cols } = buildField(latSet, lonSet, wMasked);
-  const { field: zField } = buildField(latSet, lonSet, zMasked);
+  const { field: yField } = buildField(latSet, lonSet, yMasked);
 
   function rangeFor(grid) {
     const vals = Object.values(grid).filter(Number.isFinite).sort((a,b)=>a-b);
     return [Math.ceil(vals[0] / 20) * 20, Math.floor(vals[vals.length-1] / 20) * 20];
   }
   const [wLo, wHi] = rangeFor(wGrid);
-  const [zLo, zHi] = rangeFor(zGrid);
+  const [yLo, yHi] = rangeFor(yGrid);
 
-  const wLL = [], zLL = [];
+  const wLL = [], yLL = [];
   for (let l = wLo; l <= wHi; l += 20) { const lines = marchingSquares(latSet, lonSet, wField, rows, cols, l); if (lines.length) wLL.push({ level: l, lines }); }
-  for (let l = zLo; l <= zHi; l += 20) { const lines = marchingSquares(latSet, lonSet, zField, rows, cols, l); if (lines.length) zLL.push({ level: l, lines }); }
+  for (let l = yLo; l <= yHi; l += 20) { const lines = marchingSquares(latSet, lonSet, yField, rows, cols, l); if (lines.length) yLL.push({ level: l, lines }); }
 
   const group = L.layerGroup();
   function drawLL(levelLines, majClr, minClr) {
     for (const { level, lines } of levelLines) {
       const maj = level % 100 === 0;
-      const wt = maj ? 1.4 : 0.65; const op = maj ? 0.8 : 0.4;
+      const wt = maj ? 1.1 : 0.55; const op = maj ? 0.62 : 0.28;
       for (const seg of lines) {
         const ll = seg.map(([ln, la]) => [la, ln]);
-        L.polyline(ll, { color: "rgba(255,255,255,0.5)", weight: wt + 1.4, opacity: 0.6, interactive: false }).addTo(group);
+        L.polyline(ll, { color: "rgba(255,255,255,0.25)", weight: wt + 0.7, opacity: 0.2, interactive: false }).addTo(group);
         L.polyline(ll, { color: maj ? majClr : minClr, weight: wt, opacity: op, interactive: false }).addTo(group);
       }
     }
   }
-  drawLL(wLL, "#1e3a8a", "rgba(30,58,138,0.55)");
-  drawLL(zLL, "#7c2d12", "rgba(124,45,18,0.55)");
+  // W family lines hidden — not used offshore fishing
+  drawLL(yLL, "rgba(140,140,140,1.0)", "rgba(140,140,140,1.0)");
 
   const lbl = { layer: null };
   function buildLoranLabels() {
@@ -525,7 +530,7 @@ function buildLoranGrid(map, waterMask) {
             else { if (cur.length > best.length) best = cur; cur = []; }
           }
           if (cur.length > best.length) best = cur;
-          if (best.length < 8) continue;
+          if (best.length < 3) continue;
           if ((cnt[level] || 0) >= 3) continue;
           cnt[level] = (cnt[level] || 0) + 1;
           const [ln, la] = best[Math.floor(best.length / 2)];
@@ -540,8 +545,8 @@ function buildLoranGrid(map, waterMask) {
         }
       }
     }
-    addLbls(wLL, "W", "#1e3a8a");
-    addLbls(zLL, "Z", "#7c2d12");
+    // W labels hidden
+    addLbls(yLL, "Y", "#444444");
     lg.addTo(map); lbl.layer = lg;
   }
   buildLoranLabels();
