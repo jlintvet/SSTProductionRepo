@@ -639,7 +639,7 @@ export default function MapControlPanel({
                      className="w-full object-cover" style={{maxHeight:200}}
                      onError={e => { e.currentTarget.style.display="none"; }} />
                 <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
-                  The U.S. Loran-C system was officially decommissioned in 2010. This overlay approximates the position of these lines for common reference positioning — in practice, we only refer to the last 3 digits with a secondary depth reference, e.g. <em>&ldquo;the bite&apos;s been hot in 100 fa at the 580&rdquo;</em> (The Point off Oregon Inlet). Each <strong>major line</strong> is 10 miles apart — if a buddy reports mahi at the 680, that&apos;s a 10-mile run. Each <strong>minor line</strong> is 2 miles apart, making distance estimation easy.
+                  The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: &ldquo;The bite&apos;s been hot in 100 fathoms at the 580&rdquo; (&lsquo;The Point&rsquo; off Oregon Inlet).<br/><br/>Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that&apos;s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.
                 </div>
               </div>
             </div>,
