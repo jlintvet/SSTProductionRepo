@@ -72,7 +72,8 @@ function calcSunrise(lat, lon, date) {
 
 export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro, loadedRoute, heatmapData, sstMin, sstMax, sstRange }) {
   const { userSettings } = useAppContext();
-  const cruiseSpeedKts = Number(userSettings?.cruise_speed_kts) || 0;
+  const cruiseSpeedKts  = Number(userSettings?.cruise_speed_kts)  || 0;
+  const fuelBurnGalHr   = Number(userSettings?.fuel_burn_gal_hr)  || 0;
 
   const [departureTime, setDepartureTime] = useState(() => {
     const dep = waypoints?.[0];
@@ -88,7 +89,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     return toLocalInputStr(now);
   });
 
-  const [speedOverride, setSpeedOverride] = useState("");
+  const [speedOverride, setSpeedOverride] = useState(() => cruiseSpeedKts > 0 ? String(cruiseSpeedKts) : "");
   const [routeName,     setRouteName]     = useState(() => `Route ${new Date().toLocaleDateString()}`);
   const [saving,        setSaving]        = useState(false);
   const [savedMsg,      setSavedMsg]      = useState("");
@@ -123,8 +124,9 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     return result;
   }, [waypoints, departureTime, speed]);
 
-  const totalNm  = legs.length > 0 ? legs[legs.length - 1].cumNm : 0;
-  const totalHrs = speed > 0 && totalNm > 0 ? totalNm / speed : null;
+  const totalNm   = legs.length > 0 ? legs[legs.length - 1].cumNm : 0;
+  const totalHrs  = speed > 0 && totalNm > 0 ? totalNm / speed : null;
+  const totalFuel = totalHrs != null && fuelBurnGalHr > 0 ? totalHrs * fuelBurnGalHr : null;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -144,22 +146,24 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setSavedRouteData(loadedRoute);
   }, [loadedRoute]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load routes on mount so prev/next arrows work immediately
+  useEffect(() => {
+    if (!userId) return;
+    setLoadingRoutes(true);
+    supabase.from("saved_routes")
+      .select("id, name, waypoints, cruise_speed_kts, created_at, share_token")
+      .order("created_at", { ascending: false })
+      .limit(50)
+      .then(({ data, error }) => {
+        setLoadingRoutes(false);
+        if (!error && data) setSavedRoutes(data);
+      });
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [routeIndex, setRouteIndex] = useState(-1); // -1 = no route loaded via arrows
+
   async function openRoutes() {
-    setShowRoutes(v => {
-      if (v) return false;
-      return true;
-    });
-    if (savedRoutes.length === 0) {
-      setLoadingRoutes(true);
-      const { data, error } = await supabase
-        .from("saved_routes")
-        .select("id, name, waypoints, cruise_speed_kts, created_at, share_token")
-        .order("created_at", { ascending: false })
-        .limit(20);
-      setLoadingRoutes(false);
-      if (!error && data) setSavedRoutes(data);
-      else console.error("[TripPlanner] load routes error:", error);
-    }
+    setShowRoutes(v => !v);
   }
 
   function loadRoute(r) {
@@ -242,18 +246,36 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
       {!collapsed && (
         <div className="flex items-center gap-1.5 px-3 border-b border-slate-100 h-10 flex-shrink-0"
              style={{ position: "relative", zIndex: 20 }}>
-          {/* My Routes dropdown */}
-          <div className="relative shrink-0" ref={routeDropRef}>
+          {/* My Routes dropdown + prev/next arrows */}
+          <div className="relative shrink-0 flex items-center gap-0.5" ref={routeDropRef}>
+            <button
+              onClick={() => {
+                const ni = routeIndex <= 0 ? savedRoutes.length - 1 : routeIndex - 1;
+                if (savedRoutes[ni]) { loadRoute(savedRoutes[ni]); setRouteIndex(ni); }
+              }}
+              disabled={savedRoutes.length === 0}
+              className="px-1.5 py-1 text-slate-500 hover:text-slate-800 border border-slate-200 rounded-l text-sm font-bold disabled:opacity-30 transition-colors"
+              title="Previous route"
+            >&#8249;</button>
             <button
               onClick={openRoutes}
-              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 border border-slate-200 rounded px-2 py-1 transition-colors"
+              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 border-y border-slate-200 px-2 py-1 transition-colors"
               title="My saved routes"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
               </svg>
-              My Routes
+              {loadingRoutes ? "…" : savedRoutes.length > 0 ? `${routeIndex >= 0 ? routeIndex + 1 : "·"}/${savedRoutes.length}` : "Routes"}
             </button>
+            <button
+              onClick={() => {
+                const ni = routeIndex < 0 || routeIndex >= savedRoutes.length - 1 ? 0 : routeIndex + 1;
+                if (savedRoutes[ni]) { loadRoute(savedRoutes[ni]); setRouteIndex(ni); }
+              }}
+              disabled={savedRoutes.length === 0}
+              className="px-1.5 py-1 text-slate-500 hover:text-slate-800 border border-slate-200 rounded-r text-sm font-bold disabled:opacity-30 transition-colors"
+              title="Next route"
+            >&#8250;</button>
             {showRoutes && (
               <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-xs max-h-56 overflow-y-auto">
                 {loadingRoutes ? (
@@ -389,6 +411,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                   <th className="px-2 py-1.5 text-right">Dist</th>
                   <th className="px-2 py-1.5 text-right">Total</th>
                   <th className="px-2 py-1.5 text-right">ETA</th>
+                  {fuelBurnGalHr > 0 && <th className="px-2 py-1.5 text-right hidden sm:table-cell">Fuel</th>}
                   <th className="px-2 py-1.5 w-5"/>
                 </tr>
               </thead>
@@ -411,6 +434,11 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                     <td className="px-2 py-1 text-right text-slate-600 font-mono">{i === 0 ? "—" : `${leg.distNm.toFixed(1)}`}</td>
                     <td className="px-2 py-1 text-right text-slate-700 font-mono font-semibold">{leg.cumNm.toFixed(1)}</td>
                     <td className="px-2 py-1 text-right text-cyan-700 font-mono">{fmtTime(leg.eta)}</td>
+                    {fuelBurnGalHr > 0 && (
+                      <td className="px-2 py-1 text-right text-amber-700 font-mono hidden sm:table-cell">
+                        {i === 0 ? "—" : `${((leg.distNm / speed) * fuelBurnGalHr).toFixed(1)} gal`}
+                      </td>
+                    )}
                     <td className="px-2 py-1 text-right">
                       <button onClick={() => removeWaypoint(leg.id)} className="text-slate-300 hover:text-red-400 transition-colors" title="Remove">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -421,6 +449,27 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                   </tr>
                 ))}
               </tbody>
+              {legs.length > 1 && (
+                <tfoot className="bg-slate-50 border-t-2 border-slate-200 text-[10px] font-semibold text-slate-600">
+                  <tr>
+                    <td colSpan={2} className="px-3 py-1.5 text-slate-500 uppercase tracking-wide">Totals</td>
+                    <td className="hidden sm:table-cell"/>
+                    <td className="hidden sm:table-cell"/>
+                    <td className="px-2 py-1.5 text-right">—</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{totalNm.toFixed(1)} nm</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{totalNm.toFixed(1)} nm</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-cyan-700">
+                      {totalHrs != null ? `${Math.floor(totalHrs)}h ${Math.round((totalHrs % 1) * 60)}m` : "—"}
+                    </td>
+                    {fuelBurnGalHr > 0 && (
+                      <td className="px-2 py-1.5 text-right font-mono text-amber-700 hidden sm:table-cell">
+                        {totalFuel != null ? `${totalFuel.toFixed(1)} gal` : "N/A"}
+                      </td>
+                    )}
+                    <td/>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
         </div>
