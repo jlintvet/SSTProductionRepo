@@ -805,6 +805,7 @@ export default function SSTHeatmapLeaflet(props) {
   const showCurrentsRef  = useRef(false);          useEffect(() => { showCurrentsRef.current = showCurrents; }, [showCurrents]);
   const compositeDataRef=useRef(compositeData);useEffect(()=>{compositeDataRef.current=compositeData;},[compositeData]);
   const altimetryDataRef=useRef(altimetryData);useEffect(()=>{altimetryDataRef.current=altimetryData;},[altimetryData]);
+  const sstReadyRef = useRef(false); useEffect(() => { sstReadyRef.current = sstReady; }, [sstReady]);
   const userInteractedRef = useRef(false);
 
   // Fetch compositeDate locally so it's colocated with the hotspot consumer
@@ -1047,6 +1048,9 @@ export default function SSTHeatmapLeaflet(props) {
       return Math.max(Math.log2((cw * 360)/(256*_lR)), Math.log2((ch * 2*Math.PI)/(256*_mH)));
     };
     const applyFillZoom = () => {
+      // Once data has rendered and sstReady=true, the view is correctly locked.
+      // Skip to prevent applyFillZoom from shifting mercCenter northward past data boundary.
+      if (sstReadyRef.current) return;
       try {
         map.invalidateSize();
         const sz = map.getSize();
