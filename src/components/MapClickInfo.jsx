@@ -86,7 +86,7 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId }) {
         </button>
       </div>
 
-      {/* Temp | Depth */}
+      {/* Temp | Depth | SLA */}
       <div className="flex items-center gap-2 mb-1.5">
         {info.sst != null && <span className="text-cyan-600 font-semibold">{info.sst.toFixed(1)}°F</span>}
         {info.sst != null && info.depth_ft != null && <span className="text-slate-300">|</span>}
@@ -95,6 +95,9 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId }) {
             {Math.round(info.depth_ft)} ft{" "}
             <span className="text-blue-400 font-normal">({Math.round(info.depth_ft / 6)} ftm)</span>
           </span>
+        )}
+        {info.sla_m != null && (
+          <span className="text-violet-600 font-semibold">SLA {info.sla_m >= 0 ? "+" : ""}{info.sla_m.toFixed(3)} m</span>
         )}
       </div>
 

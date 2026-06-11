@@ -795,6 +795,7 @@ export default function SSTHeatmapLeaflet(props) {
   const currentsDataRef  = useRef(currentsData);  useEffect(() => { currentsDataRef.current = currentsData; }, [currentsData]);
   const showCurrentsRef  = useRef(false);          useEffect(() => { showCurrentsRef.current = showCurrents; }, [showCurrents]);
   const compositeDataRef=useRef(compositeData);useEffect(()=>{compositeDataRef.current=compositeData;},[compositeData]);
+  const altimetryDataRef=useRef(altimetryData);useEffect(()=>{altimetryDataRef.current=altimetryData;},[altimetryData]);
   const userInteractedRef = useRef(false);
 
   // Fetch compositeDate locally so it's colocated with the hotspot consumer
@@ -1082,18 +1083,30 @@ export default function SSTHeatmapLeaflet(props) {
       if (selectedMarker) { setSelectedMarker(null); return; }
       const { lat, lng: lon } = e.latlng;
       if (lon < regionBounds.west || lon > regionBounds.east || lat < regionBounds.south || lat > regionBounds.north) return;
-      const nearLat = latSet.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
-      const nearLon = lonSet.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
-      const sst = grid[`${nearLat}_${nearLon}`] ?? null;
+      let sst = null;
+      if (latSet.length > 0 && lonSet.length > 0) {
+        const nearLat = latSet.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
+        const nearLon = lonSet.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
+        sst = grid[`${nearLat}_${nearLon}`] ?? null;
+      }
       let depth_ft = null;
       if (bathyDataRef.current?.points?.length) {
         let best=null,bestDist=Infinity;
         for(const pt of bathyDataRef.current.points){const d=(pt.lat-lat)**2+(pt.lon-lon)**2;if(d<bestDist){bestDist=d;best=pt;}}
         depth_ft = best?.depth_ft ?? null;
       }
+      let sla_m = null;
+      if (activeDataLayerRef.current === "altimetry" && altimetryDataRef.current) {
+        const alt = altimetryDataRef.current;
+        if (alt.lats?.length && alt.lons?.length && alt.sla) {
+          const li = alt.lats.reduce((bi,v,i)=>Math.abs(v-lat)<Math.abs(alt.lats[bi]-lat)?i:bi, 0);
+          const lj = alt.lons.reduce((bj,v,j)=>Math.abs(v-lon)<Math.abs(alt.lons[bj]-lon)?j:bj, 0);
+          const row = alt.sla[li]; if (row) sla_m = row[lj] ?? null;
+        }
+      }
       const refLoc = selectedLocationRef.current;
       const containerPt = map.latLngToContainerPoint(e.latlng);
-      setClickInfo({ lat, lon, sst, depth_ft,
+      setClickInfo({ lat, lon, sst, depth_ft, sla_m,
         dist: refLoc ? distanceNm(refLoc.lat, refLoc.lon, lat, lon) : null,
         bearing: refLoc ? bearingDeg(refLoc.lat, refLoc.lon, lat, lon) : null,
         locationLabel: refLoc?.label ?? null, px: containerPt.x, py: containerPt.y,
@@ -1540,7 +1553,7 @@ export default function SSTHeatmapLeaflet(props) {
       const spd = speed_ms ?? Math.sqrt((u || 0) ** 2 + (v || 0) ** 2);
       const dir = dir_deg ?? ((Math.atan2(u || 0, v || 0) * 180 / Math.PI) + 360) % 360;
       const norm = Math.min(spd / maxSpd, 1);
-      const opacity = (0.28 + 0.52 * norm).toFixed(2);
+      const opacity = (0.12 + 0.28 * norm).toFixed(2);
       const html = `<div style="width:16px;height:16px;transform:rotate(${dir.toFixed(1)}deg);opacity:${opacity};"><svg viewBox="-5 -10 10 20" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="8" x2="0" y2="-5" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/><polygon points="0,-10 -3.5,-4 3.5,-4" fill="#ffffff"/></svg></div>`;
       const icon = L.divIcon({ className: "", html, iconSize: [16, 16], iconAnchor: [8, 8] });
       L.marker([lat, lon], { icon, interactive: false }).addTo(group);
@@ -1603,7 +1616,7 @@ export default function SSTHeatmapLeaflet(props) {
       return { latSorted: newLats, lonSorted: newLons, grid: ng };
     }
 
-    const { latSorted: lsUp, lonSorted: loUp, grid: rawGrid } = upsampleGrid(latSorted, lonSorted, baseGrid, 4);
+    const { latSorted: lsUp, lonSorted: loUp, grid: rawGrid } = upsampleGrid(latSorted, lonSorted, baseGrid, 8);
     // Apply water mask: blank out land cells so contours don't cross coastlines
     const grid = waterMask ? Object.fromEntries(Object.entries(rawGrid).filter(([k]) => {
       const [lat, lon] = k.split('_').map(Number); return waterMask(lat, lon);
@@ -1738,7 +1751,7 @@ export default function SSTHeatmapLeaflet(props) {
     CANYON_LABELS.forEach(({ name, lat, lon }) => {
       const icon = L.divIcon({
         className: "",
-        html: `<div style="font-size:11px;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a2e;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
+        html: `<div style="font-size:11px;font-weight:600;font-family:system-ui,sans-serif;color:#6b7280;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${name}</div>`,
         iconSize: null,
         iconAnchor: [0, 11],
       });
@@ -2708,18 +2721,18 @@ export default function SSTHeatmapLeaflet(props) {
                 {mobilePanel === "altimetry" && (
                   <div className="flex flex-col gap-1.5">
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Altimetry</div>
-                    <MobileProGate isPro={isPro} label="Sea level anomaly layer is available on the Pro plan.">
                       <div className="grid grid-cols-2 gap-1">
                         <button onClick={() => setActiveDataLayer(l => l === "altimetry" ? "sst" : "altimetry")}
                           className={`text-[11px] font-semibold px-2 py-2 rounded-lg border flex items-center justify-center gap-1 transition-colors ${activeDataLayer === "altimetry" ? "bg-violet-600 text-white border-violet-600" : "bg-white text-slate-600 border-slate-300"}`}>
                           🌊 ALT Map
                         </button>
-                        <button onClick={() => setShowAltimetryOverlay(v => !v)}
-                          className={`text-[11px] font-semibold px-2 py-2 rounded-lg border flex items-center justify-center gap-1 transition-colors ${showAltimetryOverlay ? "bg-violet-400 text-white border-violet-400" : "bg-white text-slate-600 border-slate-300"}`}>
-                          〰 ALT Overlay
-                        </button>
+                        <MobileProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
+                          <button onClick={() => setShowAltimetryOverlay(v => !v)}
+                            className={`w-full text-[11px] font-semibold px-2 py-2 rounded-lg border flex items-center justify-center gap-1 transition-colors ${showAltimetryOverlay ? "bg-violet-400 text-white border-violet-400" : "bg-white text-slate-600 border-slate-300"}`}>
+                            〰 ALT Overlay
+                          </button>
+                        </MobileProGate>
                       </div>
-                    </MobileProGate>
                   </div>
                 )}
 
@@ -2758,10 +2771,12 @@ export default function SSTHeatmapLeaflet(props) {
                     </div>
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <div className="col-span-2 flex gap-1">
-                        <button onClick={() => setShowLoranGrid(v => !v)}
-                          className={`flex-1 text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showLoranGrid ? "bg-slate-700 text-white border-slate-700" : "bg-white text-slate-600 border-slate-300"}`}>
-                          {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
-                        </button>
+                        <MobileProGate isPro={isPro} label="Loran-C grid is available on the Pro plan.">
+                          <button onClick={() => setShowLoranGrid(v => !v)}
+                            className={`w-full text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showLoranGrid ? "bg-slate-700 text-white border-slate-700" : "bg-white text-slate-600 border-slate-300"}`}>
+                            {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+                          </button>
+                        </MobileProGate>
                         <button onClick={() => setLoranHelpOpen(o => !o)}
                           className={`w-8 py-2 rounded-lg border text-[12px] font-bold flex-shrink-0 transition-colors ${loranHelpOpen ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
                           title="About Loran-C">?</button>

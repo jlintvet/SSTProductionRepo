@@ -193,6 +193,7 @@ const HELP_CONFIG = {
   altoverlay:  { title: "Altimetry Overlay",             image: "/altimetry_ref.png",     text: "Placeholder — ALT overlay help content coming soon." },
   bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png",   text: "Placeholder — Bottom features help content coming soon." },
   loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png",   text: "" },
+  gain:        { title: "Color / Gain Control",             image: "/help/gain.png",         text: "Adjust the color range to stretch contrast around the temperatures you care about. Drag the handles or type values." },
 };
 
 // ── Fish species selector (shown when fish spots tool is active) ──────────────
@@ -541,11 +542,9 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <ProGate isPro={isPro} label="Sea level anomaly (altimetry) is available on the Pro plan.">
-                <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
-                  Altimetry
-                </LayerBtn>
-              </ProGate>
+              <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
+                Altimetry
+              </LayerBtn>
             </div>
             {hbtn("altimetry")}
           </div>
@@ -566,24 +565,29 @@ export default function MapControlPanel({
       {/* ── Gain / range (Pro) ───────────────────────────────────────── */}
       {showGain && (
         <>
-          <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
-            <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
-            {openSections.gain && (
-              <div className="px-2 pb-2">
-                <SSTRangeControl
-                  activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
-                  userId={userId}
-                  range={sstRange}
-                  onRangeChange={onSstRangeChange}
-                  onApply={onSstRangeChange}
-                  style={{ width: "100%" }}
-                  openRef={rangeControlOpenRef}
-                  dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
-                  dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
-                />
-              </div>
-            )}
-          </ProGate>
+          <div className="flex items-start gap-1">
+            <div className="flex-1 min-w-0">
+              <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
+                <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
+                {openSections.gain && (
+                  <div className="px-2 pb-2">
+                    <SSTRangeControl
+                      activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
+                      userId={userId}
+                      range={sstRange}
+                      onRangeChange={onSstRangeChange}
+                      onApply={onSstRangeChange}
+                      style={{ width: "100%" }}
+                      openRef={rangeControlOpenRef}
+                      dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
+                      dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
+                    />
+                  </div>
+                )}
+              </ProGate>
+            </div>
+            {hbtn("gain")}
+          </div>
           <Divider />
         </>
       )}
@@ -592,7 +596,7 @@ export default function MapControlPanel({
       <SectionHeader title="Tools" open={openSections.tools} onToggle={() => toggleSection("tools")} />
       {openSections.tools && (
         <div className="flex flex-col gap-1 px-2 pb-2">
-          {isSST && (
+          {isSSTGroup && (
             <div className="flex gap-1 items-start">
               <div className="flex-1">
                 <ProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
@@ -717,9 +721,11 @@ export default function MapControlPanel({
           </div>
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
-                {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
-              </ToolBtn>
+              <ProGate isPro={isPro} label="Loran-C grid is available on the Pro plan.">
+                <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
+                  {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+                </ToolBtn>
+              </ProGate>
             </div>
             {hbtn("loran")}
           </div>
