@@ -111,17 +111,18 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
 
   async function handleSave() {
     setSaving(true);
-    const [ok] = await Promise.all([
+    const [ok, { error: profError }] = await Promise.all([
       saveUserSettings(userId, form),
       supabase.from("user_profiles").upsert({
         id:             userId,
         display_name:   profile.display_name.trim()   || null,
         venmo_handle:   profile.venmo_handle.trim()   || null,
         cashapp_handle: profile.cashapp_handle.trim() || null,
-      }, { onConflict: "id" }),
+      }, { onConflict: "id" }).select(),
     ]);
+    if (profError) console.error("profile upsert error:", profError);
     setSaving(false);
-    if (ok) {
+    if (ok && !profError) {
       setSaved(true);
       onSaved?.(form);
       setTimeout(() => setSaved(false), 2000);

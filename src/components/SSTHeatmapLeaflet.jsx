@@ -2530,6 +2530,12 @@ export default function SSTHeatmapLeaflet(props) {
                 style={{ width:32, height:32, padding:0, borderColor:showSavedPanel?"#f97316":undefined, background:showSavedPanel?"#f97316":undefined }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={showSavedPanel?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
               </button>
+              {/* Community layer toggle */}
+              <button onClick={() => setShowCommunityLayer(p => !p)} title="Community pins"
+                className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
+                style={{ width:32, height:32, padding:0, background:showCommunityLayer?"#84cc16":"rgba(255,255,255,0.9)", borderColor:showCommunityLayer?"#84cc16":"#e2e8f0" }}>
+                <span style={{ fontSize:9, fontWeight:700, color:showCommunityLayer?"#fff":"#64748b", lineHeight:1 }}>COM</span>
+              </button>
             </div>
           )}
 
@@ -2686,6 +2692,12 @@ export default function SSTHeatmapLeaflet(props) {
               className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
               style={{ width:30, height:30, padding:0, borderColor: showSavedPanel?"#f97316":undefined, background: showSavedPanel?"#f97316":undefined }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={showSavedPanel?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            {/* Community layer toggle */}
+            <button onClick={() => setShowCommunityLayer(p => !p)} title="Community pins"
+              className="flex items-center justify-center rounded-lg shadow-sm border"
+              style={{ width:30, height:30, padding:0, background:showCommunityLayer?"#84cc16":"rgba(255,255,255,0.9)", borderColor:showCommunityLayer?"#84cc16":"#e2e8f0" }}>
+              <span style={{ fontSize:9, fontWeight:700, color:showCommunityLayer?"#fff":"#64748b", lineHeight:1 }}>COM</span>
             </button>
             {/* Plan Trip */}
             <button
@@ -3277,7 +3289,7 @@ export default function SSTHeatmapLeaflet(props) {
             return (
               <div
                 className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs"
-                style={{ left: popL, top: popT, zIndex: 1000, width: CARD_W }}
+                style={{ left: popL, top: popT, zIndex: 9500, width: CARD_W }}
                 onClick={e => e.stopPropagation()}
               >
                 {/* Header */}
@@ -3317,21 +3329,32 @@ export default function SSTHeatmapLeaflet(props) {
                 )}
 
                 {/* Thanks / Tip — opens TipFlow */}
-                {communityTipModal?.pin?.id === pin.id ? (
-                  <TipFlow pin={pin} userId={userId} onClose={() => setCommunityTipModal(null)} />
-                ) : (
-                  <div className="flex gap-1.5 mt-auto pt-1 border-t border-slate-100">
-                    <button
-                      onClick={() => setCommunityTipModal({ pin })}
-                      className="flex-1 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs transition-colors"
-                    >
-                      💙 Thanks / Tip
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-1.5 mt-auto pt-1 border-t border-slate-100">
+                  <button
+                    onClick={() => setCommunityTipModal({ pin })}
+                    className="flex-1 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs transition-colors"
+                  >
+                    Thanks / Tip
+                  </button>
+                </div>
               </div>
             );
           })()}
+
+          {communityTipModal && createPortal(
+            <div className="fixed inset-0 flex items-center justify-center bg-black/40 p-4" style={{zIndex:9600}} onClick={() => setCommunityTipModal(null)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-slate-800">Thanks / Tip</span>
+                  <button onClick={() => setCommunityTipModal(null)} className="text-slate-400 hover:text-slate-700">
+                    <svg width="16" height="16" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
+                <TipFlow pin={communityTipModal.pin} userId={userId} onClose={() => setCommunityTipModal(null)} />
+              </div>
+            </div>,
+            document.body
+          )}
 
           {selectedMarker && (() => {
             const mk = selectedMarker.mk;
