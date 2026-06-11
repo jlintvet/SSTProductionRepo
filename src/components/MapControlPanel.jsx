@@ -568,24 +568,29 @@ export default function MapControlPanel({
       {/* ── Gain / range (Pro) ───────────────────────────────────────── */}
       {showGain && (
         <>
-          <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
-            <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} trailing={hbtn("gain")} />
-            {openSections.gain && (
-              <div className="px-2 pb-2">
-                <SSTRangeControl
-                  activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
-                  userId={userId}
-                  range={sstRange}
-                  onRangeChange={onSstRangeChange}
-                  onApply={onSstRangeChange}
-                  style={{ width: "100%" }}
-                  openRef={rangeControlOpenRef}
-                  dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
-                  dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
-                />
-              </div>
-            )}
-          </ProGate>
+          <div className="flex gap-1 items-start">
+            <div className="flex-1">
+              <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
+                <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
+                {openSections.gain && (
+                  <div className="px-2 pb-2">
+                    <SSTRangeControl
+                      activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
+                      userId={userId}
+                      range={sstRange}
+                      onRangeChange={onSstRangeChange}
+                      onApply={onSstRangeChange}
+                      style={{ width: "100%" }}
+                      openRef={rangeControlOpenRef}
+                      dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
+                      dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
+                    />
+                  </div>
+                )}
+              </ProGate>
+            </div>
+            {hbtn("gain")}
+          </div>
           <Divider />
         </>
       )}

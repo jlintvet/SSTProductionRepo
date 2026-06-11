@@ -749,6 +749,15 @@ export default function SSTHeatmapLeaflet(props) {
     [regionBounds.south, regionBounds.west],
     [regionBounds.north, regionBounds.east]
   );
+  // Mercator center differs from geographic center by ~0.5° for this region.
+  // Using geographic center (llBounds.getCenter()) for setView causes the viewport
+  // to extend ~0.4° north past the data boundary. Use Mercator midpoint instead.
+  const _mcN = Math.log(Math.tan(Math.PI/4 + regionBounds.north*Math.PI/360));
+  const _mcS = Math.log(Math.tan(Math.PI/4 + regionBounds.south*Math.PI/360));
+  const mercCenter = L.latLng(
+    (2*Math.atan(Math.exp((_mcN+_mcS)/2)) - Math.PI/2) * 180/Math.PI,
+    (regionBounds.west + regionBounds.east) / 2
+  );
   // Compute locally so mobile VIIRS date-nav never crashes with "can't find variable"
   const activeViirsDay = viirsData?.days?.[viirsDateIndex] ?? null;
 
@@ -1029,7 +1038,7 @@ export default function SSTHeatmapLeaflet(props) {
     }).addTo(map);
     // Initialize map with a rough view immediately so _checkIfLoaded never throws
     // before the proper fill-zoom rAF runs.
-    try { map.setView(llBounds.getCenter(), 5, { animate: false }); } catch(_) {}
+    try { map.setView(mercCenter, 5, { animate: false }); } catch(_) {}
 
     const calcFillZoom = (cw, ch) => {
       const _mN = Math.log(Math.tan(Math.PI/4 + regionBounds.north*Math.PI/360));
@@ -1049,7 +1058,7 @@ export default function SSTHeatmapLeaflet(props) {
         const curZoom = map.getZoom();
         // Always setView on first call (curZoom is NaN); skip on repeat calls if zoom is already correct
         if (!isFinite(curZoom) || Math.abs(curZoom - fillZoom) > 0.05) {
-          map.setView(llBounds.getCenter(), fillZoom, { animate: false });
+          map.setView(mercCenter, fillZoom, { animate: false });
         }
         // Post-check: if view still shows outside north/south, bump zoom until it doesn't
         let guard = 0;
@@ -1328,7 +1337,7 @@ export default function SSTHeatmapLeaflet(props) {
         const fillZoom = Math.max(Math.log2((_cw * 360) / (256 * _lR)), Math.log2((_ch * 2 * Math.PI) / (256 * _mH)));
         const curZoom = map.getZoom();
         if (!isFinite(curZoom) || Math.abs(curZoom - fillZoom) > 0.05) {
-          map.setView(llBounds.getCenter(), fillZoom, { animate: false });
+          map.setView(mercCenter, fillZoom, { animate: false });
         }
         let guard = 0;
         while (guard++ < 10) {
@@ -1363,9 +1372,15 @@ export default function SSTHeatmapLeaflet(props) {
         const fillZoom = Math.max(Math.log2((_cw * 360) / (256 * _lR)), Math.log2((_ch * 2 * Math.PI) / (256 * _mH)));
         const currentZoom = map.getZoom();
         if (Math.abs(currentZoom - fillZoom) > 0.05) {
-          map.setView(llBounds.getCenter(), fillZoom, { animate: false });
+          map.setView(mercCenter, fillZoom, { animate: false });
         }
-        map.setMinZoom(fillZoom); map.setMaxBounds(llBounds);
+        let _g = 0;
+        while (_g++ < 15) {
+          const _vb = map.getBounds();
+          if (_vb.getNorth() <= regionBounds.north + 0.02 && _vb.getSouth() >= regionBounds.south - 0.02) break;
+          map.setZoom(map.getZoom() + 0.1, { animate: false });
+        }
+        map.setMinZoom(map.getZoom()); map.setMaxBounds(llBounds);
         setRepaintTrigger(t => t + 1);
       } catch(_){}
     };
