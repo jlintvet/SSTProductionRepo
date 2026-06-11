@@ -264,9 +264,16 @@ function TipFlow({ pin, userId, onClose }) {
 
     const note = encodeURIComponent(`riploc report tip`);
     if (platform === "venmo") {
-      window.open(`venmo://paycharge?txn=pay&recipients=${encodeURIComponent(pin.venmo_handle)}&amount=${finalAmount}&note=${note}`, "_blank");
+      const deepLink = `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(pin.venmo_handle)}&amount=${finalAmount}&note=${note}`;
+      const webLink  = `https://venmo.com/u/${encodeURIComponent(pin.venmo_handle.replace(/^@/, ""))}`;
+      window.location.href = deepLink;
+      setTimeout(() => window.open(webLink, "_blank"), 1500);
     } else {
-      window.open(`cashapp://cash.app/${encodeURIComponent(pin.cashapp_handle)}`, "_blank");
+      const handle   = pin.cashapp_handle.startsWith("$") ? pin.cashapp_handle : `$${pin.cashapp_handle}`;
+      const deepLink = `cashapp://cash.app/${encodeURIComponent(handle)}`;
+      const webLink  = `https://cash.app/${encodeURIComponent(handle)}`;
+      window.location.href = deepLink;
+      setTimeout(() => window.open(webLink, "_blank"), 1500);
     }
     setRecording(false);
     onClose();
