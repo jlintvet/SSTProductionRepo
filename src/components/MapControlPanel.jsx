@@ -85,52 +85,6 @@ function ProGate({ isPro, children, label }) {
         cursor: "pointer", zIndex: 10, letterSpacing: 0.5, whiteSpace: "nowrap",
       }}>PRO</span>
       {popup}
-      <Divider />
-
-      {/* ── Community Reports ─────────────────────────────────────── */}
-      <SectionHeader title="Community" open={openSections.community} onToggle={() => toggleSection("community")} />
-      {openSections.community && (
-        <div className="flex flex-col gap-1.5 px-2 pb-2">
-          <ToolBtn
-            active={showCommunityLayer}
-            color="emerald"
-            onClick={() => setShowCommunityLayer?.(v => !v)}
-          >
-            {showCommunityLayer ? `Reports (${communityCount ?? 0})` : "Show Reports"}
-          </ToolBtn>
-
-          {communityAccess && !communityAccess.hasAccess && (
-            <div className="text-[10px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5 leading-tight">
-              {communityAccess.neverPosted
-                ? "Post your first catch to unlock reports"
-                : `Last post ${communityAccess.daysSinceLastPost}d ago — post to keep access`}
-            </div>
-          )}
-          {communityAccess?.hasAccess && (
-            <div className="text-[10px] text-emerald-600 font-medium px-1">Access active</div>
-          )}
-
-          <button
-            onClick={onPostReport}
-            className="w-full py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-semibold transition-colors"
-          >
-            + Post Report
-          </button>
-          <button
-            onClick={onDropLivePin}
-            className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-colors"
-          >
-            + Drop Live Pin
-          </button>
-          <button
-            onClick={onOpenLeaderboard}
-            className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
-          >
-            Top Anglers
-          </button>
-        </div>
-      )}
-
     </div>
   );
 }
@@ -672,6 +626,52 @@ export default function MapControlPanel({
               {wrecksLoading ? "Loading…" : "Bottom Features"}
             </ToolBtn>
           </ProGate>
+        </div>
+      )}
+
+      <Divider />
+
+      {/* ── Community Reports ─────────────────────────────────────── */}
+      <SectionHeader title="Community" open={openSections.community} onToggle={() => toggleSection("community")} />
+      {openSections.community && (
+        <div className="flex flex-col gap-1.5 px-2 pb-2">
+          <ToolBtn
+            active={showCommunityLayer}
+            color="emerald"
+            onClick={() => setShowCommunityLayer?.(v => !v)}
+          >
+            {showCommunityLayer ? `Reports (${communityCount ?? 0})` : "Show Reports"}
+          </ToolBtn>
+
+          {communityAccess && !communityAccess.hasAccess && (
+            <div className="text-[10px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5 leading-tight">
+              {communityAccess.neverPosted
+                ? "Post your first catch to unlock reports"
+                : `Last post ${communityAccess.daysSinceLastPost}d ago — post to keep access`}
+            </div>
+          )}
+          {communityAccess?.hasAccess && (
+            <div className="text-[10px] text-emerald-600 font-medium px-1">Access active</div>
+          )}
+
+          <button
+            onClick={onPostReport}
+            className="w-full py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-semibold transition-colors"
+          >
+            + Post Report
+          </button>
+          <button
+            onClick={onDropLivePin}
+            className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-colors"
+          >
+            + Drop Live Pin
+          </button>
+          <button
+            onClick={onOpenLeaderboard}
+            className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+          >
+            Top Anglers
+          </button>
         </div>
       )}
 
