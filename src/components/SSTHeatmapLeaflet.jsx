@@ -1515,7 +1515,21 @@ export default function SSTHeatmapLeaflet(props) {
       const { dataURL, west, east, north, south } = result;
       blobUrlsRef.current.push(dataURL);
       const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false });
-      overlay.addTo(map); overlayLayerRef.current = overlay; setSstReady(true);
+      overlay.addTo(map); overlayLayerRef.current = overlay;
+      // Composite data (like VIIRS) only goes to 39.00°N. Set tight minZoom + maxBounds
+      // so that the post-sstReady refit's setView(fill_for_39.50N) is clamped by Leaflet
+      // to this minZoom — exactly the same mechanism used by the VIIRS SST .then() path.
+      if (activeDataLayerRef.current === "composite") {
+        try {
+          map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]);
+          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
+          const mN = Math.log(Math.tan(Math.PI/4 + 39.00 * Math.PI/360));
+          const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
+          const mH = mN - mS, lR = -72.21 - (-78.89);
+          map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
+        } catch(_) {}
+      }
+      setSstReady(true);
     });
     return () => { cancelled = true; };
   }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
