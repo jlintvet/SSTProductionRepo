@@ -805,7 +805,7 @@ export default function SSTHeatmapLeaflet(props) {
   const showCurrentsRef  = useRef(false);          useEffect(() => { showCurrentsRef.current = showCurrents; }, [showCurrents]);
   const compositeDataRef=useRef(compositeData);useEffect(()=>{compositeDataRef.current=compositeData;},[compositeData]);
   const altimetryDataRef=useRef(altimetryData);useEffect(()=>{altimetryDataRef.current=altimetryData;},[altimetryData]);
-  const sstReadyRef = useRef(false); useEffect(() => { sstReadyRef.current = sstReady; }, [sstReady]);
+  const sstReadyRef = useRef(false);
   const userInteractedRef = useRef(false);
 
   // Fetch compositeDate locally so it's colocated with the hotspot consumer
@@ -1427,7 +1427,7 @@ export default function SSTHeatmapLeaflet(props) {
       blobUrlsRef.current.push(dataURL);
       const opacity = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP" || dataSource === "GOESCOMP") ? 0.78 : 0.92;
       const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity, interactive: false });
-      overlay.addTo(map); sstOverlayRef.current = overlay; setSstReady(true);
+      overlay.addTo(map); sstOverlayRef.current = overlay; sstReadyRef.current = true; setSstReady(true);
       if (dataSource === "MUR") { try { map.setMaxBounds([[south, west], [north, east]]); } catch(_) {} }
       else if (dataSource === "VIIRS") {
         try { map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]); } catch(_) {}
@@ -1531,7 +1531,7 @@ export default function SSTHeatmapLeaflet(props) {
         const mH = mN - mS, lR = -72.21 - (-78.89);
         map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
       } catch(_) {}
-      setSstReady(true);
+      sstReadyRef.current = true; setSstReady(true);
     });
     return () => { cancelled = true; };
   }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
@@ -1566,7 +1566,7 @@ export default function SSTHeatmapLeaflet(props) {
       const mH = mN - mS, lR = -72.21 - (-78.89);
       map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
     } catch(_) {}
-    setSstReady(true);
+    sstReadyRef.current = true; setSstReady(true);
     // Disable pointer events on wind canvas so wreck/feature markers below receive clicks
     try {
       const vc = velocityLayer._canvasLayer?._canvas ?? velocityLayer._canvas ?? null;
