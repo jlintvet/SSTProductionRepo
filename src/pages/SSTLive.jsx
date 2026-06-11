@@ -860,6 +860,25 @@ function SSTPageBody() {
               heatmapData={heatmapData} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}
             />
           )}
+
+          {communityFormData && (
+            <CommunityReportForm
+              userId={userId}
+              initialType={communityFormData.initialType}
+              lat={communityFormData.lat}
+              lon={communityFormData.lon}
+              waterTemp={communityFormData.waterTemp}
+              onClose={() => setCommunityFormData(null)}
+              onPosted={() => {
+                setCommunityFormData(null);
+                fetchCommunityLocations();
+                checkCommunityAccess(userId, isPro);
+              }}
+            />
+          )}
+
+          {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
+
           <div className="hidden sm:block flex-shrink-0" style={{ overflow: "visible" }}>
             {isWindMap
               ? null
@@ -931,25 +950,6 @@ export default function SSTLive() {
         console.log("[SST:AUTH] getUser →", { email: user?.email ?? null, error: error?.message ?? null, ok });
         if (ok) setAuthed(true);
       })
-
-          {communityFormData && (
-            <CommunityReportForm
-              userId={userId}
-              initialType={communityFormData.initialType}
-              lat={communityFormData.lat}
-              lon={communityFormData.lon}
-              waterTemp={communityFormData.waterTemp}
-              onClose={() => setCommunityFormData(null)}
-              onPosted={() => {
-                setCommunityFormData(null);
-                fetchCommunityLocations();
-                checkCommunityAccess(userId, isPro);
-              }}
-            />
-          )}
-
-          {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
-
       .catch(err => {
         console.log("[SST:AUTH] getUser threw →", err?.message);
       });
