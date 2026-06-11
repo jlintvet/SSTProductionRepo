@@ -178,6 +178,7 @@ async function setState(redis, workflowFile, updates) {
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
+  try {
   // Protect the endpoint — cron-job.org sends secret in header
   const secret = req.headers['x-monitor-secret'] ?? req.query?.secret
   if (secret !== process.env.MONITOR_SECRET) {
@@ -291,4 +292,9 @@ export default async function handler(req, res) {
     timestamp: new Date().toISOString(),
     results,
   })
+
+  } catch (fatalErr) {
+    console.error('[monitor] FATAL:', fatalErr)
+    return res.status(500).json({ fatal: fatalErr.message, stack: fatalErr.stack })
+  }
 }
