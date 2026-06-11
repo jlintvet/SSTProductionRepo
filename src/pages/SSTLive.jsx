@@ -804,7 +804,6 @@ function SSTPageBody() {
               onOpenLeaderboard={() => setShowLeaderboard(true)}
               onPostCommunityReport={(info) => {
                 if (info?.lat != null && info?.lon != null) {
-                  // Called from map click — open form immediately with coords
                   setCommunityFormData({
                     lat: info.lat,
                     lon: info.lon,
@@ -812,7 +811,6 @@ function SSTPageBody() {
                     initialType: info.initialType ?? "report",
                   });
                 } else {
-                  // Called from panel — enter pin-drop mode so user clicks map first
                   setCommunityPinDrop(info?.type ?? "report");
                 }
               }}
@@ -965,4 +963,36 @@ export default function SSTLive() {
         const user = data?.user;
         const ok = !error && !!user?.email;
         console.log("[SST:AUTH] getUser →", { email: user?.email ?? null, error: error?.message ?? null, ok });
-        if (ok) setAuthed(true
+        if (ok) setAuthed(true);
+      })
+      .catch(err => {
+        console.log("[SST:AUTH] getUser threw →", err?.message);
+      });
+
+    let sub;
+    try {
+      const result = supabase.auth.onAuthStateChange((event, s) => {
+        if (cancelled) return;
+        const ok = !!s?.user?.email;
+        console.log("[SST:AUTH] onAuthStateChange →", event, s?.user?.email ?? null, "ok:", ok);
+        setAuthed(ok);
+      });
+      sub = result?.data?.subscription ?? result;
+    } catch (e) {
+      console.log("[SST:AUTH] onAuthStateChange setup error:", e?.message);
+    }
+
+    return () => {
+      cancelled = true;
+      try { sub?.unsubscribe?.(); } catch (_) {}
+    };
+  }, []);
+
+  if (!authed) return <InlineLogin />;
+
+  return (
+    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
+      <SSTPageBody />
+    </AppShell>
+  );
+}
