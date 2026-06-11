@@ -6,6 +6,8 @@ import { useAppContext } from "@/context/AppContext";
 import SSTHeatmapLeaflet from "@/components/SSTHeatmapLeaflet";
 import SSTLegend from "@/components/SSTLegend";
 import ShareLocationDialog from "@/components/ShareLocationDialog";
+import CommunityReportForm from "@/components/CommunityReportForm";
+import LeaderboardModal    from "@/components/LeaderboardModal";
 import { WindLegend } from "@/components/WindTimeSlider";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
 import TripPlanner from "@/components/TripPlanner";
@@ -354,6 +356,57 @@ function SSTPageBody() {
   const [selectedFishSpecies,setSelectedFishSpecies] = useState("yellowfin");
   const [showHotspots,   setShowHotspots]   = useState(false);
   const [wreckRemovedKeys, setWreckRemovedKeys] = useState(new Set());
+
+  // ── Community Reports ──────────────────────────────────────────────────────
+  const [communityLocations,  setCommunityLocations]  = useState([]);
+  const [showCommunityLayer,  setShowCommunityLayer]  = useState(false);
+  const [communityAccess,     setCommunityAccess]     = useState(null); // { hasAccess, daysSinceLastPost, neverPosted }
+  const [communityFormData,   setCommunityFormData]   = useState(null); // { type, lat, lon, waterTemp } — null = closed
+  const [showLeaderboard,     setShowLeaderboard]     = useState(false);
+
+  async function fetchCommunityLocations() {
+    const { data, error } = await supabase
+      .from("community_locations")
+      .select("*")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false });
+    if (!error && data) setCommunityLocations(data);
+  }
+
+  async function checkCommunityAccess(uid, proStatus) {
+    if (!uid) return;
+    if (proStatus) { setCommunityAccess({ hasAccess: true, daysSinceLastPost: null, neverPosted: false }); return; }
+
+    const thirtyAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recent } = await supabase
+      .from("community_locations")
+      .select("created_at")
+      .eq("user_id", uid)
+      .gte("created_at", thirtyAgo)
+      .limit(1);
+
+    if (recent?.length > 0) { setCommunityAccess({ hasAccess: true, daysSinceLastPost: 0, neverPosted: false }); return; }
+
+    const { data: last } = await supabase
+      .from("community_locations")
+      .select("created_at")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (!last?.length) { setCommunityAccess({ hasAccess: false, daysSinceLastPost: null, neverPosted: true }); return; }
+
+    const days = Math.floor((Date.now() - new Date(last[0].created_at).getTime()) / 86400000);
+    setCommunityAccess({ hasAccess: false, daysSinceLastPost: days, neverPosted: false });
+  }
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchCommunityLocations();
+    checkCommunityAccess(userId, isPro);
+  }, [userId, isPro]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── End Community ──────────────────────────────────────────────────────────
+
   const [tripMode,       setTripMode]       = useState(false);
   const [waypoints,      setWaypoints]      = useState([]);
   const [loadedRoute,    setLoadedRoute]    = useState(null);
@@ -741,6 +794,18 @@ function SSTPageBody() {
               onToggleGps={toggleGps}
               boatPosition={boatPosition}
               boatTrack={boatTrack}
+              communityLocations={communityAccess?.hasAccess ? communityLocations : []}
+              showCommunityLayer={showCommunityLayer}
+              setShowCommunityLayer={setShowCommunityLayer}
+              communityAccess={communityAccess}
+              communityCount={communityLocations.length}
+              onOpenLeaderboard={() => setShowLeaderboard(true)}
+              onPostCommunityReport={(opts) => {
+                const lat = boatPosition?.lat ?? null;
+                const lon = boatPosition?.lon ?? null;
+                setCommunityFormData({ type: opts?.type ?? "report", lat, lon, waterTemp: null });
+              }}
+              onCommunityPosted={() => { fetchCommunityLocations(); checkCommunityAccess(userId, isPro); }}
             />
             </SSTErrorBoundary>
           </div>
@@ -791,105 +856,23 @@ function SSTPageBody() {
               heatmapData={heatmapData} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}
             />
           )}
+
+          {communityFormData && (
+            <CommunityReportForm
+              userId={userId}
+              initialType={communityFormData.type}
+              lat={communityFormData.lat ?? 36.5}
+              lon={communityFormData.lon ?? -75.5}
+              waterTemp={communityFormData.waterTemp}
+              onClose={() => setCommunityFormData(null)}
+              onPosted={() => { fetchCommunityLocations(); checkCommunityAccess(userId, isPro); setCommunityFormData(null); }}
+            />
+          )}
+
+          {showLeaderboard && (
+            <LeaderboardModal onClose={() => setShowLeaderboard(false)} />
+          )}
           <div className="hidden sm:block flex-shrink-0" style={{ overflow: "visible" }}>
             {isWindMap
               ? null
-              : activeDataLayer === "chlorophyll"
-              ? <GradientLegend gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
-                  dataMin={chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01}
-                  dataMax={chlData?.days?.[chlDateIndex]?.stats?.max ?? 10}
-                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
-                  hoverVal={legendHoverSst}
-                  onClick={() => rangeControlOpenRef.current?.()}/>
-              : activeDataLayer === "seacolor"
-              ? <GradientLegend gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
-                  dataMin={seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01}
-                  dataMax={seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50}
-                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
-                  hoverVal={legendHoverSst}
-                  onClick={() => rangeControlOpenRef.current?.()}/>
-              : activeDataLayer === "altimetry"
-              ? <GradientLegend gradient={SLA_GRADIENT} label="Sea level" unit=" m"
-                  dataMin={slaRange.min} dataMax={slaRange.max}
-                  hoverVal={legendHoverSst}/>
-              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max} onClick={() => rangeControlOpenRef.current?.()}/>
-            }
-          </div>
-        </>
-        );
-      })()}
-    </div>
-  );
-}
-
-
-// ── Error boundary — recovers from render crashes in the map component ────────
-class SSTErrorBoundary extends Component {
-  state = { hasError: false, errorMsg: "" };
-  static getDerivedStateFromError(err) { return { hasError: true, errorMsg: err?.message || String(err) }; }
-  componentDidCatch(err, info) { console.error("[SSTHeatmap] render error:", err, info?.componentStack); }
-  render() {
-    if (this.state.hasError) return (
-      <div className="flex-1 flex items-center justify-center flex-col gap-3 p-4">
-        <div className="text-slate-500 text-sm">Something went wrong loading the map.</div>
-        {this.state.errorMsg && (
-          <div className="text-red-500 text-xs font-mono bg-red-50 border border-red-200 rounded px-3 py-2 max-w-xs break-all">
-            {this.state.errorMsg}
-          </div>
-        )}
-        <button onClick={() => this.setState({ hasError: false, errorMsg: "" })}
-          className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-semibold">
-          Try again
-        </button>
-      </div>
-    );
-    return this.props.children;
-  }
-}
-
-export default function SSTLive() {
-  // Start false — show login immediately; flip to true only after confirmed auth
-  const [authed, setAuthed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    supabase.auth.getUser()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        const user = data?.user;
-        const ok = !error && !!user?.email;
-        console.log("[SST:AUTH] getUser →", { email: user?.email ?? null, error: error?.message ?? null, ok });
-        if (ok) setAuthed(true);
-      })
-      .catch(err => {
-        console.log("[SST:AUTH] getUser threw →", err?.message);
-      });
-
-    let sub;
-    try {
-      const result = supabase.auth.onAuthStateChange((event, s) => {
-        if (cancelled) return;
-        const ok = !!s?.user?.email;
-        console.log("[SST:AUTH] onAuthStateChange →", event, s?.user?.email ?? null, "ok:", ok);
-        setAuthed(ok);
-      });
-      sub = result?.data?.subscription ?? result;
-    } catch (e) {
-      console.log("[SST:AUTH] onAuthStateChange setup error:", e?.message);
-    }
-
-    return () => {
-      cancelled = true;
-      try { sub?.unsubscribe?.(); } catch (_) {}
-    };
-  }, []);
-
-  if (!authed) return <InlineLogin />;
-
-  return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
-      <SSTPageBody />
-    </AppShell>
-  );
-}
+        

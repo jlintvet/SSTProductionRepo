@@ -328,12 +328,20 @@ export default function MapControlPanel({
   windSliderHeight,
   // panel hover callbacks
   onPointerEnter, onPointerLeave, panelRef,
+  // community reports
+  showCommunityLayer, setShowCommunityLayer,
+  communityAccess,    // { hasAccess, daysSinceLastPost, neverPosted }
+  communityCount,
+  onOpenLeaderboard,
+  onPostReport,
+  onDropLivePin,
 }) {
   const [openSections, setOpenSections] = useState({
-    layers:   true,
-    gain:     true,
-    tools:    true,
-    overlays: true,
+    layers:    true,
+    gain:      true,
+    tools:     true,
+    overlays:  true,
+    community: true,
   });
   const [helpOpen, setHelpOpen] = useState(null);
   const hbtn = (id) => (
@@ -738,28 +746,40 @@ export default function MapControlPanel({
         </div>
       )}
 
-      {helpOpen && HELP_CONFIG[helpOpen] && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4"
-             onClick={() => setHelpOpen(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden"
-               onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-              <p className="font-semibold text-slate-800 text-sm">{HELP_CONFIG[helpOpen].title}</p>
-              <button onClick={() => setHelpOpen(null)}
-                className="text-slate-400 hover:text-slate-600 text-xl leading-none font-light">×</button>
+      {/* ── Community Reports ─────────────────────────────────────── */}
+      <SectionHeader title="Community" open={openSections.community} onToggle={() => toggleSection("community")} />
+      {openSections.community && (
+        <div className="flex flex-col gap-1.5 px-2 pb-2">
+          {/* Layer toggle */}
+          <ToolBtn
+            active={showCommunityLayer}
+            color="emerald"
+            onClick={() => setShowCommunityLayer?.(v => !v)}
+          >
+            {showCommunityLayer
+              ? `Reports (${communityCount ?? 0})`
+              : "Show Reports"}
+          </ToolBtn>
+
+          {/* Access status */}
+          {communityAccess && !communityAccess.hasAccess && (
+            <div className="text-[10px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5 leading-tight">
+              {communityAccess.neverPosted
+                ? "Post your first catch to unlock reports"
+                : `Last post ${communityAccess.daysSinceLastPost}d ago — post to keep access`}
             </div>
-            <img src={HELP_CONFIG[helpOpen].image} alt=""
-                 className="w-full object-cover" style={{maxHeight:200}}
-                 onError={e => { e.currentTarget.style.display="none"; }} />
-            <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
-              {helpOpen === "loran"
-                ? <>{`The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: “The bite’s been hot in 100 fathoms at the 580” (‘The Point’ off Oregon Inlet).`}<br/><br/>{`Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that’s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.`}</>
-                : HELP_CONFIG[helpOpen].text}
+          )}
+          {communityAccess?.hasAccess && (
+            <div className="text-[10px] text-emerald-600 font-medium px-1">
+              ✓ Access active
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
+          )}
+
+          {/* Post buttons */}
+          <button
+            onClick={onPostReport}
+            className="w-full py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-semibold transition-colors"
+          >
+            + Post Report
+          </button>
+     

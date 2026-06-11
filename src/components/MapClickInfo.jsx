@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { X, Bookmark } from "lucide-react";
 
-export default function MapClickInfo({ info, onClose, onSaved, date, userId }) {
+export default function MapClickInfo({ info, onClose, onSaved, date, userId, onPostCommunityReport }) {
   const [label, setLabel] = useState(info?.prefillLabel || "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -133,7 +133,4 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId }) {
           <Bookmark className="w-3.5 h-3.5" />
           {saved ? "Saved!" : saving ? "Saving…" : "Save Location"}
         </button>
-      </div>
-    </div>
-  );
-}
+       
