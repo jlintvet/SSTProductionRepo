@@ -80,6 +80,22 @@ function bundleToDay(bundle) {
   };
 }
 
+// ── Bundle → composite format converter (for daily VIIRS date nav) ────────────
+function bundleToComposite(bundle) {
+  // Pick the last available hour; SST array is already flat (latI*nLons + lonI)
+  const avail = [...new Set(bundle.available_hours || [])].sort((a, b) => a - b);
+  const lastHr = avail.length > 0 ? String(avail[avail.length - 1]) : null;
+  const hrData = lastHr ? bundle.hours?.[lastHr] : null;
+  return {
+    latSet: bundle.latSet ?? [],
+    lonSet: bundle.lonSet ?? [],
+    sst: hrData?.sst ?? [],
+    date: bundle.date,
+    generated: bundle.date,
+    pass_dates: [bundle.date],
+  };
+}
+
 // ── Response normalization ────────────────────────────────────────────────────
 function normalizeSSTResponse(res, sourceName, valueKey = "sst") {
   const data = res?.data ?? res;
@@ -333,6 +349,8 @@ function SSTPageBody() {
   const [compositeDate,      setCompositeDate]      = useState(null);
   const [compositeDateIndex, setCompositeDateIndex] = useState(0);
   const [compositeDates,     setCompositeDates]     = useState([]);
+  const [compositeIndexDates,setCompositeIndexDates]= useState([]); // raw date strings from viirs_index.json
+  const compositeLoadedDateRef = React.useRef(null);
   const [windData,       setWindData]       = useState(null);
   const [windLoading,    setWindLoading]    = useState(false);
   const [windHourIndex,  setWindHourIndex]  = useState(0);
@@ -381,40 +399,73 @@ function SSTPageBody() {
   // WreckReview entity was Base44-only; stubbed out pending Supabase migration
   useEffect(() => { setWreckRemovedKeys(new Set()); }, []);
 
+  const fmtDate = (s) => {
+    try {
+      const iso = s.includes("T") ? s : s + "T12:00:00Z";
+      return new Date(iso).toLocaleString("en-US", {
+        month: "short", day: "numeric", timeZone: "America/New_York",
+      });
+    } catch { return s; }
+  };
+
+  // ── Composite initial load: use viirs_index.json for date list ────────────
   useEffect(() => {
     if (activeDataLayer !== "composite" || compositeData) return;
-    // There is only one composite file — always fetch the latest
-    fetch(`${VIIRS_COMPOSITE_URL}`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then(d => {
+    async function loadComposite() {
+      try {
+        // Fetch index to get list of available daily dates
+        const idxRes = await fetch(`${VIIRS_CDN_BASE}/viirs_index.json`);
+        const idx = idxRes.ok ? await idxRes.json() : {};
+        const rawDates = [...(idx.dates ?? [])].sort();
+        if (rawDates.length) {
+          setCompositeIndexDates(rawDates);
+          setCompositeDates(rawDates.map(fmtDate));
+          const latestDate = rawDates[rawDates.length - 1];
+          setCompositeDateIndex(rawDates.length - 1);
+          compositeLoadedDateRef.current = latestDate;
+          // Load the latest daily file
+          const bRes = await fetch(`${VIIRS_CDN_BASE}/viirs_${latestDate}.json`);
+          if (bRes.ok) {
+            const bundle = await bRes.json();
+            setCompositeData(bundleToComposite(bundle));
+            setCompositeGenerated(latestDate);
+            setCompositeDate(latestDate);
+            return;
+          }
+        }
+        // Fallback: load viirs_composite.json
+        const cRes = await fetch(VIIRS_COMPOSITE_URL);
+        if (!cRes.ok) throw new Error(`HTTP ${cRes.status}`);
+        const d = await cRes.json();
         setCompositeData(d);
         setCompositeGenerated(d.generated ?? null);
         setCompositeDate(d.date ?? null);
-        // Use the contributing pass dates for the nav display
-        // Always have at least one date entry so DateNav renders
-        // Format each pass date as "Jun 9, 12 PM ET" for display
-        const fmtDate = (s) => {
-          try {
-            const iso = s.includes("T") ? s : s + "T12:00:00Z";
-            return new Date(iso).toLocaleString("en-US", {
-              month: "short", day: "numeric", hour: "numeric",
-              timeZone: "America/New_York",
-            });
-          } catch { return s; }
-        };
-        const rawDates = d.pass_dates ?? [];
-        const dates = rawDates.length
-          ? rawDates.map(fmtDate)
-          : d.generated
-            ? [fmtDate(d.generated)]
-            : d.date
-              ? [fmtDate(d.date)]
-              : ["—"];
-        setCompositeDates(dates);
-        setCompositeDateIndex(dates.length - 1);
-      })
-      .catch(e => console.warn("[COMPOSITE] fetch failed:", e));
+        const fallbackDates = (d.pass_dates ?? []).length
+          ? d.pass_dates.map(fmtDate)
+          : [fmtDate(d.generated ?? d.date ?? "—")];
+        setCompositeDates(fallbackDates);
+        setCompositeDateIndex(fallbackDates.length - 1);
+      } catch(e) { console.warn("[COMPOSITE] init failed:", e); }
+    }
+    loadComposite();
   }, [activeDataLayer, compositeData]);
+
+  // ── Date-change: load the daily file when user navigates ─────────────────
+  useEffect(() => {
+    if (!compositeIndexDates.length || activeDataLayer !== "composite") return;
+    const dateStr = compositeIndexDates[compositeDateIndex];
+    if (!dateStr || dateStr === compositeLoadedDateRef.current) return;
+    compositeLoadedDateRef.current = dateStr;
+    fetch(`${VIIRS_CDN_BASE}/viirs_${dateStr}.json`)
+      .then(r => r.ok ? r.json() : null)
+      .then(bundle => {
+        if (!bundle) return;
+        setCompositeData(bundleToComposite(bundle));
+        setCompositeGenerated(dateStr);
+        setCompositeDate(dateStr);
+      })
+      .catch(e => console.warn("[COMPOSITE] daily load failed:", dateStr, e));
+  }, [compositeDateIndex, compositeIndexDates]);
 
   const windActive = showWindOverlay || activeDataLayer === "windmap";
   useEffect(() => {

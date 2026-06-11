@@ -1820,7 +1820,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !showBathyLayer || jsonContours) return;
     setJsonContoursLoading(true);
     fetch(BATHY_CONTOURS_URL).then(r=>r.json()).then(d=>{setJsonContours(d);setJsonContoursLoading(false);}).catch(()=>setJsonContoursLoading(false));
-  }, [sstReady, showBathyLayer]);
+  }, [mapReady, showBathyLayer]);
 
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;

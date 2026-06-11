@@ -195,6 +195,13 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setRouteIndex(-1);
   }
 
+  function newRoute() {
+    setWaypoints([]);
+    setRouteName(`Route ${new Date().toLocaleDateString()}`);
+    setSavedRouteData(null);
+    setRouteIndex(-1);
+  }
+
   function removeWaypoint(id) {
     setWaypoints(prev => prev.filter(w => w.id !== id));
   }
@@ -330,6 +337,15 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
               </div>
             )}
           </div>
+
+          {/* New Route */}
+          <button
+            onClick={newRoute}
+            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
+            title="Start a new empty route"
+          >
+            New
+          </button>
 
           {/* Save */}
           {waypoints.length >= 2 && (
