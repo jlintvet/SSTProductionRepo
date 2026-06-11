@@ -91,21 +91,24 @@ function ProGate({ isPro, children, label }) {
 
 // ── Tiny helpers ──────────────────────────────────────────────────────────────
 
-function SectionHeader({ title, open, onToggle }) {
+function SectionHeader({ title, open, onToggle, trailing }) {
   return (
-    <button
-      onClick={onToggle}
-      className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
-      style={{ background: "none", border: "none", cursor: "pointer" }}
-    >
-      <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-        {title}
-      </span>
-      <ChevronDown
-        className="w-3 h-3 text-slate-400 transition-transform duration-150"
-        style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-      />
-    </button>
+    <div className="flex items-center">
+      <button
+        onClick={onToggle}
+        className="flex-1 flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
+        style={{ background: "none", border: "none", cursor: "pointer" }}
+      >
+        <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+          {title}
+        </span>
+        <ChevronDown
+          className="w-3 h-3 text-slate-400 transition-transform duration-150"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+      {trailing && <div className="pr-1 flex-shrink-0">{trailing}</div>}
+    </div>
   );
 }
 
@@ -336,7 +339,7 @@ export default function MapControlPanel({
   const hbtn = (id) => (
     <button
       onClick={() => setHelpOpen(o => o === id ? null : id)}
-      className={`px-2 rounded-lg border text-[12px] font-bold transition-colors flex-shrink-0 ${helpOpen === id ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
+      className={`px-2 py-1.5 rounded-lg border text-[12px] font-bold transition-colors flex-shrink-0 ${helpOpen === id ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
       title="Help">?</button>
   );
 
@@ -565,29 +568,24 @@ export default function MapControlPanel({
       {/* ── Gain / range (Pro) ───────────────────────────────────────── */}
       {showGain && (
         <>
-          <div className="flex items-start gap-1">
-            <div className="flex-1 min-w-0">
-              <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
-                <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
-                {openSections.gain && (
-                  <div className="px-2 pb-2">
-                    <SSTRangeControl
-                      activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
-                      userId={userId}
-                      range={sstRange}
-                      onRangeChange={onSstRangeChange}
-                      onApply={onSstRangeChange}
-                      style={{ width: "100%" }}
-                      openRef={rangeControlOpenRef}
-                      dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
-                      dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
-                    />
-                  </div>
-                )}
-              </ProGate>
-            </div>
-            {hbtn("gain")}
-          </div>
+          <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
+            <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} trailing={hbtn("gain")} />
+            {openSections.gain && (
+              <div className="px-2 pb-2">
+                <SSTRangeControl
+                  activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
+                  userId={userId}
+                  range={sstRange}
+                  onRangeChange={onSstRangeChange}
+                  onApply={onSstRangeChange}
+                  style={{ width: "100%" }}
+                  openRef={rangeControlOpenRef}
+                  dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
+                  dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
+                />
+              </div>
+            )}
+          </ProGate>
           <Divider />
         </>
       )}
@@ -601,7 +599,7 @@ export default function MapControlPanel({
               <div className="flex-1">
                 <ProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
                   <ToolBtn active={showIsotherm} color="sky" onClick={() => setShowIsotherm(v => !v)}>
-                    <span className="text-sm leading-none">~</span> Temp break
+                    Temp break
                   </ToolBtn>
                   {showIsotherm && (
                     <IsothermSubControls

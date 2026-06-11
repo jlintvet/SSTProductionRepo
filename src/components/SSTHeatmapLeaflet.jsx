@@ -1553,7 +1553,7 @@ export default function SSTHeatmapLeaflet(props) {
       const spd = speed_ms ?? Math.sqrt((u || 0) ** 2 + (v || 0) ** 2);
       const dir = dir_deg ?? ((Math.atan2(u || 0, v || 0) * 180 / Math.PI) + 360) % 360;
       const norm = Math.min(spd / maxSpd, 1);
-      const opacity = (0.12 + 0.28 * norm).toFixed(2);
+      const opacity = (0.22 + 0.43 * norm).toFixed(2);
       const html = `<div style="width:16px;height:16px;transform:rotate(${dir.toFixed(1)}deg);opacity:${opacity};"><svg viewBox="-5 -10 10 20" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="8" x2="0" y2="-5" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/><polygon points="0,-10 -3.5,-4 3.5,-4" fill="#ffffff"/></svg></div>`;
       const icon = L.divIcon({ className: "", html, iconSize: [16, 16], iconAnchor: [8, 8] });
       L.marker([lat, lon], { icon, interactive: false }).addTo(group);
@@ -1806,10 +1806,25 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     [isothermLayerRef, breakLayerRef, breakGlowRef].forEach(r => { if (r.current) { map.removeLayer(r.current); r.current = null; } });
-    if (!showIsotherm || !latSet.length || activeDataLayer !== "sst") return;
+    if (!showIsotherm || activeDataLayer !== "sst" && activeDataLayer !== "composite") return;
+    // For composite mode, build a flat grid from compositeData
+    let isoLatSet = latSet, isoLonSet = lonSet, isoGrid = grid;
+    if (activeDataLayer === "composite" && compositeDataRef.current?.latSet?.length) {
+      const cd = compositeDataRef.current;
+      isoLatSet = cd.latSet;
+      isoLonSet = cd.lonSet;
+      isoGrid = {};
+      for (let i = 0; i < cd.latSet.length; i++) {
+        const row = cd.sst?.[i]; if (!row) continue;
+        for (let j = 0; j < cd.lonSet.length; j++) {
+          const v = row[j]; if (v != null && Number.isFinite(v)) isoGrid[`${cd.latSet[i]}_${cd.lonSet[j]}`] = v;
+        }
+      }
+    }
+    if (!isoLatSet.length) return;
     const tid = setTimeout(() => {
       try {
-        const { isotherms, breaks } = buildIsothermLines(latSet, lonSet, grid, effectiveTargetTemp, isothermalSensitivity);
+        const { isotherms, breaks } = buildIsothermLines(isoLatSet, isoLonSet, isoGrid, effectiveTargetTemp, isothermalSensitivity);
         if (isotherms.length) {
           const lyr = L.layerGroup();
           isotherms.forEach(line => L.polyline(line, { color: "rgba(255,255,255,0.65)", weight: 1.5, dashArray: "3 4", interactive: false }).addTo(lyr));
@@ -1826,7 +1841,7 @@ export default function SSTHeatmapLeaflet(props) {
       } catch(err) { console.error("[ISOTHERM] computation failed:", err); }
     }, 60);
     return () => clearTimeout(tid);
-  }, [mapReady, showIsotherm, latSet, lonSet, grid, effectiveTargetTemp, isothermalSensitivity, activeDataLayer, waterMaskVersion, repaintTrigger]);
+  }, [mapReady, showIsotherm, latSet, lonSet, grid, effectiveTargetTemp, isothermalSensitivity, activeDataLayer, compositeData, waterMaskVersion, repaintTrigger]);
 
   // ── Bathymetry ─────────────────────────────────────────────────────────────
   useEffect(() => {
