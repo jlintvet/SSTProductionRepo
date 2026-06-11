@@ -80,11 +80,23 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
+  const [profile, setProfile] = useState({ display_name: "", venmo_handle: "", cashapp_handle: "" });
   const overlayRef            = useRef(null);
 
   useEffect(() => {
     if (!userId) return;
-    loadUserSettings(userId).then(s => { setForm(s); setLoading(false); });
+    Promise.all([
+      loadUserSettings(userId),
+      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle").eq("id", userId).single(),
+    ]).then(([s, { data: prof }]) => {
+      setForm(s);
+      setProfile({
+        display_name:   prof?.display_name   ?? "",
+        venmo_handle:   prof?.venmo_handle   ?? "",
+        cashapp_handle: prof?.cashapp_handle ?? "",
+      });
+      setLoading(false);
+    });
   }, [userId]);
 
   function set(key, val) {
@@ -92,9 +104,22 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     setSaved(false);
   }
 
+  function setProf(key, val) {
+    setProfile(p => ({ ...p, [key]: val }));
+    setSaved(false);
+  }
+
   async function handleSave() {
     setSaving(true);
-    const ok = await saveUserSettings(userId, form);
+    const [ok] = await Promise.all([
+      saveUserSettings(userId, form),
+      supabase.from("user_profiles").upsert({
+        id:             userId,
+        display_name:   profile.display_name.trim()   || null,
+        venmo_handle:   profile.venmo_handle.trim()   || null,
+        cashapp_handle: profile.cashapp_handle.trim() || null,
+      }, { onConflict: "id" }),
+    ]);
     setSaving(false);
     if (ok) {
       setSaved(true);
@@ -203,6 +228,34 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 onChange={v => set("cruise_speed_kts", v)}
               />
             </Row>
+          </Section>
+
+          {/* ── Community Profile ── */}
+          <Section title="Community Profile">
+            <Row label="Display name">
+              <TextInput
+                value={profile.display_name}
+                placeholder="e.g. Captain Jon"
+                onChange={v => setProf("display_name", v)}
+              />
+            </Row>
+            <Row label="Venmo">
+              <TextInput
+                value={profile.venmo_handle}
+                placeholder="@username"
+                onChange={v => setProf("venmo_handle", v)}
+              />
+            </Row>
+            <Row label="Cash App">
+              <TextInput
+                value={profile.cashapp_handle}
+                placeholder="$cashtag"
+                onChange={v => setProf("cashapp_handle", v)}
+              />
+            </Row>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Display name appears on your community pins. Payment handles let other anglers tip you for catch reports.
+            </p>
           </Section>
 
           {/* ── GPS ── */}

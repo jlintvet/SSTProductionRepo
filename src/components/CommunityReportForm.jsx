@@ -57,7 +57,7 @@ export default function CommunityReportForm({
       // Get display name from user_profiles; fall back to email prefix
       const { data: profile } = await supabase
         .from("user_profiles")
-        .select("display_name")
+        .select("display_name, venmo_handle, cashapp_handle")
         .eq("id", userId)
         .single();
       const { data: authData } = await supabase.auth.getUser();
@@ -87,6 +87,8 @@ export default function CommunityReportForm({
           quantity:       qty,
           water_temp:     waterTemp,
           notes:          notes.trim() || null,
+          venmo_handle:   profile?.venmo_handle   || null,
+          cashapp_handle: profile?.cashapp_handle || null,
           points_awarded: pointsAmt,
           expires_at:     expiresAt,
         })
