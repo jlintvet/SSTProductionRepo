@@ -12,7 +12,7 @@ function SavedPanel({
   savedLocations, fetchSavedLocations, clearMarkersRef, flyToRef,
   highlightedLocation, setHighlightedLocation, onShare, isPro, userId,
   onClose, sliderHeight, mobile, onMobileSelect, className, onLoadRoute, onRoutesCountChange,
-  tripMode, onAddWaypoint,
+  tripMode, onAddWaypoint, communityLocations,
   heatmapDataForShare, sstMinForShare, sstMaxForShare, sstRangeForShare,
 }) {
   const [tab, setTab]             = React.useState("locations");
@@ -76,13 +76,19 @@ function SavedPanel({
             onClick={() => switchTab("locations")}
             className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "locations" ? "border-orange-400 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
           >
-            Locations ({savedLocations?.length ?? 0})
+            My Locations
           </button>
           <button
             onClick={() => switchTab("routes")}
             className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "routes" ? "border-cyan-500 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
           >
-            Routes{routes !== null ? ` (${routes.length})` : ""}
+            My Routes
+          </button>
+          <button
+            onClick={() => switchTab("community")}
+            className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "community" ? "border-lime-500 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
+          >
+            Community
           </button>
         </div>
         <div className="flex items-center gap-2 pb-1.5">
@@ -117,6 +123,37 @@ function SavedPanel({
             }}
             highlightedId={highlightedLocation?.id} onShare={onShare} isPro={isPro}
           />
+        ) : tab === "community" ? (
+          communityLocations?.length ? (
+            <div className="flex flex-col gap-1.5">
+              {[...communityLocations].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map(loc => {
+                const isLivePin = loc.type === "live";
+                const diff = Date.now() - new Date(loc.created_at);
+                const h = Math.floor(diff/3600000);
+                const timeAgo = h < 1 ? `${Math.floor(diff/60000)}m ago` : h < 24 ? `${h}h ago` : `${Math.floor(h/24)}d ago`;
+                return (
+                  <div
+                    key={loc.id}
+                    onClick={() => { flyToRef.current?.(loc.lat, loc.lon); onMobileSelect?.(); }}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs cursor-pointer hover:bg-slate-50 hover:border-slate-300"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div style={{width:10,height:10,borderRadius:"50%",background:isLivePin?"#84cc16":"#00d4ff",flexShrink:0}} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800 truncate">{loc.display_name}</div>
+                        <div className="text-[10px] text-slate-400">{(loc.species||[]).join(", ")||"Unknown"} · {timeAgo}</div>
+                      </div>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isLivePin?"bg-lime-100 text-lime-700":"bg-cyan-100 text-cyan-700"}`}>
+                        {isLivePin?"LIVE":"RPT"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-xs text-slate-400 py-6">No community pins visible.<br/>Enable the community layer on the map.</div>
+          )
         ) : loadingRoutes ? (
           <div className="text-center text-xs text-slate-400 py-6">Loading…</div>
         ) : !routes?.length ? (
@@ -195,13 +232,13 @@ import "leaflet/dist/leaflet.css";
 if (typeof document !== "undefined" && !document.getElementById("community-pulse-style")) {
   const s = document.createElement("style");
   s.id = "community-pulse-style";
-  s.textContent = `@keyframes community-pulse{0%{transform:scale(1);opacity:0.25}70%{transform:scale(2.2);opacity:0}100%{transform:scale(2.2);opacity:0}}`;
+  s.textContent = `@keyframes community-pulse{0%{transform:scale(1);opacity:0.8}70%{transform:scale(2.8);opacity:0}100%{transform:scale(2.8);opacity:0}}`;
   document.head.appendChild(s);
 }
 
 // ── TipFlow — amount input + Venmo/CashApp deep link ─────────────────────────
 function TipFlow({ pin, userId, onClose }) {
-  const [amount,     setAmount]     = React.useState(5);
+  const [amount,     setAmount]     = React.useState(20);
   const [custom,     setCustom]     = React.useState("");
   const [useCustom,  setUseCustom]  = React.useState(false);
   const [recording,  setRecording]  = React.useState(false);
@@ -239,7 +276,7 @@ function TipFlow({ pin, userId, onClose }) {
     <div>
       <p className="text-xs text-slate-500 mb-3">Choose an amount, then open your payment app:</p>
       <div className="flex gap-2 mb-3">
-        {[3, 5, 10].map(v => (
+        {[20, 50, 100].map(v => (
           <button key={v} onClick={() => { setAmount(v); setUseCustom(false); }}
             className={`flex-1 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${!useCustom && amount===v ? "bg-cyan-600 text-white border-cyan-600" : "border-slate-300 text-slate-600 hover:border-cyan-400"}`}>
             ${v}
@@ -984,11 +1021,11 @@ export default function SSTHeatmapLeaflet(props) {
 
     communityLocations.forEach(loc => {
       const isLive = loc.type === "live";
-      const color  = isLive ? "#10b981" : speciesColor(loc.species?.[0]);
+      const color  = isLive ? "#84cc16" : "#00d4ff";
       const html = isLive
-        ? `<div style="position:relative;width:28px;height:28px;"><div style="position:absolute;inset:0;border-radius:50%;background:${color};opacity:0.25;animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;inset:5px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
-        : `<div style="position:relative;width:28px;height:28px;"><div style="position:absolute;inset:5px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`;
-      const icon   = L.divIcon({ className: "", iconSize: [28, 28], iconAnchor: [14, 14], html });
+        ? `<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,0.75);animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#84cc16;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
+        : `<div style="width:12px;height:12px;border-radius:50%;background:#00d4ff;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
+      const icon   = L.divIcon({ className: "", iconSize: isLive ? [24,24] : [12,12], iconAnchor: isLive ? [12,12] : [6,6], html });
       const marker = L.marker([loc.lat, loc.lon], { icon, zIndexOffset: 950 });
       marker.on("click", e => {
         L.DomEvent.stopPropagation(e);
@@ -2686,6 +2723,7 @@ export default function SSTHeatmapLeaflet(props) {
               mobile onMobileSelect={()=>setShowSavedPanel(false)}
               tripMode={tripMode}
               onAddWaypoint={onAddWaypoint}
+              communityLocations={communityLocations}
               heatmapDataForShare={data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
               className="sm:hidden"
             />
@@ -3353,13 +3391,14 @@ export default function SSTHeatmapLeaflet(props) {
               sliderHeight={sliderHeight}
               tripMode={tripMode}
               onAddWaypoint={onAddWaypoint}
+              communityLocations={communityLocations}
               heatmapDataForShare={data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
               className="hidden sm:flex"
             />
           ):(
             <button onClick={()=>setShowSavedPanel(true)} className="hidden sm:flex absolute left-2 bg-white border border-slate-200 rounded-full shadow-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 items-center gap-1.5" style={{bottom:sliderHeight+8,zIndex:900}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-              <span>Locations/Routes</span>
+              <span>My Locations</span>
             </button>
           )}
 
