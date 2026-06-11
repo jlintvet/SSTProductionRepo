@@ -1522,9 +1522,11 @@ export default function SSTHeatmapLeaflet(props) {
       overlay.addTo(map); overlayLayerRef.current = overlay;
       // CHL/seacolor/composite data stops at 39.00°N — set tight minZoom+maxBounds so
       // the post-sstReady refit's setView(fill_for_39.50N) is clamped, preventing grey strip.
-      // Altimetry covers the full region; skip tight bounds so the post-refit positions
-      // the viewport at fill_for_39.50N without clamping. sstReadyRef blocks any further
-      // applyFillZoom calls that would otherwise drift the center north.
+      // Altimetry: CMEMS returns 0.125° grid centroids (33.8125–38.9375°N), not the full
+      // bbox. Must center on the actual data Mercator midpoint — NOT region mercCenter
+      // (~36.60°N) — otherwise the viewport clips either top or bottom of the data.
+      // Block the post-refit with userInteractedRef so it doesn't shift center back to
+      // mercCenter. sstReadyRef blocks applyFillZoom calls after data loads.
       if (activeDataLayer !== 'altimetry') {
         try {
           map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]);
@@ -1534,6 +1536,30 @@ export default function SSTHeatmapLeaflet(props) {
           const mH = mN - mS, lR = -72.21 - (-78.89);
           map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
         } catch(_) {}
+      } else {
+        // Altimetry: position directly from data bounds (not region bounds).
+        // altMercCenter = Mercator midpoint of actual data lat range.
+        // fzAlt = fill zoom so viewport at altMercCenter exactly covers data edge-to-edge.
+        // userInteractedRef = true prevents post-refit from overriding this view.
+        try {
+          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
+          const aN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
+          const aS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
+          const mH = aN - aS, lR = east - west;
+          const fzAlt = Math.max(
+            Math.log2((cw * 360) / (256 * lR)),
+            Math.log2((ch * 2 * Math.PI) / (256 * mH))
+          );
+          const altMercCenter = L.latLng(
+            (2 * Math.atan(Math.exp((aN + aS) / 2)) - Math.PI / 2) * 180 / Math.PI,
+            (west + east) / 2
+          );
+          map.setView(altMercCenter, fzAlt, { animate: false });
+          map.setMinZoom(fzAlt);
+          map.setMaxBounds([[south, west], [north, east]]);
+        } catch(_) {}
+        // Block post-refit — our setView above is already correct.
+        userInteractedRef.current = true;
       }
       sstReadyRef.current = true; setSstReady(true);
     });
