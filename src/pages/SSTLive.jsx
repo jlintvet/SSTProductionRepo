@@ -335,6 +335,8 @@ function SSTPageBody() {
   const [compositeDate,      setCompositeDate]      = useState(null);
   const [compositeDateIndex, setCompositeDateIndex] = useState(0);
   const [compositeDates,     setCompositeDates]     = useState([]);
+  const [compositeIndexDates,setCompositeIndexDates]= useState([]); // dated composite filenames
+  const compositeLoadedDateRef = React.useRef(null);
 
   const [windData,       setWindData]       = useState(null);
   const [windLoading,    setWindLoading]    = useState(false);
@@ -393,21 +395,60 @@ function SSTPageBody() {
     } catch { return s; }
   };
 
-  // ── Composite load: fetch viirs_composite.json (single 36-hr merged file) ──
+  // ── Composite load: check index for dated snapshots, fall back to latest ──
   useEffect(() => {
     if (activeDataLayer !== "composite" || compositeData) return;
-    fetch(VIIRS_COMPOSITE_URL)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then(d => {
+    async function loadComposite() {
+      try {
+        // Check viirs_index.json for dated composite snapshots
+        const idxRes = await fetch(`${VIIRS_CDN_BASE}/viirs_index.json`);
+        const idx = idxRes.ok ? await idxRes.json() : {};
+        const cDates = [...(idx.composite_dates ?? [])].sort();
+        if (cDates.length > 0) {
+          setCompositeIndexDates(cDates);
+          setCompositeDates(cDates.map(fmtDate));
+          const latestDate = cDates[cDates.length - 1];
+          setCompositeDateIndex(cDates.length - 1);
+          compositeLoadedDateRef.current = latestDate;
+          const cRes = await fetch(`${VIIRS_CDN_BASE}/viirs_composite_${latestDate}.json`);
+          if (cRes.ok) {
+            const d = await cRes.json();
+            setCompositeData(d);
+            setCompositeGenerated(d.generated ?? latestDate);
+            setCompositeDate(latestDate);
+            return;
+          }
+        }
+        // Fallback: load viirs_composite.json directly (no date nav)
+        const cRes = await fetch(VIIRS_COMPOSITE_URL);
+        if (!cRes.ok) throw new Error(`HTTP ${cRes.status}`);
+        const d = await cRes.json();
         setCompositeData(d);
         setCompositeGenerated(d.generated ?? null);
         setCompositeDate(d.generated ?? null);
-        // Single composite — show generated date as the only label, no arrows
         setCompositeDates([fmtDate(d.generated ?? "—")]);
         setCompositeDateIndex(0);
-      })
-      .catch(e => console.warn("[COMPOSITE] load failed:", e));
+      } catch(e) { console.warn("[COMPOSITE] load failed:", e); }
+    }
+    loadComposite();
   }, [activeDataLayer, compositeData]);
+
+  // ── Composite date nav: load dated snapshot when user navigates ───────────
+  useEffect(() => {
+    if (!compositeIndexDates.length || activeDataLayer !== "composite") return;
+    const dateStr = compositeIndexDates[compositeDateIndex];
+    if (!dateStr || dateStr === compositeLoadedDateRef.current) return;
+    compositeLoadedDateRef.current = dateStr;
+    fetch(`${VIIRS_CDN_BASE}/viirs_composite_${dateStr}.json`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        setCompositeData(d);
+        setCompositeGenerated(d.generated ?? dateStr);
+        setCompositeDate(dateStr);
+      })
+      .catch(e => console.warn("[COMPOSITE] dated load failed:", dateStr, e));
+  }, [compositeDateIndex, compositeIndexDates]);
 
   const windActive = showWindOverlay || activeDataLayer === "windmap";
   useEffect(() => {
