@@ -1363,7 +1363,7 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     let userInteracted = false;
-    const markInteracted = () => { userInteracted = true; };
+    const markInteracted = () => { userInteracted = true; userInteractedRef.current = true; };
     map.on("dragstart", markInteracted);
     map.on("zoomstart", markInteracted);
 
@@ -2183,6 +2183,36 @@ export default function SSTHeatmapLeaflet(props) {
     const BATHY_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry.json";
     fetch(BATHY_URL).then(r=>r.json()).then(d=>{ setBathyData(d); bathyDataRef.current = d; }).catch(()=>{});
   }, [sstReady]);
+
+  // One-time refit after SST overlay first renders — by this point the layout is
+  // fully settled and map.getSize() returns the true container height. The early
+  // applyFillZoom calls may have run before layout was complete (sz.y==0, wrong vpH).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!sstReady || !mapReady || !map || userInteractedRef.current) return;
+    const t = setTimeout(() => {
+      if (userInteractedRef.current) return;
+      try {
+        map.invalidateSize();
+        const sz = map.getSize();
+        const vpH = window.visualViewport?.height || window.innerHeight || 0;
+        const _cw = sz.x || 800, _ch = sz.y || vpH || 500;
+        const _mN = Math.log(Math.tan(Math.PI/4 + regionBounds.north*Math.PI/360));
+        const _mS = Math.log(Math.tan(Math.PI/4 + regionBounds.south*Math.PI/360));
+        const _mH = _mN - _mS, _lR = regionBounds.east - regionBounds.west;
+        const fz = Math.max(Math.log2((_cw * 360) / (256 * _lR)), Math.log2((_ch * 2 * Math.PI) / (256 * _mH)));
+        map.setView(mercCenter, fz, { animate: false });
+        let g = 0;
+        while (g++ < 15) {
+          const vb = map.getBounds();
+          if (vb.getNorth() <= regionBounds.north + 0.02 && vb.getSouth() >= regionBounds.south - 0.02) break;
+          map.setView(mercCenter, map.getZoom() + 0.1, { animate: false });
+        }
+        map.setMinZoom(map.getZoom()); map.setMaxBounds(llBounds);
+      } catch(_) {}
+    }, 150);
+    return () => clearTimeout(t);
+  }, [sstReady, mapReady]);
 
   useEffect(() => { if (flyToRef) flyToRef.current = (lat, lon) => { const map = mapRef.current; if (!map) return; map.setView([lat, lon], Math.max(map.getZoom(), 8), { animate: true }); }; }, [flyToRef]);
   if (openControlPanelRef) openControlPanelRef.current = () => setPanelCollapsed(false);
