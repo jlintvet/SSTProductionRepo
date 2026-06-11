@@ -447,7 +447,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                   <th className="px-2 py-1.5 text-right">Dist</th>
                   <th className="px-2 py-1.5 text-right">Total</th>
                   <th className="px-2 py-1.5 text-right">ETA</th>
-                  {fuelBurnGalHr > 0 && <th className="px-2 py-1.5 text-right hidden sm:table-cell">Fuel</th>}
+                  {fuelBurnGalHr > 0 && <th className="px-2 py-1.5 text-right">Fuel</th>}
                   <th className="px-2 py-1.5 w-5"/>
                 </tr>
               </thead>
@@ -471,7 +471,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                     <td className="px-2 py-1 text-right text-slate-700 font-mono font-semibold">{leg.cumNm.toFixed(1)}</td>
                     <td className="px-2 py-1 text-right text-cyan-700 font-mono">{fmtTime(leg.eta)}</td>
                     {fuelBurnGalHr > 0 && (
-                      <td className="px-2 py-1 text-right text-amber-700 font-mono hidden sm:table-cell">
+                      <td className="px-2 py-1 text-right text-amber-700 font-mono">
                         {i === 0 ? "—" : `${((leg.distNm / speed) * fuelBurnGalHr).toFixed(1)} gal`}
                       </td>
                     )}
@@ -498,7 +498,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                       {totalHrs != null ? `${Math.floor(totalHrs)}h ${Math.round((totalHrs % 1) * 60)}m` : "—"}
                     </td>
                     {fuelBurnGalHr > 0 && (
-                      <td className="px-2 py-1.5 text-right font-mono text-amber-700 hidden sm:table-cell">
+                      <td className="px-2 py-1.5 text-right font-mono text-amber-700">
                         {totalFuel != null ? `${totalFuel.toFixed(1)} gal` : "N/A"}
                       </td>
                     )}

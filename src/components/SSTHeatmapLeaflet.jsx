@@ -1050,10 +1050,10 @@ export default function SSTHeatmapLeaflet(props) {
       try {
         map.invalidateSize();
         const sz = map.getSize();
-        // Use visualViewport height as floor so iOS measures correctly before layout settles
         const vpH = window.visualViewport?.height || window.innerHeight || 0;
         const _cw = sz.x || 800;
-        const _ch = Math.max(sz.y || 0, vpH * 0.75, 500);
+        // Use actual container height; fall back to visual viewport height, then 500
+        const _ch = sz.y || vpH || 500;
         const fillZoom = calcFillZoom(_cw, _ch);
         const curZoom = map.getZoom();
         // Always setView on first call (curZoom is NaN); skip on repeat calls if zoom is already correct
@@ -1061,11 +1061,12 @@ export default function SSTHeatmapLeaflet(props) {
           map.setView(mercCenter, fillZoom, { animate: false });
         }
         // Post-check: if view still shows outside north/south, bump zoom until it doesn't
+        // Use setView (not setZoom) to keep center locked at mercCenter during adjustment
         let guard = 0;
         while (guard++ < 10) {
           const vb = map.getBounds();
           if (vb.getNorth() <= regionBounds.north + 0.05 && vb.getSouth() >= regionBounds.south - 0.05) break;
-          map.setZoom(map.getZoom() + 0.1, { animate: false });
+          map.setView(mercCenter, map.getZoom() + 0.1, { animate: false });
         }
         map.setMinZoom(map.getZoom()); map.setMaxZoom(12); map.setMaxBounds(llBounds);
       } catch(_) {}
@@ -1208,9 +1209,14 @@ export default function SSTHeatmapLeaflet(props) {
       const latlng = map.containerPointToLatLng([px, py]);
       const { lat, lng: lon } = latlng;
       if (lon < regionBounds.west || lon > regionBounds.east || lat < regionBounds.south || lat > regionBounds.north) { setHoverInfo(null); setTouchMarker(null); onHoverSst?.(null); return; }
-      const nearLat = latSet.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
-      const nearLon = lonSet.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
-      const sst = grid[`${nearLat}_${nearLon}`] ?? null;
+      // Guard against stale closure: latSet captured at init time may be empty if data
+      // hadn't loaded yet when the map was created.
+      let sst = null;
+      if (latSet.length > 0 && lonSet.length > 0) {
+        const nearLat = latSet.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
+        const nearLon = lonSet.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
+        sst = grid[`${nearLat}_${nearLon}`] ?? null;
+      }
       let depth_ft = null;
       if (bathyDataRef.current?.points?.length) { let best=null,bestDist=Infinity; for(const pt of bathyDataRef.current.points){const d=(pt.lat-lat)**2+(pt.lon-lon)**2;if(d<bestDist){bestDist=d;best=pt;}} depth_ft = best?.depth_ft ?? null; }
       let touchChl=null,touchColorClass=null,touchKd490=null;
@@ -1330,7 +1336,7 @@ export default function SSTHeatmapLeaflet(props) {
         map.invalidateSize();
         const sz = map.getSize();
         const vpH = window.visualViewport?.height || window.innerHeight || 0;
-        const _cw = sz.x || 800, _ch = Math.max(sz.y || 0, vpH * 0.75, 500);
+        const _cw = sz.x || 800, _ch = sz.y || vpH || 500;
         const _mN = Math.log(Math.tan(Math.PI/4 + regionBounds.north*Math.PI/360));
         const _mS = Math.log(Math.tan(Math.PI/4 + regionBounds.south*Math.PI/360));
         const _mH = _mN - _mS, _lR = regionBounds.east - regionBounds.west;
@@ -1343,7 +1349,7 @@ export default function SSTHeatmapLeaflet(props) {
         while (guard++ < 10) {
           const vb = map.getBounds();
           if (vb.getNorth() <= regionBounds.north + 0.05 && vb.getSouth() >= regionBounds.south - 0.05) break;
-          map.setZoom(map.getZoom() + 0.1, { animate: false });
+          map.setView(mercCenter, map.getZoom() + 0.1, { animate: false });
         }
         map.setMinZoom(map.getZoom()); map.setMaxBounds(llBounds);
         setRepaintTrigger(t => t + 1);
@@ -1378,7 +1384,7 @@ export default function SSTHeatmapLeaflet(props) {
         while (_g++ < 15) {
           const _vb = map.getBounds();
           if (_vb.getNorth() <= regionBounds.north + 0.02 && _vb.getSouth() >= regionBounds.south - 0.02) break;
-          map.setZoom(map.getZoom() + 0.1, { animate: false });
+          map.setView(mercCenter, map.getZoom() + 0.1, { animate: false });
         }
         map.setMinZoom(map.getZoom()); map.setMaxBounds(llBounds);
         setRepaintTrigger(t => t + 1);
@@ -1389,7 +1395,8 @@ export default function SSTHeatmapLeaflet(props) {
     window.addEventListener("resize", onResize);
     // visualViewport resize fires when iOS URL bar shows/hides — do refit then
     let vvTimer = null;
-    const onVVResize = () => { clearTimeout(vvTimer); vvTimer = setTimeout(refit, 250); };
+    // Always refit on visual-viewport resize (iOS URL bar show/hide) regardless of user interaction
+    const onVVResize = () => { clearTimeout(vvTimer); vvTimer = setTimeout(() => { const _ui = userInteracted; userInteracted = false; refit(); userInteracted = _ui; }, 250); };
     window.visualViewport?.addEventListener("resize", onVVResize);
     const ro = new ResizeObserver(onResize);
     if (map.getContainer().parentElement) ro.observe(map.getContainer().parentElement);
