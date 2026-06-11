@@ -368,10 +368,11 @@ function SSTPageBody() {
 
   // ── Community reports state ───────────────────────────────────────────────
   const [communityLocations,  setCommunityLocations]  = useState([]);
-  const [showCommunityLayer,  setShowCommunityLayer]  = useState(false);
+  const [showCommunityLayer,  setShowCommunityLayer]  = useState(true);
   const [communityAccess,     setCommunityAccess]     = useState(null);
   const [communityFormData,   setCommunityFormData]   = useState(null);
   const [showLeaderboard,     setShowLeaderboard]     = useState(false);
+  const [communityPinDrop,    setCommunityPinDrop]    = useState(null); // "live" | "report" | null
 
   // Auto-load shared route passed via sessionStorage (from SharedRouteLanding "View on Map")
   useEffect(() => {
@@ -577,7 +578,7 @@ function SSTPageBody() {
       .from("community_locations")
       .select("*")
       .gt("expires_at", new Date().toISOString())
-      .eq("flagged", false);
+      .eq("is_flagged", false);
     if (!error && data) setCommunityLocations(data);
   }
 
@@ -795,21 +796,37 @@ function SSTPageBody() {
               onToggleGps={toggleGps}
               boatPosition={boatPosition}
               boatTrack={boatTrack}
-              communityLocations={communityAccess?.hasAccess ? communityLocations : []}
+              communityLocations={communityLocations}
               showCommunityLayer={showCommunityLayer}
               setShowCommunityLayer={setShowCommunityLayer}
               communityAccess={communityAccess}
               communityCount={communityLocations.length}
               onOpenLeaderboard={() => setShowLeaderboard(true)}
               onPostCommunityReport={(info) => {
-                setCommunityFormData({
-                  lat: info?.lat ?? boatPosition?.lat ?? null,
-                  lon: info?.lon ?? boatPosition?.lon ?? null,
-                  waterTemp: info?.sst ?? null,
-                  initialType: boatPosition ? "live" : "report",
-                });
+                if (info?.lat != null && info?.lon != null) {
+                  // Called from map click — open form immediately with coords
+                  setCommunityFormData({
+                    lat: info.lat,
+                    lon: info.lon,
+                    waterTemp: info.sst ?? null,
+                    initialType: info.initialType ?? "report",
+                  });
+                } else {
+                  // Called from panel — enter pin-drop mode so user clicks map first
+                  setCommunityPinDrop(info?.type ?? "report");
+                }
               }}
-              onCommunityPosted={() => fetchCommunityLocations()}
+              communityPinDrop={communityPinDrop}
+              onCommunityPinDropped={(lat, lon) => {
+                setCommunityPinDrop(null);
+                setCommunityFormData({ lat, lon, waterTemp: null, initialType: communityPinDrop ?? "report" });
+              }}
+              onCancelPinDrop={() => setCommunityPinDrop(null)}
+              onCommunityPosted={() => {
+                fetchCommunityLocations();
+                if (userId !== null) checkCommunityAccess(userId, isPro);
+                setShowCommunityLayer(true);
+              }}
             />
             </SSTErrorBoundary>
           </div>
@@ -948,36 +965,4 @@ export default function SSTLive() {
         const user = data?.user;
         const ok = !error && !!user?.email;
         console.log("[SST:AUTH] getUser →", { email: user?.email ?? null, error: error?.message ?? null, ok });
-        if (ok) setAuthed(true);
-      })
-      .catch(err => {
-        console.log("[SST:AUTH] getUser threw →", err?.message);
-      });
-
-    let sub;
-    try {
-      const result = supabase.auth.onAuthStateChange((event, s) => {
-        if (cancelled) return;
-        const ok = !!s?.user?.email;
-        console.log("[SST:AUTH] onAuthStateChange →", event, s?.user?.email ?? null, "ok:", ok);
-        setAuthed(ok);
-      });
-      sub = result?.data?.subscription ?? result;
-    } catch (e) {
-      console.log("[SST:AUTH] onAuthStateChange setup error:", e?.message);
-    }
-
-    return () => {
-      cancelled = true;
-      try { sub?.unsubscribe?.(); } catch (_) {}
-    };
-  }, []);
-
-  if (!authed) return <InlineLogin />;
-
-  return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
-      <SSTPageBody />
-    </AppShell>
-  );
-}
+        if (ok) setAuthed(true

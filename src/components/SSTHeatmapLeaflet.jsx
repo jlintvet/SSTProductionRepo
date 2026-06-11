@@ -828,6 +828,7 @@ export default function SSTHeatmapLeaflet(props) {
     communityAccess, communityCount,
     onOpenLeaderboard, onPostCommunityReport,
     onCommunityPosted,
+    communityPinDrop, onCommunityPinDropped, onCancelPinDrop,
   } = props;
 
   const { latSet, lonSet, grid } = data;
@@ -953,6 +954,12 @@ export default function SSTHeatmapLeaflet(props) {
 
   // ── Community pins ────────────────────────────────────────────────
   const communityMarkersRef                     = useRef([]);
+  const communityPinDropRef                     = useRef(null);
+  useEffect(() => {
+    communityPinDropRef.current = communityPinDrop;
+    const el = mapDivRef.current;
+    if (el) el.style.cursor = communityPinDrop ? "crosshair" : "";
+  }, [communityPinDrop]);
   const [selectedCommunityPin, setSelectedCommunityPin] = useState(null); // { pin, px, py }
   const [communityTipModal,    setCommunityTipModal]    = useState(null); // { pin }
   const [thankingId,           setThankingId]           = useState(null);
@@ -1211,6 +1218,11 @@ export default function SSTHeatmapLeaflet(props) {
     map.on("drag", () => { map.panInsideBounds(llBounds, { animate: false }); });
 
     map.on("click", (e) => {
+      if (communityPinDropRef.current) {
+        const { lat, lng: lon } = e.latlng;
+        onCommunityPinDropped?.(lat, lon);
+        return;
+      }
       if (tripModeRef.current) {
         const { lat, lng } = e.latlng;
         // Check if clicking near departure (waypoint 1) to offer "end trip"
@@ -2533,6 +2545,20 @@ export default function SSTHeatmapLeaflet(props) {
             onDropLivePin={() => onPostCommunityReport?.({ type: "live" })}
           />
 
+          {/* ── Community pin-drop mode banner ─────────────────────── */}
+          {communityPinDrop && (
+            <div
+              className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
+              style={{ zIndex: 1200, pointerEvents: "auto" }}
+            >
+              <span>📍 Click the map to place your {communityPinDrop === "live" ? "live" : "catch"} pin</span>
+              <button
+                onClick={e => { e.stopPropagation(); onCancelPinDrop?.(); }}
+                className="ml-1 text-emerald-200 hover:text-white leading-none"
+              >✕</button>
+            </div>
+          )}
+
           {windLoading&&(windActive||windData===null)&&(
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2" style={{zIndex:700}}>
               <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Loading wind data…
@@ -3400,35 +3426,4 @@ export default function SSTHeatmapLeaflet(props) {
                   lo={sstRange?.min ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01)}
                   hi={sstRange?.max ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50)}
                   onBarClick={() => rangeControlOpenRef?.current?.()}/>
-              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max} onClick={() => rangeControlOpenRef?.current?.()}/>
-            }
-          </div>
-          )}
-        </div>
-      </div>
-    </div>
-
-    {/* Waypoint delete popup — rendered at root so it's never clipped */}
-    {wpDeletePopup && createPortal(
-      <div
-        style={{ position: "fixed", left: wpDeletePopup.px, top: wpDeletePopup.py - 48,
-                 transform: "translateX(-50%)", zIndex: 9000, pointerEvents: "auto" }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="bg-white rounded-xl shadow-2xl border border-slate-200 px-3 py-2.5 flex items-center gap-2.5 text-xs">
-          <span className="text-slate-600 font-medium max-w-[120px] truncate">{wpDeletePopup.label}</span>
-          <button
-            onClick={() => { onRemoveWaypoint?.(wpDeletePopup.id); setWpDeletePopup(null); }}
-            className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
-          >Delete</button>
-          <button
-            onClick={() => setWpDeletePopup(null)}
-            className="px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors"
-          >✕</button>
-        </div>
-      </div>,
-      document.body
-    )}
-    </>
-  );
-}
+              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min}
