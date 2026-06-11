@@ -80,21 +80,7 @@ function bundleToDay(bundle) {
   };
 }
 
-// ── Bundle → composite format converter (for daily VIIRS date nav) ────────────
-function bundleToComposite(bundle) {
-  // Pick the last available hour; SST array is already flat (latI*nLons + lonI)
-  const avail = [...new Set(bundle.available_hours || [])].sort((a, b) => a - b);
-  const lastHr = avail.length > 0 ? String(avail[avail.length - 1]) : null;
-  const hrData = lastHr ? bundle.hours?.[lastHr] : null;
-  return {
-    latSet: bundle.latSet ?? [],
-    lonSet: bundle.lonSet ?? [],
-    sst: hrData?.sst ?? [],
-    date: bundle.date,
-    generated: bundle.date,
-    pass_dates: [bundle.date],
-  };
-}
+
 
 // ── Response normalization ────────────────────────────────────────────────────
 function normalizeSSTResponse(res, sourceName, valueKey = "sst") {
@@ -349,8 +335,7 @@ function SSTPageBody() {
   const [compositeDate,      setCompositeDate]      = useState(null);
   const [compositeDateIndex, setCompositeDateIndex] = useState(0);
   const [compositeDates,     setCompositeDates]     = useState([]);
-  const [compositeIndexDates,setCompositeIndexDates]= useState([]); // raw date strings from viirs_index.json
-  const compositeLoadedDateRef = React.useRef(null);
+
   const [windData,       setWindData]       = useState(null);
   const [windLoading,    setWindLoading]    = useState(false);
   const [windHourIndex,  setWindHourIndex]  = useState(0);
@@ -408,64 +393,21 @@ function SSTPageBody() {
     } catch { return s; }
   };
 
-  // ── Composite initial load: use viirs_index.json for date list ────────────
+  // ── Composite load: fetch viirs_composite.json (single 36-hr merged file) ──
   useEffect(() => {
     if (activeDataLayer !== "composite" || compositeData) return;
-    async function loadComposite() {
-      try {
-        // Fetch index to get list of available daily dates
-        const idxRes = await fetch(`${VIIRS_CDN_BASE}/viirs_index.json`);
-        const idx = idxRes.ok ? await idxRes.json() : {};
-        const rawDates = [...(idx.dates ?? [])].sort();
-        if (rawDates.length) {
-          setCompositeIndexDates(rawDates);
-          setCompositeDates(rawDates.map(fmtDate));
-          const latestDate = rawDates[rawDates.length - 1];
-          setCompositeDateIndex(rawDates.length - 1);
-          compositeLoadedDateRef.current = latestDate;
-          // Load the latest daily file
-          const bRes = await fetch(`${VIIRS_CDN_BASE}/viirs_${latestDate}.json`);
-          if (bRes.ok) {
-            const bundle = await bRes.json();
-            setCompositeData(bundleToComposite(bundle));
-            setCompositeGenerated(latestDate);
-            setCompositeDate(latestDate);
-            return;
-          }
-        }
-        // Fallback: load viirs_composite.json
-        const cRes = await fetch(VIIRS_COMPOSITE_URL);
-        if (!cRes.ok) throw new Error(`HTTP ${cRes.status}`);
-        const d = await cRes.json();
+    fetch(VIIRS_COMPOSITE_URL)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(d => {
         setCompositeData(d);
         setCompositeGenerated(d.generated ?? null);
-        setCompositeDate(d.date ?? null);
-        const fallbackDates = (d.pass_dates ?? []).length
-          ? d.pass_dates.map(fmtDate)
-          : [fmtDate(d.generated ?? d.date ?? "—")];
-        setCompositeDates(fallbackDates);
-        setCompositeDateIndex(fallbackDates.length - 1);
-      } catch(e) { console.warn("[COMPOSITE] init failed:", e); }
-    }
-    loadComposite();
-  }, [activeDataLayer, compositeData]);
-
-  // ── Date-change: load the daily file when user navigates ─────────────────
-  useEffect(() => {
-    if (!compositeIndexDates.length || activeDataLayer !== "composite") return;
-    const dateStr = compositeIndexDates[compositeDateIndex];
-    if (!dateStr || dateStr === compositeLoadedDateRef.current) return;
-    compositeLoadedDateRef.current = dateStr;
-    fetch(`${VIIRS_CDN_BASE}/viirs_${dateStr}.json`)
-      .then(r => r.ok ? r.json() : null)
-      .then(bundle => {
-        if (!bundle) return;
-        setCompositeData(bundleToComposite(bundle));
-        setCompositeGenerated(dateStr);
-        setCompositeDate(dateStr);
+        setCompositeDate(d.generated ?? null);
+        // Single composite — show generated date as the only label, no arrows
+        setCompositeDates([fmtDate(d.generated ?? "—")]);
+        setCompositeDateIndex(0);
       })
-      .catch(e => console.warn("[COMPOSITE] daily load failed:", dateStr, e));
-  }, [compositeDateIndex, compositeIndexDates]);
+      .catch(e => console.warn("[COMPOSITE] load failed:", e));
+  }, [activeDataLayer, compositeData]);
 
   const windActive = showWindOverlay || activeDataLayer === "windmap";
   useEffect(() => {
