@@ -1531,7 +1531,7 @@ export default function SSTHeatmapLeaflet(props) {
     const maxSpd = currentsData.maxSpeed ?? 2.0;
     // Decimate grid based on zoom to avoid clutter
     const zoom = map.getZoom();
-    const step = zoom >= 9 ? 1 : zoom >= 7 ? 2 : 3;
+    const step = zoom >= 6 ? 1 : 2;
     const group = L.layerGroup();
     hourData.grid.forEach((pt, i) => {
       if (i % step !== 0) return;

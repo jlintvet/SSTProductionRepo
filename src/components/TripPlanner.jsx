@@ -184,6 +184,17 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setSavedRoutes(prev => prev.filter(r => r.id !== id));
   }
 
+  async function deleteCurrentRoute(e) {
+    e.stopPropagation();
+    const route = savedRoutes[routeIndex];
+    if (!route) return;
+    await supabase.from("saved_routes").delete().eq("id", route.id);
+    setSavedRoutes(prev => prev.filter(r => r.id !== route.id));
+    setWaypoints([]);
+    setSavedRouteData(null);
+    setRouteIndex(-1);
+  }
+
   function removeWaypoint(id) {
     setWaypoints(prev => prev.filter(w => w.id !== id));
   }
@@ -276,6 +287,18 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
               className="px-1.5 py-1 text-slate-500 hover:text-slate-800 border border-slate-200 rounded-r text-sm font-bold disabled:opacity-30 transition-colors"
               title="Next route"
             >&#8250;</button>
+            {/* Delete current route */}
+            {routeIndex >= 0 && savedRoutes[routeIndex] && (
+              <button
+                onClick={deleteCurrentRoute}
+                className="px-1.5 py-1 text-slate-400 hover:text-red-500 border border-slate-200 rounded ml-0.5 transition-colors"
+                title="Delete this route"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+              </button>
+            )}
             {showRoutes && (
               <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-xs max-h-56 overflow-y-auto">
                 {loadingRoutes ? (

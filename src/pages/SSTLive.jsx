@@ -392,8 +392,24 @@ function SSTPageBody() {
         setCompositeDate(d.date ?? null);
         // Use the contributing pass dates for the nav display
         // Always have at least one date entry so DateNav renders
+        // Format each pass date as "Jun 9, 12 PM ET" for display
+        const fmtDate = (s) => {
+          try {
+            const iso = s.includes("T") ? s : s + "T12:00:00Z";
+            return new Date(iso).toLocaleString("en-US", {
+              month: "short", day: "numeric", hour: "numeric",
+              timeZone: "America/New_York",
+            });
+          } catch { return s; }
+        };
         const rawDates = d.pass_dates ?? [];
-        const dates = rawDates.length ? rawDates : (d.date ? [d.date] : ["Latest"]);
+        const dates = rawDates.length
+          ? rawDates.map(fmtDate)
+          : d.generated
+            ? [fmtDate(d.generated)]
+            : d.date
+              ? [fmtDate(d.date)]
+              : ["—"];
         setCompositeDates(dates);
         setCompositeDateIndex(dates.length - 1);
       })

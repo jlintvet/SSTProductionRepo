@@ -306,6 +306,7 @@ export default function MapControlPanel({
   showWrecks, setShowWrecks,
   wrecksLoading,
   showLoranGrid, setShowLoranGrid,
+  showCanyonLabels, setShowCanyonLabels,
   // tier
   isPro,
   // trip planning
@@ -717,6 +718,9 @@ export default function MapControlPanel({
             </div>
             {hbtn("loran")}
           </div>
+          <ToolBtn active={showCanyonLabels} color="indigo" onClick={() => setShowCanyonLabels(v => !v)}>
+            {showCanyonLabels ? "Labels on" : "Labels"}
+          </ToolBtn>
         </div>
       )}
 
