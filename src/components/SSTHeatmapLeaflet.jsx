@@ -1515,7 +1515,7 @@ export default function SSTHeatmapLeaflet(props) {
       const { dataURL, west, east, north, south } = result;
       blobUrlsRef.current.push(dataURL);
       const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false });
-      overlay.addTo(map); overlayLayerRef.current = overlay;
+      overlay.addTo(map); overlayLayerRef.current = overlay; setSstReady(true);
     });
     return () => { cancelled = true; };
   }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
