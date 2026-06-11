@@ -1520,11 +1520,15 @@ export default function SSTHeatmapLeaflet(props) {
       blobUrlsRef.current.push(dataURL);
       const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false });
       overlay.addTo(map); overlayLayerRef.current = overlay;
-      // CHL/seacolor/composite data boundary is 39.00°N — apply tight bounds so the
-      // post-sstReady refit's setView(fill_for_39.50N) is clamped, preventing grey strip.
-      // Altimetry data extends to ~39.50°N so it uses the full llBounds instead.
+      // Set tight minZoom + maxBounds so the post-sstReady refit's setView(fill_for_39.50N)
+      // is clamped to the actual data northern extent, preventing grey strip at top.
+      // CHL/seacolor/composite stop at 39.00°N (hardcoded). Altimetry uses the actual
+      // northern extent of the rendered overlay (from gridToDataURL result) so the
+      // viewport fills exactly to where data ends regardless of the JSON coverage.
       try {
-        const dataNorth = activeDataLayer === 'altimetry' ? 39.50 : 39.00;
+        const dataNorth = activeDataLayer === 'altimetry'
+          ? Math.min(north, regionBounds.north)
+          : 39.00;
         map.setMaxBounds([[33.70, -78.89], [dataNorth, -72.21]]);
         const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
         const mN = Math.log(Math.tan(Math.PI/4 + dataNorth * Math.PI/360));
