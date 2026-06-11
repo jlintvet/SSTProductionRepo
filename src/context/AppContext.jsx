@@ -101,16 +101,6 @@ export function AppProvider({ region, children }) {
       if (!uid) return;
       setUserId(uid);
 
-      supabase
-        .from("user_profiles")
-        .select("default_departure")
-        .eq("id", uid)
-        .single()
-        .then(({ data: profile }) => {
-          if (profile?.default_departure) setUserDefault(profile.default_departure);
-        })
-        .catch(() => {});
-
       loadUserSettings(uid).then(s => setUserSettings(s));
     });
   }, []);
