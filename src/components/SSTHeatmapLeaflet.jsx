@@ -219,7 +219,6 @@ function TipFlow({ pin, userId, onClose }) {
         amount_cents:      Math.round(finalAmount * 100),
         platform,
       });
-      // Update tip total on location (best-effort)
       await supabase.from("community_locations").update({
         tip_count:       (pin.tip_count || 0) + 1,
         tip_total_cents: (pin.tip_total_cents || 0) + Math.round(finalAmount * 100),
@@ -951,7 +950,6 @@ export default function SSTHeatmapLeaflet(props) {
   const tripLayerRef       = useRef(null);
   const waypointsRef       = useRef([]);
   const [touchMarker, setTouchMarker] = useState(null);
-  const [wpDeletePopup,    setWpDeletePopup]    = useState(null); // {id, label, px, py}
 
   // ── Community pins ────────────────────────────────────────────────
   const communityMarkersRef                     = useRef([]);
@@ -976,13 +974,8 @@ export default function SSTHeatmapLeaflet(props) {
       const isLive = loc.type === "live";
       const color  = isLive ? "#10b981" : speciesColor(loc.species?.[0]);
       const html = isLive
-        ? `<div style="position:relative;width:28px;height:28px;">
-             <div style="position:absolute;inset:0;border-radius:50%;background:${color};opacity:0.25;animation:community-pulse 1.8s ease-out infinite;"></div>
-             <div style="position:absolute;inset:5px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
-           </div>`
-        : `<div style="width:26px;height:26px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 1px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;">
-             <span style="color:white;font-size:11px;">🐟</span>
-           </div>`;
+        ? `<div style="position:relative;width:28px;height:28px;"><div style="position:absolute;inset:0;border-radius:50%;background:${color};opacity:0.25;animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;inset:5px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
+        : `<div style="width:26px;height:26px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 1px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:11px;">🐟</span></div>`;
       const icon   = L.divIcon({ className: "", iconSize: [28, 28], iconAnchor: [14, 14], html });
       const marker = L.marker([loc.lat, loc.lon], { icon, zIndexOffset: 950 });
       marker.on("click", e => {
@@ -999,6 +992,8 @@ export default function SSTHeatmapLeaflet(props) {
       communityMarkersRef.current = [];
     };
   }, [mapReady, communityLocations, showCommunityLayer]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [wpDeletePopup,    setWpDeletePopup]    = useState(null); // {id, label, px, py}
 
   // ── GPS boat marker ──────────────────────────────────────────────
   const boatMarkerRef = useRef(null);
@@ -3195,7 +3190,7 @@ export default function SSTHeatmapLeaflet(props) {
           {/* ── Community pin card ──────────────────────────────────── */}
           {selectedCommunityPin && (() => {
             const { pin, px, py } = selectedCommunityPin;
-            const CARD_W = 240, CARD_H = 220;
+            const CARD_W = 240, CARD_H = 260;
             const mapW = mapDivRef.current?.clientWidth  ?? 800;
             const mapH = mapDivRef.current?.clientHeight ?? 600;
             const rawL = px + 14;
@@ -3236,4 +3231,204 @@ export default function SSTHeatmapLeaflet(props) {
 
                 {/* Species + qty */}
                 {speciesList && (
-    
+                  <div className="mb-2">
+                    <div className="font-semibold text-slate-700 mb-0.5">{speciesList}</div>
+                    {Object.entries(qty).filter(([,v]) => v).map(([k,v]) => (
+                      <span key={k} className="inline-block mr-2 text-slate-500">{k}: <span className="font-semibold">{v}</span></span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Temp + notes */}
+                {pin.water_temp != null && (
+                  <div className="text-cyan-600 font-semibold mb-1">{pin.water_temp.toFixed(1)}°F</div>
+                )}
+                {pin.notes && (
+                  <div className="text-slate-500 mb-2 line-clamp-2">{pin.notes}</div>
+                )}
+
+                {/* Tip / Thank buttons */}
+                {communityTipModal?.pin?.id === pin.id ? (
+                  <TipFlow pin={pin} userId={userId} onClose={() => setCommunityTipModal(null)} />
+                ) : (
+                  <div className="flex gap-1.5 mt-auto pt-1 border-t border-slate-100">
+                    {(pin.venmo_handle || pin.cashapp_handle) && (
+                      <button
+                        onClick={() => setCommunityTipModal({ pin })}
+                        className="flex-1 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors"
+                      >
+                        Tip
+                      </button>
+                    )}
+                    <button
+                      disabled={thankingId === pin.id}
+                      onClick={async () => {
+                        setThankingId(pin.id);
+                        await supabase.from("community_locations")
+                          .update({ thank_count: (pin.thank_count || 0) + 1 })
+                          .eq("id", pin.id);
+                        setTimeout(() => setThankingId(null), 1500);
+                      }}
+                      className="flex-1 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs transition-colors disabled:opacity-60"
+                    >
+                      {thankingId === pin.id ? "Thanks!" : "Thanks"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {selectedMarker && (() => {
+            const mk = selectedMarker.mk;
+            const lat = parseFloat(mk.lat), lon = parseFloat(mk.lon);
+            const POPUP_W = 220, POPUP_H = 200;
+            const mapW = mapDivRef.current?.clientWidth ?? 800, mapH = mapDivRef.current?.clientHeight ?? 600;
+            const rawL = selectedMarker.px + 14;
+            const popLeft = rawL + POPUP_W > mapW - 8 ? selectedMarker.px - POPUP_W - 14 : rawL;
+            const popTop = Math.min(Math.max(8, selectedMarker.py - 40), mapH - POPUP_H - 8);
+            return (
+              <div className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs" style={{ left: popLeft, top: popTop, zIndex: 800, width: 220 }} onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-slate-800 font-semibold truncate">{mk.label || "Saved Location"}</span>
+                  <button onClick={() => setSelectedMarker(null)} className="text-slate-400 hover:text-slate-700 ml-2 flex-shrink-0"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
+                </div>
+                <div className="font-mono text-slate-600 mb-1">{lat.toFixed(4)}°N &nbsp; {Math.abs(lon).toFixed(4)}°{lon < 0 ? "W" : "E"}</div>
+                {(mk.sst != null || mk.depth_ft != null) && (
+                  <div className="flex gap-3 mb-2">
+                    {mk.sst != null && <span className="text-cyan-600 font-semibold">{parseFloat(mk.sst).toFixed(1)}°F</span>}
+                    {mk.depth_ft != null && <span className="text-blue-600 font-semibold">{Math.round(mk.depth_ft)} ft / {Math.round(mk.depth_ft / 6)} fth</span>}
+                  </div>
+                )}
+                {(mk.from_location || mk.dist_nm != null) && (
+                  <div className="border-t border-slate-100 pt-1.5 mb-2 space-y-1">
+                    {mk.from_location && <div className="flex justify-between"><span className="text-slate-400">From</span><span className="font-semibold text-slate-700 truncate max-w-[130px]">{mk.from_location}</span></div>}
+                    {(mk.dist_nm != null || mk.bearing_deg != null) && <div className="flex justify-between">{mk.dist_nm != null && <span className="font-semibold text-slate-700">{mk.dist_nm.toFixed(1)} nm</span>}{mk.bearing_deg != null && <span className="font-semibold text-slate-700">{mk.bearing_deg}° {mk.bearing_cardinal ?? ""}</span>}</div>}
+                  </div>
+                )}
+                <div className="flex gap-1.5">
+                  {onShare && isPro && (
+                    <button onClick={() => { onShare(mk); setSelectedMarker(null); }} className="flex-1 flex items-center justify-center gap-1 bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold py-1.5 rounded-lg transition-colors">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Send
+                    </button>
+                  )}
+                  <button onClick={async () => { if (mk.id) await supabase.from("saved_locations").delete().eq("id", mk.id); setMarkers(m => m.filter(m2 => m2.id !== mk.id)); setSelectedMarker(null); onLocationSaved(); }} className="flex-1 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-1.5 rounded-lg transition-colors">Delete</button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {shareLocation && (
+            <ShareLocationDialog location={shareLocation} userId={userId} onClose={() => setShareLocation(null)}
+              onNotesUpdated={(id, newNotes) => { onNotesUpdated?.(id, newNotes); }}
+              heatmapData={data} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}/>
+          )}
+
+          {/* Desktop saved panel */}
+          {showSavedPanel?(
+            <SavedPanel
+              savedLocations={savedLocations} fetchSavedLocations={fetchSavedLocations}
+              clearMarkersRef={clearMarkersRef} flyToRef={flyToRef}
+              highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
+              onShare={onShare} isPro={isPro} userId={userId}
+              onClose={()=>setShowSavedPanel(false)}
+              onLoadRoute={onLoadRoute}
+              onRoutesCountChange={setSavedRoutesCount}
+              sliderHeight={sliderHeight}
+              tripMode={tripMode}
+              onAddWaypoint={onAddWaypoint}
+              heatmapDataForShare={data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
+              className="hidden sm:flex"
+            />
+          ):(
+            <button onClick={()=>setShowSavedPanel(true)} className="hidden sm:flex absolute left-2 bg-white border border-slate-200 rounded-full shadow-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 items-center gap-1.5" style={{bottom:sliderHeight+8,zIndex:900}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <span>{(savedLocations?.length??0) + savedRoutesCount} saved</span>
+            </button>
+          )}
+
+          {windActive&&windData?.hours?.length>0&&isDesktop&&(
+            <WindTimeSlider windData={windData} windHourIndex={windHourIndex} setWindHourIndex={setWindHourIndex} isPlaying={windPlaying} setIsPlaying={setWindPlaying} isWindMap={isWindMap}/>
+          )}
+
+          {isWindMap && (
+            <div className="sm:hidden absolute left-0 right-0 px-2" style={{ bottom: 64, zIndex: 600, pointerEvents: "none" }}>
+              <WindLegend isWindMap={true} />
+            </div>
+          )}
+
+          {/* GPS HUD */}
+          {gpsActive && boatPosition && (
+            <div style={{ position: "absolute", bottom: 72, left: 8, zIndex: 800, pointerEvents: "none",
+                          background: "rgba(15,23,42,0.82)", color: "#e2e8f0", borderRadius: 10,
+                          padding: "7px 11px", fontSize: 11, fontFamily: "ui-monospace, monospace",
+                          backdropFilter: "blur(4px)", border: "1px solid rgba(6,182,212,0.35)" }}>
+              <div style={{ color: "#22d3ee", fontWeight: 700, marginBottom: 3, display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+                               background: "#22d3ee", boxShadow: "0 0 6px #22d3ee" }}/>
+                GPS Active
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: 10.5 }}>
+                {boatPosition.lat.toFixed(5)}° N &nbsp; {Math.abs(boatPosition.lon).toFixed(5)}° W
+              </div>
+              {boatPosition.speedKts != null && (
+                <div>SPD <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{boatPosition.speedKts}</span> kts</div>
+              )}
+              {boatPosition.heading != null && (
+                <div>HDG <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{Math.round(boatPosition.heading)}°</span></div>
+              )}
+              {boatPosition.accuracy != null && (
+                <div style={{ color: "#64748b", fontSize: 10 }}>±{Math.round(boatPosition.accuracy)} m</div>
+              )}
+            </div>
+          )}
+
+          {!tripMode && (
+          <div className="sm:hidden absolute left-0 right-0 px-2" style={{ bottom: 64, zIndex: 600, pointerEvents: "auto" }}>
+            {isWindMap
+              ? null
+              : activeDataLayer === "chlorophyll"
+              ? <MobileGradientBar
+                  gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
+                  lo={sstRange?.min ?? (chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01)}
+                  hi={sstRange?.max ?? (chlData?.days?.[chlDateIndex]?.stats?.max ?? 10)}
+                  hoverVal={hoverInfo?.chl}
+                  onBarClick={() => rangeControlOpenRef?.current?.()}/>
+              : activeDataLayer === "seacolor"
+              ? <MobileGradientBar
+                  gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
+                  lo={sstRange?.min ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01)}
+                  hi={sstRange?.max ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50)}
+                  onBarClick={() => rangeControlOpenRef?.current?.()}/>
+              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max} onClick={() => rangeControlOpenRef?.current?.()}/>
+            }
+          </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* Waypoint delete popup — rendered at root so it's never clipped */}
+    {wpDeletePopup && createPortal(
+      <div
+        style={{ position: "fixed", left: wpDeletePopup.px, top: wpDeletePopup.py - 48,
+                 transform: "translateX(-50%)", zIndex: 9000, pointerEvents: "auto" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-white rounded-xl shadow-2xl border border-slate-200 px-3 py-2.5 flex items-center gap-2.5 text-xs">
+          <span className="text-slate-600 font-medium max-w-[120px] truncate">{wpDeletePopup.label}</span>
+          <button
+            onClick={() => { onRemoveWaypoint?.(wpDeletePopup.id); setWpDeletePopup(null); }}
+            className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
+          >Delete</button>
+          <button
+            onClick={() => setWpDeletePopup(null)}
+            className="px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors"
+          >✕</button>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
+  );
+}
