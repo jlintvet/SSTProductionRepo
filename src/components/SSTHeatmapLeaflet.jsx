@@ -1520,22 +1520,21 @@ export default function SSTHeatmapLeaflet(props) {
       blobUrlsRef.current.push(dataURL);
       const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false });
       overlay.addTo(map); overlayLayerRef.current = overlay;
-      // Set tight minZoom + maxBounds so the post-sstReady refit's setView(fill_for_39.50N)
-      // is clamped to the actual data northern extent, preventing grey strip at top.
-      // CHL/seacolor/composite stop at 39.00°N (hardcoded). Altimetry uses the actual
-      // northern extent of the rendered overlay (from gridToDataURL result) so the
-      // viewport fills exactly to where data ends regardless of the JSON coverage.
-      try {
-        const dataNorth = activeDataLayer === 'altimetry'
-          ? Math.min(north, regionBounds.north)
-          : 39.00;
-        map.setMaxBounds([[33.70, -78.89], [dataNorth, -72.21]]);
-        const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
-        const mN = Math.log(Math.tan(Math.PI/4 + dataNorth * Math.PI/360));
-        const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
-        const mH = mN - mS, lR = -72.21 - (-78.89);
-        map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
-      } catch(_) {}
+      // CHL/seacolor/composite data stops at 39.00°N — set tight minZoom+maxBounds so
+      // the post-sstReady refit's setView(fill_for_39.50N) is clamped, preventing grey strip.
+      // Altimetry covers the full region; skip tight bounds so the post-refit positions
+      // the viewport at fill_for_39.50N without clamping. sstReadyRef blocks any further
+      // applyFillZoom calls that would otherwise drift the center north.
+      if (activeDataLayer !== 'altimetry') {
+        try {
+          map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]);
+          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
+          const mN = Math.log(Math.tan(Math.PI/4 + 39.00 * Math.PI/360));
+          const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
+          const mH = mN - mS, lR = -72.21 - (-78.89);
+          map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
+        } catch(_) {}
+      }
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { cancelled = true; };
