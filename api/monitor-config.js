@@ -24,6 +24,8 @@ export const WORKFLOWS = {
     notifyAfterFailures: 3,
     infraStepPatterns: [
       /remove stale/i,           // cleanup step — not a real failure
+      /commit.*data/i,           // git push race condition — transient
+      /commit.*log/i,            // log commit push — transient
     ],
   },
 
