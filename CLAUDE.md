@@ -83,7 +83,13 @@ Read this file at the start of every session and before any multi-step task.
 
 ---
 
-## 5. Architecture Quick Reference
+## 5. Design Rules
+
+- **No emojis or decorative icons in UI code.** Do not use emoji characters or icon components (e.g. Trophy, medal emojis, decorative symbols) in JSX. Use clean text, numbers, and color to convey meaning. Functional icons (X close button, chevrons) are acceptable.
+
+---
+
+## 6. Architecture Quick Reference
 
 - **Frontend:** React/Vite, Base44 scaffold, Tailwind, Leaflet. Main page: `src/pages/SSTLive.jsx`. Map component: `src/components/SSTHeatmapLeaflet.jsx`.
 - **Auth + DB:** Supabase (auth, RLS, realtime). Client at `src/lib/supabase.js`.
@@ -94,7 +100,7 @@ Read this file at the start of every session and before any multi-step task.
 
 ---
 
-## 6. Community Feature Rules
+## 7. Community Feature Rules
 
 - DB column is `is_flagged` (not `flagged`) on `community_locations`.
 - Access gate: post within 30 days OR isPro → `hasAccess: true`.

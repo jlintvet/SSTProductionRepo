@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
-import { X, Trophy } from "lucide-react";
-
-const MEDALS = ["🥇", "🥈", "🥉"];
+import { X } from "lucide-react";
 
 export default function LeaderboardModal({ onClose }) {
   const [period,  setPeriod]  = useState("alltime"); // "month" | "alltime"
@@ -17,7 +15,6 @@ export default function LeaderboardModal({ onClose }) {
   async function fetchLeaderboard() {
     setLoading(true);
     try {
-      // Pull location data for the period
       let locQuery = supabase
         .from("community_locations")
         .select("user_id, display_name, type, points_awarded, created_at");
@@ -32,7 +29,6 @@ export default function LeaderboardModal({ onClose }) {
       const { data: locs, error: locErr } = await locQuery;
       if (locErr) throw locErr;
 
-      // Aggregate per user
       const map = {};
       (locs || []).forEach(l => {
         if (!map[l.user_id]) {
@@ -50,7 +46,6 @@ export default function LeaderboardModal({ onClose }) {
         else map[l.user_id].reports++;
       });
 
-      // Merge tips received
       let tipQuery = supabase
         .from("community_tips")
         .select("recipient_user_id, amount_cents");
@@ -87,15 +82,12 @@ export default function LeaderboardModal({ onClose }) {
     >
       <div
         className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ maxHeight: "80vh" }}
+        style={{ maxHeight: "88vh" }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <span className="font-semibold text-slate-800 text-sm">Top Anglers</span>
-          </div>
+          <span className="font-semibold text-slate-800 text-sm">Top Anglers</span>
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
               <button
@@ -145,16 +137,13 @@ export default function LeaderboardModal({ onClose }) {
               {rows.map((r, i) => (
                 <div
                   key={r.user_id}
-                  className={`flex items-center gap-3 px-5 py-3 transition-colors ${
-                    i < 3 ? "hover:bg-amber-50" : "hover:bg-slate-50"
-                  }`}
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
                 >
                   {/* Rank */}
                   <div className="w-6 text-center flex-shrink-0">
-                    {i < 3
-                      ? <span className="text-base leading-none">{MEDALS[i]}</span>
-                      : <span className="text-xs text-slate-400 font-semibold">{i + 1}</span>
-                    }
+                    <span className={`text-xs font-bold ${
+                      i === 0 ? "text-amber-500" : i === 1 ? "text-slate-400" : i === 2 ? "text-amber-700" : "text-slate-400"
+                    }`}>{i + 1}</span>
                   </div>
 
                   {/* Name + stats */}
@@ -167,10 +156,7 @@ export default function LeaderboardModal({ onClose }) {
                         <span>{r.reports} report{r.reports !== 1 ? "s" : ""}</span>
                       )}
                       {r.lives > 0 && (
-                        <span className="text-emerald-500 flex items-center gap-0.5">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                          {r.lives} live
-                        </span>
+                        <span className="text-emerald-500">{r.lives} live</span>
                       )}
                       {r.tips_cents > 0 && (
                         <span className="text-amber-500">
@@ -193,8 +179,27 @@ export default function LeaderboardModal({ onClose }) {
           )}
         </div>
 
+        {/* Sponsor banner */}
+        <div className="border-t border-slate-100 flex-shrink-0 bg-slate-50">
+          <div className="flex items-center gap-4 px-5 py-4">
+            <img
+              src="/nomad_DTX_200_ref.png"
+              alt="Nomad DTX 200"
+              className="w-24 h-auto object-contain flex-shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700 leading-snug mb-0.5">
+                Every point is one shot to win this month's Community Angler prize.
+              </p>
+              <p className="text-[10px] text-slate-400">
+                This month brought to you by Nomad.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex-shrink-0">
+        <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50 flex-shrink-0">
           <p className="text-[10px] text-slate-400 text-center">
             Post a catch report to earn points and appear on this board
           </p>
