@@ -1,5 +1,5 @@
 /**
- * SST Workflow Monitor
+ * SST Workflow Monitor v1.0
  *
  * Triggered every 15 minutes by cron-job.org (or any HTTP scheduler).
  * For each watched GitHub Actions workflow:
