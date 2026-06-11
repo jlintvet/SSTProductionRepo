@@ -135,7 +135,7 @@ export default function AuthGate({ children }) {
       <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
         <div className="mb-6 text-center">
           <div className="text-2xl mb-1">🌊</div>
-          <h1 className="text-lg font-semibold text-slate-800">OceanCast SST</h1>
+          <h1 className="text-lg font-semibold text-slate-800">RipLoc</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             {mode === "login" ? "Sign in to access your SST data" : "Start your free 7-day trial"}
           </p>

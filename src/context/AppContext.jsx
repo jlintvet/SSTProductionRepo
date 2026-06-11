@@ -39,7 +39,7 @@ function useSupabaseTrial() {
 
 const AppContext = createContext(null);
 
-const LS_KEY = "oceancast.lastLocation";
+const LS_KEY = "riploc.lastLocation";
 
 function readLocalStorage() {
   try {

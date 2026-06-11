@@ -288,7 +288,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
         color: "#fff",
       }}>
         <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: 2, color: "#7dd3fc", marginBottom: 12, textTransform: "uppercase" }}>
-          OceanPulse SST
+          RipLoc
         </div>
         <h1 style={{ margin: "0 0 16px", fontSize: "clamp(2rem, 5vw, 3.25rem)", fontWeight: 800, lineHeight: 1.15 }}>
           Find Fish.<br/>Not Guesswork.

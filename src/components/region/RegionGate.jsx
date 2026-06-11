@@ -50,8 +50,8 @@ function AccessDenied({ tier, isExpired, onUpgrade }) {
         )}
         <p className="text-[10px] text-slate-400 mt-4">
           Questions? Email{" "}
-          <a href="mailto:support@oceancast.app" className="text-cyan-600 hover:underline">
-            support@oceancast.app
+          <a href="mailto:support@riploc.app" className="text-cyan-600 hover:underline">
+            support@riploc.app
           </a>
         </p>
       </div>

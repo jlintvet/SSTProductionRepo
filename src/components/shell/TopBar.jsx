@@ -42,7 +42,7 @@ export default function TopBar({ onUpgrade }) {
       <div className="flex items-center gap-3 min-w-0">
         {/* Brand mark */}
         <span className="text-sm font-semibold text-slate-700 hidden sm:inline">
-          OceanCast
+          RipLoc
         </span>
         <span className="text-sm font-bold text-cyan-600 sm:hidden">OC</span>
 

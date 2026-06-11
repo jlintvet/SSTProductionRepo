@@ -214,7 +214,7 @@ function InlineLogin() {
       <div style={{ width: "100%", maxWidth: 360, background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 8px 32px rgba(0,0,0,0.10)", padding: 32 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 28, marginBottom: 4 }}>🌊</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>OceanCast SST</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>RipLoc</div>
           <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
             {mode === "login" ? "Sign in to access your SST data" : "Start your free 7-day trial"}
           </div>
