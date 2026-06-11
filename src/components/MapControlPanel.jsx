@@ -244,7 +244,7 @@ function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitiv
 }
 
 // ── Date navigator (prev / label / next) ─────────────────────────────────────
-function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cyan" }) {
+function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cyan", showArrows = true }) {
   const labelColors = {
     cyan:   "text-cyan-700 bg-cyan-50",
     violet: "text-violet-700 bg-violet-50",
@@ -254,17 +254,21 @@ function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cya
   };
   return (
     <div className="flex items-center gap-1 mt-1">
-      <button onClick={onPrev} disabled={disablePrev}
-        className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
-        &#8249;
-      </button>
+      {showArrows && (
+        <button onClick={onPrev} disabled={disablePrev}
+          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
+          &#8249;
+        </button>
+      )}
       <span className={`flex-1 text-center text-[10px] font-semibold rounded py-1 truncate ${labelColors[color] ?? labelColors.cyan}`}>
         {label}
       </span>
-      <button onClick={onNext} disabled={disableNext}
-        className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
-        &#8250;
-      </button>
+      {showArrows && (
+        <button onClick={onNext} disabled={disableNext}
+          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
+          &#8250;
+        </button>
+      )}
     </div>
   );
 }
@@ -437,6 +441,7 @@ export default function MapControlPanel({
                     onNext={() => setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1))}
                     disablePrev={compositeDateIndex === 0}
                     disableNext={compositeDateIndex === compositeDates.length - 1}
+                    showArrows={compositeDates.length > 1}
                   />
                 ) : (
                   <div className="text-[10px] text-violet-700 bg-violet-50 rounded px-2 py-1 text-center font-semibold mt-1">

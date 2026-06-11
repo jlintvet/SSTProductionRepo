@@ -273,10 +273,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
               className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 border-y border-slate-200 px-2 py-1 transition-colors"
               title="My saved routes"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-              </svg>
-              {loadingRoutes ? "…" : savedRoutes.length > 0 ? `${routeIndex >= 0 ? routeIndex + 1 : "·"}/${savedRoutes.length}` : "Routes"}
+              {loadingRoutes ? "…" : savedRoutes.length > 0 ? `Routes ${routeIndex >= 0 ? routeIndex + 1 : "·"}/${savedRoutes.length}` : "Routes"}
             </button>
             <button
               onClick={() => {
