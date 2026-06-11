@@ -133,4 +133,15 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
           <Bookmark className="w-3.5 h-3.5" />
           {saved ? "Saved!" : saving ? "Saving…" : "Save Location"}
         </button>
-       
+        {onPostCommunityReport && (
+          <button
+            onClick={() => { onPostCommunityReport({ lat: info.lat, lon: info.lon, waterTemp: info.sst ?? null }); }}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm font-semibold"
+          >
+            🎣 Post Catch Report
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
