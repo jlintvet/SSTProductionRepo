@@ -20,7 +20,6 @@
  */
 
 import { Redis } from '@upstash/redis'
-import nodemailer from 'nodemailer'
 import { WORKFLOWS, GLOBAL_INFRA_STEP_PATTERNS } from './monitor-config.js'
 
 const OWNER = 'jlintvet'
@@ -105,12 +104,13 @@ function classifyFailure(conclusion, failedStepName, workflowConfig) {
 
 // ─── Email ────────────────────────────────────────────────────────────────────
 
-function getMailer() {
+async function getMailer() {
+  const { default: nodemailer } = await import('nodemailer')
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,   // 16-char Google App Password
+      pass: process.env.GMAIL_APP_PASSWORD,
     },
   })
 }
@@ -125,7 +125,8 @@ async function sendAlert({ workflowName, runUrl, runId, classification, failedSt
     ? `${workflowName} has failed <strong>${consecutiveFailures} consecutive times</strong> despite automatic retries.`
     : `${workflowName} encountered a <strong>critical failure</strong> that cannot be auto-resolved.`
 
-  await getMailer().sendMail({
+  const mailer = await getMailer()
+  await mailer.sendMail({
     from: `"SST Monitor" <${process.env.GMAIL_USER}>`,
     to:   ADMIN_EMAIL,
     subject,
