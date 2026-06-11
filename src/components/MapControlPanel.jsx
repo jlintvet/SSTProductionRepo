@@ -13,7 +13,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { Crosshair, Move, Wind, ChevronDown } from "lucide-react";
 import SSTRangeControl from "@/components/SSTRangeControl";
 
 // ── ProGate (inlined — no separate file needed) ───────────────────────────────
@@ -85,30 +85,73 @@ function ProGate({ isPro, children, label }) {
         cursor: "pointer", zIndex: 10, letterSpacing: 0.5, whiteSpace: "nowrap",
       }}>PRO</span>
       {popup}
+      <Divider />
+
+      {/* ── Community Reports ─────────────────────────────────────── */}
+      <SectionHeader title="Community" open={openSections.community} onToggle={() => toggleSection("community")} />
+      {openSections.community && (
+        <div className="flex flex-col gap-1.5 px-2 pb-2">
+          <ToolBtn
+            active={showCommunityLayer}
+            color="emerald"
+            onClick={() => setShowCommunityLayer?.(v => !v)}
+          >
+            {showCommunityLayer ? `Reports (${communityCount ?? 0})` : "Show Reports"}
+          </ToolBtn>
+
+          {communityAccess && !communityAccess.hasAccess && (
+            <div className="text-[10px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5 leading-tight">
+              {communityAccess.neverPosted
+                ? "Post your first catch to unlock reports"
+                : `Last post ${communityAccess.daysSinceLastPost}d ago — post to keep access`}
+            </div>
+          )}
+          {communityAccess?.hasAccess && (
+            <div className="text-[10px] text-emerald-600 font-medium px-1">Access active</div>
+          )}
+
+          <button
+            onClick={onPostReport}
+            className="w-full py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-semibold transition-colors"
+          >
+            + Post Report
+          </button>
+          <button
+            onClick={onDropLivePin}
+            className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-colors"
+          >
+            + Drop Live Pin
+          </button>
+          <button
+            onClick={onOpenLeaderboard}
+            className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+          >
+            Top Anglers
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }
 
 // ── Tiny helpers ──────────────────────────────────────────────────────────────
 
-function SectionHeader({ title, open, onToggle, trailing }) {
+function SectionHeader({ title, open, onToggle }) {
   return (
-    <div className="flex items-center">
-      <button
-        onClick={onToggle}
-        className="flex-1 flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
-        style={{ background: "none", border: "none", cursor: "pointer" }}
-      >
-        <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-          {title}
-        </span>
-        <ChevronDown
-          className="w-3 h-3 text-slate-400 transition-transform duration-150"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-        />
-      </button>
-      {trailing && <div className="pr-1 flex-shrink-0">{trailing}</div>}
-    </div>
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
+      style={{ background: "none", border: "none", cursor: "pointer" }}
+    >
+      <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+        {title}
+      </span>
+      <ChevronDown
+        className="w-3 h-3 text-slate-400 transition-transform duration-150"
+        style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+      />
+    </button>
   );
 }
 
@@ -180,25 +223,6 @@ function Divider() {
   return <div className="border-t border-slate-100 mx-0" />;
 }
 
-const HELP_CONFIG = {
-  sst:         { title: "Sea Surface Temperature (SST)", image: "/help/sst.png",         text: "Placeholder — SST help content coming soon." },
-  chlorophyll: { title: "Chlorophyll",                   image: "/chl_ref_point.png",     text: "Placeholder — Chlorophyll help content coming soon." },
-  seacolor:    { title: "Sea Color / Kd490",             image: "/help/seacolor.png",     text: "Placeholder — Sea color help content coming soon." },
-  altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/altimetry_ref.png",     text: "Placeholder — Altimetry help content coming soon." },
-  windmap:     { title: "Wind Map",                      image: "/help/windmap.png",      text: "Placeholder — Wind map help content coming soon." },
-  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",     text: "Placeholder — Temp break help content coming soon." },
-  hotspots:    { title: "Fish Hot Spots",                image: "/help/hotspots.png",     text: "Placeholder — Hot spots help content coming soon." },
-  windoverlay: { title: "Wind Overlay",                  image: "/help/windoverlay.png",  text: "Placeholder — Wind overlay help content coming soon." },
-  currents:    { title: "Ocean Currents",                image: "/help/currents.png",     text: "Placeholder — Currents overlay help content coming soon." },
-  trip:        { title: "Plan Trip",                     image: "/trip_plan_ref.png",     text: "Placeholder — Trip planning help content coming soon." },
-  gps:         { title: "Real-Time GPS",                 image: "/help/gps.png",          text: "Placeholder — GPS tracking help content coming soon." },
-  bathy:       { title: "Bathymetry Contours",           image: "/help/bathy.png",        text: "Placeholder — Bathymetry help content coming soon." },
-  altoverlay:  { title: "Altimetry Overlay",             image: "/altimetry_ref.png",     text: "Placeholder — ALT overlay help content coming soon." },
-  bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png",   text: "Placeholder — Bottom features help content coming soon." },
-  loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png",   text: "" },
-  gain:        { title: "Color / Gain Control",             image: "/help/gain.png",         text: "Adjust the color range to stretch contrast around the temperatures you care about. Drag the handles or type values." },
-};
-
 // ── Fish species selector (shown when fish spots tool is active) ──────────────
 const FISH_SPECIES = [
   { key: "yellowfin",    label: "Yellowfin", color: "#fafbfc" },
@@ -248,7 +272,7 @@ function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitiv
 }
 
 // ── Date navigator (prev / label / next) ─────────────────────────────────────
-function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cyan", showArrows = true }) {
+function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cyan" }) {
   const labelColors = {
     cyan:   "text-cyan-700 bg-cyan-50",
     violet: "text-violet-700 bg-violet-50",
@@ -258,21 +282,17 @@ function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cya
   };
   return (
     <div className="flex items-center gap-1 mt-1">
-      {showArrows && (
-        <button onClick={onPrev} disabled={disablePrev}
-          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
-          &#8249;
-        </button>
-      )}
+      <button onClick={onPrev} disabled={disablePrev}
+        className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
+        &#8249;
+      </button>
       <span className={`flex-1 text-center text-[10px] font-semibold rounded py-1 truncate ${labelColors[color] ?? labelColors.cyan}`}>
         {label}
       </span>
-      {showArrows && (
-        <button onClick={onNext} disabled={disableNext}
-          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
-          &#8250;
-        </button>
-      )}
+      <button onClick={onNext} disabled={disableNext}
+        className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">
+        &#8250;
+      </button>
     </div>
   );
 }
@@ -313,8 +333,6 @@ export default function MapControlPanel({
   jsonContoursLoading,
   showWrecks, setShowWrecks,
   wrecksLoading,
-  showLoranGrid, setShowLoranGrid,
-  showCanyonLabels, setShowCanyonLabels,
   // tier
   isPro,
   // trip planning
@@ -324,13 +342,11 @@ export default function MapControlPanel({
   selectedLocation,
   // collapsed state (controlled externally so collapse button in map header works)
   collapsed, setCollapsed,
-  // wind slider height (so panel shrinks when slider is visible)
-  windSliderHeight,
   // panel hover callbacks
   onPointerEnter, onPointerLeave, panelRef,
   // community reports
   showCommunityLayer, setShowCommunityLayer,
-  communityAccess,    // { hasAccess, daysSinceLastPost, neverPosted }
+  communityAccess,
   communityCount,
   onOpenLeaderboard,
   onPostReport,
@@ -343,13 +359,6 @@ export default function MapControlPanel({
     overlays:  true,
     community: true,
   });
-  const [helpOpen, setHelpOpen] = useState(null);
-  const hbtn = (id) => (
-    <button
-      onClick={() => setHelpOpen(o => o === id ? null : id)}
-      className={`px-2 py-1.5 rounded-lg border text-[12px] font-bold transition-colors flex-shrink-0 ${helpOpen === id ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
-      title="Help">?</button>
-  );
 
   function toggleSection(key) {
     setOpenSections(s => ({ ...s, [key]: !s[key] }));
@@ -378,7 +387,7 @@ export default function MapControlPanel({
       className="hidden sm:flex flex-col bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl shadow-md overflow-hidden"
       style={{
         width: 160,
-        maxHeight: `calc(100% - ${16 + (windSliderHeight || 0)}px)`,
+        maxHeight: "calc(100% - 16px)",
         position: "absolute",
         right: 8,
         top: 8,
@@ -413,7 +422,7 @@ export default function MapControlPanel({
               : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
           }`}
         >
-          Pan
+          <Move className="w-3.5 h-3.5" />Pan
         </button>
         <button
           onClick={() => setInteractionMode("crosshair")}
@@ -424,7 +433,7 @@ export default function MapControlPanel({
               : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
           }`}
         >
-          Inspect
+          <Crosshair className="w-3.5 h-3.5" />Inspect
         </button>
       </div>
 
@@ -434,10 +443,7 @@ export default function MapControlPanel({
       <SectionHeader title="Data layer" open={openSections.layers} onToggle={() => toggleSection("layers")} />
       {openSections.layers && (
         <div className="flex flex-col gap-1 px-2 pb-2">
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1"><LayerBtn active={isSSTGroup} color="cyan" onClick={() => { if(!isSSTGroup){ const s=localStorage.getItem("sst_sub_layer")||"sst"; setActiveDataLayer(s); } }}>SST</LayerBtn></div>
-            {hbtn("sst")}
-          </div>
+          <LayerBtn active={isSSTGroup} color="cyan" onClick={() => { setActiveDataLayer("sst"); }}>SST</LayerBtn>
 
           {isSSTGroup && (
             <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
@@ -446,14 +452,13 @@ export default function MapControlPanel({
               <SubSourceBtn active={isComposite} onClick={() => setActiveDataLayer("composite")}>Composite 36h</SubSourceBtn>
 
               {isComposite && compositeData && (
-                compositeDates?.length >= 1 ? (
+                compositeDates?.length > 1 ? (
                   <DateNav
                     label={compositeDates[compositeDateIndex] ?? "—"} color="violet"
                     onPrev={() => setCompositeDateIndex(i => Math.max(0, i - 1))}
                     onNext={() => setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1))}
                     disablePrev={compositeDateIndex === 0}
                     disableNext={compositeDateIndex === compositeDates.length - 1}
-                    showArrows={compositeDates.length > 1}
                   />
                 ) : (
                   <div className="text-[10px] text-violet-700 bg-violet-50 rounded px-2 py-1 text-center font-semibold mt-1">
@@ -515,14 +520,9 @@ export default function MapControlPanel({
             </div>
           )}
 
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <LayerBtn active={isCHL} color="green" onClick={() => setActiveDataLayer("chlorophyll")}>
-                {chlLoading ? "Loading…" : "Chlorophyll"}
-              </LayerBtn>
-            </div>
-            {hbtn("chlorophyll")}
-          </div>
+          <LayerBtn active={isCHL} color="green" onClick={() => setActiveDataLayer("chlorophyll")}>
+            {chlLoading ? "Loading…" : "Chlorophyll"}
+          </LayerBtn>
           {isCHL && chlData?.days?.length > 1 && (
             <DateNav
               label={chlData.days[chlDateIndex]?.date ?? "—"} color="green"
@@ -533,14 +533,9 @@ export default function MapControlPanel({
             />
           )}
 
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <LayerBtn active={isSC} color="teal" onClick={() => setActiveDataLayer("seacolor")}>
-                {seaColorLoading ? "Loading…" : "Sea color"}
-              </LayerBtn>
-            </div>
-            {hbtn("seacolor")}
-          </div>
+          <LayerBtn active={isSC} color="teal" onClick={() => setActiveDataLayer("seacolor")}>
+            {seaColorLoading ? "Loading…" : "Sea color"}
+          </LayerBtn>
           {isSC && seaColorData?.days?.length > 1 && (
             <DateNav
               label={seaColorData.days[seaColorDateIndex]?.date ?? "—"} color="teal"
@@ -551,23 +546,15 @@ export default function MapControlPanel({
             />
           )}
 
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
-                Altimetry
-              </LayerBtn>
-            </div>
-            {hbtn("altimetry")}
-          </div>
+          <ProGate isPro={isPro} label="Sea level anomaly (altimetry) is available on the Pro plan.">
+            <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
+              🌊 Altimetry
+            </LayerBtn>
+          </ProGate>
 
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
-                {windLoading ? "Loading\u2026" : "Wind map"}
-              </LayerBtn>
-            </div>
-            {hbtn("windmap")}
-          </div>
+          <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
+            <Wind className="w-3 h-3" />{windLoading ? "Loading…" : "Wind map"}
+          </LayerBtn>
         </div>
       )}
 
@@ -576,29 +563,24 @@ export default function MapControlPanel({
       {/* ── Gain / range (Pro) ───────────────────────────────────────── */}
       {showGain && (
         <>
-          <div className="flex gap-1 items-start">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
-                <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
-                {openSections.gain && (
-                  <div className="px-2 pb-2">
-                    <SSTRangeControl
-                      activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
-                      userId={userId}
-                      range={sstRange}
-                      onRangeChange={onSstRangeChange}
-                      onApply={onSstRangeChange}
-                      style={{ width: "100%" }}
-                      openRef={rangeControlOpenRef}
-                      dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
-                      dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
-                    />
-                  </div>
-                )}
-              </ProGate>
-            </div>
-            {hbtn("gain")}
-          </div>
+          <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
+            <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
+            {openSections.gain && (
+              <div className="px-2 pb-2">
+                <SSTRangeControl
+                  activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
+                  userId={userId}
+                  range={sstRange}
+                  onRangeChange={onSstRangeChange}
+                  onApply={onSstRangeChange}
+                  style={{ width: "100%" }}
+                  openRef={rangeControlOpenRef}
+                  dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
+                  dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
+                />
+              </div>
+            )}
+          </ProGate>
           <Divider />
         </>
       )}
@@ -607,92 +589,67 @@ export default function MapControlPanel({
       <SectionHeader title="Tools" open={openSections.tools} onToggle={() => toggleSection("tools")} />
       {openSections.tools && (
         <div className="flex flex-col gap-1 px-2 pb-2">
-          {isSSTGroup && (
-            <div className="flex gap-1 items-start">
-              <div className="flex-1">
-                <ProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
-                  <ToolBtn active={showIsotherm} color="sky" onClick={() => setShowIsotherm(v => !v)}>
-                    Temp break
-                  </ToolBtn>
-                  {showIsotherm && (
-                    <IsothermSubControls
-                      targetTemp={effectiveTargetTemp}
-                      onTargetTemp={setIsothermalTargetTemp}
-                      sensitivity={isothermalSensitivity}
-                      onSensitivity={setIsothermalSensitivity}
-                      sstMin={sstMin} sstMax={sstMax}
-                    />
-                  )}
-                </ProGate>
-              </div>
-              {hbtn("isotherm")}
-            </div>
+          {isSST && (
+            <ProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
+              <ToolBtn active={showIsotherm} color="sky" onClick={() => setShowIsotherm(v => !v)}>
+                <span className="text-sm leading-none">~</span> Temp break
+              </ToolBtn>
+              {showIsotherm && (
+                <IsothermSubControls
+                  targetTemp={effectiveTargetTemp}
+                  onTargetTemp={setIsothermalTargetTemp}
+                  sensitivity={isothermalSensitivity}
+                  onSensitivity={setIsothermalSensitivity}
+                  sstMin={sstMin} sstMax={sstMax}
+                />
+              )}
+            </ProGate>
           )}
 
-          <div className="flex gap-1 items-start">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
-                <ToolBtn active={showHotspots} color="amber" onClick={() => setShowHotspots(h => !h)}>
-                  {hotspotLoading ? "Loading…" : "Hot spots"}
-                </ToolBtn>
-                {showHotspots && (
-                  <div className="flex flex-wrap gap-1 mt-0.5">
-                    {FISH_SPECIES.map(s => (
-                      <button key={s.key} onClick={() => setSelectedFishSpecies(s.key)}
-                        style={{ borderColor: s.key === "yellowfin" ? "#94a3b8" : s.color, background: selectedFishSpecies === s.key ? s.color : "#fff", color: selectedFishSpecies === s.key ? (s.key === "yellowfin" ? "#334155" : "#fff") : "#475569" }}
-                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded border transition-colors">
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </ProGate>
-            </div>
-            {hbtn("hotspots")}
-          </div>
+          <ProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
+            <ToolBtn active={showHotspots} color="amber" onClick={() => setShowHotspots(h => !h)}>
+              🎣 {hotspotLoading ? "Loading…" : "Hot spots"}
+            </ToolBtn>
+            {showHotspots && (
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {FISH_SPECIES.map(s => (
+                  <button key={s.key} onClick={() => setSelectedFishSpecies(s.key)}
+                    style={{ borderColor: s.key === "yellowfin" ? "#94a3b8" : s.color, background: selectedFishSpecies === s.key ? s.color : "#fff", color: selectedFishSpecies === s.key ? (s.key === "yellowfin" ? "#334155" : "#fff") : "#475569" }}
+                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded border transition-colors">
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </ProGate>
 
           {!isWindMap && (
-            <div className="flex gap-1 items-stretch">
-              <div className="flex-1">
-                <ProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
-                  <ToolBtn active={showWindOverlay} color="cyan" onClick={() => setShowWindOverlay(v => !v)}>
-                    {windLoading ? "Loading…" : showWindOverlay ? "Wind on" : "Wind overlay"}
-                  </ToolBtn>
-                </ProGate>
-              </div>
-              {hbtn("windoverlay")}
-            </div>
+            <ProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
+              <ToolBtn active={showWindOverlay} color="cyan" onClick={() => setShowWindOverlay(v => !v)}>
+                <Wind className="w-3 h-3" />{windLoading ? "Loading…" : showWindOverlay ? "Wind on" : "Wind overlay"}
+              </ToolBtn>
+            </ProGate>
           )}
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
-                <ToolBtn active={showCurrents} color="cyan" onClick={() => setShowCurrents(v => !v)}>
-                  {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
-                </ToolBtn>
-              </ProGate>
-            </div>
-            {hbtn("currents")}
-          </div>
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Trip planning is available on the Pro plan.">
-                <ToolBtn active={tripMode} color="cyan" onClick={onToggleTripMode}>
-                  {tripMode ? "Planning\u2026" : "Plan Trip"}
-                </ToolBtn>
-              </ProGate>
-            </div>
-            {hbtn("trip")}
-          </div>
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
-                <ToolBtn active={gpsActive} color="green" onClick={onToggleGps}>
-                  {gpsActive ? "GPS On" : "Real Time"}
-                </ToolBtn>
-              </ProGate>
-            </div>
-            {hbtn("gps")}
-          </div>
+          <ProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
+            <ToolBtn active={showCurrents} color="cyan" onClick={() => setShowCurrents(v => !v)}>
+              &#x1F30A; {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
+            </ToolBtn>
+          </ProGate>
+          <ProGate isPro={isPro} label="Trip planning is available on the Pro plan.">
+            <ToolBtn active={tripMode} color="cyan" onClick={onToggleTripMode}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/></svg>
+              {tripMode ? "Planning…" : "Plan Trip"}
+            </ToolBtn>
+          </ProGate>
+          <ProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
+            <ToolBtn active={gpsActive} color="green" onClick={onToggleGps}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+                <path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
+              </svg>
+              {gpsActive ? "GPS On" : "Real Time"}
+            </ToolBtn>
+          </ProGate>
         </div>
       )}
 
@@ -702,84 +659,22 @@ export default function MapControlPanel({
       <SectionHeader title="Overlays" open={openSections.overlays} onToggle={() => toggleSection("overlays")} />
       {openSections.overlays && (
         <div className="flex flex-col gap-1 px-2 pb-2">
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ToolBtn active={showBathyLayer} color="blue" onClick={() => setShowBathyLayer(b => !b)}>
-                {jsonContoursLoading ? "Loading\u2026" : "Bathy"}
-              </ToolBtn>
-            </div>
-            {hbtn("bathy")}
-          </div>
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
-                <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
-                  {showAltimetryOverlay ? "ALT Overlay on" : "ALT Overlay"}
-                </ToolBtn>
-              </ProGate>
-            </div>
-            {hbtn("altoverlay")}
-          </div>
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
-                <ToolBtn active={showWrecks} color="amber" onClick={() => setShowWrecks(w => !w)}>
-                  {wrecksLoading ? "Loading\u2026" : "Bottom Features"}
-                </ToolBtn>
-              </ProGate>
-            </div>
-            {hbtn("bottomfeat")}
-          </div>
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Loran-C grid is available on the Pro plan.">
-                <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
-                  {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
-                </ToolBtn>
-              </ProGate>
-            </div>
-            {hbtn("loran")}
-          </div>
-          <ToolBtn active={showCanyonLabels} color="indigo" onClick={() => setShowCanyonLabels(v => !v)}>
-            {showCanyonLabels ? "Labels on" : "Labels"}
+          <ToolBtn active={showBathyLayer} color="blue" onClick={() => setShowBathyLayer(b => !b)}>
+            {jsonContoursLoading ? "Loading…" : "Bathy"}
           </ToolBtn>
+          <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
+            <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
+              〰 {showAltimetryOverlay ? "SLA Overlay on" : "SLA Overlay"}
+            </ToolBtn>
+          </ProGate>
+          <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
+            <ToolBtn active={showWrecks} color="amber" onClick={() => setShowWrecks(w => !w)}>
+              {wrecksLoading ? "Loading…" : "Bottom Features"}
+            </ToolBtn>
+          </ProGate>
         </div>
       )}
 
-      {/* ── Community Reports ─────────────────────────────────────── */}
-      <SectionHeader title="Community" open={openSections.community} onToggle={() => toggleSection("community")} />
-      {openSections.community && (
-        <div className="flex flex-col gap-1.5 px-2 pb-2">
-          {/* Layer toggle */}
-          <ToolBtn
-            active={showCommunityLayer}
-            color="emerald"
-            onClick={() => setShowCommunityLayer?.(v => !v)}
-          >
-            {showCommunityLayer
-              ? `Reports (${communityCount ?? 0})`
-              : "Show Reports"}
-          </ToolBtn>
-
-          {/* Access status */}
-          {communityAccess && !communityAccess.hasAccess && (
-            <div className="text-[10px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5 leading-tight">
-              {communityAccess.neverPosted
-                ? "Post your first catch to unlock reports"
-                : `Last post ${communityAccess.daysSinceLastPost}d ago — post to keep access`}
-            </div>
-          )}
-          {communityAccess?.hasAccess && (
-            <div className="text-[10px] text-emerald-600 font-medium px-1">
-              ✓ Access active
-            </div>
-          )}
-
-          {/* Post buttons */}
-          <button
-            onClick={onPostReport}
-            className="w-full py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-semibold transition-colors"
-          >
-            + Post Report
-          </button>
-     
+    </div>
+  );
+}
