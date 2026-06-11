@@ -815,9 +815,9 @@ function SSTPageBody() {
                 }
               }}
               communityPinDrop={communityPinDrop}
-              onCommunityPinDropped={(lat, lon) => {
+              onCommunityPinDropped={(lat, lon, dropType) => {
                 setCommunityPinDrop(null);
-                setCommunityFormData({ lat, lon, waterTemp: null, initialType: communityPinDrop ?? "report" });
+                setCommunityFormData({ lat, lon, waterTemp: null, initialType: dropType ?? "report" });
               }}
               onCancelPinDrop={() => setCommunityPinDrop(null)}
               onCommunityPosted={() => {

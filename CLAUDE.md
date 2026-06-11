@@ -40,7 +40,7 @@ Read this file at the start of every session and before any multi-step task.
 - Always verify the patched file ends with `}` (or the correct closing token) before committing.
 - When multiple files need changes in one commit, patch all of them first, then `git add` all at once.
 - Use `assert OLD in text, "FAIL: <description>"` in every patch script. If an assertion fails, stop and investigate before writing any output.
-- After every push, check the Vercel build result before doing further work.
+- After every push, check the Vercel build result using `list_deployments` + `get_deployment_build_logs`. If the deployment is ERROR, fix the build failure and redeploy before doing any other work. Never leave a broken build unresolved.
 
 ---
 
@@ -99,6 +99,4 @@ Read this file at the start of every session and before any multi-step task.
 - DB column is `is_flagged` (not `flagged`) on `community_locations`.
 - Access gate: post within 30 days OR isPro → `hasAccess: true`.
 - Pin types: `live` (5000 pts, 24h expiry) and `report` (1000 pts, 7d expiry).
-- When `onPostCommunityReport` is called **without** lat/lon (from control panel), enter `communityPinDrop` mode — show banner, crosshair cursor, intercept next map click.
-- When called **with** lat/lon (from MapClickInfo), open form directly.
-- After posting: re-fetch locations, re-check access, set `showCommunityLayer(true)`.
+- When `onPostCommunityReport` is called **without** lat/lon (from control panel), enter `communityPinDrop` mode — show banner, crosshair cursor, intercept next map click

@@ -255,6 +255,11 @@ function TipFlow({ pin, userId, onClose }) {
           placeholder="Enter amount" className="w-full mb-3 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500" />
       )}
       <div className="flex flex-col gap-2">
+        {!pin.venmo_handle && !pin.cashapp_handle && (
+          <div className="text-center text-xs text-slate-400 py-2 border border-dashed border-slate-200 rounded-lg">
+            This angler hasn’t set up a payment handle yet.
+          </div>
+        )}
         {pin.venmo_handle && (
           <button onClick={() => recordAndOpen("venmo")} disabled={recording || finalAmount <= 0}
             className="w-full py-2 rounded-xl bg-[#3D95CE] hover:bg-[#2d7ab8] text-white font-semibold text-sm transition-colors disabled:opacity-50">
@@ -982,7 +987,7 @@ export default function SSTHeatmapLeaflet(props) {
       const color  = isLive ? "#10b981" : speciesColor(loc.species?.[0]);
       const html = isLive
         ? `<div style="position:relative;width:28px;height:28px;"><div style="position:absolute;inset:0;border-radius:50%;background:${color};opacity:0.25;animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;inset:5px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
-        : `<div style="width:26px;height:26px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 1px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:11px;">🐟</span></div>`;
+        : `<div style="position:relative;width:28px;height:28px;"><div style="position:absolute;inset:5px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`;
       const icon   = L.divIcon({ className: "", iconSize: [28, 28], iconAnchor: [14, 14], html });
       const marker = L.marker([loc.lat, loc.lon], { icon, zIndexOffset: 950 });
       marker.on("click", e => {
@@ -1220,7 +1225,7 @@ export default function SSTHeatmapLeaflet(props) {
     map.on("click", (e) => {
       if (communityPinDropRef.current) {
         const { lat, lng: lon } = e.latlng;
-        onCommunityPinDropped?.(lat, lon);
+        onCommunityPinDropped?.(lat, lon, communityPinDropRef.current);
         return;
       }
       if (tripModeRef.current) {
@@ -3273,31 +3278,16 @@ export default function SSTHeatmapLeaflet(props) {
                   <div className="text-slate-500 mb-2 line-clamp-2">{pin.notes}</div>
                 )}
 
-                {/* Tip / Thank buttons */}
+                {/* Thanks / Tip — opens TipFlow */}
                 {communityTipModal?.pin?.id === pin.id ? (
                   <TipFlow pin={pin} userId={userId} onClose={() => setCommunityTipModal(null)} />
                 ) : (
                   <div className="flex gap-1.5 mt-auto pt-1 border-t border-slate-100">
-                    {(pin.venmo_handle || pin.cashapp_handle) && (
-                      <button
-                        onClick={() => setCommunityTipModal({ pin })}
-                        className="flex-1 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors"
-                      >
-                        Tip
-                      </button>
-                    )}
                     <button
-                      disabled={thankingId === pin.id}
-                      onClick={async () => {
-                        setThankingId(pin.id);
-                        await supabase.from("community_locations")
-                          .update({ thank_count: (pin.thank_count || 0) + 1 })
-                          .eq("id", pin.id);
-                        setTimeout(() => setThankingId(null), 1500);
-                      }}
-                      className="flex-1 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs transition-colors disabled:opacity-60"
+                      onClick={() => setCommunityTipModal({ pin })}
+                      className="flex-1 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs transition-colors"
                     >
-                      {thankingId === pin.id ? "Thanks!" : "Thanks"}
+                      💙 Thanks / Tip
                     </button>
                   </div>
                 )}
@@ -3369,7 +3359,7 @@ export default function SSTHeatmapLeaflet(props) {
           ):(
             <button onClick={()=>setShowSavedPanel(true)} className="hidden sm:flex absolute left-2 bg-white border border-slate-200 rounded-full shadow-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 items-center gap-1.5" style={{bottom:sliderHeight+8,zIndex:900}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-              <span>{(savedLocations?.length??0) + savedRoutesCount} saved</span>
+              <span>Locations/Routes</span>
             </button>
           )}
 
