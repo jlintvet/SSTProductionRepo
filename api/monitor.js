@@ -127,18 +127,24 @@ async function sendAlert({ workflowName, runUrl, runId, classification, failedSt
 
 // ─── Upstash Redis (direct REST — no SDK) ────────────────────────────────────
 
+const REDIS_BASE  = (process.env.UPSTASH_REDIS_REST_URL   || '').trim().replace(/\/$/, '')
+const REDIS_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN || '').trim()
+
 async function redisCmd(...args) {
-  const res = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
+  // Use /pipeline endpoint — accepts [["COMMAND", "arg1", ...]] body
+  const res = await fetch(`${REDIS_BASE}/pipeline`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+      Authorization: `Bearer ${REDIS_TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(args),
+    body: JSON.stringify([args]),   // pipeline expects array of commands
   })
   const json = await res.json()
-  if (json.error) throw new Error(`Redis error: ${json.error}`)
-  return json.result
+  // pipeline returns [{result: ...}] or [{error: ...}]
+  if (!Array.isArray(json) || !json[0]) throw new Error(`Redis unexpected response: ${JSON.stringify(json)}`)
+  if (json[0].error) throw new Error(`Redis error: ${json[0].error}`)
+  return json[0].result
 }
 
 const REDIS_KEY = (wf) => `sst:monitor:${wf}`
