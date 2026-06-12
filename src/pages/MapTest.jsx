@@ -96,6 +96,7 @@ export default function MapTest() {
       const glMap = glLayerRef.current?.getMapboxMap?.();
       if (glMap && glMap.getLayer && glMap.getLayer("sst-img")) {
         glMap.setPaintProperty("sst-img", "raster-opacity", opacityFor(map.getZoom(), fadeRef.current));
+        try { glMap.triggerRepaint(); } catch (_) {}
       }
     };
     map.on("zoomend zoom move", onZoom);
@@ -195,8 +196,13 @@ export default function MapTest() {
       );
       window.__glMap = glMap;
       glMap.on("error", (e) => console.error("[SPIKE GL ERROR]", e?.error?.message || e));
-      const src = glMap.getSource("sst-img");
-      console.log("[SPIKE] SST inserted before layer:", beforeId, "| source ok:", !!src, "| url:", d.dataURL.slice(0, 40));
+      // mapbox-gl-leaflet only repaints on Leaflet move events — kick the render
+      // loop so the freshly loaded image source actually draws.
+      const kick = () => { try { glMap.triggerRepaint(); } catch (_) {} };
+      glMap.on("data", (e) => { if (e.sourceId === "sst-img" && e.isSourceLoaded) kick(); });
+      setTimeout(kick, 200);
+      setTimeout(kick, 1000);
+      console.log("[SPIKE] SST inserted before layer:", beforeId);
     };
     if (glMap.isStyleLoaded()) doInsert();
     else glMap.once("idle", doInsert);
@@ -247,6 +253,7 @@ export default function MapTest() {
     const glMap = glLayerRef.current?.getMapboxMap?.();
     if (glMap && glMap.getLayer && glMap.getLayer("sst-img")) {
       glMap.setPaintProperty("sst-img", "raster-opacity", opacityFor(mapRef.current ? mapRef.current.getZoom() : 7, fade));
+      try { glMap.triggerRepaint(); } catch (_) {}
     }
   }, [fade]);
 
