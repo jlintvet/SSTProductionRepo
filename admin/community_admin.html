@@ -165,6 +165,7 @@ tr:hover td{background:#1e293b}
     <div class="pill amber">Flagged <span id="statFlagged">—</span></div>
     <div class="pill cyan">Tips today <span id="statTipsToday">—</span></div>
     <div class="pill green">Tips total <span id="statTipsAll">—</span></div>
+    <button id="bathyBtn" class="btn btn-slate btn-sm" onclick="toggleBathy()" style="margin-left:4px">Bathy off</button>
     <div id="tokenWrap">
       <input id="tokenInput" type="password" placeholder="GitHub token" autocomplete="off"/>
       <button id="signOutBtn" class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
@@ -365,6 +366,7 @@ const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
 const GH_REPO  = 'jlintvet/SSTProductionRepo';
 const GH_PATH  = 'src/public/prizes.json';
 const GH_API   = 'https://api.github.com';
+const BATHY_URL = 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json';
 
 const SPECIES = {
   yellowfin:'Yellowfin Tuna', blackfin:'Blackfin Tuna', bluefin:'Bluefin Tuna',
@@ -476,6 +478,32 @@ let allPins = [], selectedPinId = null, map, markers = {};
 function initMap() {
   map = L.map('leafletMap', { center: [35.5, -75.5], zoom: 7 });
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB', maxZoom: 19 }).addTo(map);
+  loadBathy();
+}
+
+let bathyLayer = null, bathyOn = false;
+function bathyStyle(ft) {
+  const d = ft.properties?.depth_ft ?? 0;
+  if (ft.properties?.shelf_break) return { color:'#38bdf8', weight:1.5, opacity:0.7 };
+  if (d <= 60)  return { color:'#1e40af', weight:0.8, opacity:0.5 };
+  if (d <= 120) return { color:'#1d4ed8', weight:0.8, opacity:0.55 };
+  if (d <= 600) return { color:'#2563eb', weight:0.9, opacity:0.6 };
+  return { color:'#3b82f6', weight:1, opacity:0.65 };
+}
+async function loadBathy() {
+  try {
+    const res = await fetch(BATHY_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    bathyLayer = L.geoJSON(data, { style: bathyStyle, interactive: false });
+    if (bathyOn) bathyLayer.addTo(map);
+  } catch(e) { console.warn('Bathy load failed:', e); }
+}
+function toggleBathy() {
+  bathyOn = !bathyOn;
+  const btn = document.getElementById('bathyBtn');
+  if (bathyOn) { btn.textContent = 'Bathy on'; btn.style.background = '#1e40af'; btn.style.borderColor = '#3b82f6'; btn.style.color = '#bfdbfe'; if (bathyLayer) bathyLayer.addTo(map); }
+  else         { btn.textContent = 'Bathy off'; btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = ''; if (bathyLayer) map.removeLayer(bathyLayer); }
 }
 
 async function loadPins(silent = false) {
@@ -908,39 +936,4 @@ function updP(icon, text, cls='ok') {
   if (!progLines.length) return;
   Object.assign(progLines[progLines.length-1], {icon, text, cls});
   document.getElementById('modalLines').innerHTML = progLines.map(l =>
-    `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`
-  ).join('');
-}
-
-// ── Utilities ─────────────────────────────────────────────────────────────────
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-function timeAgo(iso) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
-  if (d > 0) return d + 'd ago';
-  if (h > 0) return h + 'h ago';
-  return m + 'm ago';
-}
-
-function timeUntil(iso) {
-  const diff = new Date(iso).getTime() - Date.now();
-  if (diff <= 0) return 'expired';
-  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
-  if (d > 0) return d + 'd';
-  if (h > 0) return h + 'h';
-  return m + 'm';
-}
-
-function toLocalDatetime(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = n => String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// ── Boot ──────────────────────────────────────────────────────────────────────
-checkExistingSession();
-</script>
-</body>
-</html>
+  
