@@ -17,8 +17,8 @@ const COMPOSITE_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/Dai
 const OCEAN_MASK_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/ocean_mask.json";
 const CARTO_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 // Fade band in LEAFLET zoom units. GL zoom = Leaflet zoom - 1.
-const FADE_START_LZ = 10.0;
-const FADE_END_LZ = 12.0;
+const FADE_START_LZ = 9.5;
+const FADE_END_LZ = 11.5;
 const SST_OPACITY = 1.0;
 
 async function loadMask() {
@@ -61,15 +61,24 @@ async function solidify(blobUrl) {
 // image source via blob URL (canvas sources with play/pause spin the render
 // loop when rAF is throttled).
 let landMaskUrl = null;
-let landMaskEnabled = true;
+let landMaskEnabled = false;
 let lastMaskKey = "";
 function maskKey(glMap) {
   const b = glMap.getBounds();
   return [b.getWest(), b.getEast(), b.getSouth(), b.getNorth()].map((v) => v.toFixed(5)).join("|");
 }
+let leafletZoomGetter = null;
 function updateLandMask(glMap) {
   try {
     if (!landMaskEnabled || !glMap.getLayer("sst-img")) return;
+    // Windy-style: once the SST layer has faded out on zoom-in, the basemap
+    // takes over entirely — hide the mask instead of recomputing it.
+    const lz = leafletZoomGetter ? leafletZoomGetter() : null;
+    if (lz !== null && lz >= FADE_END_LZ) {
+      if (glMap.getLayer("land-mask")) glMap.setLayoutProperty("land-mask", "visibility", "none");
+      return;
+    }
+    if (glMap.getLayer("land-mask")) glMap.setLayoutProperty("land-mask", "visibility", "visible");
     lastMaskKey = maskKey(glMap);
     const b = glMap.getBounds();
     const padX = (b.getEast() - b.getWest()) * 0.1;
@@ -157,8 +166,8 @@ export default function MapTest() {
   const [zoomLabel, setZoomLabel] = useState("");
   const [sstMode, setSstMode] = useState("sandwich"); // sandwich | top | off
   const [basemap, setBasemap] = useState("vector");   // vector | carto
-  const [fade, setFade] = useState(false);
-  const [landMaskOn, setLandMaskOn] = useState(true);
+  const [fade, setFade] = useState(true);
+  const [landMaskOn, setLandMaskOn] = useState(false);
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -183,6 +192,7 @@ export default function MapTest() {
     map.setView([36.3, -75.5], 7);
     mapRef.current = map;
     window.__lmap = map; // debug handle for testing
+    leafletZoomGetter = () => map.getZoom();
 
     const onZoom = () => {
       const lz = map.getZoom();
