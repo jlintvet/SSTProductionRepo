@@ -200,8 +200,9 @@ export default function MapTest() {
       // loop so the freshly loaded image source actually draws.
       const kick = () => { try { glMap.triggerRepaint(); } catch (_) {} };
       glMap.on("data", (e) => { if (e.sourceId === "sst-img" && e.isSourceLoaded) kick(); });
-      setTimeout(kick, 200);
-      setTimeout(kick, 1000);
+      glMap.once("idle", kick);
+      let kicks = 0;
+      const kickTimer = setInterval(() => { kick(); if (++kicks >= 16) clearInterval(kickTimer); }, 300);
       console.log("[SPIKE] SST inserted before layer:", beforeId);
     };
     if (glMap.isStyleLoaded()) doInsert();
