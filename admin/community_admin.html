@@ -361,7 +361,7 @@ tr:hover td{background:#1e293b}
 // ── Config ─────────────────────────────────────────────────────────────────
 const SB_URL   = 'https://upxerlzdgdbjkbjpuktn.supabase.co';
 const SB_ANON  = 'sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
-const ADMIN_ID = '650da7e1-27b7-4ea5-b511-1c4740c5f3a7';
+const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
 const GH_REPO  = 'jlintvet/SSTProductionRepo';
 const GH_PATH  = 'src/public/prizes.json';
 const GH_API   = 'https://api.github.com';
@@ -388,7 +388,7 @@ async function doLogin() {
     err.textContent = error?.message || 'Sign-in failed.';
     btn.disabled = false; btn.textContent = 'Sign In'; return;
   }
-  if (data.user.id !== ADMIN_ID) {
+  if (!ADMIN_EMAILS.includes(data.user.email)) {
     await sb.auth.signOut();
     err.textContent = 'Not authorized as admin.';
     btn.disabled = false; btn.textContent = 'Sign In'; return;
@@ -398,7 +398,7 @@ async function doLogin() {
 
 async function checkExistingSession() {
   const { data: { user } } = await sb.auth.getUser();
-  if (user && user.id === ADMIN_ID) showApp();
+  if (user && ADMIN_EMAILS.includes(user.email)) showApp();
 }
 
 function showApp() {
