@@ -266,14 +266,14 @@ function TipFlow({ pin, userId, onClose }) {
     if (platform === "venmo") {
       const deepLink = `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(pin.venmo_handle)}&amount=${finalAmount}&note=${note}`;
       const webLink  = `https://venmo.com/u/${encodeURIComponent(pin.venmo_handle.replace(/^@/, ""))}`;
-      window.location.href = deepLink;
-      setTimeout(() => window.open(webLink, "_blank"), 1500);
+      window.open(webLink, "_blank");   // open synchronously — not blocked
+      window.location.href = deepLink; // try app; if it opens, user closes the extra tab
     } else {
       const handle   = pin.cashapp_handle.startsWith("$") ? pin.cashapp_handle : `$${pin.cashapp_handle}`;
       const deepLink = `cashapp://cash.app/${encodeURIComponent(handle)}`;
       const webLink  = `https://cash.app/${encodeURIComponent(handle)}`;
+      window.open(webLink, "_blank");
       window.location.href = deepLink;
-      setTimeout(() => window.open(webLink, "_blank"), 1500);
     }
     setRecording(false);
     onClose();
