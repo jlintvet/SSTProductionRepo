@@ -2710,6 +2710,23 @@ export default function SSTHeatmapLeaflet(props) {
               style={{ width:30, height:30, padding:0, background:showCommunityLayer?"#84cc16":"rgba(255,255,255,0.9)", borderColor:showCommunityLayer?"#84cc16":"#e2e8f0" }}>
               <span style={{ fontSize:9, fontWeight:700, color:showCommunityLayer?"#fff":"#64748b", lineHeight:1 }}>COM</span>
             </button>
+            {/* Drop Live Pin */}
+            <button onClick={() => onPostCommunityReport?.({ type: "live" })} title="Drop Live Pin"
+              className="flex items-center justify-center rounded-lg shadow-sm border"
+              style={{ width:30, height:30, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#16a34a" stroke="#16a34a" strokeWidth="1"/>
+                <circle cx="12" cy="9" r="2.5" fill="#fff"/>
+              </svg>
+            </button>
+            {/* Community Leaders */}
+            <button onClick={() => onOpenLeaderboard?.()} title="Community Leaders"
+              className="flex items-center justify-center rounded-lg shadow-sm border"
+              style={{ width:30, height:30, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </button>
             {/* Plan Trip */}
             <button
               onClick={onToggleTripMode}
