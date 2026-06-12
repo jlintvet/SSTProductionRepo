@@ -61,15 +61,22 @@ async function solidify(blobUrl) {
 // image source via blob URL (canvas sources with play/pause spin the render
 // loop when rAF is throttled).
 let landMaskUrl = null;
+let landMaskEnabled = true;
+let lastMaskKey = "";
+function maskKey(glMap) {
+  const b = glMap.getBounds();
+  return [b.getWest(), b.getEast(), b.getSouth(), b.getNorth()].map((v) => v.toFixed(5)).join("|");
+}
 function updateLandMask(glMap) {
   try {
-    if (!glMap.getLayer("sst-img")) return;
+    if (!landMaskEnabled || !glMap.getLayer("sst-img")) return;
+    lastMaskKey = maskKey(glMap);
     const b = glMap.getBounds();
-    const padX = (b.getEast() - b.getWest()) * 0.15;
-    const padY = (b.getNorth() - b.getSouth()) * 0.15;
+    const padX = (b.getEast() - b.getWest()) * 0.1;
+    const padY = (b.getNorth() - b.getSouth()) * 0.1;
     const w = b.getWest() - padX, e = b.getEast() + padX;
     const s = Math.max(-85, b.getSouth() - padY), n = Math.min(85, b.getNorth() + padY);
-    const W = 1536, H = 1536;
+    const W = 2048, H = 2048;
     const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
     const mN = mercY(n), mS = mercY(s);
     const px = (lon) => ((lon - w) / (e - w)) * W;
@@ -151,6 +158,7 @@ export default function MapTest() {
   const [sstMode, setSstMode] = useState("sandwich"); // sandwich | top | off
   const [basemap, setBasemap] = useState("vector");   // vector | carto
   const [fade, setFade] = useState(false);
+  const [landMaskOn, setLandMaskOn] = useState(true);
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -298,8 +306,11 @@ export default function MapTest() {
       let kicks = 0;
       const kickTimer = setInterval(() => { kick(); if (++kicks >= 20) clearInterval(kickTimer); }, 500);
       console.log("[SPIKE] SST inserted before layer:", beforeId);
-      const refreshLand = () => setTimeout(() => updateLandMask(glMap), 350);
+      const refreshLand = () => setTimeout(() => updateLandMask(glMap), 250);
       glMap.once("idle", () => updateLandMask(glMap));
+      // idle fires when all tiles finished loading — recompute then so the mask
+      // uses full-detail water geometry, not coarse parent-tile fallbacks.
+      glMap.on("idle", () => { if (landMaskEnabled && maskKey(glMap) !== lastMaskKey) updateLandMask(glMap); });
       if (mapRef.current) mapRef.current.on("moveend zoomend", refreshLand);
     };
     if (glMap.isStyleLoaded()) doInsert();
@@ -346,6 +357,19 @@ export default function MapTest() {
   }
 
   useEffect(() => { applyLayers(); /* eslint-disable-line */ }, [sstMode, basemap]);
+
+  useEffect(() => {
+    landMaskEnabled = landMaskOn;
+    const glMap = glLayerRef.current?.getMapboxMap?.();
+    if (!glMap) return;
+    if (!landMaskOn) {
+      if (glMap.getLayer("land-mask")) { glMap.removeLayer("land-mask"); glMap.removeSource("land-mask-src"); }
+      glMap.triggerRepaint();
+    } else {
+      lastMaskKey = "";
+      updateLandMask(glMap);
+    }
+  }, [landMaskOn]);
 
   useEffect(() => {
     const glMap = glLayerRef.current?.getMapboxMap?.();
@@ -400,6 +424,10 @@ export default function MapTest() {
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <button style={btn(fade)} onClick={() => setFade(true)}>Zoom fade on</button>
           <button style={btn(!fade)} onClick={() => setFade(false)}>Fade off</button>
+        </div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <button style={btn(landMaskOn)} onClick={() => setLandMaskOn(true)}>Land mask on</button>
+          <button style={btn(!landMaskOn)} onClick={() => setLandMaskOn(false)}>Mask off</button>
         </div>
         <div style={{ color: "#475569", fontSize: 11, lineHeight: 1.5 }}>
           {status}<br />{zoomLabel}<br />
