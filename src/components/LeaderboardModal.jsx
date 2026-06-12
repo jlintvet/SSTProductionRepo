@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { X } from "lucide-react";
 
 export default function LeaderboardModal({ onClose }) {
-  const [period,  setPeriod]  = useState("alltime"); // "month" | "alltime"
+  const [period,  setPeriod]  = useState("month"); // "month" | "alltime"
   const [rows,    setRows]    = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -87,7 +87,7 @@ export default function LeaderboardModal({ onClose }) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100 flex-shrink-0">
-          <span className="font-semibold text-slate-800 text-sm">Top Anglers</span>
+          <span className="font-semibold text-slate-800 text-sm">Community Leaders</span>
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
               <button
