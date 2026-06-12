@@ -15,6 +15,7 @@ import LandingPage from "@/pages/LandingPage";
 import ResetPassword from "@/pages/ResetPassword";
 import SharedLocationLanding from "@/pages/SharedLocationLanding";
 import SharedRouteLanding from "@/pages/SharedRouteLanding";
+import MapTest from "@/pages/MapTest";
 import WreckReviewAdmin from "@/pages/WreckReviewAdmin";
 
 // Loading spinner
@@ -81,6 +82,7 @@ function AppRoot() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/share" element={<SharedLocationLanding />} />
         <Route path="/share/route" element={<SharedRouteLanding />} />
+        <Route path="/maptest" element={<MapTest />} />
 
         {/* Protected routes */}
         <Route path="/wreck-review" element={
