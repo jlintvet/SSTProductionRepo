@@ -39,11 +39,13 @@ async function loadMask() {
   } catch { return null; }
 }
 
-function fadeExpr(fadeOn) {
-  // expression evaluated in GL zoom units (leaflet zoom - 1)
-  return fadeOn
-    ? ["interpolate", ["linear"], ["zoom"], FADE_START_LZ - 1, SST_OPACITY, FADE_END_LZ - 1, 0]
-    : SST_OPACITY;
+// NOTE: zoom-interpolate expressions on raster-opacity render invisible under
+// mapbox-gl-leaflet (verified in spike). Fade is driven from JS with plain numbers.
+function opacityFor(leafletZoom, fadeOn) {
+  if (!fadeOn) return SST_OPACITY;
+  if (leafletZoom <= FADE_START_LZ) return SST_OPACITY;
+  if (leafletZoom >= FADE_END_LZ) return 0;
+  return SST_OPACITY * (1 - (leafletZoom - FADE_START_LZ) / (FADE_END_LZ - FADE_START_LZ));
 }
 
 export default function MapTest() {
@@ -90,7 +92,14 @@ export default function MapTest() {
       const lz = map.getZoom();
       setZoomLabel(`Leaflet z ${lz.toFixed(2)}  |  GL z ${(lz - 1).toFixed(2)}`);
     };
+    const onZoomFade = () => {
+      const glMap = glLayerRef.current?.getMapboxMap?.();
+      if (glMap && glMap.getLayer && glMap.getLayer("sst-img")) {
+        glMap.setPaintProperty("sst-img", "raster-opacity", opacityFor(map.getZoom(), fadeRef.current));
+      }
+    };
     map.on("zoomend zoom move", onZoom);
+    map.on("zoom zoomend", onZoomFade);
     onZoom();
 
     // demo Leaflet markers — proves existing Leaflet overlays still sit on top
@@ -177,7 +186,7 @@ export default function MapTest() {
         {
           id: "sst-img", type: "raster", source: "sst-img",
           paint: {
-            "raster-opacity": fadeExpr(fadeRef.current),
+            "raster-opacity": opacityFor(mapRef.current ? mapRef.current.getZoom() : 7, fadeRef.current),
             "raster-fade-duration": 0,
             "raster-resampling": "linear",
           },
@@ -188,7 +197,6 @@ export default function MapTest() {
       glMap.on("error", (e) => console.error("[SPIKE GL ERROR]", e?.error?.message || e));
       const src = glMap.getSource("sst-img");
       console.log("[SPIKE] SST inserted before layer:", beforeId, "| source ok:", !!src, "| url:", d.dataURL.slice(0, 40));
-      glMap.on("data", (e) => { if (e.sourceId === "sst-img") console.log("[SPIKE] sst-img data event:", e.dataType, e.isSourceLoaded); });
     };
     if (glMap.isStyleLoaded()) doInsert();
     else glMap.once("idle", doInsert);
@@ -238,7 +246,7 @@ export default function MapTest() {
   useEffect(() => {
     const glMap = glLayerRef.current?.getMapboxMap?.();
     if (glMap && glMap.getLayer && glMap.getLayer("sst-img")) {
-      glMap.setPaintProperty("sst-img", "raster-opacity", fadeExpr(fade));
+      glMap.setPaintProperty("sst-img", "raster-opacity", opacityFor(mapRef.current ? mapRef.current.getZoom() : 7, fade));
     }
   }, [fade]);
 
