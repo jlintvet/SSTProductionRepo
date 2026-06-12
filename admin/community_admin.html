@@ -165,7 +165,7 @@ tr:hover td{background:#1e293b}
     <div class="pill amber">Flagged <span id="statFlagged">—</span></div>
     <div class="pill cyan">Tips today <span id="statTipsToday">—</span></div>
     <div class="pill green">Tips total <span id="statTipsAll">—</span></div>
-    <button id="bathyBtn" class="btn btn-slate btn-sm" onclick="toggleBathy()" style="margin-left:4px">Bathy off</button>
+    <button id="bathyBtn" class="btn btn-slate btn-sm" onclick="toggleBathy()" style="margin-left:4px;background:#1e40af;border-color:#3b82f6;color:#bfdbfe">Bathy on</button>
     <div id="tokenWrap">
       <input id="tokenInput" type="password" placeholder="GitHub token" autocomplete="off"/>
       <button id="signOutBtn" class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
@@ -481,7 +481,7 @@ function initMap() {
   loadBathy();
 }
 
-let bathyLayer = null, bathyOn = false;
+let bathyLayer = null, bathyOn = true;
 function bathyStyle(ft) {
   const d = ft.properties?.depth_ft ?? 0;
   if (ft.properties?.shelf_break) return { color:'#38bdf8', weight:1.5, opacity:0.7 };
@@ -931,6 +931,4 @@ async function commitPrizes() {
 }
 
 // ── GitHub helpers ────────────────────────────────────────────────────────────
-const ghHeaders = tok => ({ 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' });
-
-// ── Modal ──
+const ghHeaders = tok => ({ 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-T
