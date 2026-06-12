@@ -235,7 +235,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
   return (
     <div className="flex-shrink-0 bg-white border-t border-slate-200 shadow-inner"
-         style={{ height: collapsed ? "40px" : "300px", transition: "height 0.15s",
+         style={{ height: collapsed ? "40px" : "220px", transition: "height 0.15s",
                   position: "relative", zIndex: 1100 }}>
 
       {/* ── Header row 1: route name + collapse + close ── */}
@@ -430,7 +430,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
       {/* ── Body ── */}
       {!collapsed && (
-        <div className="overflow-auto" style={{ height: "180px", overflowX: "hidden" }}>
+        <div className="overflow-auto" style={{ height: "100px", overflowX: "hidden" }}>
           {waypoints.length === 0 ? (
             <div className="flex items-center justify-center h-full text-slate-400 text-xs">
               Click the map to add waypoints

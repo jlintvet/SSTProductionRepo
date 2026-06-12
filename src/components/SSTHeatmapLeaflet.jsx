@@ -2034,13 +2034,15 @@ export default function SSTHeatmapLeaflet(props) {
   // ── Wind raster ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!mapReady || !map || !windActive || !windData?.hours?.length) return;
+    if (!mapReady || !map) return;
+    // Always clear raster on re-run — prevents stale wind overlay leaking onto CHL/ALT layers
+    if (windRasterOverlayRef.current) { map.removeLayer(windRasterOverlayRef.current); windRasterOverlayRef.current = null; }
+    if (!windActive || !windData?.hours?.length) return;
     const hourData = windData.hours[windHourIndex] ?? windData.hours[0];
     if (!hourData?.velocityJSON) return;
     const maxSpd = windData.maxSpeed ?? 30;
     if (velocityLayerRef.current?.setData) velocityLayerRef.current.setData(hourData.velocityJSON);
     if (isWindMap && hourData.grid?.length) {
-      if (windRasterOverlayRef.current) { map.removeLayer(windRasterOverlayRef.current); windRasterOverlayRef.current = null; }
       const wLats = windData.grid?.lats ?? [], wLons = windData.grid?.lons ?? [];
       const WSTEP = wLats.length > 1 ? Math.abs(wLats[0] - wLats[1]) : 0.25;
       const snapWind = v => Math.round(Math.round(v / WSTEP) * WSTEP * 100000) / 100000;
@@ -2062,13 +2064,15 @@ export default function SSTHeatmapLeaflet(props) {
       }
       const speedGrid = {};
       latSet.forEach(lat => lonSet.forEach(lon => { const v = windSpeed(lat, lon); if (v != null) speedGrid[`${lat}_${lon}`] = v; }));
+      let cancelled = false;
       Promise.resolve(gridToDataURL(latSet, lonSet, speedGrid, 0, maxSpd, windSpeedColor, waterMaskRef.current)).then(result => {
-        if (!result || !mapRef.current) return;
+        if (cancelled || !result || !mapRef.current) return;
         const { dataURL, west, east, north, south } = result;
         blobUrlsRef.current.push(dataURL);
         const raster = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.82, interactive: false });
         raster.addTo(mapRef.current); windRasterOverlayRef.current = raster;
       });
+      return () => { cancelled = true; };
     }
   }, [mapReady, windActive, windData, windHourIndex, isWindMap, waterMaskVersion]);
 

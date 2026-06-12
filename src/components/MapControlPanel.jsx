@@ -150,23 +150,12 @@ function SubSourceBtn({ active, onClick, children }) {
   );
 }
 
-function ToolBtn({ active, onClick, color = "sky", children }) {
-  const activeColors = {
-    sky:    "bg-sky-700 text-white border-sky-700",
-    amber:  "bg-amber-700 text-white border-amber-700",
-    cyan:   "bg-cyan-600 text-white border-cyan-600",
-    blue:   "bg-blue-700 text-white border-blue-700",
-    violet: "bg-violet-600 text-white border-violet-600",
-    green:  "bg-green-600 text-white border-green-600",
-    emerald:"bg-emerald-600 text-white border-emerald-600",
-    slate:  "bg-slate-700 text-white border-slate-700",
-    indigo: "bg-indigo-600 text-white border-indigo-600",
-  };
+function ToolBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1.5 rounded-lg border text-left transition-colors ${
-        active ? activeColors[color] ?? activeColors.sky : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+        active ? "bg-cyan-700 text-white border-cyan-700" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
       }`}
     >
       {children}
@@ -323,7 +312,7 @@ export default function MapControlPanel({
   const hbtn = (id) => (
     <button
       onClick={() => setHelpOpen(o => o === id ? null : id)}
-      className={`px-2 rounded-lg border text-[12px] font-bold transition-colors flex-shrink-0 ${
+      className={`w-[22px] h-[22px] flex items-center justify-center rounded border text-[11px] font-bold transition-colors flex-shrink-0 ${
         helpOpen === id
           ? "bg-slate-200 border-slate-400 text-slate-700"
           : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"
@@ -743,13 +732,7 @@ export default function MapControlPanel({
       <SectionHeader title="Community" open={openSections.community} onToggle={() => toggleSection("community")} />
       {openSections.community && (
         <div className="flex flex-col gap-1.5 px-2 pb-2">
-          {communityAccess && !communityAccess.hasAccess && (
-            <div className="text-[10px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5 leading-tight">
-              {communityAccess.neverPosted
-                ? "Post your first catch to unlock reports"
-                : `Last post ${communityAccess.daysSinceLastPost}d ago — post to keep access`}
-            </div>
-          )}
+
           {communityAccess?.hasAccess && (
             <div className="text-[10px] text-emerald-600 font-medium px-1">Access active</div>
           )}
