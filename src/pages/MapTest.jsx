@@ -184,7 +184,11 @@ export default function MapTest() {
         },
         beforeId
       );
-      console.log("[SPIKE] SST inserted before layer:", beforeId);
+      window.__glMap = glMap;
+      glMap.on("error", (e) => console.error("[SPIKE GL ERROR]", e?.error?.message || e));
+      const src = glMap.getSource("sst-img");
+      console.log("[SPIKE] SST inserted before layer:", beforeId, "| source ok:", !!src, "| url:", d.dataURL.slice(0, 40));
+      glMap.on("data", (e) => { if (e.sourceId === "sst-img") console.log("[SPIKE] sst-img data event:", e.dataType, e.isSourceLoaded); });
     };
     if (glMap.isStyleLoaded()) doInsert();
     else glMap.once("idle", doInsert);
