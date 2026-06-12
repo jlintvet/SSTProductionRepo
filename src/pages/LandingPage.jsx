@@ -64,6 +64,9 @@ const STANDARD_FEATURES = [
 
 const PRO_FEATURES = [
   "Everything in Standard, plus:",
+  "Share locations & routes with other anglers",
+  "Trip planning — multi-waypoint with ETA",
+  "Real-time GPS tracking",
   "Fishing hotspot scoring & map",
   "Isotherm (temp break) overlay",
   "Color gain control",
@@ -71,9 +74,6 @@ const PRO_FEATURES = [
   "Wind overlay on map",
   "Sea level anomaly (altimetry) overlay",
   "Wreck & bottom structure locations",
-  "Trip planning & route saving",
-  "Location & route sharing",
-  "Real-time GPS tracking",
   "Community pins — 90-day visibility window",
 ];
 
@@ -138,7 +138,7 @@ function AuthForm() {
       <h3 style={{ margin: "0 0 8px", color: DARK }}>Check your email</h3>
       <p style={{ color: "#64748b", fontSize: 14, margin: "0 0 16px" }}>
         We sent a confirmation link to <strong>{email}</strong>.<br/>
-        Click it to activate your account and start your 14-day Pro trial.
+        Click it to activate your account and start your 30-day Pro trial.
       </p>
       <button style={{ ...btn, background: "#64748b" }} onClick={() => { setSent(false); setMode("login"); }}>
         Back to sign in
@@ -204,7 +204,7 @@ function AuthForm() {
 
       {mode === "register" && (
         <p style={{ fontSize: 13, color: "#0e7490", background: "#f0f9ff", borderRadius: 8, padding: "8px 12px", margin: "0 0 14px", textAlign: "center" }}>
-          14-day free Pro trial - no credit card required
+          30-day free Pro trial - no credit card required
         </p>
       )}
 
@@ -336,7 +336,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
         }}>
           <h2 style={{ margin: "0 0 6px", fontSize: 20, color: DARK }}>Get started free</h2>
           <p style={{ margin: "0 0 20px", fontSize: 14, color: "#64748b" }}>
-            Free accounts include SST data, NOAA weather, and full community access. New accounts get a 14-day Pro trial.
+            Free accounts include SST data, NOAA weather, and full community access. New accounts get a 30-day Pro trial.
           </p>
           <AuthForm />
         </div>
@@ -359,7 +359,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
             />
           </div>
           <p style={{ margin: "20px 0 0", fontSize: 13, color: "#94a3b8", textAlign: "center" }}>
-            New accounts get a 14-day Pro trial. No credit card required.
+            New accounts get a 30-day Pro trial. No credit card required.
           </p>
         </div>
       </div>

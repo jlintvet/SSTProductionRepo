@@ -1,6 +1,6 @@
 // src/hooks/useRegionAccess.js
 // tier values in user_profiles: "trial" | "standard" | "pro"
-// isPro = trial or pro (trial gets full Pro access for 14 days)
+// isPro = trial or pro (trial gets full Pro access for 30 days)
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_REGION } from "@/config/regionConfig";
@@ -41,7 +41,7 @@ export function useRegionAccess() {
           console.warn("[useRegionAccess] No user_profiles row — defaulting to trial.");
           setPermittedRegions([DEFAULT_REGION]);
           setRegion(DEFAULT_REGION);
-          setDaysLeft(14);
+          setDaysLeft(30);
           setIsExpired(false);
           setTier("trial");
           setIsPro(true);
@@ -67,7 +67,7 @@ export function useRegionAccess() {
             setIsExpired(days === 0);
             if (days === 0) setIsPro(false); // trial expired → downgrade to standard
           } else {
-            setDaysLeft(14);
+            setDaysLeft(30);
             setIsExpired(false);
           }
         } else if (profile.subscription_status === "cancelled") {

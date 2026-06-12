@@ -1028,10 +1028,14 @@ export default function SSTHeatmapLeaflet(props) {
     if (!showCommunityLayer || !communityLocations?.length) return;
 
     communityLocations.forEach(loc => {
-      const isLive = loc.type === "live";
+      const isLive    = loc.type === "live";
+      // Pulse ring only shown for first 48h after creation
+      const isPulsing = isLive && (Date.now() - new Date(loc.created_at).getTime()) < 48 * 3600000;
       const color  = isLive ? "#84cc16" : "#00d4ff";
       const html = isLive
-        ? `<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,0.75);animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#84cc16;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
+        ? isPulsing
+          ? `<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,0.75);animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#84cc16;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
+          : `<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#84cc16;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
         : `<div style="width:12px;height:12px;border-radius:50%;background:#00d4ff;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
       const icon   = L.divIcon({ className: "", iconSize: isLive ? [24,24] : [12,12], iconAnchor: isLive ? [12,12] : [6,6], html });
       const marker = L.marker([loc.lat, loc.lon], { icon, zIndexOffset: 950 });
@@ -3306,7 +3310,8 @@ export default function SSTHeatmapLeaflet(props) {
             const rawL = px + 14;
             const popL = rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL;
             const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H - 8);
-            const isLive = pin.type === "live";
+            const isLive    = pin.type === "live";
+            const isPulsing = isLive && (Date.now() - new Date(pin.created_at).getTime()) < 48 * 3600000;
             const speciesList = (pin.species || []).map(s =>
               ({ yellowfin:"Yellowfin", blackfin:"Blackfin", bluefin:"Bluefin",
                  mahi:"Mahi", white_marlin:"White Marlin", blue_marlin:"Blue Marlin", wahoo:"Wahoo" }[s] || s)
@@ -3375,7 +3380,8 @@ export default function SSTHeatmapLeaflet(props) {
                     <div className="flex items-center gap-1.5 mb-0.5">
                       {isLive && (
                         <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"/>LIVE
+                          {isPulsing && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"/>}
+                          LIVE
                         </span>
                       )}
                       <span className="font-semibold text-slate-700">{pin.display_name}</span>
