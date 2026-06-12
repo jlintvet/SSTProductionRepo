@@ -75,11 +75,13 @@ Read this file at the start of every session and before any multi-step task.
 | Viewport fill-zoom, grey-bar bugs, Mercator center math | `docs/map_viewport_nuances.md` |
 | Weather forecast display, departure location selection | `docs/weather-and-location-display.md` |
 | Community reports feature spec, UX flows, access rules | `community-reports-requirements.md` |
+| Control panel sections, props, help system, button rules | `docs/map_control_panel.md` |
 
 **Rule:** Before making changes to any of the following areas, read the corresponding doc:
 - Anything touching `SSTHeatmapLeaflet.jsx` viewport, zoom, or overlay rendering → read `SST_RENDERING.md` and `docs/map_viewport_nuances.md`
 - Anything touching community pins, access gates, leaderboard, tips → read `community-reports-requirements.md`
 - Anything touching weather widget or departure location → read `docs/weather-and-location-display.md`
+- Anything touching `MapControlPanel.jsx` → read `docs/map_control_panel.md`
 
 ---
 
@@ -105,4 +107,4 @@ Read this file at the start of every session and before any multi-step task.
 - DB column is `is_flagged` (not `flagged`) on `community_locations`.
 - Access gate: post within 30 days OR isPro → `hasAccess: true`.
 - Pin types: `live` (5000 pts, 24h expiry) and `report` (1000 pts, 7d expiry).
-- When `onPostCommunityReport` is called **without** lat/lon (from control panel), enter `communityPinDrop` mode — show banner, crosshair cursor, intercept next map click
+- 
