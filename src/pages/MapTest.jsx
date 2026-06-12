@@ -182,6 +182,7 @@ export default function MapTest() {
     });
     map.setView([36.3, -75.5], 7);
     mapRef.current = map;
+    window.__lmap = map; // debug handle for testing
 
     const onZoom = () => {
       const lz = map.getZoom();
