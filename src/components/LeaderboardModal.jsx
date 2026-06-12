@@ -1,12 +1,11 @@
 // src/components/LeaderboardModal.jsx
-// Top Anglers leaderboard — visible to all registered users.
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { X } from "lucide-react";
 
 export default function LeaderboardModal({ onClose }) {
-  const [period,  setPeriod]  = useState("month"); // "month" | "alltime"
+  const [period,  setPeriod]  = useState("month");
   const [rows,    setRows]    = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,55 +17,35 @@ export default function LeaderboardModal({ onClose }) {
       let locQuery = supabase
         .from("community_locations")
         .select("user_id, display_name, type, points_awarded, created_at");
-
       if (period === "month") {
-        locQuery = locQuery.gte(
-          "created_at",
-          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-        );
+        locQuery = locQuery.gte("created_at",
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       }
-
       const { data: locs, error: locErr } = await locQuery;
       if (locErr) throw locErr;
 
       const map = {};
       (locs || []).forEach(l => {
         if (!map[l.user_id]) {
-          map[l.user_id] = {
-            user_id:      l.user_id,
-            display_name: l.display_name,
-            points:       0,
-            reports:      0,
-            lives:        0,
-            tips_cents:   0,
-          };
+          map[l.user_id] = { user_id: l.user_id, display_name: l.display_name,
+            points: 0, reports: 0, lives: 0, tips_cents: 0 };
         }
         map[l.user_id].points += l.points_awarded || 0;
         if (l.type === "live") map[l.user_id].lives++;
         else map[l.user_id].reports++;
       });
 
-      let tipQuery = supabase
-        .from("community_tips")
-        .select("recipient_user_id, amount_cents");
+      let tipQuery = supabase.from("community_tips").select("recipient_user_id, amount_cents");
       if (period === "month") {
-        tipQuery = tipQuery.gte(
-          "created_at",
-          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-        );
+        tipQuery = tipQuery.gte("created_at",
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       }
       const { data: tips } = await tipQuery;
       (tips || []).forEach(t => {
-        if (map[t.recipient_user_id]) {
-          map[t.recipient_user_id].tips_cents += t.amount_cents || 0;
-        }
+        if (map[t.recipient_user_id]) map[t.recipient_user_id].tips_cents += t.amount_cents || 0;
       });
 
-      setRows(
-        Object.values(map)
-          .sort((a, b) => b.points - a.points)
-          .slice(0, 25)
-      );
+      setRows(Object.values(map).sort((a, b) => b.points - a.points).slice(0, 25));
     } catch (err) {
       console.error("[LeaderboardModal]", err);
     } finally {
@@ -74,134 +53,169 @@ export default function LeaderboardModal({ onClose }) {
     }
   }
 
+  const rankColor = i => i === 0 ? "#F59E0B" : i === 1 ? "#94A3B8" : i === 2 ? "#B45309" : null;
+  const rankLabel = i => i === 0 ? "1st" : i === 1 ? "2nd" : i === 2 ? "3rd" : `${i + 1}`;
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9600] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.5)" }}
+      style={{ background: "rgba(0,0,0,0.72)" }}
       onClick={onClose}
     >
       <div
-        className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ maxHeight: "88vh" }}
+        className="w-full flex flex-col overflow-hidden"
+        style={{ maxWidth: 460, maxHeight: "92vh", borderRadius: 20,
+          boxShadow: "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)" }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100 flex-shrink-0">
-          <span className="font-semibold text-slate-800 text-sm">Community Leaders</span>
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
-              <button
-                onClick={() => setPeriod("month")}
-                className={`px-3 py-1 font-medium transition-colors ${
-                  period === "month" ? "bg-cyan-600 text-white" : "text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                This Month
-              </button>
-              <button
-                onClick={() => setPeriod("alltime")}
-                className={`px-3 py-1 font-medium transition-colors ${
-                  period === "alltime" ? "bg-cyan-600 text-white" : "text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                All Time
-              </button>
+        {/* ── Hero image + title ─────────────────────────────────────── */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <img
+            src="/nomad_DTX_200_ref.png"
+            alt="Nomad DTX 200"
+            style={{ width: "100%", display: "block",
+              height: 200, objectFit: "cover", objectPosition: "center 40%" }}
+          />
+          {/* dark gradient overlay */}
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.88) 100%)",
+          }} />
+          {/* close button */}
+          <button
+            onClick={onClose}
+            style={{ position: "absolute", top: 12, right: 12, zIndex: 10,
+              background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 8, color: "#fff", width: 30, height: 30,
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+          {/* title block */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 20px 16px" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+              color: "#06b6d4", textTransform: "uppercase", marginBottom: 4 }}>
+              SST Fishing — Community
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1">
-              <X className="w-4 h-4" />
-            </button>
+            <div style={{ fontSize: 26, fontWeight: 800, color: "#fff",
+              letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+              Community Leaders
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>
+              Sponsored by Nomad Tackle · DTX 200 Offshore Series
+            </div>
           </div>
         </div>
 
-        {/* Column headers */}
-        {!loading && rows.length > 0 && (
-          <div className="flex items-center gap-3 px-5 py-1.5 bg-slate-50 border-b border-slate-100 flex-shrink-0">
-            <div className="w-6 flex-shrink-0" />
-            <div className="flex-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Angler</div>
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide text-right w-16">Points</div>
-          </div>
-        )}
+        {/* ── Period tabs ────────────────────────────────────────────── */}
+        <div style={{ background: "#0f172a", padding: "12px 20px", flexShrink: 0,
+          display: "flex", gap: 8, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          {[["month", "This Month"], ["alltime", "All Time"]].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setPeriod(val)}
+              style={{
+                flex: 1, padding: "7px 0", borderRadius: 8, fontWeight: 700,
+                fontSize: 12, border: "none", cursor: "pointer", transition: "all 0.15s",
+                background: period === val ? "#06b6d4" : "rgba(255,255,255,0.07)",
+                color: period === val ? "#fff" : "rgba(255,255,255,0.45)",
+                letterSpacing: "0.01em",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-        {/* Rows */}
-        <div className="flex-1 overflow-y-auto">
+        {/* ── Leaderboard rows ───────────────────────────────────────── */}
+        <div style={{ background: "#0f172a", flex: 1, overflowY: "auto" }}>
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-5 h-5 border-2 border-slate-200 border-t-cyan-500 rounded-full animate-spin" />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 0" }}>
+              <div className="w-6 h-6 border-2 border-slate-700 border-t-cyan-500 rounded-full animate-spin" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="text-center text-slate-400 text-sm py-12 px-4">
+            <div style={{ textAlign: "center", color: "rgba(255,255,255,0.3)",
+              fontSize: 13, padding: "48px 24px" }}>
               No reports yet — be the first angler on the board!
             </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {rows.map((r, i) => (
-                <div
-                  key={r.user_id}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
-                >
-                  {/* Rank */}
-                  <div className="w-6 text-center flex-shrink-0">
-                    <span className={`text-xs font-bold ${
-                      i === 0 ? "text-amber-500" : i === 1 ? "text-slate-400" : i === 2 ? "text-amber-700" : "text-slate-400"
-                    }`}>{i + 1}</span>
-                  </div>
+          ) : rows.map((r, i) => {
+            const isTop3 = i < 3;
+            const color  = rankColor(i);
+            return (
+              <div
+                key={r.user_id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 14,
+                  padding: isTop3 ? "14px 20px" : "10px 20px",
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                  background: isTop3
+                    ? `linear-gradient(to right, ${color}10, transparent)`
+                    : "transparent",
+                }}
+              >
+                {/* Rank */}
+                <div style={{ width: 36, flexShrink: 0, textAlign: "center" }}>
+                  {isTop3 ? (
+                    <div style={{ display: "inline-block", background: color + "22",
+                      border: `1px solid ${color}55`, borderRadius: 6,
+                      padding: "2px 6px", fontSize: 11, fontWeight: 800,
+                      color: color, letterSpacing: "0.03em" }}>
+                      {rankLabel(i)}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, fontWeight: 600,
+                      color: "rgba(255,255,255,0.25)" }}>{i + 1}</span>
+                  )}
+                </div>
 
-                  {/* Name + stats */}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-slate-800 text-sm truncate">
-                      {r.display_name}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 flex-wrap">
-                      {r.reports > 0 && (
-                        <span>{r.reports} report{r.reports !== 1 ? "s" : ""}</span>
-                      )}
-                      {r.lives > 0 && (
-                        <span className="text-emerald-500">{r.lives} live</span>
-                      )}
-                      {r.tips_cents > 0 && (
-                        <span className="text-amber-500">
-                          ${(r.tips_cents / 100).toFixed(0)} tipped
-                        </span>
-                      )}
-                    </div>
+                {/* Name + sub-stats */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: isTop3 ? 14 : 13, fontWeight: isTop3 ? 700 : 600,
+                    color: isTop3 ? "#fff" : "rgba(255,255,255,0.8)",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.display_name || "Anonymous"}
                   </div>
-
-                  {/* Points */}
-                  <div className="text-right flex-shrink-0 w-16">
-                    <div className="text-sm font-bold text-cyan-600">
-                      {r.points.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-slate-400">pts</div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                    {r.reports > 0 && (
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+                        {r.reports} report{r.reports !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {r.lives > 0 && (
+                      <span style={{ fontSize: 10, color: "#4ade80" }}>
+                        {r.lives} live
+                      </span>
+                    )}
+                    {r.tips_cents > 0 && (
+                      <span style={{ fontSize: 10, color: "#fbbf24" }}>
+                        ${(r.tips_cents / 100).toFixed(0)} tipped
+                      </span>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Points */}
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: isTop3 ? 16 : 14, fontWeight: 800,
+                    color: isTop3 ? color || "#06b6d4" : "rgba(255,255,255,0.6)",
+                    fontVariantNumeric: "tabular-nums" }}>
+                    {r.points.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)",
+                    fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    pts
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Sponsor banner */}
-        <div className="border-t border-slate-100 flex-shrink-0 bg-slate-50">
-          <div className="flex items-center gap-4 px-5 py-4">
-            <img
-              src="/nomad_DTX_200_ref.png"
-              alt="Nomad DTX 200"
-              className="w-24 h-auto object-contain flex-shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700 leading-snug mb-0.5">
-                Every point is one shot to win this month's Community Angler prize.
-              </p>
-              <p className="text-[10px] text-slate-400">
-                This month brought to you by Nomad.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50 flex-shrink-0">
-          <p className="text-[10px] text-slate-400 text-center">
-            Post a catch report to earn points and appear on this board
+        {/* ── Footer CTA ─────────────────────────────────────────────── */}
+        <div style={{ background: "#0c1422", borderTop: "1px solid rgba(255,255,255,0.07)",
+          padding: "12px 20px", flexShrink: 0, textAlign: "center" }}>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: 0 }}>
+            Drop a live pin or catch report to earn points and climb the board
           </p>
         </div>
       </div>
