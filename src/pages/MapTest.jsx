@@ -71,13 +71,6 @@ let leafletZoomGetter = null;
 function updateLandMask(glMap) {
   try {
     if (!landMaskEnabled || !glMap.getLayer("sst-img")) return;
-    // Windy-style: once the SST layer has faded out on zoom-in, the basemap
-    // takes over entirely — hide the mask instead of recomputing it.
-    const lz = leafletZoomGetter ? leafletZoomGetter() : null;
-    if (lz !== null && lz >= FADE_END_LZ) {
-      if (glMap.getLayer("land-mask")) glMap.setLayoutProperty("land-mask", "visibility", "none");
-      return;
-    }
     if (glMap.getLayer("land-mask")) glMap.setLayoutProperty("land-mask", "visibility", "visible");
     lastMaskKey = maskKey(glMap);
     const b = glMap.getBounds();
@@ -144,6 +137,51 @@ function updateLandMask(glMap) {
   } catch (err) { console.error("[SPIKE] land mask failed:", err); }
 }
 
+// Iterative dilation fill: extrapolates SST into no-data cells (cloud gaps,
+// nearshore dropout) by averaging valid neighbors. Display-only. The ocean
+// mask still clips per-pixel at render time, so fill never paints onto land.
+function dilateFill(latSet, lonSet, grid, maxIter = 120) {
+  const R = latSet.length, C = lonSet.length;
+  const vals = new Float32Array(R * C);
+  const has = new Uint8Array(R * C);
+  for (let r = 0; r < R; r++) {
+    for (let c = 0; c < C; c++) {
+      const v = grid[`${latSet[r]}_${lonSet[c]}`];
+      if (v !== undefined && v !== null) { vals[r * C + c] = v; has[r * C + c] = 1; }
+    }
+  }
+  for (let it = 0; it < maxIter; it++) {
+    const nv = new Float32Array(vals);
+    const nh = new Uint8Array(has);
+    let filled = 0;
+    for (let r = 0; r < R; r++) {
+      for (let c = 0; c < C; c++) {
+        const i = r * C + c;
+        if (has[i]) continue;
+        let s = 0, k = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+          const rr = r + dr; if (rr < 0 || rr >= R) continue;
+          for (let dc = -1; dc <= 1; dc++) {
+            const cc = c + dc; if (cc < 0 || cc >= C) continue;
+            const j = rr * C + cc;
+            if (has[j]) { s += vals[j]; k++; }
+          }
+        }
+        if (k) { nv[i] = s / k; nh[i] = 1; filled++; }
+      }
+    }
+    vals.set(nv); has.set(nh);
+    if (!filled) break;
+  }
+  const out = {};
+  for (let r = 0; r < R; r++) {
+    for (let c = 0; c < C; c++) {
+      if (has[r * C + c]) out[`${latSet[r]}_${lonSet[c]}`] = vals[r * C + c];
+    }
+  }
+  return out;
+}
+
 function opacityFor(leafletZoom, fadeOn) {
   if (!fadeOn) return SST_OPACITY;
   if (leafletZoom <= FADE_START_LZ) return SST_OPACITY;
@@ -168,6 +206,7 @@ export default function MapTest() {
   const [basemap, setBasemap] = useState("vector");   // vector | carto
   const [fade, setFade] = useState(true);
   const [landMaskOn, setLandMaskOn] = useState(false);
+  const [gapFill, setGapFill] = useState(true);
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -175,6 +214,8 @@ export default function MapTest() {
   const cartoLayerRef = useRef(null);
   const topOverlayRef = useRef(null);
   const dataRef = useRef(null); // { url, west,east,north,south }
+  const rawRef = useRef(null);  // { latSet, lonSet, grid, mask, mn, mx }
+  const gapFillRef = useRef(true);
   const fadeRef = useRef(fade);
   fadeRef.current = fade;
 
@@ -237,10 +278,9 @@ export default function MapTest() {
         vals.sort((a, b) => a - b);
         const mn = vals[Math.floor(vals.length * 0.02)];
         const mx = vals[Math.floor(vals.length * 0.98)];
-        const res = await gridToDataURL(latSet, lonSet, grid, mn, mx, null, mask);
+        rawRef.current = { latSet, lonSet, grid, mask, mn, mx };
+        const res = await renderSstImage(gapFillRef.current);
         if (!res) { setStatus("render failed"); return; }
-        res.dataURL = await solidify(res.dataURL);
-        dataRef.current = res;
 
         // hard pan/zoom clamp to the SST data bounds
         const b = L.latLngBounds([[res.south, res.west], [res.north, res.east]]);
@@ -367,6 +407,34 @@ export default function MapTest() {
     }
   }
 
+  async function renderSstImage(fill) {
+    const raw = rawRef.current;
+    if (!raw) return null;
+    const g = fill ? dilateFill(raw.latSet, raw.lonSet, raw.grid) : raw.grid;
+    const res = await gridToDataURL(raw.latSet, raw.lonSet, g, raw.mn, raw.mx, null, raw.mask);
+    if (!res) return null;
+    res.dataURL = await solidify(res.dataURL);
+    dataRef.current = res;
+    return res;
+  }
+
+  useEffect(() => {
+    gapFillRef.current = gapFill;
+    if (!rawRef.current) return;
+    (async () => {
+      const d = await renderSstImage(gapFill);
+      if (!d) return;
+      const glMap = glLayerRef.current?.getMapboxMap?.();
+      const src = glMap?.getSource?.("sst-img");
+      if (src) {
+        src.updateImage({ url: d.dataURL, coordinates: [[d.west, d.north], [d.east, d.north], [d.east, d.south], [d.west, d.south]] });
+        glMap.triggerRepaint();
+      }
+      if (topOverlayRef.current) topOverlayRef.current.setUrl(d.dataURL);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gapFill]);
+
   useEffect(() => { applyLayers(); /* eslint-disable-line */ }, [sstMode, basemap]);
 
   useEffect(() => {
@@ -439,6 +507,10 @@ export default function MapTest() {
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <button style={btn(landMaskOn)} onClick={() => setLandMaskOn(true)}>Land mask on</button>
           <button style={btn(!landMaskOn)} onClick={() => setLandMaskOn(false)}>Mask off</button>
+        </div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <button style={btn(gapFill)} onClick={() => setGapFill(true)}>Gap fill on</button>
+          <button style={btn(!gapFill)} onClick={() => setGapFill(false)}>Fill off</button>
         </div>
         <div style={{ color: "#475569", fontSize: 11, lineHeight: 1.5 }}>
           {status}<br />{zoomLabel}<br />
