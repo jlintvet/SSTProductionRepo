@@ -57,8 +57,10 @@ async function solidify(blobUrl) {
 }
 
 // Land mask rasterized from the basemap's own rendered water polygons.
-// Same geometry as the tiles -> exact coastline alignment. Canvas fill is
-// ~instant vs turf boolean ops (which froze the page on complex coasts).
+// Same geometry as the tiles -> exact coastline alignment. Delivered as a GL
+// image source via blob URL (canvas sources with play/pause spin the render
+// loop when rAF is throttled).
+let landMaskUrl = null;
 function updateLandMask(glMap) {
   try {
     if (!glMap.getLayer("sst-img")) return;
@@ -67,13 +69,12 @@ function updateLandMask(glMap) {
     const padY = (b.getNorth() - b.getSouth()) * 0.15;
     const w = b.getWest() - padX, e = b.getEast() + padX;
     const s = Math.max(-85, b.getSouth() - padY), n = Math.min(85, b.getNorth() + padY);
-    const W = 2048, H = 2048;
+    const W = 1536, H = 1536;
     const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
     const mN = mercY(n), mS = mercY(s);
     const px = (lon) => ((lon - w) / (e - w)) * W;
     const py = (lat) => ((mN - mercY(lat)) / (mN - mS)) * H;
-    if (!window.__landCanvas) window.__landCanvas = document.createElement("canvas");
-    const canvas = window.__landCanvas;
+    const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
     let landColor = "#f7f7f5";
@@ -82,7 +83,6 @@ function updateLandMask(glMap) {
       const c = glMap.getPaintProperty(bg.id, "background-color");
       if (typeof c === "string") landColor = c;
     } catch (_) {}
-    ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = landColor;
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = "destination-out";
@@ -103,21 +103,28 @@ function updateLandMask(glMap) {
         ctx.fill();
       }
     }
-    ctx.globalCompositeOperation = "source-over";
     const coords = [[w, n], [e, n], [e, s], [w, s]];
-    const src = glMap.getSource("land-mask-src");
-    if (!src) {
-      glMap.addSource("land-mask-src", { type: "canvas", canvas, coordinates: coords, animate: false });
-      const layers = glMap.getStyle().layers;
-      const si = layers.findIndex((l) => l.id === "sst-img");
-      const beforeId = si >= 0 && si + 1 < layers.length ? layers[si + 1].id : undefined;
-      glMap.addLayer({ id: "land-mask", type: "raster", source: "land-mask-src", paint: { "raster-fade-duration": 0 } }, beforeId);
-      console.log("[SPIKE] canvas land-mask inserted before", beforeId, "| water feats:", feats.length);
-    } else {
-      src.setCoordinates(coords);
-      try { src.play(); requestAnimationFrame(() => { try { src.pause(); } catch (_) {} }); } catch (_) {}
-    }
-    glMap.triggerRepaint();
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      try {
+        const src = glMap.getSource("land-mask-src");
+        if (!src) {
+          glMap.addSource("land-mask-src", { type: "image", url, coordinates: coords });
+          const layers = glMap.getStyle().layers;
+          const si = layers.findIndex((l) => l.id === "sst-img");
+          const beforeId = si >= 0 && si + 1 < layers.length ? layers[si + 1].id : undefined;
+          glMap.addLayer({ id: "land-mask", type: "raster", source: "land-mask-src", paint: { "raster-fade-duration": 0, "raster-resampling": "linear" } }, beforeId);
+          console.log("[SPIKE] land-mask (image) inserted before", beforeId, "| water feats:", feats.length);
+        } else {
+          src.updateImage({ url, coordinates: coords });
+        }
+        glMap.triggerRepaint();
+      } finally {
+        if (landMaskUrl) { const old = landMaskUrl; setTimeout(() => URL.revokeObjectURL(old), 5000); }
+        landMaskUrl = url;
+      }
+    }, "image/png");
   } catch (err) { console.error("[SPIKE] land mask failed:", err); }
 }
 
