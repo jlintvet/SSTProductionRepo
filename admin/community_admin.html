@@ -703,15 +703,32 @@ async function deletePin() {
   const pin = allPins.find(p => p.id === selectedPinId);
   if (!pin) return;
   if (!confirm(`Delete pin by "${pin.display_name}"? This cannot be undone.`)) return;
+  const statusEl = document.getElementById('editStatus');
+  statusEl.style.color = '#67e8f9'; statusEl.textContent = 'Deleting...';
   const { error } = await sb.from('community_locations').delete().eq('id', pin.id);
-  if (!error) {
-    allPins = allPins.filter(p => p.id !== selectedPinId);
-    if (markers[selectedPinId]) { map.removeLayer(markers[selectedPinId]); delete markers[selectedPinId]; }
-    selectedPinId = null;
-    document.getElementById('pinsEditEmpty').style.display = 'flex';
-    document.getElementById('pinsEditForm').style.display  = 'none';
-    renderPinList(); loadStats();
+  if (error) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Error: ' + error.message; return; }
+  // Verify the row is actually gone (RLS can silently no-op a delete)
+  const { data: check } = await sb.from('community_locations').select('id').eq('id', pin.id).maybeSingle();
+  if (check) {
+    statusEl.style.color = '#f87171';
+    statusEl.textContent = 'Delete blocked by RLS — run admin SQL policy in Supabase (see console)';
+    console.warn('Admin delete blocked by RLS. Run this SQL in Supabase:\n\n' +
+      `CREATE POLICY "Admin delete community_locations"\n` +
+      `ON community_locations FOR DELETE\n` +
+      `USING (auth.jwt() ->> 'email' IN ('jlintvet@gmail.com', 'jlintvet@butterpayments.com'));\n\n` +
+      `CREATE POLICY "Admin update community_locations"\n` +
+      `ON community_locations FOR UPDATE\n` +
+      `USING (auth.jwt() ->> 'email' IN ('jlintvet@gmail.com', 'jlintvet@butterpayments.com'))\n` +
+      `WITH CHECK (true);`
+    );
+    return;
   }
+  allPins = allPins.filter(p => p.id !== selectedPinId);
+  if (markers[selectedPinId]) { map.removeLayer(markers[selectedPinId]); delete markers[selectedPinId]; }
+  selectedPinId = null;
+  document.getElementById('pinsEditEmpty').style.display = 'flex';
+  document.getElementById('pinsEditForm').style.display  = 'none';
+  renderPinList(); loadStats();
 }
 
 // ── LEADERBOARD ──────────────────────────────────────────────────────────────
@@ -916,24 +933,4 @@ async function commitPrizes() {
 // ── GitHub helpers ────────────────────────────────────────────────────────────
 const ghHeaders = tok => ({ 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' });
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
-let progLines = [];
-function openModal(title) {
-  progLines = [];
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalLines').innerHTML   = '';
-  document.getElementById('modalClose').style.display = 'none';
-  document.getElementById('modal').classList.add('show');
-}
-function closeModal() { document.getElementById('modal').classList.remove('show'); }
-function logP(icon, text, cls='cur') {
-  progLines.push({icon, text, cls});
-  document.getElementById('modalLines').innerHTML = progLines.map(l =>
-    `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`
-  ).join('');
-}
-function updP(icon, text, cls='ok') {
-  if (!progLines.length) return;
-  Object.assign(progLines[progLines.length-1], {icon, text, cls});
-  document.getElementById('modalLines').innerHTML = progLines.map(l =>
-  
+// ── Modal ──
