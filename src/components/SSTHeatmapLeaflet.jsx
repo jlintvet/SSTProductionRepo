@@ -61,7 +61,7 @@ function SavedPanel({
 
   const posStyle = mobile
     ? { bottom: 0, zIndex: 2000, maxHeight: "38vh" }
-    : { bottom: (sliderHeight || 0) + 48, width: 240, maxHeight: "55%", zIndex: 900 };
+    : { bottom: (sliderHeight || 0) + 48, width: 290, maxHeight: "55%", zIndex: 900 };
 
   const baseClass = mobile
     ? "fixed left-0 right-0 bg-white border-t border-slate-200 shadow-xl flex flex-col"
@@ -76,13 +76,13 @@ function SavedPanel({
             onClick={() => switchTab("locations")}
             className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "locations" ? "border-orange-400 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
           >
-            My Locations
+            Locations
           </button>
           <button
             onClick={() => switchTab("routes")}
             className={`text-xs font-semibold pb-1.5 border-b-2 transition-colors ${tab === "routes" ? "border-cyan-500 text-slate-800" : "border-transparent text-slate-400 hover:text-slate-600"}`}
           >
-            My Routes
+            Routes
           </button>
           <button
             onClick={() => switchTab("community")}
@@ -3432,7 +3432,7 @@ export default function SSTHeatmapLeaflet(props) {
           ):(
             <button onClick={()=>setShowSavedPanel(true)} className="hidden sm:flex absolute left-2 bg-white border border-slate-200 rounded-full shadow-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 items-center gap-1.5" style={{bottom:sliderHeight+8,zIndex:900}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-              <span>My Locations</span>
+              <span>Locations</span>
             </button>
           )}
 

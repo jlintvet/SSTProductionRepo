@@ -740,13 +740,13 @@ export default function MapControlPanel({
             onClick={onDropLivePin}
             className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-colors"
           >
-            + Drop Live Pin
+            Drop Live Pin
           </button>
           <button
             onClick={onOpenLeaderboard}
             className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
           >
-            Top Anglers
+            Community Leaders
           </button>
         </div>
       )}
