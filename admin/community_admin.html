@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Community Admin — SST</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e2e8f0;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+
+/* ── Auth ── */
+#authScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0f172a;z-index:9999}
+.auth-box{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:32px;width:340px}
+.auth-box h2{font-size:16px;font-weight:700;margin-bottom:6px}
+.auth-box p{font-size:12px;color:#64748b;margin-bottom:20px}
+.auth-err{color:#f87171;font-size:11px;margin-top:8px;min-height:16px}
+
+/* ── App shell ── */
+#app{display:none;flex-direction:column;height:100vh}
+
+/* ── Topbar ── */
+#topbar{display:flex;align-items:center;gap:7px;padding:6px 12px;background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0;flex-wrap:wrap}
+#topbar h1{font-size:13px;font-weight:700;color:#f8fafc;margin-right:4px;white-space:nowrap}
+.pill{background:#334155;border-radius:10px;padding:2px 9px;font-size:11px;color:#94a3b8;white-space:nowrap;cursor:default}
+.pill span{color:#f8fafc;font-weight:600}
+.pill.green span{color:#86efac}.pill.amber span{color:#fbbf24}.pill.red span{color:#f87171}.pill.cyan span{color:#67e8f9}
+#tokenWrap{margin-left:auto;display:flex;align-items:center;gap:6px}
+#tokenInput{background:#334155;border:1px solid #475569;border-radius:6px;padding:4px 8px;color:#e2e8f0;font-size:12px;width:190px}
+#tokenInput::placeholder{color:#64748b}
+.btn{border:none;border-radius:6px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;transition:all .1s}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-blue{background:#2563eb;color:white}.btn-blue:hover:not(:disabled){background:#1d4ed8}
+.btn-red{background:#dc2626;color:white}.btn-red:hover:not(:disabled){background:#b91c1c}
+.btn-green{background:#16a34a;color:white}.btn-green:hover:not(:disabled){background:#15803d}
+.btn-slate{background:#334155;color:#e2e8f0}.btn-slate:hover{background:#475569}
+.btn-sm{padding:3px 9px;font-size:11px}
+.btn-amber{background:#d97706;color:white}.btn-amber:hover:not(:disabled){background:#b45309}
+
+/* ── Tabs ── */
+#tabNav{display:flex;gap:0;padding:0 12px;background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0}
+.tab-btn{padding:8px 16px;font-size:12px;font-weight:600;color:#64748b;border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tab-btn:hover{color:#cbd5e1}
+.tab-btn.active{color:#38bdf8;border-bottom-color:#38bdf8}
+
+/* ── Tab content ── */
+.tab-pane{flex:1;overflow:hidden;display:none}
+.tab-pane.active{display:flex}
+
+/* ── Input styles ── */
+.finput{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px}
+.finput:focus{outline:none;border-color:#38bdf8}
+.flabel{font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+select.finput option{background:#1e293b}
+
+/* ── PINS TAB ── */
+#pinsPane{flex:1;overflow:hidden}
+#pinsList{width:300px;flex-shrink:0;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column;overflow:hidden}
+#pinsFilterBar{padding:8px;border-bottom:1px solid #334155;display:flex;flex-direction:column;gap:5px}
+#pinsSearchInput{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px}
+#pinsSearchInput::placeholder{color:#64748b}
+.pins-filter-row{display:flex;gap:4px}
+.pins-filter-sel{flex:1;background:#334155;border:1px solid #475569;border-radius:4px;padding:3px 4px;color:#e2e8f0;font-size:11px}
+#pinsListCount{padding:4px 10px;font-size:10px;color:#64748b;border-bottom:1px solid #334155}
+#pinsListBody{flex:1;overflow-y:auto}
+.pin-item{display:flex;align-items:center;gap:7px;padding:7px 10px;border-bottom:1px solid #1e293b;cursor:pointer;transition:background .08s}
+.pin-item:hover{background:#283548}
+.pin-item.selected{background:#1d3a5c;border-left:2px solid #38bdf8}
+.pin-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pin-item-main{flex:1;min-width:0}
+.pin-item-name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pin-item-sub{font-size:10px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pin-badge{font-size:9px;padding:1px 5px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+.badge-flag{background:#7f1d1d;color:#fca5a5}
+.badge-exp{background:#1c1917;color:#78716c}
+#pinsMap{flex:1;min-width:0;position:relative}
+#leafletMap{width:100%;height:100%}
+#pinsEdit{width:290px;flex-shrink:0;background:#1e293b;border-left:1px solid #334155;display:flex;flex-direction:column;overflow:hidden}
+#pinsEditEmpty{flex:1;display:flex;align-items:center;justify-content:center;color:#475569;font-size:12px;text-align:center;padding:24px}
+#pinsEditForm{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.species-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.sp-row{display:flex;align-items:center;gap:5px;padding:3px 5px;border-radius:4px;background:#0f172a}
+.sp-row input[type=checkbox]{accent-color:#38bdf8;cursor:pointer}
+.sp-row label{font-size:11px;color:#94a3b8;flex:1;cursor:pointer}
+.sp-row input[type=number]{width:44px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;padding:2px 4px;text-align:center}
+.extend-btns{display:flex;gap:4px}
+.type-toggle{display:flex;gap:5px}
+.type-btn{flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid #334155;background:#334155;color:#94a3b8;cursor:pointer;transition:all .1s;text-align:center}
+.type-btn.live.active{background:#16a34a;border-color:#16a34a;color:white}
+.type-btn.report.active{background:#0e7490;border-color:#0e7490;color:white}
+.action-row{display:flex;gap:5px;padding-top:4px;border-top:1px solid #334155;margin-top:4px}
+
+/* ── LEADERBOARD / TIPS ── */
+.data-pane{flex:1;overflow:hidden;flex-direction:column}
+.data-header{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid #334155;flex-shrink:0}
+.data-header h2{font-size:13px;font-weight:700;color:#f8fafc}
+.data-body{flex:1;overflow-y:auto;padding:12px 16px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:6px 10px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #334155;position:sticky;top:0;background:#0f172a;z-index:1;cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:#cbd5e1}
+td{padding:7px 10px;border-bottom:1px solid #1e293b;color:#e2e8f0;vertical-align:top}
+tr:hover td{background:#1e293b}
+.rank-gold{color:#fbbf24;font-weight:700}
+.rank-silver{color:#94a3b8;font-weight:700}
+.rank-bronze{color:#d97706;font-weight:700}
+.section-head{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;padding:12px 0 6px;border-bottom:1px solid #334155;margin-bottom:8px}
+.platform-venmo{color:#3D95CE;font-weight:600}
+.platform-cashapp{color:#00D64F;font-weight:600}
+
+/* ── PRIZES TAB ── */
+#prizesPane{flex:1;overflow:hidden;flex-direction:column}
+.prizes-body{flex:1;overflow-y:auto;padding:16px;display:flex;gap:16px}
+.prize-form{flex:1;max-width:480px;display:flex;flex-direction:column;gap:10px}
+.prize-history{width:260px;flex-shrink:0;background:#1e293b;border:1px solid #334155;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.prize-history-head{padding:10px 12px;font-size:11px;font-weight:700;color:#64748b;border-bottom:1px solid #334155;text-transform:uppercase;letter-spacing:.05em}
+.prize-history-list{flex:1;overflow-y:auto}
+.prize-hist-item{padding:8px 12px;border-bottom:1px solid #1e293b;cursor:pointer;transition:background .08s}
+.prize-hist-item:hover{background:#283548}
+.prize-hist-month{font-size:12px;font-weight:600;color:#e2e8f0}
+.prize-hist-winner{font-size:11px;color:#64748b;margin-top:2px}
+
+/* ── Modal ── */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center}
+#modal.show{display:flex}
+#modalBox{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px;width:440px;max-height:75vh;overflow-y:auto}
+.modal-title{font-size:14px;font-weight:700;margin-bottom:14px}
+.prog-line{display:flex;align-items:flex-start;gap:8px;padding:3px 0;font-size:12px}
+.prog-icon{width:18px;text-align:center;flex-shrink:0}
+.prog-text{flex:1;color:#94a3b8}
+.prog-text.ok{color:#86efac}.prog-text.err{color:#f87171}.prog-text.cur{color:#e2e8f0}
+
+/* ── Refresh indicator ── */
+.refresh-dot{width:7px;height:7px;border-radius:50%;background:#334155;display:inline-block;margin-left:4px}
+.refresh-dot.live{background:#22c55e;animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+
+<!-- ── Auth ─────────────────────────────────────────── -->
+<div id="authScreen">
+  <div class="auth-box">
+    <h2>SST Community Admin</h2>
+    <p>Sign in with your SST account to continue.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div><div class="flabel">Email</div><input id="authEmail" class="finput" type="email" placeholder="you@email.com" autocomplete="email"/></div>
+      <div><div class="flabel">Password</div><input id="authPass" class="finput" type="password" autocomplete="current-password"/></div>
+      <button id="authBtn" class="btn btn-blue" onclick="doLogin()" style="margin-top:4px">Sign In</button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<!-- ── App ───────────────────────────────────────────── -->
+<div id="app">
+  <div id="topbar">
+    <h1>Community Admin</h1>
+    <div class="pill">Pins <span id="statPins">—</span></div>
+    <div class="pill live green">Live <span id="statLive">—</span></div>
+    <div class="pill amber">Flagged <span id="statFlagged">—</span></div>
+    <div class="pill cyan">Tips today <span id="statTipsToday">—</span></div>
+    <div class="pill green">Tips total <span id="statTipsAll">—</span></div>
+    <div id="tokenWrap">
+      <input id="tokenInput" type="password" placeholder="GitHub token" autocomplete="off"/>
+      <button id="signOutBtn" class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div id="tabNav">
+    <button class="tab-btn active" onclick="switchTab('pins')">Pins</button>
+    <button class="tab-btn" onclick="switchTab('leaderboard')">Leaderboard</button>
+    <button class="tab-btn" onclick="switchTab('tips')">Tips</button>
+    <button class="tab-btn" onclick="switchTab('prizes')">Prizes</button>
+  </div>
+
+  <!-- ── PINS ── -->
+  <div id="tabPins" class="tab-pane active" style="display:flex">
+    <div id="pinsList">
+      <div id="pinsFilterBar">
+        <input id="pinsSearchInput" type="text" placeholder="Search by name or species..."/>
+        <div class="pins-filter-row">
+          <select id="fType" class="pins-filter-sel">
+            <option value="">All types</option>
+            <option value="live">Live</option>
+            <option value="report">Report</option>
+          </select>
+          <select id="fFlag" class="pins-filter-sel">
+            <option value="">All</option>
+            <option value="flagged">Flagged</option>
+            <option value="ok">Not flagged</option>
+          </select>
+          <select id="fExpiry" class="pins-filter-sel">
+            <option value="">Any</option>
+            <option value="active">Active</option>
+            <option value="expired">Expired</option>
+          </select>
+        </div>
+      </div>
+      <div id="pinsListCount" style="display:flex;justify-content:space-between">
+        <span id="pinsCountText">Loading...</span>
+        <span><span class="refresh-dot live" id="pinsRefreshDot"></span></span>
+      </div>
+      <div id="pinsListBody"></div>
+    </div>
+    <div id="pinsMap"><div id="leafletMap"></div></div>
+    <div id="pinsEdit">
+      <div id="pinsEditEmpty">Select a pin to edit</div>
+      <div id="pinsEditForm" style="display:none">
+        <div>
+          <div class="flabel">Display Name</div>
+          <input id="eName" class="finput" type="text" placeholder="Angler name"/>
+        </div>
+        <div>
+          <div class="flabel">Type</div>
+          <div class="type-toggle">
+            <button class="type-btn live" id="typeLive" onclick="setType('live')">Live</button>
+            <button class="type-btn report" id="typeReport" onclick="setType('report')">Report</button>
+          </div>
+        </div>
+        <div>
+          <div class="flabel">Species</div>
+          <div class="species-grid" id="speciesGrid"></div>
+        </div>
+        <div>
+          <div class="flabel">Notes</div>
+          <textarea id="eNotes" class="finput" rows="3" style="resize:vertical"></textarea>
+        </div>
+        <div>
+          <div class="flabel">Created At</div>
+          <input id="eCreated" class="finput" type="datetime-local"/>
+        </div>
+        <div>
+          <div class="flabel">Expires At</div>
+          <input id="eExpires" class="finput" type="datetime-local"/>
+          <div class="extend-btns" style="margin-top:5px">
+            <button class="btn btn-slate btn-sm" onclick="extendExpiry(1)">+24h</button>
+            <button class="btn btn-slate btn-sm" onclick="extendExpiry(7)">+7d</button>
+            <button class="btn btn-slate btn-sm" onclick="extendExpiry(30)">+30d</button>
+          </div>
+        </div>
+        <div>
+          <div class="flabel">Coordinates</div>
+          <div style="font-size:11px;color:#64748b;font-family:monospace" id="eCoords">—</div>
+        </div>
+        <div>
+          <div class="flabel">Tips</div>
+          <div style="font-size:12px;color:#94a3b8" id="eTips">—</div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-green btn-sm" onclick="savePin()">Save</button>
+          <button id="flagBtn" class="btn btn-amber btn-sm" onclick="toggleFlag()">Flag</button>
+          <button class="btn btn-red btn-sm" onclick="deletePin()" style="margin-left:auto">Delete</button>
+        </div>
+        <div id="editStatus" style="font-size:11px;min-height:14px;text-align:center"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LEADERBOARD ── -->
+  <div id="tabLeaderboard" class="tab-pane data-pane">
+    <div class="data-header">
+      <h2>Leaderboard</h2>
+      <span class="refresh-dot live" id="lbRefreshDot"></span>
+      <button class="btn btn-slate btn-sm" style="margin-left:auto" onclick="loadLeaderboard()">Refresh</button>
+    </div>
+    <div class="data-body">
+      <table id="lbTable">
+        <thead><tr>
+          <th onclick="sortLb('rank')">Rank</th>
+          <th onclick="sortLb('display_name')">Angler</th>
+          <th onclick="sortLb('total_points')">Points</th>
+          <th onclick="sortLb('report_count')">Reports</th>
+          <th onclick="sortLb('live_count')">Live Pins</th>
+          <th onclick="sortLb('tips_earned')">Tips Earned</th>
+          <th onclick="sortLb('tip_count')">Tip Count</th>
+        </tr></thead>
+        <tbody id="lbBody"><tr><td colspan="7" style="text-align:center;color:#475569;padding:24px">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── TIPS ── -->
+  <div id="tabTips" class="tab-pane data-pane">
+    <div class="data-header">
+      <h2>Tips</h2>
+      <span class="refresh-dot live" id="tipsRefreshDot"></span>
+      <button class="btn btn-slate btn-sm" style="margin-left:auto" onclick="loadTips()">Refresh</button>
+    </div>
+    <div class="data-body" style="display:flex;flex-direction:column;gap:24px">
+      <div>
+        <div class="section-head">Per-Pin Totals</div>
+        <table id="tipsPinsTable">
+          <thead><tr><th>Pin Name</th><th>Type</th><th>Posted</th><th>Tip Count</th><th>Total Earned</th></tr></thead>
+          <tbody id="tipsPinsBody"></tbody>
+        </table>
+      </div>
+      <div>
+        <div class="section-head">Top-Tipped Anglers</div>
+        <table id="tipsAnglerTable">
+          <thead><tr><th>Rank</th><th>Angler</th><th>Total Received</th><th>Tip Count</th></tr></thead>
+          <tbody id="tipsAnglerBody"></tbody>
+        </table>
+      </div>
+      <div>
+        <div class="section-head">Recent 50 Tips</div>
+        <table id="tipsFeedTable">
+          <thead><tr><th>When</th><th>Tipper</th><th>Recipient</th><th>Amount</th><th>Platform</th></tr></thead>
+          <tbody id="tipsFeedBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRIZES ── -->
+  <div id="tabPrizes" class="tab-pane" id="prizesPane" style="flex-direction:column">
+    <div class="data-header">
+      <h2>Monthly Prize</h2>
+      <button class="btn btn-slate btn-sm" onclick="newPrizeMonth()" style="margin-left:8px">+ New Month</button>
+      <button id="prizeSaveBtn" class="btn btn-blue btn-sm" style="margin-left:auto" onclick="commitPrizes()" disabled>Commit to GitHub</button>
+    </div>
+    <div class="prizes-body">
+      <div class="prize-form">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div class="flabel">Month</div><input id="pMonth" class="finput" placeholder="June 2026"/></div>
+          <div><div class="flabel">Date Awarded</div><input id="pAwarded" class="finput" type="date"/></div>
+        </div>
+        <div><div class="flabel">Sponsor Name</div><input id="pSponsor" class="finput" placeholder="Nomad DTX 200"/></div>
+        <div><div class="flabel">Sponsor Logo URL</div><input id="pLogoUrl" class="finput" type="url" placeholder="https://..."/></div>
+        <div><div class="flabel">Prize Description</div><input id="pDesc" class="finput" placeholder="$200 Tackle Gift Card"/></div>
+        <div><div class="flabel">Prize Text (displayed on site)</div><textarea id="pText" class="finput" rows="3" placeholder="Top angler for June earns..."></textarea></div>
+        <div><div class="flabel">Winner Name</div><input id="pWinner" class="finput" placeholder="Jon L."/></div>
+        <div><div class="flabel">Winner Photo URL</div><input id="pWinnerPhoto" class="finput" type="url" placeholder="https://..."/></div>
+        <div style="display:flex;gap:6px;padding-top:4px">
+          <button class="btn btn-green btn-sm" onclick="savePrizeEntry()">Save Entry</button>
+        </div>
+        <div id="prizeStatus" style="font-size:11px;color:#86efac;min-height:14px"></div>
+      </div>
+      <div class="prize-history">
+        <div class="prize-history-head">History</div>
+        <div class="prize-history-list" id="prizeHistList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Commit Modal ── -->
+<div id="modal">
+  <div id="modalBox">
+    <div class="modal-title" id="modalTitle">Committing...</div>
+    <div id="modalLines"></div>
+    <button class="btn btn-slate btn-sm" id="modalClose" style="margin-top:14px;display:none" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const SB_URL   = 'https://upxerlzdgdbjkbjpuktn.supabase.co';
+const SB_ANON  = 'sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
+const ADMIN_ID = '650da7e1-27b7-4ea5-b511-1c4740c5f3a7';
+const GH_REPO  = 'jlintvet/SSTProductionRepo';
+const GH_PATH  = 'src/public/prizes.json';
+const GH_API   = 'https://api.github.com';
+
+const SPECIES = {
+  yellowfin:'Yellowfin Tuna', blackfin:'Blackfin Tuna', bluefin:'Bluefin Tuna',
+  mahi:'Mahi-mahi', white_marlin:'White Marlin', blue_marlin:'Blue Marlin', wahoo:'Wahoo'
+};
+
+// ── Supabase ────────────────────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(SB_URL, SB_ANON);
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPass').value;
+  const btn   = document.getElementById('authBtn');
+  const err   = document.getElementById('authErr');
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error || !data.user) {
+    err.textContent = error?.message || 'Sign-in failed.';
+    btn.disabled = false; btn.textContent = 'Sign In'; return;
+  }
+  if (data.user.id !== ADMIN_ID) {
+    await sb.auth.signOut();
+    err.textContent = 'Not authorized as admin.';
+    btn.disabled = false; btn.textContent = 'Sign In'; return;
+  }
+  showApp();
+}
+
+async function checkExistingSession() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (user && user.id === ADMIN_ID) showApp();
+}
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('app').style.flexDirection = 'column';
+  initMap();
+  loadPins();
+  loadStats();
+  startAutoRefresh();
+}
+
+async function doSignOut() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+document.getElementById('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ── Tab switching ───────────────────────────────────────────────────────────
+let activeTab = 'pins';
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['pins','leaderboard','tips','prizes'];
+    b.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1));
+  if (el) { el.classList.add('active'); el.style.display = 'flex'; }
+  // hide others
+  ['Pins','Leaderboard','Tips','Prizes'].filter(t => t.toLowerCase() !== name).forEach(t => {
+    const e = document.getElementById('tab' + t);
+    if (e) e.style.display = 'none';
+  });
+  activeTab = name;
+  if (name === 'leaderboard') loadLeaderboard();
+  if (name === 'tips') loadTips();
+  if (name === 'prizes') loadPrizesJson();
+  if (map) setTimeout(() => map.invalidateSize(), 50);
+}
+
+// ── Auto-refresh ─────────────────────────────────────────────────────────────
+function startAutoRefresh() {
+  setInterval(() => {
+    loadStats();
+    if (activeTab === 'pins') loadPins(true);
+    if (activeTab === 'leaderboard') loadLeaderboard();
+    if (activeTab === 'tips') loadTips();
+  }, 60000);
+}
+
+// ── Stats bar ────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const { data: pins } = await sb.from('community_locations').select('id,type,is_flagged,expires_at');
+  if (!pins) return;
+  const now = new Date();
+  document.getElementById('statPins').textContent     = pins.length;
+  document.getElementById('statLive').textContent     = pins.filter(p => p.type === 'live' && new Date(p.expires_at) > now).length;
+  document.getElementById('statFlagged').textContent  = pins.filter(p => p.is_flagged).length;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const { data: tips } = await sb.from('community_tips').select('amount_cents,created_at');
+  if (tips) {
+    const todayTips = tips.filter(t => new Date(t.created_at) >= today);
+    const todayAmt  = todayTips.reduce((s,t) => s + (t.amount_cents||0), 0);
+    const totalAmt  = tips.reduce((s,t) => s + (t.amount_cents||0), 0);
+    document.getElementById('statTipsToday').textContent = '$' + (todayAmt/100).toFixed(0);
+    document.getElementById('statTipsAll').textContent   = '$' + (totalAmt/100).toFixed(0);
+  }
+}
+
+// ── PINS TAB ─────────────────────────────────────────────────────────────────
+let allPins = [], selectedPinId = null, map, markers = {};
+
+function initMap() {
+  map = L.map('leafletMap', { center: [35.5, -75.5], zoom: 7 });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB', maxZoom: 19 }).addTo(map);
+}
+
+async function loadPins(silent = false) {
+  if (!silent) document.getElementById('pinsCountText').textContent = 'Loading...';
+  const { data, error } = await sb.from('community_locations')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { document.getElementById('pinsCountText').textContent = 'Error: ' + error.message; return; }
+  allPins = data || [];
+  buildPinMarkers();
+  renderPinList();
+}
+
+function pinColor(p) { return p.type === 'live' ? '#84cc16' : '#00d4ff'; }
+
+function buildPinMarkers() {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  allPins.forEach(p => {
+    if (!p.lat || !p.lon) return;
+    const color = pinColor(p);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+      iconSize: [12, 12], iconAnchor: [6, 6]
+    });
+    const m = L.marker([p.lat, p.lon], { icon }).addTo(map);
+    m.on('click', () => selectPin(p.id, false));
+    markers[p.id] = m;
+  });
+}
+
+function getFilteredPins() {
+  const q    = document.getElementById('pinsSearchInput').value.toLowerCase();
+  const type = document.getElementById('fType').value;
+  const flag = document.getElementById('fFlag').value;
+  const exp  = document.getElementById('fExpiry').value;
+  const now  = new Date();
+  return allPins.filter(p => {
+    if (type && p.type !== type) return false;
+    if (flag === 'flagged' && !p.is_flagged) return false;
+    if (flag === 'ok' && p.is_flagged) return false;
+    if (exp === 'active' && new Date(p.expires_at) <= now) return false;
+    if (exp === 'expired' && new Date(p.expires_at) > now) return false;
+    if (q) {
+      const name = (p.display_name || '').toLowerCase();
+      const spp  = (p.species || []).join(' ').toLowerCase();
+      if (!name.includes(q) && !spp.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderPinList() {
+  const filtered = getFilteredPins();
+  document.getElementById('pinsCountText').textContent = filtered.length + ' of ' + allPins.length + ' pins';
+  const now = new Date();
+  document.getElementById('pinsListBody').innerHTML = filtered.map(p => {
+    const color   = pinColor(p);
+    const expired = new Date(p.expires_at) <= now;
+    const sel     = p.id === selectedPinId ? ' selected' : '';
+    const expLabel = expired ? `<span class="pin-badge badge-exp">expired</span>` : '';
+    const flagLabel = p.is_flagged ? `<span class="pin-badge badge-flag">flagged</span>` : '';
+    const expiry   = expired ? 'Expired' : 'Exp ' + timeUntil(p.expires_at);
+    const specStr  = (p.species || []).map(s => SPECIES[s] || s).join(', ') || 'No species';
+    return `<div class="pin-item${sel}" data-id="${p.id}">
+      <div class="pin-dot" style="background:${color}"></div>
+      <div class="pin-item-main">
+        <div class="pin-item-name">${esc(p.display_name || 'Unknown')}</div>
+        <div class="pin-item-sub">${esc(specStr)} &middot; ${expiry}</div>
+      </div>
+      ${flagLabel}${expLabel}
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('pinsListBody').addEventListener('click', e => {
+  const item = e.target.closest('[data-id]');
+  if (item) selectPin(item.dataset.id, true);
+});
+['fType','fFlag','fExpiry'].forEach(id => document.getElementById(id).addEventListener('change', renderPinList));
+document.getElementById('pinsSearchInput').addEventListener('input', renderPinList);
+
+function selectPin(id, flyTo) {
+  selectedPinId = id;
+  renderPinList();
+  // update marker rings
+  Object.entries(markers).forEach(([mid, m]) => {
+    const p = allPins.find(x => x.id === mid);
+    if (!p) return;
+    const color = pinColor(p);
+    const sel = mid === id;
+    m.setIcon(L.divIcon({
+      className: '',
+      html: sel
+        ? `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;outline:2px solid white;box-shadow:0 0 0 4px rgba(255,255,255,.3)"></div>`
+        : `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+      iconSize: sel ? [16,16] : [12,12], iconAnchor: sel ? [8,8] : [6,6]
+    }));
+  });
+  const pin = allPins.find(p => p.id === id);
+  if (!pin) return;
+  if (flyTo && pin.lat && pin.lon) map.setView([pin.lat, pin.lon], Math.max(map.getZoom(), 10), { animate: true });
+  renderEditPanel(pin);
+  setTimeout(() => { const el = document.querySelector('.pin-item.selected'); if (el) el.scrollIntoView({ block: 'nearest' }); }, 0);
+}
+
+function renderEditPanel(pin) {
+  document.getElementById('pinsEditEmpty').style.display = 'none';
+  document.getElementById('pinsEditForm').style.display  = 'flex';
+  document.getElementById('eName').value    = pin.display_name || '';
+  document.getElementById('eNotes').value   = pin.notes || '';
+  document.getElementById('eCoords').textContent = pin.lat ? `${pin.lat.toFixed(5)}° N, ${Math.abs(pin.lon).toFixed(5)}° W` : '—';
+  document.getElementById('eTips').textContent   = `${pin.tip_count || 0} tips · $${((pin.tip_total_cents || 0)/100).toFixed(2)} total`;
+  // type toggle
+  document.getElementById('typeLive').classList.toggle('active', pin.type === 'live');
+  document.getElementById('typeReport').classList.toggle('active', pin.type === 'report');
+  // dates
+  document.getElementById('eCreated').value = toLocalDatetime(pin.created_at);
+  document.getElementById('eExpires').value = toLocalDatetime(pin.expires_at);
+  // flag button
+  document.getElementById('flagBtn').textContent = pin.is_flagged ? 'Unflag' : 'Flag';
+  document.getElementById('flagBtn').className   = pin.is_flagged ? 'btn btn-slate btn-sm' : 'btn btn-amber btn-sm';
+  // species
+  buildSpeciesGrid(pin);
+  document.getElementById('editStatus').textContent = '';
+}
+
+function buildSpeciesGrid(pin) {
+  const sel = pin.species || [];
+  const qty = pin.quantity || {};
+  document.getElementById('speciesGrid').innerHTML = Object.entries(SPECIES).map(([k, label]) => {
+    const checked = sel.includes(k) ? 'checked' : '';
+    const q = qty[k] || 1;
+    return `<div class="sp-row">
+      <input type="checkbox" id="sp_${k}" ${checked} onchange="spToggle('${k}')"/>
+      <label for="sp_${k}">${label}</label>
+      <input type="number" id="qty_${k}" min="1" max="999" value="${q}" style="display:${checked?'block':'none'}"/>
+    </div>`;
+  }).join('');
+}
+
+function spToggle(key) {
+  const cb  = document.getElementById('sp_' + key);
+  const qty = document.getElementById('qty_' + key);
+  if (qty) qty.style.display = cb.checked ? 'block' : 'none';
+}
+
+let editType = null;
+function setType(t) {
+  editType = t;
+  document.getElementById('typeLive').classList.toggle('active', t === 'live');
+  document.getElementById('typeReport').classList.toggle('active', t === 'report');
+}
+
+function extendExpiry(days) {
+  const inp = document.getElementById('eExpires');
+  const base = inp.value ? new Date(inp.value) : new Date();
+  base.setDate(base.getDate() + days);
+  inp.value = toLocalDatetime(base.toISOString());
+}
+
+async function savePin() {
+  const pin = allPins.find(p => p.id === selectedPinId);
+  if (!pin) return;
+  const species = Object.keys(SPECIES).filter(k => document.getElementById('sp_'+k)?.checked);
+  const quantity = {};
+  species.forEach(k => { quantity[k] = parseInt(document.getElementById('qty_'+k)?.value) || 1; });
+  const updates = {
+    display_name: document.getElementById('eName').value.trim() || null,
+    notes:        document.getElementById('eNotes').value.trim() || null,
+    type:         editType || pin.type,
+    species,
+    quantity,
+    created_at:   new Date(document.getElementById('eCreated').value).toISOString(),
+    expires_at:   new Date(document.getElementById('eExpires').value).toISOString(),
+  };
+  const statusEl = document.getElementById('editStatus');
+  statusEl.style.color = '#67e8f9'; statusEl.textContent = 'Saving...';
+  const { error } = await sb.from('community_locations').update(updates).eq('id', pin.id);
+  if (error) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Error: ' + error.message; return; }
+  statusEl.style.color = '#86efac'; statusEl.textContent = 'Saved';
+  Object.assign(allPins.find(p => p.id === pin.id), updates);
+  renderPinList();
+  setTimeout(() => { statusEl.textContent = ''; }, 2000);
+}
+
+async function toggleFlag() {
+  const pin = allPins.find(p => p.id === selectedPinId);
+  if (!pin) return;
+  const newVal = !pin.is_flagged;
+  const { error } = await sb.from('community_locations').update({ is_flagged: newVal }).eq('id', pin.id);
+  if (!error) { pin.is_flagged = newVal; renderEditPanel(pin); renderPinList(); loadStats(); }
+}
+
+async function deletePin() {
+  const pin = allPins.find(p => p.id === selectedPinId);
+  if (!pin) return;
+  if (!confirm(`Delete pin by "${pin.display_name}"? This cannot be undone.`)) return;
+  const { error } = await sb.from('community_locations').delete().eq('id', pin.id);
+  if (!error) {
+    allPins = allPins.filter(p => p.id !== selectedPinId);
+    if (markers[selectedPinId]) { map.removeLayer(markers[selectedPinId]); delete markers[selectedPinId]; }
+    selectedPinId = null;
+    document.getElementById('pinsEditEmpty').style.display = 'flex';
+    document.getElementById('pinsEditForm').style.display  = 'none';
+    renderPinList(); loadStats();
+  }
+}
+
+// ── LEADERBOARD ──────────────────────────────────────────────────────────────
+let lbData = [], lbSortKey = 'total_points', lbSortAsc = false;
+
+async function loadLeaderboard() {
+  document.getElementById('lbBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#475569;padding:24px">Loading...</td></tr>';
+  const [{ data: pts }, { data: tips }] = await Promise.all([
+    sb.from('user_points').select('*'),
+    sb.from('community_tips').select('recipient_user_id, amount_cents')
+  ]);
+  // aggregate tips by recipient
+  const tipMap = {};
+  (tips || []).forEach(t => {
+    if (!tipMap[t.recipient_user_id]) tipMap[t.recipient_user_id] = { sum: 0, count: 0 };
+    tipMap[t.recipient_user_id].sum   += t.amount_cents || 0;
+    tipMap[t.recipient_user_id].count += 1;
+  });
+  // get display names from community_locations (most recent per user)
+  const { data: locs } = await sb.from('community_locations')
+    .select('user_id, display_name')
+    .order('created_at', { ascending: false });
+  const nameMap = {};
+  (locs || []).forEach(l => { if (!nameMap[l.user_id]) nameMap[l.user_id] = l.display_name; });
+
+  lbData = (pts || []).map(p => ({
+    ...p,
+    display_name: nameMap[p.user_id] || 'Unknown',
+    tips_earned: (tipMap[p.user_id]?.sum || 0),
+    tip_count:   (tipMap[p.user_id]?.count || 0),
+  }));
+  renderLeaderboard();
+}
+
+function sortLb(key) {
+  if (lbSortKey === key) lbSortAsc = !lbSortAsc;
+  else { lbSortKey = key; lbSortAsc = false; }
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const sorted = [...lbData].sort((a, b) => {
+    const av = a[lbSortKey] ?? 0, bv = b[lbSortKey] ?? 0;
+    return lbSortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+  });
+  document.getElementById('lbBody').innerHTML = sorted.map((row, i) => {
+    const rank = i + 1;
+    const rc = rank === 1 ? 'rank-gold' : rank === 2 ? 'rank-silver' : rank === 3 ? 'rank-bronze' : '';
+    return `<tr>
+      <td class="${rc}">${rank}</td>
+      <td>${esc(row.display_name)}</td>
+      <td>${(row.total_points || 0).toLocaleString()}</td>
+      <td>${row.report_count || 0}</td>
+      <td>${row.live_count || 0}</td>
+      <td>$${((row.tips_earned || 0)/100).toFixed(2)}</td>
+      <td>${row.tip_count || 0}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:#475569">No data</td></tr>';
+}
+
+// ── TIPS ─────────────────────────────────────────────────────────────────────
+async function loadTips() {
+  // Per-pin totals
+  const { data: pins } = await sb.from('community_locations')
+    .select('id, display_name, type, created_at, tip_count, tip_total_cents')
+    .order('tip_total_cents', { ascending: false });
+  document.getElementById('tipsPinsBody').innerHTML = (pins || [])
+    .filter(p => (p.tip_count || 0) > 0)
+    .map(p => `<tr>
+      <td>${esc(p.display_name || '—')}</td>
+      <td>${p.type}</td>
+      <td>${timeAgo(p.created_at)}</td>
+      <td>${p.tip_count || 0}</td>
+      <td>$${((p.tip_total_cents||0)/100).toFixed(2)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:#475569;text-align:center">No tips yet</td></tr>';
+
+  // Recent feed
+  const { data: feed } = await sb.from('community_tips')
+    .select('*, tipper:tipper_user_id(display_name), recip:recipient_user_id(display_name)')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  // Top-tipped anglers — aggregate from feed
+  const anglerMap = {};
+  (feed || []).forEach(t => {
+    const rid = t.recipient_user_id;
+    if (!anglerMap[rid]) anglerMap[rid] = { name: t.recip?.display_name || 'Unknown', sum: 0, count: 0 };
+    anglerMap[rid].sum   += t.amount_cents || 0;
+    anglerMap[rid].count += 1;
+  });
+  const anglers = Object.values(anglerMap).sort((a,b) => b.sum - a.sum);
+  document.getElementById('tipsAnglerBody').innerHTML = anglers.map((a, i) => {
+    const rc = i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : '';
+    return `<tr><td class="${rc}">${i+1}</td><td>${esc(a.name)}</td><td>$${(a.sum/100).toFixed(2)}</td><td>${a.count}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" style="color:#475569;text-align:center">No tips yet</td></tr>';
+
+  document.getElementById('tipsFeedBody').innerHTML = (feed || []).map(t => `<tr>
+    <td style="color:#64748b">${timeAgo(t.created_at)}</td>
+    <td>${esc(t.tipper?.display_name || '—')}</td>
+    <td>${esc(t.recip?.display_name || '—')}</td>
+    <td>$${((t.amount_cents||0)/100).toFixed(2)}</td>
+    <td class="platform-${t.platform}">${t.platform}</td>
+  </tr>`).join('') || '<tr><td colspan="5" style="color:#475569;text-align:center">No tips yet</td></tr>';
+}
+
+// ── PRIZES ────────────────────────────────────────────────────────────────────
+let prizes = [], editPrizeIdx = 0;
+
+async function loadPrizesJson() {
+  const tok = document.getElementById('tokenInput').value.trim();
+  if (!tok) { document.getElementById('prizeStatus').textContent = 'Enter GitHub token to load/save prizes.'; return; }
+  document.getElementById('prizeStatus').textContent = 'Loading...';
+  try {
+    const r = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_PATH}`, { headers: ghHeaders(tok) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const json = await r.json();
+    prizes = JSON.parse(atob(json.content.replace(/\n/g, '')));
+    document.getElementById('prizeStatus').textContent = '';
+    editPrizeIdx = 0;
+    renderPrizeForm(prizes[0] || {});
+    renderPrizeHistory();
+    document.getElementById('prizeSaveBtn').disabled = false;
+  } catch(e) {
+    document.getElementById('prizeStatus').textContent = 'Load error: ' + e.message;
+  }
+}
+
+function renderPrizeForm(p) {
+  document.getElementById('pMonth').value       = p.month || '';
+  document.getElementById('pSponsor').value     = p.sponsor_name || '';
+  document.getElementById('pLogoUrl').value     = p.sponsor_logo_url || '';
+  document.getElementById('pDesc').value        = p.prize_description || '';
+  document.getElementById('pText').value        = p.prize_text || '';
+  document.getElementById('pWinner').value      = p.winner_name || '';
+  document.getElementById('pWinnerPhoto').value = p.winner_photo_url || '';
+  document.getElementById('pAwarded').value     = p.awarded_at || '';
+}
+
+function renderPrizeHistory() {
+  document.getElementById('prizeHistList').innerHTML = prizes.map((p, i) =>
+    `<div class="prize-hist-item" data-idx="${i}">
+      <div class="prize-hist-month">${esc(p.month || 'Unnamed')}</div>
+      <div class="prize-hist-winner">${esc(p.winner_name || 'No winner set')}</div>
+    </div>`
+  ).join('') || '<div style="padding:16px;color:#475569;font-size:12px">No prizes yet</div>';
+}
+
+document.getElementById('prizeHistList').addEventListener('click', e => {
+  const item = e.target.closest('[data-idx]');
+  if (item) { editPrizeIdx = parseInt(item.dataset.idx); renderPrizeForm(prizes[editPrizeIdx]); }
+});
+
+function savePrizeEntry() {
+  const entry = {
+    month:             document.getElementById('pMonth').value.trim(),
+    sponsor_name:      document.getElementById('pSponsor').value.trim(),
+    sponsor_logo_url:  document.getElementById('pLogoUrl').value.trim(),
+    prize_description: document.getElementById('pDesc').value.trim(),
+    prize_text:        document.getElementById('pText').value.trim(),
+    winner_name:       document.getElementById('pWinner').value.trim(),
+    winner_photo_url:  document.getElementById('pWinnerPhoto').value.trim(),
+    awarded_at:        document.getElementById('pAwarded').value || null,
+  };
+  if (editPrizeIdx < prizes.length) prizes[editPrizeIdx] = entry;
+  else prizes.unshift(entry);
+  renderPrizeHistory();
+  document.getElementById('prizeStatus').textContent = 'Entry saved locally — click Commit to push to GitHub.';
+  document.getElementById('prizeSaveBtn').disabled = false;
+}
+
+function newPrizeMonth() {
+  prizes.unshift({});
+  editPrizeIdx = 0;
+  renderPrizeForm({});
+  renderPrizeHistory();
+}
+
+async function commitPrizes() {
+  const tok = document.getElementById('tokenInput').value.trim();
+  if (!tok) { alert('Enter your GitHub token first.'); return; }
+  openModal('Committing prizes.json...');
+  try {
+    logP('...', 'Fetching current file SHA...');
+    const r = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_PATH}`, { headers: ghHeaders(tok) });
+    if (!r.ok) throw new Error('GET ' + r.status);
+    const existing = await r.json();
+    updP('ok', 'Got SHA ' + existing.sha.slice(0,7), 'ok');
+    logP('...', 'Pushing updated prizes.json...');
+    const body = { message: 'admin: update prizes.json', content: btoa(unescape(encodeURIComponent(JSON.stringify(prizes, null, 2)))), sha: existing.sha };
+    const put = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_PATH}`, { method:'PUT', headers: ghHeaders(tok), body: JSON.stringify(body) });
+    if (!put.ok) throw new Error('PUT ' + put.status + ' ' + await put.text());
+    updP('ok', 'Committed successfully', 'ok');
+    logP('done', `prizes.json updated — ${prizes.length} prize(s)`, 'ok');
+    document.getElementById('modalTitle').textContent = 'Commit successful';
+  } catch(e) {
+    logP('x', 'Error: ' + e.message, 'err');
+    document.getElementById('modalTitle').textContent = 'Commit failed';
+  }
+  document.getElementById('modalClose').style.display = 'inline-block';
+}
+
+// ── GitHub helpers ────────────────────────────────────────────────────────────
+const ghHeaders = tok => ({ 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' });
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+let progLines = [];
+function openModal(title) {
+  progLines = [];
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalLines').innerHTML   = '';
+  document.getElementById('modalClose').style.display = 'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function logP(icon, text, cls='cur') {
+  progLines.push({icon, text, cls});
+  document.getElementById('modalLines').innerHTML = progLines.map(l =>
+    `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`
+  ).join('');
+}
+function updP(icon, text, cls='ok') {
+  if (!progLines.length) return;
+  Object.assign(progLines[progLines.length-1], {icon, text, cls});
+  document.getElementById('modalLines').innerHTML = progLines.map(l =>
+    `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`
+  ).join('');
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (d > 0) return d + 'd ago';
+  if (h > 0) return h + 'h ago';
+  return m + 'm ago';
+}
+
+function timeUntil(iso) {
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return 'expired';
+  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (d > 0) return d + 'd';
+  if (h > 0) return h + 'h';
+  return m + 'm';
+}
+
+function toLocalDatetime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+checkExistingSession();
+</script>
+</body>
+</html>
