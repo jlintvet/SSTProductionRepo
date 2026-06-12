@@ -73,8 +73,9 @@ export default function SavedLocations({
   onClearMarkers,
   onSelectLocation,
   highlightedId,
-  onShare,          // (loc) => void — triggers share dialog in parent
-  isPro,            // only show share button for pro/trial users
+  onShare,               // (loc) => void — triggers share dialog in parent
+  onTipCommunitySource,  // (loc) => void — opens tip modal for community-saved location
+  isPro,                 // only show share button for pro/trial users
 }) {
   const [deletingId, setDeletingId] = useState(null);
 
@@ -179,6 +180,24 @@ export default function SavedLocations({
                     onSave={v => handleSaveField(loc.id, "notes", v)}
                   />
                 </div>
+
+                {/* Community attribution + tip reminder */}
+                {loc.source_type === "community" && loc.source_display_name && (
+                  <div className="mt-1.5 flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-slate-400 italic">
+                      via <span className="font-medium text-slate-500">{loc.source_display_name}</span>
+                    </span>
+                    {onTipCommunitySource && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onTipCommunitySource(loc); }}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-600 hover:bg-amber-100 transition-colors font-medium flex-shrink-0"
+                        title={`Tip ${loc.source_display_name}`}
+                      >
+                        Tip
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Action buttons */}

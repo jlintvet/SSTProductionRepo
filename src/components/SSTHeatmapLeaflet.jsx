@@ -10,7 +10,7 @@ import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 // ── SavedPanel: tabbed Locations + Routes panel ───────────────────────────────
 function SavedPanel({
   savedLocations, fetchSavedLocations, clearMarkersRef, flyToRef,
-  highlightedLocation, setHighlightedLocation, onShare, isPro, userId,
+  highlightedLocation, setHighlightedLocation, onShare, onTipCommunitySource, isPro, userId,
   onClose, sliderHeight, mobile, onMobileSelect, className, onLoadRoute, onRoutesCountChange,
   tripMode, onAddWaypoint, communityLocations,
   heatmapDataForShare, sstMinForShare, sstMaxForShare, sstRangeForShare,
@@ -121,7 +121,7 @@ function SavedPanel({
               setHighlightedLocation(loc);
               onMobileSelect?.();
             }}
-            highlightedId={highlightedLocation?.id} onShare={onShare} isPro={isPro}
+            highlightedId={highlightedLocation?.id} onShare={onShare} onTipCommunitySource={onTipCommunitySource} isPro={isPro}
           />
         ) : tab === "community" ? (
           communityLocations?.length ? (
@@ -1010,6 +1010,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (el) el.style.cursor = communityPinDrop ? "crosshair" : "";
   }, [communityPinDrop]);
   const [selectedCommunityPin, setSelectedCommunityPin] = useState(null); // { pin, px, py }
+  const [savedCommunityPins,   setSavedCommunityPins]   = useState(new Set()); // set of pin ids saved this session
   const [communityTipModal,    setCommunityTipModal]    = useState(null); // { pin }
   const [thankingId,           setThankingId]           = useState(null);
 
@@ -2756,7 +2757,7 @@ export default function SSTHeatmapLeaflet(props) {
               savedLocations={savedLocations} fetchSavedLocations={fetchSavedLocations}
               clearMarkersRef={clearMarkersRef} flyToRef={flyToRef}
               highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
-              onShare={onShare} isPro={isPro} userId={userId}
+              onShare={onShare} onTipCommunitySource={loc => setCommunityTipModal({ pin: { ...loc, user_id: loc.source_user_id, display_name: loc.source_display_name, venmo: loc.source_venmo ?? null, cashapp: loc.source_cashapp ?? null } })} isPro={isPro} userId={userId}
               onClose={()=>setShowSavedPanel(false)}
               onLoadRoute={onLoadRoute}
               onRoutesCountChange={setSavedRoutesCount}
@@ -3299,7 +3300,7 @@ export default function SSTHeatmapLeaflet(props) {
           {/* ── Community pin card ──────────────────────────────────── */}
           {selectedCommunityPin && (() => {
             const { pin, px, py } = selectedCommunityPin;
-            const CARD_W = 240, CARD_H = 260;
+            const CARD_W = 252, CARD_H = 320;
             const mapW = mapDivRef.current?.clientWidth  ?? 800;
             const mapH = mapDivRef.current?.clientHeight ?? 600;
             const rawL = px + 14;
@@ -3313,6 +3314,54 @@ export default function SSTHeatmapLeaflet(props) {
             const qty = pin.quantity || {};
             const hoursAgo = Math.round((Date.now() - new Date(pin.created_at).getTime()) / 3600000);
             const timeStr = hoursAgo < 1 ? "Just now" : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo/24)}d ago`;
+
+            // Real-time inspector values (live from departure + bathy, NOT from stored pin data)
+            const refLoc = selectedLocation;
+            const pinLat = parseFloat(pin.lat), pinLon = parseFloat(pin.lon);
+            const pinDist    = refLoc ? distanceNm(refLoc.lat, refLoc.lon, pinLat, pinLon) : null;
+            const pinBearing = refLoc ? bearingDeg(refLoc.lat, refLoc.lon, pinLat, pinLon) : null;
+            let pinDepth = null;
+            if (bathyDataRef.current?.points?.length) {
+              let best = null, bestD = Infinity;
+              for (const pt of bathyDataRef.current.points) {
+                const d = (pt.lat - pinLat) ** 2 + (pt.lon - pinLon) ** 2;
+                if (d < bestD) { bestD = d; best = pt; }
+              }
+              pinDepth = best?.depth_ft ?? null;
+            }
+
+            const alreadySaved = savedCommunityPins.has(pin.id);
+
+            async function handleSaveCommunityPin() {
+              if (!userId || alreadySaved) return;
+              const label = pin.display_name
+                ? `${speciesList || "Report"} — ${pin.display_name}`
+                : (speciesList || "Community Pin");
+              const { error } = await supabase
+                .from("saved_locations")
+                .insert({
+                  user_id:              userId,
+                  label,
+                  lat:                  pinLat,
+                  lon:                  pinLon,
+                  sst:                  pin.water_temp ?? null,
+                  depth_ft:             pinDepth ?? null,
+                  dist_nm:              pinDist != null ? parseFloat(pinDist.toFixed(2)) : null,
+                  bearing_deg:          pinBearing != null ? Math.round(pinBearing) : null,
+                  bearing_cardinal:     pinBearing != null ? bearingLabel(pinBearing) : null,
+                  from_location:        refLoc?.label ?? null,
+                  notes:                pin.notes ?? null,
+                  source_type:          "community",
+                  source_display_name:  pin.display_name ?? null,
+                  source_user_id:       pin.user_id ?? null,
+                });
+              if (!error) {
+                setSavedCommunityPins(prev => new Set([...prev, pin.id]));
+                onLocationSaved?.();
+              } else {
+                console.error("[Community] save failed:", error.message);
+              }
+            }
 
             return (
               <div
@@ -3356,13 +3405,45 @@ export default function SSTHeatmapLeaflet(props) {
                   <div className="text-slate-500 mb-2 line-clamp-2">{pin.notes}</div>
                 )}
 
-                {/* Thanks / Tip — opens TipFlow */}
-                <div className="flex gap-1.5 mt-auto pt-1 border-t border-slate-100">
+                {/* Real-time inspector: bearing / distance / depth from departure */}
+                {(pinDist != null || pinDepth != null) && (
+                  <div className="border border-slate-100 rounded-lg px-2 py-1.5 mb-2 bg-slate-50">
+                    {pinDist != null && (
+                      <div className="flex justify-between text-slate-600 mb-0.5">
+                        <span className="text-slate-400">{refLoc?.label ?? "Departure"}</span>
+                        <span className="font-semibold">{pinDist.toFixed(1)} nm · {Math.round(pinBearing)}° {bearingLabel(pinBearing)}</span>
+                      </div>
+                    )}
+                    {pinDepth != null && (
+                      <div className="flex justify-between text-slate-600">
+                        <span className="text-slate-400">Depth</span>
+                        <span className="font-semibold text-blue-600">{Math.round(pinDepth)} ft / {Math.round(pinDepth / 6)} fth</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {pinDist == null && pinDepth == null && (
+                  <div className="text-slate-300 text-[10px] mb-2 italic">Set a departure for distance &amp; depth</div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex gap-1.5 pt-1 border-t border-slate-100">
+                  <button
+                    onClick={handleSaveCommunityPin}
+                    disabled={alreadySaved || !userId}
+                    className={`flex-1 py-1.5 rounded-lg font-semibold text-xs transition-colors ${
+                      alreadySaved
+                        ? "bg-slate-100 text-slate-400 cursor-default"
+                        : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                    }`}
+                  >
+                    {alreadySaved ? "Saved" : "Save Location"}
+                  </button>
                   <button
                     onClick={() => setCommunityTipModal({ pin })}
                     className="flex-1 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs transition-colors"
                   >
-                    Thanks / Tip
+                    Tip
                   </button>
                 </div>
               </div>
@@ -3435,7 +3516,7 @@ export default function SSTHeatmapLeaflet(props) {
               savedLocations={savedLocations} fetchSavedLocations={fetchSavedLocations}
               clearMarkersRef={clearMarkersRef} flyToRef={flyToRef}
               highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
-              onShare={onShare} isPro={isPro} userId={userId}
+              onShare={onShare} onTipCommunitySource={loc => setCommunityTipModal({ pin: { ...loc, user_id: loc.source_user_id, display_name: loc.source_display_name, venmo: loc.source_venmo ?? null, cashapp: loc.source_cashapp ?? null } })} isPro={isPro} userId={userId}
               onClose={()=>setShowSavedPanel(false)}
               onLoadRoute={onLoadRoute}
               onRoutesCountChange={setSavedRoutesCount}
