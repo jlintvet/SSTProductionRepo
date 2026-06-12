@@ -12,6 +12,7 @@ import "leaflet/dist/leaflet.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "mapbox-gl-leaflet";
 import { gridToDataURL } from "@/components/SSTHeatmapLeaflet";
+import * as turf from "@turf/turf";
 
 const COMPOSITE_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/viirs_composite.json";
 const OCEAN_MASK_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/ocean_mask.json";
@@ -56,6 +57,47 @@ async function solidify(blobUrl) {
   return new Promise((resolve) => c.toBlob((b) => resolve(URL.createObjectURL(b)), "image/png"));
 }
 
+// Land mask built by subtracting the basemap's own rendered water polygons
+// from a viewport bbox. Same source data as the tiles -> aligns exactly.
+function updateLandMask(glMap) {
+  try {
+    if (!glMap.getLayer("sst-img")) return;
+    const srcId = "land-mask-src";
+    const b = glMap.getBounds();
+    const padX = (b.getEast() - b.getWest()) * 0.2;
+    const padY = (b.getNorth() - b.getSouth()) * 0.2;
+    let land = turf.bboxPolygon([b.getWest() - padX, b.getSouth() - padY, b.getEast() + padX, b.getNorth() + padY]);
+    const waterIds = ["water", "water-shadow"].filter((id) => glMap.getLayer(id));
+    const feats = glMap.queryRenderedFeatures({ layers: waterIds });
+    for (const f of feats) {
+      if (!land) break;
+      if (f.geometry.type !== "Polygon" && f.geometry.type !== "MultiPolygon") continue;
+      try {
+        const d = turf.difference(turf.featureCollection([land, turf.feature(f.geometry)]));
+        if (d) land = d;
+      } catch (_) {}
+    }
+    if (!land) return;
+    if (!glMap.getSource(srcId)) {
+      glMap.addSource(srcId, { type: "geojson", data: land });
+      let landColor = "#f7f7f5";
+      try {
+        const bg = glMap.getStyle().layers.find((l) => l.type === "background");
+        const c = glMap.getPaintProperty(bg.id, "background-color");
+        if (typeof c === "string") landColor = c;
+      } catch (_) {}
+      const layers = glMap.getStyle().layers;
+      const si = layers.findIndex((l) => l.id === "sst-img");
+      const beforeId = si >= 0 && si + 1 < layers.length ? layers[si + 1].id : undefined;
+      glMap.addLayer({ id: "land-mask", type: "fill", source: srcId, paint: { "fill-color": landColor, "fill-antialias": false } }, beforeId);
+      console.log("[SPIKE] land-mask inserted before", beforeId, "color", landColor);
+    } else {
+      glMap.getSource(srcId).setData(land);
+    }
+    glMap.triggerRepaint();
+  } catch (e) { console.error("[SPIKE] land mask failed:", e); }
+}
+
 function opacityFor(leafletZoom, fadeOn) {
   if (!fadeOn) return SST_OPACITY;
   if (leafletZoom <= FADE_START_LZ) return SST_OPACITY;
@@ -78,7 +120,7 @@ export default function MapTest() {
   const [zoomLabel, setZoomLabel] = useState("");
   const [sstMode, setSstMode] = useState("sandwich"); // sandwich | top | off
   const [basemap, setBasemap] = useState("vector");   // vector | carto
-  const [fade, setFade] = useState(true);
+  const [fade, setFade] = useState(false);
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -176,6 +218,7 @@ export default function MapTest() {
     if (glMap && glMap.getLayer && glMap.getLayer("sst-img")) {
       glMap.removeLayer("sst-img");
       glMap.removeSource("sst-img");
+      if (glMap.getLayer("land-mask")) { glMap.removeLayer("land-mask"); glMap.removeSource("land-mask-src"); }
     }
   }
 
@@ -225,6 +268,9 @@ export default function MapTest() {
       let kicks = 0;
       const kickTimer = setInterval(() => { kick(); if (++kicks >= 20) clearInterval(kickTimer); }, 500);
       console.log("[SPIKE] SST inserted before layer:", beforeId);
+      const refreshLand = () => setTimeout(() => updateLandMask(glMap), 350);
+      glMap.once("idle", () => updateLandMask(glMap));
+      if (mapRef.current) mapRef.current.on("moveend zoomend", refreshLand);
     };
     if (glMap.isStyleLoaded()) doInsert();
     else glMap.once("idle", doInsert);
