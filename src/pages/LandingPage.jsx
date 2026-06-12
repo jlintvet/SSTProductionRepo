@@ -51,24 +51,30 @@ function PasswordInput({ placeholder, value, onChange, required, autoFocus, styl
   );
 }
 
-const BASE_FEATURES = [
+const STANDARD_FEATURES = [
   "Sea Surface Temperature (SST) maps",
-  "Departure port planning — heading & distance",
-  "NOAA weather integration",
-  "Wind map",
-  "Chlorophyll & sea color layers",
+  "Chlorophyll, sea color & wind map",
+  "NOAA weather forecast",
   "Bathymetry contours",
+  "Community pins — post & view",
   "Saved locations",
+  "Departure port planning",
+  "No ads, ever",
 ];
 
 const PRO_FEATURES = [
-  "Everything in Base, plus:",
+  "Everything in Standard, plus:",
   "Fishing hotspot scoring & map",
-  "Isotherm overlay",
-  "Color gain control (SST, CHL, sea color)",
-  "Wreck locations",
+  "Isotherm (temp break) overlay",
+  "Color gain control",
+  "Ocean current overlay",
   "Wind overlay on map",
-  "Shared locations",
+  "Sea level anomaly (altimetry) overlay",
+  "Wreck & bottom structure locations",
+  "Trip planning & route saving",
+  "Location & route sharing",
+  "Real-time GPS tracking",
+  "Community pins — 90-day visibility window",
 ];
 
 function AuthForm() {
@@ -231,7 +237,7 @@ function AuthForm() {
   );
 }
 
-function PricingCard({ name, price, features, highlight, badge }) {
+function PricingCard({ name, price, promoPrice, promoLabel, features, highlight, badge, free }) {
   return (
     <div style={{
       background: highlight ? TEAL : "#fff",
@@ -256,8 +262,28 @@ function PricingCard({ name, price, features, highlight, badge }) {
       )}
       <h3 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 700 }}>{name}</h3>
       <div style={{ marginBottom: 20 }}>
-        <span style={{ fontSize: 38, fontWeight: 800 }}>${price}</span>
-        <span style={{ fontSize: 14, opacity: 0.7 }}>/year</span>
+        {free ? (
+          <span style={{ fontSize: 38, fontWeight: 800 }}>Free</span>
+        ) : promoPrice ? (
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontSize: 38, fontWeight: 800 }}>${promoPrice}</span>
+              <span style={{ fontSize: 14, opacity: 0.8 }}>/year</span>
+              <span style={{ fontSize: 13, textDecoration: "line-through", opacity: 0.5 }}>${price}</span>
+            </div>
+            {promoLabel && (
+              <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2,
+                color: highlight ? "#fde68a" : "#d97706" }}>
+                {promoLabel}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <span style={{ fontSize: 38, fontWeight: 800 }}>${price}</span>
+            <span style={{ fontSize: 14, opacity: 0.7 }}>/year</span>
+          </div>
+        )}
       </div>
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {features.map((f, i) => (
@@ -308,9 +334,9 @@ export default function MarketingLanding({ onAuthSuccess }) {
           boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
           minWidth: 300, flex: "1 1 300px", maxWidth: 400,
         }}>
-          <h2 style={{ margin: "0 0 6px", fontSize: 20, color: DARK }}>Get started</h2>
+          <h2 style={{ margin: "0 0 6px", fontSize: 20, color: DARK }}>Get started free</h2>
           <p style={{ margin: "0 0 20px", fontSize: 14, color: "#64748b" }}>
-            New accounts get a 14-day free Pro trial.
+            Free accounts include SST data, NOAA weather, and full community access. New accounts get a 14-day Pro trial.
           </p>
           <AuthForm />
         </div>
@@ -318,14 +344,22 @@ export default function MarketingLanding({ onAuthSuccess }) {
         <div style={{ flex: "2 1 500px" }}>
           <h2 style={{ margin: "0 0 8px", fontSize: 24, color: DARK, fontWeight: 700 }}>Pricing</h2>
           <p style={{ margin: "0 0 24px", color: "#64748b", fontSize: 15 }}>
-            Simple annual pricing. Cancel anytime.
+            No ads. No clickbait. Just data.
           </p>
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <PricingCard name="Base" price={29} features={BASE_FEATURES} />
-            <PricingCard name="Pro" price={69} features={PRO_FEATURES} highlight badge="Most Popular" />
+            <PricingCard name="Standard" free features={STANDARD_FEATURES} />
+            <PricingCard
+              name="Pro"
+              price={99}
+              promoPrice={49}
+              promoLabel="50% off — 2026 promo pricing"
+              features={PRO_FEATURES}
+              highlight
+              badge="Best Value"
+            />
           </div>
           <p style={{ margin: "20px 0 0", fontSize: 13, color: "#94a3b8", textAlign: "center" }}>
-            All plans include a 14-day free Pro trial. No credit card required to start.
+            New accounts get a 14-day Pro trial. No credit card required.
           </p>
         </div>
       </div>
@@ -334,7 +368,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "2rem", justifyContent: "center" }}>
           {[
             { icon: "&#x1F30A;", label: "Live SST data updated daily" },
-            { icon: "&#x1F41F;", label: "Fishing hotspots (Pro)" },
+            { icon: "&#x1F41F;", label: "Fishing hotspots" },
             { icon: "&#x1F5FA;&#xFE0F;", label: "Chlorophyll, bathy & sea color" },
             { icon: "&#x1F4A8;", label: "Wind & NOAA weather" },
             { icon: "&#x1F4CD;", label: "Save & share locations" },

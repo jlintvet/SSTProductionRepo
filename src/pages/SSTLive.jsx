@@ -584,18 +584,33 @@ function SSTPageBody() {
 
   async function checkCommunityAccess(uid, proStatus) {
     if (!uid) { setCommunityAccess({ hasAccess: false, neverPosted: true }); return; }
-    if (proStatus) { setCommunityAccess({ hasAccess: true }); return; }
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Standard: must post within 30 days. Pro: within 90 days.
+    // Signup date counts as a virtual first post for both tiers.
+    const windowDays = proStatus ? 90 : 30;
+    const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // 1. Recent post within window?
     const { data: recentPosts } = await supabase
       .from("community_locations")
       .select("created_at")
       .eq("user_id", uid)
       .gt("created_at", cutoff)
       .limit(1);
-    if (recentPosts?.length) {
+    if (recentPosts?.length) { setCommunityAccess({ hasAccess: true }); return; }
+
+    // 2. Signup date within window? (grace period — applies to all tiers)
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("created_at")
+      .eq("id", uid)
+      .single();
+    if (profile?.created_at && new Date(profile.created_at) >= new Date(cutoff)) {
       setCommunityAccess({ hasAccess: true });
       return;
     }
+
+    // 3. No access — record days since last post for messaging
     const { data: allPosts } = await supabase
       .from("community_locations")
       .select("created_at")
@@ -603,10 +618,10 @@ function SSTPageBody() {
       .order("created_at", { ascending: false })
       .limit(1);
     if (!allPosts?.length) {
-      setCommunityAccess({ hasAccess: false, neverPosted: true });
+      setCommunityAccess({ hasAccess: false, neverPosted: true, windowDays });
     } else {
       const daysSince = Math.floor((Date.now() - new Date(allPosts[0].created_at).getTime()) / (24 * 60 * 60 * 1000));
-      setCommunityAccess({ hasAccess: false, neverPosted: false, daysSinceLastPost: daysSince });
+      setCommunityAccess({ hasAccess: false, neverPosted: false, daysSinceLastPost: daysSince, windowDays });
     }
   }
 

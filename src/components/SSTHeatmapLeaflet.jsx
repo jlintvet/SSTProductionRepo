@@ -390,7 +390,7 @@ function MobileProGate({ isPro, children, label }) {
             </div>
             <a href="/" style={{ display: "inline-block", background: "#0e7490", color: "#fff",
               borderRadius: 8, padding: "8px 20px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-              Upgrade to Pro — $69/yr
+              Upgrade to Pro — $49/yr in 2026
             </a>
             <button onClick={() => setOpen(false)} style={{ display: "block", margin: "10px auto 0",
               background: "none", border: "none", color: "#94a3b8", fontSize: 13, cursor: "pointer" }}>

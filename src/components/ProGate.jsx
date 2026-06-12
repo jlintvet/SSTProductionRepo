@@ -76,7 +76,7 @@ export default function ProGate({ isPro, children, label }) {
             }}
             onClick={() => setOpen(false)}
           >
-            Upgrade to Pro — $69/yr
+            Upgrade to Pro — $49/yr in 2026
           </a>
           <button
             onClick={() => setOpen(false)}
