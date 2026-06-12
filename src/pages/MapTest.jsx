@@ -214,11 +214,16 @@ export default function MapTest() {
       glMap.on("error", (e) => console.error("[SPIKE GL ERROR]", e?.error?.message || e));
       // mapbox-gl-leaflet only repaints on Leaflet move events — kick the render
       // loop so the freshly loaded image source actually draws.
-      const kick = () => { try { glMap.triggerRepaint(); } catch (_) {} };
+      // Force the plugin's move-sync path (jumpTo + full re-render). Plain
+      // triggerRepaint from page timers does not flush the new image layer.
+      const kick = () => {
+        try { glLayerRef.current && glLayerRef.current._update(); } catch (_) {}
+        try { glMap.triggerRepaint(); } catch (_) {}
+      };
       glMap.on("data", (e) => { if (e.sourceId === "sst-img" && e.isSourceLoaded) kick(); });
       glMap.once("idle", kick);
       let kicks = 0;
-      const kickTimer = setInterval(() => { kick(); if (++kicks >= 16) clearInterval(kickTimer); }, 300);
+      const kickTimer = setInterval(() => { kick(); if (++kicks >= 20) clearInterval(kickTimer); }, 500);
       console.log("[SPIKE] SST inserted before layer:", beforeId);
     };
     if (glMap.isStyleLoaded()) doInsert();
