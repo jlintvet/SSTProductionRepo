@@ -183,7 +183,7 @@ export default function SavedLocations({
 
                 {/* Community attribution + tip reminder */}
                 {loc.source_type === "community" && loc.source_display_name && (
-                  <div className="mt-1.5 flex items-center justify-between gap-1">
+                  <div className="mt-1.5 flex items-center gap-1.5">
                     <span className="text-[10px] text-slate-400 italic">
                       via <span className="font-medium text-slate-500">{loc.source_display_name}</span>
                     </span>
