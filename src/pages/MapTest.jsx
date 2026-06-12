@@ -19,7 +19,7 @@ const CARTO_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.pn
 // Fade band in LEAFLET zoom units. GL zoom = Leaflet zoom - 1.
 const FADE_START_LZ = 10.0;
 const FADE_END_LZ = 12.0;
-const SST_OPACITY = 0.92;
+const SST_OPACITY = 1.0;
 
 async function loadMask() {
   try {
@@ -41,6 +41,21 @@ async function loadMask() {
 
 // NOTE: zoom-interpolate expressions on raster-opacity render invisible under
 // mapbox-gl-leaflet (verified in spike). Fade is driven from JS with plain numbers.
+// gridToDataURL bakes alpha=220 into pixels; rewrite to 255 for solid colors.
+async function solidify(blobUrl) {
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = blobUrl; });
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const id = ctx.getImageData(0, 0, c.width, c.height);
+  const d = id.data;
+  for (let i = 3; i < d.length; i += 4) { if (d[i] > 0) d[i] = 255; }
+  ctx.putImageData(id, 0, 0);
+  return new Promise((resolve) => c.toBlob((b) => resolve(URL.createObjectURL(b)), "image/png"));
+}
+
 function opacityFor(leafletZoom, fadeOn) {
   if (!fadeOn) return SST_OPACITY;
   if (leafletZoom <= FADE_START_LZ) return SST_OPACITY;
@@ -133,6 +148,7 @@ export default function MapTest() {
         const mx = vals[Math.floor(vals.length * 0.98)];
         const res = await gridToDataURL(latSet, lonSet, grid, mn, mx, null, mask);
         if (!res) { setStatus("render failed"); return; }
+        res.dataURL = await solidify(res.dataURL);
         dataRef.current = res;
 
         // hard pan/zoom clamp to the SST data bounds
@@ -242,7 +258,7 @@ export default function MapTest() {
       removeGlSst();
       if (wantTop && dataRef.current && !topOverlayRef.current) {
         const d = dataRef.current;
-        topOverlayRef.current = L.imageOverlay(d.dataURL, [[d.south, d.west], [d.north, d.east]], { opacity: 0.86 }).addTo(map);
+        topOverlayRef.current = L.imageOverlay(d.dataURL, [[d.south, d.west], [d.north, d.east]], { opacity: 1.0 }).addTo(map);
       }
       if (!wantTop && topOverlayRef.current) { map.removeLayer(topOverlayRef.current); topOverlayRef.current = null; }
     }
