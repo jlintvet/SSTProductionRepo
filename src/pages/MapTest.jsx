@@ -137,48 +137,128 @@ function updateLandMask(glMap) {
   } catch (err) { console.error("[SPIKE] land mask failed:", err); }
 }
 
-// Iterative dilation fill: extrapolates SST into no-data cells (cloud gaps,
-// nearshore dropout) by averaging valid neighbors. Display-only. The ocean
-// mask still clips per-pixel at render time, so fill never paints onto land.
-function dilateFill(latSet, lonSet, grid, maxIter = 120) {
-  const R = latSet.length, C = lonSet.length;
-  const vals = new Float32Array(R * C);
-  const has = new Uint8Array(R * C);
+// Targeted gap fill (display-only). Fills a NO-DATA WATER cell only if it is
+// within K cells of land (shoreline fringe) OR sits in a water region cut off
+// from the open ocean by land (inland sounds/bays). Open-ocean cloud holes --
+// surrounded by valid SST and far from land -- stay no-data (grey). The ocean
+// mask still clips per-pixel at render, so fill never paints onto land.
+function gapFillGrid(latSet, lonSet, grid, mask, K = 4, maxIter = 200) {
+  const R = latSet.length, C = lonSet.length, N = R * C;
+  const ix = (r, c) => r * C + c;
+  const vals = new Float32Array(N);
+  const has = new Uint8Array(N);
+  const land = new Uint8Array(N);
   for (let r = 0; r < R; r++) {
+    const lat = latSet[r];
     for (let c = 0; c < C; c++) {
-      const v = grid[`${latSet[r]}_${lonSet[c]}`];
-      if (v !== undefined && v !== null) { vals[r * C + c] = v; has[r * C + c] = 1; }
+      const lon = lonSet[c], i = ix(r, c);
+      const v = grid[`${lat}_${lon}`];
+      if (v !== undefined && v !== null) { vals[i] = v; has[i] = 1; }
+      if (mask && !mask(lat, lon)) land[i] = 1; // mask(lat,lon)===true => ocean
     }
   }
-  for (let it = 0; it < maxIter; it++) {
-    const nv = new Float32Array(vals);
-    const nh = new Uint8Array(has);
-    let filled = 0;
-    for (let r = 0; r < R; r++) {
-      for (let c = 0; c < C; c++) {
-        const i = r * C + c;
-        if (has[i]) continue;
-        let s = 0, k = 0;
+
+  const allow = new Uint8Array(N);
+  if (!mask) {
+    for (let i = 0; i < N; i++) if (!has[i]) allow[i] = 1;
+  } else {
+    // Rule A -- within K cells of land (K-step multi-source BFS from land).
+    const nearLand = new Uint8Array(N);
+    let frontier = [];
+    for (let i = 0; i < N; i++) if (land[i]) { nearLand[i] = 1; frontier.push(i); }
+    for (let step = 0; step < K && frontier.length; step++) {
+      const next = [];
+      for (const i of frontier) {
+        const r = (i / C) | 0, c = i % C;
         for (let dr = -1; dr <= 1; dr++) {
           const rr = r + dr; if (rr < 0 || rr >= R) continue;
           for (let dc = -1; dc <= 1; dc++) {
             const cc = c + dc; if (cc < 0 || cc >= C) continue;
-            const j = rr * C + cc;
-            if (has[j]) { s += vals[j]; k++; }
+            const j = ix(rr, cc);
+            if (!nearLand[j]) { nearLand[j] = 1; next.push(j); }
           }
         }
-        if (k) { nv[i] = s / k; nh[i] = 1; filled++; }
       }
+      frontier = next;
+    }
+
+    // Open-ocean field = largest connected component of valid-data water cells.
+    const comp = new Int32Array(N).fill(-1);
+    let bestId = -1, bestSize = 0, cid = 0;
+    const st = [];
+    for (let s = 0; s < N; s++) {
+      if (has[s] && !land[s] && comp[s] === -1) {
+        comp[s] = cid; st.length = 0; st.push(s); let size = 0;
+        while (st.length) {
+          const i = st.pop(); size++;
+          const r = (i / C) | 0, c = i % C;
+          for (let dr = -1; dr <= 1; dr++) {
+            const rr = r + dr; if (rr < 0 || rr >= R) continue;
+            for (let dc = -1; dc <= 1; dc++) {
+              const cc = c + dc; if (cc < 0 || cc >= C) continue;
+              const j = ix(rr, cc);
+              if (has[j] && !land[j] && comp[j] === -1) { comp[j] = cid; st.push(j); }
+            }
+          }
+        }
+        if (size > bestSize) { bestSize = size; bestId = cid; }
+        cid++;
+      }
+    }
+
+    // Rule B -- no-data water regions not touching the open-ocean field are
+    // inland (enclosed by land); fill them fully regardless of width.
+    const seen = new Uint8Array(N);
+    for (let s = 0; s < N; s++) {
+      if (has[s] || land[s] || seen[s]) continue;
+      const region = []; st.length = 0; st.push(s); seen[s] = 1;
+      let touchesOcean = false;
+      while (st.length) {
+        const i = st.pop(); region.push(i);
+        const r = (i / C) | 0, c = i % C;
+        for (let dr = -1; dr <= 1; dr++) {
+          const rr = r + dr; if (rr < 0 || rr >= R) continue;
+          for (let dc = -1; dc <= 1; dc++) {
+            const cc = c + dc; if (cc < 0 || cc >= C) continue;
+            const j = ix(rr, cc);
+            if (has[j] && !land[j] && comp[j] === bestId) touchesOcean = true;
+            else if (!has[j] && !land[j] && !seen[j]) { seen[j] = 1; st.push(j); }
+          }
+        }
+      }
+      const enclosed = !touchesOcean;
+      for (const i of region) if (enclosed || nearLand[i]) allow[i] = 1;
+    }
+  }
+
+  // Iterative neighbor-average fill, restricted to allowed cells. Newly filled
+  // cells become sources, so fill spreads across the full allowed region.
+  for (let it = 0; it < maxIter; it++) {
+    const nv = new Float32Array(vals);
+    const nh = new Uint8Array(has);
+    let filled = 0;
+    for (let i = 0; i < N; i++) {
+      if (has[i] || !allow[i]) continue;
+      const r = (i / C) | 0, c = i % C;
+      let sum = 0, k = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        const rr = r + dr; if (rr < 0 || rr >= R) continue;
+        for (let dc = -1; dc <= 1; dc++) {
+          const cc = c + dc; if (cc < 0 || cc >= C) continue;
+          const j = ix(rr, cc);
+          if (has[j]) { sum += vals[j]; k++; }
+        }
+      }
+      if (k) { nv[i] = sum / k; nh[i] = 1; filled++; }
     }
     vals.set(nv); has.set(nh);
     if (!filled) break;
   }
+
   const out = {};
-  for (let r = 0; r < R; r++) {
-    for (let c = 0; c < C; c++) {
-      if (has[r * C + c]) out[`${latSet[r]}_${lonSet[c]}`] = vals[r * C + c];
-    }
-  }
+  for (let r = 0; r < R; r++)
+    for (let c = 0; c < C; c++)
+      if (has[ix(r, c)]) out[`${latSet[r]}_${lonSet[c]}`] = vals[ix(r, c)];
   return out;
 }
 
@@ -207,6 +287,7 @@ export default function MapTest() {
   const [fade, setFade] = useState(true);
   const [landMaskOn, setLandMaskOn] = useState(false);
   const [gapFill, setGapFill] = useState(true);
+  const [fillK, setFillK] = useState(4);
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -216,6 +297,7 @@ export default function MapTest() {
   const dataRef = useRef(null); // { url, west,east,north,south }
   const rawRef = useRef(null);  // { latSet, lonSet, grid, mask, mn, mx }
   const gapFillRef = useRef(true);
+  const fillKRef = useRef(4);
   const fadeRef = useRef(fade);
   fadeRef.current = fade;
 
@@ -410,7 +492,7 @@ export default function MapTest() {
   async function renderSstImage(fill) {
     const raw = rawRef.current;
     if (!raw) return null;
-    const g = fill ? dilateFill(raw.latSet, raw.lonSet, raw.grid) : raw.grid;
+    const g = fill ? gapFillGrid(raw.latSet, raw.lonSet, raw.grid, raw.mask, fillKRef.current) : raw.grid;
     const res = await gridToDataURL(raw.latSet, raw.lonSet, g, raw.mn, raw.mx, null, raw.mask);
     if (!res) return null;
     res.dataURL = await solidify(res.dataURL);
@@ -420,6 +502,7 @@ export default function MapTest() {
 
   useEffect(() => {
     gapFillRef.current = gapFill;
+    fillKRef.current = fillK;
     if (!rawRef.current) return;
     (async () => {
       const d = await renderSstImage(gapFill);
@@ -433,7 +516,7 @@ export default function MapTest() {
       if (topOverlayRef.current) topOverlayRef.current.setUrl(d.dataURL);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gapFill]);
+  }, [gapFill, fillK]);
 
   useEffect(() => { applyLayers(); /* eslint-disable-line */ }, [sstMode, basemap]);
 
@@ -511,6 +594,11 @@ export default function MapTest() {
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <button style={btn(gapFill)} onClick={() => setGapFill(true)}>Gap fill on</button>
           <button style={btn(!gapFill)} onClick={() => setGapFill(false)}>Fill off</button>
+        </div>
+        <div style={{ display: gapFill ? "flex" : "none", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ color: "#475569", fontSize: 11, whiteSpace: "nowrap" }}>Fill reach K={fillK} (~{fillK * 2}km)</span>
+          <input type="range" min={0} max={12} step={1} value={fillK}
+            onChange={(e) => setFillK(Number(e.target.value))} style={{ flex: 1 }} />
         </div>
         <div style={{ color: "#475569", fontSize: 11, lineHeight: 1.5 }}>
           {status}<br />{zoomLabel}<br />
