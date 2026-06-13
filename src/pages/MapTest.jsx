@@ -137,14 +137,18 @@ function updateLandMask(glMap) {
   } catch (err) { console.error("[SPIKE] land mask failed:", err); }
 }
 
-// Targeted gap fill (display-only). Fills a NO-DATA WATER cell only if it is
-// within K cells of land (shoreline fringe) OR sits in a water region cut off
-// from the open ocean by land (inland sounds/bays). Open-ocean cloud holes --
-// surrounded by valid SST and far from land -- stay no-data (grey). The ocean
-// mask still clips per-pixel at render, so fill never paints onto land.
-function gapFillGrid(latSet, lonSet, grid, mask, K = 4, maxIter = 200) {
+// Targeted nearshore gap fill (display-only). Fills a no-data WATER cell with
+// the NEAREST valid SST value when it lies within K cells of land. Uses
+// per-cell distance-to-land (not region connectivity), so it fills the band
+// hugging every coast/shoreline -- even where the nearshore gap is part of a
+// larger cloud field -- while open-water cloud holes (far from land) stay
+// no-data (grey). Nearest-value fill (not neighbor-average) means cells fill
+// even when the only data is further offshore than the gap is wide -- that was
+// why the immediate beach strip used to stay grey. Ocean mask clips at render.
+function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
   const R = latSet.length, C = lonSet.length, N = R * C;
   const ix = (r, c) => r * C + c;
+  const out = {};
   const vals = new Float32Array(N);
   const has = new Uint8Array(N);
   const land = new Uint8Array(N);
@@ -153,112 +157,65 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 4, maxIter = 200) {
     for (let c = 0; c < C; c++) {
       const lon = lonSet[c], i = ix(r, c);
       const v = grid[`${lat}_${lon}`];
-      if (v !== undefined && v !== null) { vals[i] = v; has[i] = 1; }
+      if (v !== undefined && v !== null) { vals[i] = v; has[i] = 1; out[`${lat}_${lon}`] = v; }
       if (mask && !mask(lat, lon)) land[i] = 1; // mask(lat,lon)===true => ocean
     }
   }
+  if (!mask) return out; // no usable mask -> leave data unchanged
 
-  const allow = new Uint8Array(N);
-  if (!mask) {
-    for (let i = 0; i < N; i++) if (!has[i]) allow[i] = 1;
-  } else {
-    // Rule A -- within K cells of land (K-step multi-source BFS from land).
-    const nearLand = new Uint8Array(N);
-    let frontier = [];
-    for (let i = 0; i < N; i++) if (land[i]) { nearLand[i] = 1; frontier.push(i); }
-    for (let step = 0; step < K && frontier.length; step++) {
-      const next = [];
-      for (const i of frontier) {
-        const r = (i / C) | 0, c = i % C;
-        for (let dr = -1; dr <= 1; dr++) {
-          const rr = r + dr; if (rr < 0 || rr >= R) continue;
-          for (let dc = -1; dc <= 1; dc++) {
-            const cc = c + dc; if (cc < 0 || cc >= C) continue;
-            const j = ix(rr, cc);
-            if (!nearLand[j]) { nearLand[j] = 1; next.push(j); }
-          }
-        }
-      }
-      frontier = next;
-    }
-
-    // Open-ocean field = largest connected component of valid-data water cells.
-    const comp = new Int32Array(N).fill(-1);
-    let bestId = -1, bestSize = 0, cid = 0;
-    const st = [];
-    for (let s = 0; s < N; s++) {
-      if (has[s] && !land[s] && comp[s] === -1) {
-        comp[s] = cid; st.length = 0; st.push(s); let size = 0;
-        while (st.length) {
-          const i = st.pop(); size++;
-          const r = (i / C) | 0, c = i % C;
-          for (let dr = -1; dr <= 1; dr++) {
-            const rr = r + dr; if (rr < 0 || rr >= R) continue;
-            for (let dc = -1; dc <= 1; dc++) {
-              const cc = c + dc; if (cc < 0 || cc >= C) continue;
-              const j = ix(rr, cc);
-              if (has[j] && !land[j] && comp[j] === -1) { comp[j] = cid; st.push(j); }
-            }
-          }
-        }
-        if (size > bestSize) { bestSize = size; bestId = cid; }
-        cid++;
-      }
-    }
-
-    // Rule B -- no-data water regions not touching the open-ocean field are
-    // inland (enclosed by land); fill them fully regardless of width.
-    const seen = new Uint8Array(N);
-    for (let s = 0; s < N; s++) {
-      if (has[s] || land[s] || seen[s]) continue;
-      const region = []; st.length = 0; st.push(s); seen[s] = 1;
-      let touchesOcean = false;
-      while (st.length) {
-        const i = st.pop(); region.push(i);
-        const r = (i / C) | 0, c = i % C;
-        for (let dr = -1; dr <= 1; dr++) {
-          const rr = r + dr; if (rr < 0 || rr >= R) continue;
-          for (let dc = -1; dc <= 1; dc++) {
-            const cc = c + dc; if (cc < 0 || cc >= C) continue;
-            const j = ix(rr, cc);
-            if (has[j] && !land[j] && comp[j] === bestId) touchesOcean = true;
-            else if (!has[j] && !land[j] && !seen[j]) { seen[j] = 1; st.push(j); }
-          }
-        }
-      }
-      const enclosed = !touchesOcean;
-      for (const i of region) if (enclosed || nearLand[i]) allow[i] = 1;
-    }
-  }
-
-  // Iterative neighbor-average fill, restricted to allowed cells. Newly filled
-  // cells become sources, so fill spreads across the full allowed region.
-  for (let it = 0; it < maxIter; it++) {
-    const nv = new Float32Array(vals);
-    const nh = new Uint8Array(has);
-    let filled = 0;
-    for (let i = 0; i < N; i++) {
-      if (has[i] || !allow[i]) continue;
+  // Distance (in cells) to nearest land, 8-connected BFS from all land cells.
+  const distLand = new Int32Array(N).fill(-1);
+  let fr = [];
+  for (let i = 0; i < N; i++) if (land[i]) { distLand[i] = 0; fr.push(i); }
+  while (fr.length) {
+    const nx = [];
+    for (const i of fr) {
       const r = (i / C) | 0, c = i % C;
-      let sum = 0, k = 0;
       for (let dr = -1; dr <= 1; dr++) {
         const rr = r + dr; if (rr < 0 || rr >= R) continue;
         for (let dc = -1; dc <= 1; dc++) {
           const cc = c + dc; if (cc < 0 || cc >= C) continue;
           const j = ix(rr, cc);
-          if (has[j]) { sum += vals[j]; k++; }
+          if (distLand[j] === -1) { distLand[j] = distLand[i] + 1; nx.push(j); }
         }
       }
-      if (k) { nv[i] = sum / k; nh[i] = 1; filled++; }
     }
-    vals.set(nv); has.set(nh);
-    if (!filled) break;
+    fr = nx;
   }
 
-  const out = {};
-  for (let r = 0; r < R; r++)
-    for (let c = 0; c < C; c++)
-      if (has[ix(r, c)]) out[`${latSet[r]}_${lonSet[c]}`] = vals[ix(r, c)];
+  // Nearest valid SST over water: multi-source BFS from has-data cells,
+  // carrying the source value. Never crosses land.
+  const srcVal = new Float32Array(N);
+  const reached = new Uint8Array(N);
+  let q = [];
+  for (let i = 0; i < N; i++) if (has[i]) { srcVal[i] = vals[i]; reached[i] = 1; q.push(i); }
+  while (q.length) {
+    const nx = [];
+    for (const i of q) {
+      const r = (i / C) | 0, c = i % C;
+      for (let dr = -1; dr <= 1; dr++) {
+        const rr = r + dr; if (rr < 0 || rr >= R) continue;
+        for (let dc = -1; dc <= 1; dc++) {
+          const cc = c + dc; if (cc < 0 || cc >= C) continue;
+          const j = ix(rr, cc);
+          if (land[j] || reached[j]) continue;
+          srcVal[j] = srcVal[i]; reached[j] = 1; nx.push(j);
+        }
+      }
+    }
+    q = nx;
+  }
+
+  // Fill no-data water cells within K of land, using nearest valid value.
+  for (let r = 0; r < R; r++) {
+    for (let c = 0; c < C; c++) {
+      const i = ix(r, c);
+      if (has[i] || land[i]) continue;
+      if (distLand[i] >= 0 && distLand[i] <= K && reached[i]) {
+        out[`${latSet[r]}_${lonSet[c]}`] = srcVal[i];
+      }
+    }
+  }
   return out;
 }
 
