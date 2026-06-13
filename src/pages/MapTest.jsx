@@ -137,17 +137,19 @@ function updateLandMask(glMap) {
   } catch (err) { console.error("[SPIKE] land mask failed:", err); }
 }
 
-// Targeted nearshore gap fill (display-only). Fills a no-data WATER cell with
-// the NEAREST valid SST value when it lies within K cells of land. Uses
-// per-cell distance-to-land (not region connectivity), so it fills the band
-// hugging every coast/shoreline -- even where the nearshore gap is part of a
-// larger cloud field -- while open-water cloud holes (far from land) stay
-// no-data (grey). Nearest-value fill (not neighbor-average) means cells fill
-// even when the only data is further offshore than the gap is wide -- that was
-// why the immediate beach strip used to stay grey. Ocean mask clips at render.
+// Targeted nearshore + inland gap fill (display-only). Fills a no-data WATER
+// cell with the NEAREST valid SST value when EITHER (a) it is within K cells of
+// land -- the open-coast nearshore band -- OR (b) it is "enclosed" by land:
+// at least ENCL_T of 8 rays cast outward hit land within ENCL_D cells (sounds,
+// bays, water behind the barrier islands). Open-ocean cloud holes (far from
+// land and open to sea) fail both tests and stay no-data (grey). Per-cell +
+// nearest-value so the fill reaches the coastline even when the only data is
+// further offshore than the gap is wide. Ocean mask clips at render, so fill
+// never paints on land.
 function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
   const R = latSet.length, C = lonSet.length, N = R * C;
   const ix = (r, c) => r * C + c;
+  const ENCL_D = 20, ENCL_T = 3; // ray reach (cells) and min land-hits of 8
   const out = {};
   const vals = new Float32Array(N);
   const has = new Uint8Array(N);
@@ -161,9 +163,9 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
       if (mask && !mask(lat, lon)) land[i] = 1; // mask(lat,lon)===true => ocean
     }
   }
-  if (!mask) return out; // no usable mask -> leave data unchanged
+  if (!mask) return out;
 
-  // Distance (in cells) to nearest land, 8-connected BFS from all land cells.
+  // Distance (cells) to nearest land, 8-connected BFS.
   const distLand = new Int32Array(N).fill(-1);
   let fr = [];
   for (let i = 0; i < N; i++) if (land[i]) { distLand[i] = 0; fr.push(i); }
@@ -183,8 +185,7 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
     fr = nx;
   }
 
-  // Nearest valid SST over water: multi-source BFS from has-data cells,
-  // carrying the source value. Never crosses land.
+  // Nearest valid SST over water: multi-source BFS from has-data cells.
   const srcVal = new Float32Array(N);
   const reached = new Uint8Array(N);
   let q = [];
@@ -206,12 +207,28 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
     q = nx;
   }
 
-  // Fill no-data water cells within K of land, using nearest valid value.
+  // Enclosure test: >= ENCL_T of 8 rays hit land within ENCL_D cells.
+  const DIRS = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+  const enclosed = (r, c) => {
+    let cnt = 0;
+    for (let d = 0; d < 8; d++) {
+      const dr = DIRS[d][0], dc = DIRS[d][1];
+      for (let s = 1; s <= ENCL_D; s++) {
+        const rr = r + dr * s, cc = c + dc * s;
+        if (rr < 0 || rr >= R || cc < 0 || cc >= C) break;
+        if (land[ix(rr, cc)]) { cnt++; break; }
+      }
+      if (cnt >= ENCL_T) return true;
+    }
+    return false;
+  };
+
+  // Fill no-data water cells: nearshore band (<= K of land) OR land-enclosed.
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < C; c++) {
       const i = ix(r, c);
-      if (has[i] || land[i]) continue;
-      if (distLand[i] >= 0 && distLand[i] <= K && reached[i]) {
+      if (has[i] || land[i] || !reached[i]) continue;
+      if (distLand[i] <= K || enclosed(r, c)) {
         out[`${latSet[r]}_${lonSet[c]}`] = srcVal[i];
       }
     }
