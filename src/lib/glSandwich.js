@@ -190,7 +190,7 @@ export function updateLandMask(glMap) {
     const padY = (b.getNorth() - b.getSouth()) * 0.25;
     const w = b.getWest() - padX, e = b.getEast() + padX;
     const s = Math.max(-85, b.getSouth() - padY), n = Math.min(85, b.getNorth() + padY);
-    const W = 1536, H = 1536; // >= SST render res so the coastline fully covers
+    const W = 2048, H = 2048; // match test page resolution
     const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
     const mN = mercY(n), mS = mercY(s);
     const px = (lon) => ((lon - w) / (e - w)) * W;
@@ -303,6 +303,12 @@ export function installLandMaskRefresh(map, glLayer) {
   // Recompute when the view settles. idle gives full-detail water geometry;
   // moveend/zoomend guarantee a refresh even if idle is pre-empted by the busy
   // production map. maskKey dedups so we never recompute for an unchanged view.
-  glMap.on("idle", () => { if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap); });
-  map.on("moveend zoomend", () => setTimeout(() => { if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap); }, 200));
+  const req = () => { if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap); };
+  // The GL map's own move/zoom events fire AFTER mapbox-gl-leaflet syncs the GL
+  // camera, so getBounds() is current here. Leaflet's zoomend fires before the
+  // sync, so a recompute there saw stale bounds and got dedup-skipped -> a
+  // wide-view mask was left stretched over the zoomed-in viewport (blurry coast).
+  glMap.on("moveend", req);
+  glMap.on("idle", req);
+  map.on("moveend zoomend", () => setTimeout(req, 250));
 }
