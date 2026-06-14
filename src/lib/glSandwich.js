@@ -174,7 +174,12 @@ let landMaskUrl = null;
 let lastMaskKey = "";
 function maskKey(glMap) {
   const b = glMap.getBounds();
-  return [b.getWest(), b.getEast(), b.getSouth(), b.getNorth()].map((v) => v.toFixed(5)).join("|");
+  // Include tile-load state: a mask computed while basemap water tiles are still
+  // loading has few/no water polygons. When tiles finish, the key flips so we
+  // recompute once with full water geometry (then stable -> no render loop).
+  let tilesLoaded = true;
+  try { tilesLoaded = glMap.areTilesLoaded(); } catch (_) {}
+  return [b.getWest(), b.getEast(), b.getSouth(), b.getNorth()].map((v) => v.toFixed(5)).join("|") + "|" + tilesLoaded;
 }
 export function updateLandMask(glMap) {
   try {
