@@ -174,12 +174,31 @@ let landMaskUrl = null;
 let lastMaskKey = "";
 function maskKey(glMap) {
   const b = glMap.getBounds();
-  // Include tile-load state: a mask computed while basemap water tiles are still
-  // loading has few/no water polygons. When tiles finish, the key flips so we
-  // recompute once with full water geometry (then stable -> no render loop).
-  let tilesLoaded = true;
-  try { tilesLoaded = glMap.areTilesLoaded(); } catch (_) {}
-  return [b.getWest(), b.getEast(), b.getSouth(), b.getNorth()].map((v) => v.toFixed(5)).join("|") + "|" + tilesLoaded;
+  return [b.getWest(), b.getEast(), b.getSouth(), b.getNorth()].map((v) => v.toFixed(5)).join("|");
+}
+
+// Recompute the mask for the CURRENT view once basemap water tiles have loaded.
+// Polls areTilesLoaded rather than waiting for the GL "idle" event, which is
+// starved in the busy production map (constant SST/overlay re-renders) -- that
+// starvation was why the mask went stale/blurry when zooming without a data
+// change. Runs on every view change (zoom + pan) and after each SST render.
+let maskPollTimer = null;
+export function scheduleMaskRefresh(glMap) {
+  if (!glMap) return;
+  if (maskPollTimer) { clearTimeout(maskPollTimer); maskPollTimer = null; }
+  let tries = 0;
+  const tick = () => {
+    tries++;
+    let loaded = true;
+    try { loaded = glMap.areTilesLoaded(); } catch (_) {}
+    if (loaded || tries >= 15) {
+      if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap);
+      maskPollTimer = null;
+    } else {
+      maskPollTimer = setTimeout(tick, 200);
+    }
+  };
+  tick();
 }
 export function updateLandMask(glMap) {
   try {
@@ -280,9 +299,8 @@ export function upsertSstImage(glLayer, dataURL, west, east, north, south) {
       glMap.addSource("sst-img", { type: "image", url: dataURL, coordinates: coords });
       glMap.addLayer({ id: "sst-img", type: "raster", source: "sst-img", paint: { "raster-opacity": 1, "raster-fade-duration": 0, "raster-resampling": "linear" } }, beforeId);
     }
-    glMap.once("idle", () => { updateLandMask(glMap); kick(); });
     let k = 0; const t = setInterval(() => { kick(); if (++k >= 10) clearInterval(t); }, 400);
-    setTimeout(() => updateLandMask(glMap), 300);
+    scheduleMaskRefresh(glMap);
   };
   if (glMap.isStyleLoaded()) doIt(); else glMap.once("idle", doIt);
 }
@@ -298,17 +316,16 @@ export function removeSstImage(glLayer) {
 
 // Wire land-mask recompute when the map settles (basemap water changes per view).
 export function installLandMaskRefresh(map, glLayer) {
+  if (!map || !glLayer) return;
+  const attach = (glMap) => {
+    if (!glMap) return;
+    // GL map's own moveend fires after mapbox-gl-leaflet syncs the camera (bounds
+    // current); Leaflet moveend/zoomend as a backstop. Both poll for tiles then
+    // recompute for the current view.
+    glMap.on("moveend", () => scheduleMaskRefresh(glMap));
+    map.on("moveend zoomend", () => scheduleMaskRefresh(glMap));
+  };
   const glMap = getGlMap(glLayer);
-  if (!map || !glMap) return;
-  // Recompute when the view settles. idle gives full-detail water geometry;
-  // moveend/zoomend guarantee a refresh even if idle is pre-empted by the busy
-  // production map. maskKey dedups so we never recompute for an unchanged view.
-  const req = () => { if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap); };
-  // The GL map's own move/zoom events fire AFTER mapbox-gl-leaflet syncs the GL
-  // camera, so getBounds() is current here. Leaflet's zoomend fires before the
-  // sync, so a recompute there saw stale bounds and got dedup-skipped -> a
-  // wide-view mask was left stretched over the zoomed-in viewport (blurry coast).
-  glMap.on("moveend", req);
-  glMap.on("idle", req);
-  map.on("moveend zoomend", () => setTimeout(req, 250));
+  if (glMap) attach(glMap);
+  else if (glLayer.on) glLayer.on("load", () => attach(getGlMap(glLayer)));
 }
