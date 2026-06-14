@@ -227,6 +227,7 @@ import SSTRangeControl from "@/components/SSTRangeControl";
 import WindTimeSlider, { WindLegend } from "@/components/WindTimeSlider";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
 
 // ── Community pulse animation (injected once) ─────────────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("community-pulse-style")) {
@@ -979,6 +980,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [mapReady,         setMapReady]         = useState(false);
   const [sstReady,         setSstReady]         = useState(false);
   const waterMaskRef  = useRef(null);
+  const glLayerRef = useRef(null);
   const [waterMaskVersion, setWaterMaskVersion] = useState(0);
   const [repaintTrigger,   setRepaintTrigger]   = useState(0);
   const maskBuildStartedRef = useRef(false);
@@ -1225,9 +1227,14 @@ export default function SSTHeatmapLeaflet(props) {
     };
     document.addEventListener("keydown", stopSpaceInInputs, true);
     map.on("remove", () => document.removeEventListener("keydown", stopSpaceInInputs, true));
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; OpenStreetMap, &copy; CARTO', subdomains: "abcd", maxZoom: 19,
-    }).addTo(map);
+    glLayerRef.current = createGlBasemap(map);
+    if (glLayerRef.current) {
+      installLandMaskRefresh(map, glLayerRef.current);
+    } else {
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; OpenStreetMap, &copy; CARTO', subdomains: "abcd", maxZoom: 19,
+      }).addTo(map);
+    }
     // Initialize map with a rough view immediately so _checkIfLoaded never throws
     // before the proper fill-zoom rAF runs.
     try { map.setView(mercCenter, 5, { animate: false }); } catch(_) {}
@@ -1613,17 +1620,28 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map || !latSet.length) return;
     const mask = waterMaskRef.current; if (!mask) return;
     if (sstOverlayRef.current) { map.removeLayer(sstOverlayRef.current); sstOverlayRef.current = null; }
-    if (!showSSTLayer || activeDataLayer !== "sst") return;
+    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
+    if (activeDataLayer !== "sst") return;
+    if (!showSSTLayer) { if (useGl) removeSstImage(glLayerRef.current); return; }
     const rangeMin = sstRange?.min !== undefined ? sstRange.min : undefined;
     const rangeMax = sstRange?.max !== undefined ? sstRange.max : undefined;
     let cancelled = false;
-    Promise.resolve(gridToDataURL(latSet, lonSet, grid, sstMin, sstMax, null, mask, rangeMin, rangeMax)).then(result => {
+    const sstGrid = useGl ? gapFillGrid(latSet, lonSet, grid, mask, 0) : grid;
+    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, useGl ? null : mask, rangeMin, rangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
-      blobUrlsRef.current.push(dataURL);
-      const opacity = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP" || dataSource === "GOESCOMP") ? 0.78 : 0.92;
-      const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity, interactive: false });
-      overlay.addTo(map); sstOverlayRef.current = overlay; sstReadyRef.current = true; setSstReady(true);
+      if (useGl) {
+        const solid = await solidify(dataURL);
+        if (cancelled) return;
+        blobUrlsRef.current.push(solid);
+        upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+      } else {
+        blobUrlsRef.current.push(dataURL);
+        const opacity = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP" || dataSource === "GOESCOMP") ? 0.78 : 0.92;
+        const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity, interactive: false });
+        overlay.addTo(map); sstOverlayRef.current = overlay;
+      }
+      sstReadyRef.current = true; setSstReady(true);
       if (dataSource === "MUR") { try { map.setMaxBounds([[south, west], [north, east]]); } catch(_) {} }
       else if (dataSource === "VIIRS") {
         try { map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]); } catch(_) {}
@@ -1710,12 +1728,21 @@ export default function SSTHeatmapLeaflet(props) {
     const finalMax = activeDataLayer === "composite" ? sstMax : max2;
     const finalRangeMin = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.min != null ? sstRange.min : undefined;
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
-    Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,renderGrid,finalMin,finalMax,finalColorFn,waterMaskRef.current,finalRangeMin,finalRangeMax)).then(result => {
+    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
+    const ovGrid = (useGl && activeDataLayer === "composite") ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 0) : renderGrid;
+    Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,useGl ? null : waterMaskRef.current,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
-      blobUrlsRef.current.push(dataURL);
-      const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false });
-      overlay.addTo(map); overlayLayerRef.current = overlay;
+      if (useGl) {
+        const solid = await solidify(dataURL);
+        if (cancelled) return;
+        blobUrlsRef.current.push(solid);
+        upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+      } else {
+        blobUrlsRef.current.push(dataURL);
+        const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false });
+        overlay.addTo(map); overlayLayerRef.current = overlay;
+      }
       // CHL/seacolor/composite data stops at 39.00°N — set tight minZoom+maxBounds so
       // the post-sstReady refit's setView(fill_for_39.50N) is clamped, preventing grey strip.
       // Altimetry: CMEMS returns 0.125° grid centroids (33.8125–38.9375°N), not the full
