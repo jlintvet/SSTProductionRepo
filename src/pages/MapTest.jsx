@@ -289,6 +289,7 @@ export default function MapTest() {
   const [zoomLabel, setZoomLabel] = useState("");
   const [sstMode, setSstMode] = useState("sandwich"); // sandwich | top | off
   const [basemap, setBasemap] = useState("vector");   // vector | carto
+  const [glStyle, setGlStyle] = useState(styleId);
   const [fade, setFade] = useState(true);
   const [landMaskOn, setLandMaskOn] = useState(true);
   const [gapFill, setGapFill] = useState(true);
@@ -297,6 +298,7 @@ export default function MapTest() {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
   const glLayerRef = useRef(null);
+  const glStyleRef = useRef(styleId);
   const cartoLayerRef = useRef(null);
   const topOverlayRef = useRef(null);
   const dataRef = useRef(null); // { url, west,east,north,south }
@@ -462,12 +464,17 @@ export default function MapTest() {
     // basemap
     if (basemap === "vector") {
       if (cartoLayerRef.current) { map.removeLayer(cartoLayerRef.current); cartoLayerRef.current = null; }
+      if (glLayerRef.current && glStyleRef.current !== glStyle) {
+        removeGlSst();
+        map.removeLayer(glLayerRef.current); glLayerRef.current = null;
+      }
       if (!glLayerRef.current) {
         glLayerRef.current = L.mapboxGL({
           accessToken: token,
-          style: `mapbox://styles/${styleId}`,
+          style: `mapbox://styles/${glStyle}`,
           interactive: false,
         }).addTo(map);
+        glStyleRef.current = glStyle;
       }
     } else {
       removeGlSst();
@@ -523,7 +530,7 @@ export default function MapTest() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gapFill, fillK]);
 
-  useEffect(() => { applyLayers(); /* eslint-disable-line */ }, [sstMode, basemap]);
+  useEffect(() => { applyLayers(); /* eslint-disable-line */ }, [sstMode, basemap, glStyle]);
 
   useEffect(() => {
     landMaskEnabled = landMaskOn;
@@ -581,6 +588,12 @@ export default function MapTest() {
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           <button style={btn(basemap === "vector")} onClick={() => setBasemap("vector")}>Vector GL (new)</button>
           <button style={btn(basemap === "carto")} onClick={() => setBasemap("carto")}>Carto raster (old)</button>
+        </div>
+        <div style={{ color: "#475569", marginBottom: 4 }}>Basemap style</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          {[["mapbox/light-v11", "Light"], ["mapbox/dark-v11", "Dark"], ["mapbox/streets-v12", "Streets"], ["mapbox/outdoors-v12", "Outdoors"]].map(([id, label]) => (
+            <button key={id} style={{ ...btn(glStyle === id && basemap === "vector"), flex: "0 0 calc(50% - 3px)" }} onClick={() => { setGlStyle(id); setBasemap("vector"); }}>{label}</button>
+          ))}
         </div>
         <div style={{ color: "#475569", marginBottom: 4 }}>SST layer</div>
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
