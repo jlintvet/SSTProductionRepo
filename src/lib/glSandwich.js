@@ -280,8 +280,9 @@ export function upsertSstImage(glLayer, dataURL, west, east, north, south) {
       glMap.addSource("sst-img", { type: "image", url: dataURL, coordinates: coords });
       glMap.addLayer({ id: "sst-img", type: "raster", source: "sst-img", paint: { "raster-opacity": 1, "raster-fade-duration": 0, "raster-resampling": "linear" } }, beforeId);
     }
-    glMap.once("idle", kick);
+    glMap.once("idle", () => { updateLandMask(glMap); kick(); });
     let k = 0; const t = setInterval(() => { kick(); if (++k >= 10) clearInterval(t); }, 400);
+    setTimeout(() => updateLandMask(glMap), 300);
   };
   if (glMap.isStyleLoaded()) doIt(); else glMap.once("idle", doIt);
 }

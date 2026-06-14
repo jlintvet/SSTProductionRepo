@@ -1229,7 +1229,7 @@ export default function SSTHeatmapLeaflet(props) {
     map.on("remove", () => document.removeEventListener("keydown", stopSpaceInInputs, true));
     glLayerRef.current = createGlBasemap(map);
     if (glLayerRef.current) {
-      /* SST clipped to ocean_mask -> no basemap-water land mask needed (it over-punched at low zoom). Disabled. */
+      installLandMaskRefresh(map, glLayerRef.current);
     } else {
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; OpenStreetMap, &copy; CARTO', subdomains: "abcd", maxZoom: 19,
@@ -1627,7 +1627,7 @@ export default function SSTHeatmapLeaflet(props) {
     const rangeMax = sstRange?.max !== undefined ? sstRange.max : undefined;
     let cancelled = false;
     const sstGrid = useGl ? gapFillGrid(latSet, lonSet, grid, mask, 0) : grid;
-    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, mask, rangeMin, rangeMax)).then(async result => {
+    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, useGl ? null : mask, rangeMin, rangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
@@ -1730,7 +1730,7 @@ export default function SSTHeatmapLeaflet(props) {
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
     const ovGrid = (useGl && activeDataLayer === "composite") ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 0) : renderGrid;
-    Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,waterMaskRef.current,finalRangeMin,finalRangeMax)).then(async result => {
+    Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,useGl ? null : waterMaskRef.current,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
