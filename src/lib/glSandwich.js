@@ -205,8 +205,8 @@ export function updateLandMask(glMap) {
     if (!glMap || !glMap.getLayer("sst-img")) return;
     lastMaskKey = maskKey(glMap);
     const b = glMap.getBounds();
-    const padX = (b.getEast() - b.getWest()) * 0.25;
-    const padY = (b.getNorth() - b.getSouth()) * 0.25;
+    const padX = (b.getEast() - b.getWest()) * 0.1;
+    const padY = (b.getNorth() - b.getSouth()) * 0.1;
     const w = b.getWest() - padX, e = b.getEast() + padX;
     const s = Math.max(-85, b.getSouth() - padY), n = Math.min(85, b.getNorth() + padY);
     const W = 2048, H = 2048; // match test page resolution
