@@ -61,7 +61,7 @@ async function solidify(blobUrl) {
 // image source via blob URL (canvas sources with play/pause spin the render
 // loop when rAF is throttled).
 let landMaskUrl = null;
-let landMaskEnabled = false;
+let landMaskEnabled = true;
 let lastMaskKey = "";
 function maskKey(glMap) {
   const b = glMap.getBounds();
@@ -223,15 +223,44 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 1) {
     return false;
   };
 
-  // Fill: shoreline connector (<= K of land) OR inshore (opposing land).
+  // Fill no-data WATER cells: shoreline connector (<= K of land) OR inshore.
+  const value = new Float32Array(N);
+  const valued = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (has[i]) { value[i] = vals[i]; valued[i] = 1; }
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < C; c++) {
       const i = ix(r, c);
       if (has[i] || land[i] || !reached[i]) continue;
       if (distLand[i] <= K || inshore(r, c)) {
+        value[i] = srcVal[i]; valued[i] = 1;
         out[`${latSet[r]}_${lonSet[c]}`] = srcVal[i];
       }
     }
+  }
+  // Landward coastal dilation: extend values a few cells onto LAND so SST
+  // reaches past the coarse ocean-mask coastline; the basemap-water land mask
+  // drawn on top clips it to the exact Mapbox coast. Only land cells dilate,
+  // so open-ocean cloud holes are never filled.
+  const DILATE = 2;
+  let df = [];
+  for (let i = 0; i < N; i++) if (valued[i]) df.push(i);
+  for (let step = 0; step < DILATE && df.length; step++) {
+    const nx = [];
+    for (const i of df) {
+      const r = (i / C) | 0, c = i % C;
+      for (let dr = -1; dr <= 1; dr++) {
+        const rr = r + dr; if (rr < 0 || rr >= R) continue;
+        for (let dc = -1; dc <= 1; dc++) {
+          const cc = c + dc; if (cc < 0 || cc >= C) continue;
+          const j = ix(rr, cc);
+          if (valued[j] || !land[j]) continue;
+          value[j] = value[i]; valued[j] = 1;
+          out[`${latSet[rr]}_${lonSet[cc]}`] = value[i];
+          nx.push(j);
+        }
+      }
+    }
+    df = nx;
   }
   return out;
 }
@@ -259,7 +288,7 @@ export default function MapTest() {
   const [sstMode, setSstMode] = useState("sandwich"); // sandwich | top | off
   const [basemap, setBasemap] = useState("vector");   // vector | carto
   const [fade, setFade] = useState(true);
-  const [landMaskOn, setLandMaskOn] = useState(false);
+  const [landMaskOn, setLandMaskOn] = useState(true);
   const [gapFill, setGapFill] = useState(true);
   const [fillK, setFillK] = useState(1);
 
@@ -467,7 +496,7 @@ export default function MapTest() {
     const raw = rawRef.current;
     if (!raw) return null;
     const g = fill ? gapFillGrid(raw.latSet, raw.lonSet, raw.grid, raw.mask, fillKRef.current) : raw.grid;
-    const res = await gridToDataURL(raw.latSet, raw.lonSet, g, raw.mn, raw.mx, null, raw.mask);
+    const res = await gridToDataURL(raw.latSet, raw.lonSet, g, raw.mn, raw.mx, null, null); // no coarse-mask clip; basemap-water land mask clips to exact coast
     if (!res) return null;
     res.dataURL = await solidify(res.dataURL);
     dataRef.current = res;
