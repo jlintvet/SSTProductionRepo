@@ -137,19 +137,16 @@ function updateLandMask(glMap) {
   } catch (err) { console.error("[SPIKE] land mask failed:", err); }
 }
 
-// Targeted nearshore + inland gap fill (display-only). Fills a no-data WATER
-// cell with the NEAREST valid SST value when EITHER (a) it is within K cells of
-// land -- the open-coast nearshore band -- OR (b) it is "enclosed" by land:
-// at least ENCL_T of 8 rays cast outward hit land within ENCL_D cells (sounds,
-// bays, water behind the barrier islands). Open-ocean cloud holes (far from
-// land and open to sea) fail both tests and stay no-data (grey). Per-cell +
-// nearest-value so the fill reaches the coastline even when the only data is
-// further offshore than the gap is wide. Ocean mask clips at render, so fill
-// never paints on land.
-function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
+// Inshore gap fill (display-only). Fills ONLY (a) inshore water -- a no-data
+// cell with land on OPPOSITE sides within AXIS_D cells (sounds, bays, creeks
+// behind the barrier islands), and (b) a thin K-cell connector right at the
+// shoreline so data meets the land with no gap. Open ocean and offshore cloud
+// holes have no opposing land and are beyond K, so they are NEVER filled.
+// Fill value = nearest valid SST (BFS over water). Ocean mask clips at render.
+function gapFillGrid(latSet, lonSet, grid, mask, K = 1) {
   const R = latSet.length, C = lonSet.length, N = R * C;
   const ix = (r, c) => r * C + c;
-  const ENCL_D = 20, ENCL_T = 3; // ray reach (cells) and min land-hits of 8
+  const AXIS_D = 22, AXIS_MIN = 1; // ray reach (cells); min opposing-land axes
   const out = {};
   const vals = new Float32Array(N);
   const has = new Uint8Array(N);
@@ -165,7 +162,7 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
   }
   if (!mask) return out;
 
-  // Distance (cells) to nearest land, 8-connected BFS.
+  // Distance (cells) to nearest land.
   const distLand = new Int32Array(N).fill(-1);
   let fr = [];
   for (let i = 0; i < N; i++) if (land[i]) { distLand[i] = 0; fr.push(i); }
@@ -185,7 +182,7 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
     fr = nx;
   }
 
-  // Nearest valid SST over water: multi-source BFS from has-data cells.
+  // Nearest valid SST over water (multi-source BFS).
   const srcVal = new Float32Array(N);
   const reached = new Uint8Array(N);
   let q = [];
@@ -207,28 +204,31 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 4) {
     q = nx;
   }
 
-  // Enclosure test: >= ENCL_T of 8 rays hit land within ENCL_D cells.
-  const DIRS = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
-  const enclosed = (r, c) => {
-    let cnt = 0;
-    for (let d = 0; d < 8; d++) {
-      const dr = DIRS[d][0], dc = DIRS[d][1];
-      for (let s = 1; s <= ENCL_D; s++) {
-        const rr = r + dr * s, cc = c + dc * s;
-        if (rr < 0 || rr >= R || cc < 0 || cc >= C) break;
-        if (land[ix(rr, cc)]) { cnt++; break; }
-      }
-      if (cnt >= ENCL_T) return true;
+  // Inshore test: land on OPPOSITE sides on >= AXIS_MIN of the 4 axes.
+  const AX = [[[-1,0],[1,0]],[[0,1],[0,-1]],[[-1,1],[1,-1]],[[-1,-1],[1,1]]];
+  const landIn = (r, c, dr, dc) => {
+    for (let s = 1; s <= AXIS_D; s++) {
+      const rr = r + dr * s, cc = c + dc * s;
+      if (rr < 0 || rr >= R || cc < 0 || cc >= C) return false;
+      if (land[ix(rr, cc)]) return true;
+    }
+    return false;
+  };
+  const inshore = (r, c) => {
+    let n = 0;
+    for (let a = 0; a < 4; a++) {
+      const A = AX[a][0], B = AX[a][1];
+      if (landIn(r, c, A[0], A[1]) && landIn(r, c, B[0], B[1])) { n++; if (n >= AXIS_MIN) return true; }
     }
     return false;
   };
 
-  // Fill no-data water cells: nearshore band (<= K of land) OR land-enclosed.
+  // Fill: shoreline connector (<= K of land) OR inshore (opposing land).
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < C; c++) {
       const i = ix(r, c);
       if (has[i] || land[i] || !reached[i]) continue;
-      if (distLand[i] <= K || enclosed(r, c)) {
+      if (distLand[i] <= K || inshore(r, c)) {
         out[`${latSet[r]}_${lonSet[c]}`] = srcVal[i];
       }
     }
@@ -261,7 +261,7 @@ export default function MapTest() {
   const [fade, setFade] = useState(true);
   const [landMaskOn, setLandMaskOn] = useState(false);
   const [gapFill, setGapFill] = useState(true);
-  const [fillK, setFillK] = useState(4);
+  const [fillK, setFillK] = useState(1);
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -271,7 +271,7 @@ export default function MapTest() {
   const dataRef = useRef(null); // { url, west,east,north,south }
   const rawRef = useRef(null);  // { latSet, lonSet, grid, mask, mn, mx }
   const gapFillRef = useRef(true);
-  const fillKRef = useRef(4);
+  const fillKRef = useRef(1);
   const fadeRef = useRef(fade);
   fadeRef.current = fade;
 
@@ -570,8 +570,8 @@ export default function MapTest() {
           <button style={btn(!gapFill)} onClick={() => setGapFill(false)}>Fill off</button>
         </div>
         <div style={{ display: gapFill ? "flex" : "none", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ color: "#475569", fontSize: 11, whiteSpace: "nowrap" }}>Fill reach K={fillK} (~{fillK * 2}km)</span>
-          <input type="range" min={0} max={12} step={1} value={fillK}
+          <span style={{ color: "#475569", fontSize: 11, whiteSpace: "nowrap" }}>Coast connect K={fillK} (~{fillK * 2}km)</span>
+          <input type="range" min={0} max={6} step={1} value={fillK}
             onChange={(e) => setFillK(Number(e.target.value))} style={{ flex: 1 }} />
         </div>
         <div style={{ color: "#475569", fontSize: 11, lineHeight: 1.5 }}>
