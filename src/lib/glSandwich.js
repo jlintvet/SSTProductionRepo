@@ -316,16 +316,17 @@ export function removeSstImage(glLayer) {
 
 // Wire land-mask recompute when the map settles (basemap water changes per view).
 export function installLandMaskRefresh(map, glLayer) {
-  if (!map || !glLayer) return;
-  const attach = (glMap) => {
-    if (!glMap) return;
-    // GL map's own moveend fires after mapbox-gl-leaflet syncs the camera (bounds
-    // current); Leaflet moveend/zoomend as a backstop. Both poll for tiles then
-    // recompute for the current view.
-    glMap.on("moveend", () => scheduleMaskRefresh(glMap));
-    map.on("moveend zoomend", () => scheduleMaskRefresh(glMap));
+  if (!map) return;
+  // Attach to the LEAFLET map (always ready at init) and resolve the GL map
+  // LAZILY inside the handler. The GL map usually isn't created yet when this
+  // runs, and L.mapboxGL's "load" event was unreliable -> the old code's
+  // handlers never attached -> the mask recomputed on data-change but NOT on
+  // zoom (the reported bug). The 180ms delay lets mapbox-gl-leaflet finish
+  // syncing the GL camera/bounds before we recompute for the new view.
+  const onView = () => {
+    const glMap = getGlMap(glLayer);
+    if (glMap) setTimeout(() => scheduleMaskRefresh(glMap), 180);
   };
-  const glMap = getGlMap(glLayer);
-  if (glMap) attach(glMap);
-  else if (glLayer.on) glLayer.on("load", () => attach(getGlMap(glLayer)));
+  map.on("zoomend", onView);
+  map.on("moveend", onView);
 }
