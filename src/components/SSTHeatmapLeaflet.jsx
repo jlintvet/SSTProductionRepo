@@ -1719,7 +1719,7 @@ export default function SSTHeatmapLeaflet(props) {
     } else { return; }
     if (!latSet2.length) return;
     let cancelled = false;
-    const useRefGrid = activeDataLayer==="seacolor" || activeDataLayer==="chlorophyll";
+    const useRefGrid = activeDataLayer==="seacolor";
     const renderLatSet = useRefGrid ? latSet : latSet2;
     const renderLonSet = useRefGrid ? lonSet : lonSet2;
     const renderGrid   = useRefGrid ? expandCoarseGrid(latSet2,lonSet2,overlayGrid,latSet,lonSet) : overlayGrid;
