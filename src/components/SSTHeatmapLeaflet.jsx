@@ -1235,6 +1235,15 @@ export default function SSTHeatmapLeaflet(props) {
         attribution: '&copy; OpenStreetMap, &copy; CARTO', subdomains: "abcd", maxZoom: 19,
       }).addTo(map);
     }
+    // [debug] on-screen zoom readout (branch only) so we can talk about exact zooms
+    try {
+      const zEl = L.DomUtil.create("div", "");
+      zEl.style.cssText = "position:absolute;bottom:8px;left:130px;z-index:1200;background:rgba(15,23,42,.8);color:#fff;font:600 12px/1.4 monospace;padding:3px 8px;border-radius:6px;pointer-events:none;";
+      map.getContainer().appendChild(zEl);
+      const updZ = () => { try { zEl.textContent = "zoom " + map.getZoom().toFixed(2); } catch(_) {} };
+      map.on("zoom zoomend move moveend", updZ); updZ();
+    } catch(_) {}
+
     // Initialize map with a rough view immediately so _checkIfLoaded never throws
     // before the proper fill-zoom rAF runs.
     try { map.setView(mercCenter, 5, { animate: false }); } catch(_) {}
