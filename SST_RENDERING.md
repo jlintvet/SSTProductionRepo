@@ -229,3 +229,25 @@ EAST  = -72.21
 5. **Mask not applying** → check `waterMaskRef.current` is not null before calling `gridToDataURL`.
 6. **Users get localhost error on email confirmation** → fix Supabase Site URL.
 7. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
+
+---
+
+## GL Vector Basemap + Land Mask (branch `map-upgrade-test` → production rollout)
+
+The map was upgraded from the flat CartoDB raster basemap with `L.imageOverlay` data layers to a **Windy-style** stack: a Mapbox **GL vector basemap** (labels, roads, bathymetry on top) with the SST raster sandwiched **under the labels**, gap-filled inshore, and clipped to the basemap's own coastline. All of this lives in **`src/lib/glSandwich.js`** (kept in its own module to avoid huge edits / Dropbox truncation in `SSTHeatmapLeaflet.jsx`).
+
+### Architecture
+- **Basemap:** `createGlBasemap(map)` adds a `L.mapboxGL` (mapbox-gl-leaflet) layer using `import.meta.env.VITE_MAPBOX_TOKEN` and style `mapbox/light-v11`. If the token is missing it returns `null` and the code falls back to the old CartoDB + `L.imageOverlay` path (app never breaks).
+- **SST/composite render:** the data grid is gap-filled, rendered to a PNG via the existing `gridToDataURL` (no per-pixel ocean-mask clip — `isOcean` passed as `null`), `solidify()`'d to full opacity, and inserted as a single GL **image source `sst-img`** placed just after the `water` fill layer (so labels/roads draw on top). One shared `sst-img` slot is reused across SST and the composite/chl/seacolor/altimetry overlay effect.
+- **Coastline clip = basemap-water land mask:** `updateLandMask()` rasterizes the basemap's OWN water polygons (`glMap.queryRenderedFeatures({layers:['water']})`) onto a 2048² canvas in Mercator-Y, fills land color + `destination-out` the water, and draws it as a raster layer `land-mask` directly above `sst-img`. Exact coastline alignment by construction (same geometry as the tiles). Pad = **10%** of the viewport (matching the validated test page; 25% made thin barrier islands blurry).
+- **Gap fill (`gapFillGrid`, display-only):** fills no-data WATER cells that are (a) within **K cells of land** (the shoreline connector; production **K=1 ≈ 2 km**) OR (b) "inshore" — land on opposite sides within 22 cells (sounds, bays, creeks). Value = nearest valid SST (BFS over water), capped to 8 cells from real data; then a 2-cell landward dilation so SST reaches under the basemap coastline. Open-ocean cloud holes are never filled. Settings rolled to prod: light style, land mask on, **no fade**, gap fill K=1.
+
+### Problems that took a long time to solve — do not revisit
+- **Mask only recompiled on data-change, not on zoom (mask blurry/gone after zooming).** Root cause: the zoom refresh was attached to the **GL map** (`glMap.on('moveend')`), but the GL map isn't created yet at map-init, and `L.mapboxGL`'s `load` event doesn't reliably fire — so the handler never attached. **Fix:** in `installLandMaskRefresh`, attach to the **Leaflet map** (`map.on('zoomend'/'moveend')`, always ready) and resolve the GL map lazily inside the handler, with a ~180 ms delay so mapbox-gl-leaflet finishes syncing the GL camera before recompute. `scheduleMaskRefresh` then polls `areTilesLoaded` (the GL `idle` event is starved in the busy production map) before recomputing.
+- **Stale/partial mask:** recompute must happen AFTER basemap water tiles finish loading (poll `areTilesLoaded`), else `queryRenderedFeatures` returns few/simplified water polygons and the mask over-punches the coast.
+- **The crisp coastline needs the basemap-water mask, NOT the prebaked `ocean_mask.json`.** The 2 km `ocean_mask` is too coarse for sub-2 km barrier islands (blocky). `ocean_mask.json` is still used elsewhere (LORAN grid, SLA contours, isotherm point-in-water tests) — keep it.
+- **Vercel branch alias serves stale bundles.** When testing a branch, use the per-deploy immutable URL (`production-<hash>-...vercel.app`), not the branch alias. See CLAUDE.md.
+
+### Not yet migrated (still on old `L.imageOverlay`, follow-up work)
+- **Wind-speed map** (renders on top, not under labels).
+- **Chlorophyll / Sea color / Altimetry** go through the GL sandwich for the basemap+mask, but only the **composite** layer currently gets gap-filled (gap fill is tuned for SST temperature data).
