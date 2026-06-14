@@ -1719,7 +1719,7 @@ export default function SSTHeatmapLeaflet(props) {
     } else { return; }
     if (!latSet2.length) return;
     let cancelled = false;
-    const useRefGrid = activeDataLayer==="seacolor" || activeDataLayer==="chlorophyll" || activeDataLayer==="altimetry";
+    const useRefGrid = activeDataLayer==="seacolor" || activeDataLayer==="chlorophyll";
     const renderLatSet = useRefGrid ? latSet : latSet2;
     const renderLonSet = useRefGrid ? lonSet : lonSet2;
     const renderGrid   = useRefGrid ? expandCoarseGrid(latSet2,lonSet2,overlayGrid,latSet,lonSet) : overlayGrid;
@@ -1750,16 +1750,39 @@ export default function SSTHeatmapLeaflet(props) {
       // (~36.60°N) — otherwise the viewport clips either top or bottom of the data.
       // Block the post-refit with userInteractedRef so it doesn't shift center back to
       // mercCenter. sstReadyRef blocks applyFillZoom calls after data loads.
-      // All overlay layers (composite/chl/seacolor/altimetry) now render on the SST
-      // reference grid bounds; use the standard region fit.
-      try {
-        map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]);
-        const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
-        const mN = Math.log(Math.tan(Math.PI/4 + 39.00 * Math.PI/360));
-        const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
-        const mH = mN - mS, lR = -72.21 - (-78.89);
-        map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
-      } catch(_) {}
+      // chl/sea/composite render on the SST reference grid -> standard region fit.
+      // Altimetry renders on its NATIVE 0.125 grid (33.8125-38.9375N), narrower than
+      // the region; position the viewport directly to the data bounds so it covers
+      // edge-to-edge with no top/bottom clip (matches main's proven behavior).
+      if (activeDataLayer !== 'altimetry') {
+        try {
+          map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]);
+          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
+          const mN = Math.log(Math.tan(Math.PI/4 + 39.00 * Math.PI/360));
+          const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
+          const mH = mN - mS, lR = -72.21 - (-78.89);
+          map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
+        } catch(_) {}
+      } else {
+        try {
+          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
+          const aN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
+          const aS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
+          const mH = aN - aS, lR = east - west;
+          const fzAlt = Math.max(
+            Math.log2((cw * 360) / (256 * lR)),
+            Math.log2((ch * 2 * Math.PI) / (256 * mH))
+          );
+          const altMercCenter = L.latLng(
+            (2 * Math.atan(Math.exp((aN + aS) / 2)) - Math.PI / 2) * 180 / Math.PI,
+            (west + east) / 2
+          );
+          map.setView(altMercCenter, fzAlt, { animate: false });
+          map.setMinZoom(fzAlt);
+          map.setMaxBounds([[south, west], [north, east]]);
+        } catch(_) {}
+        userInteractedRef.current = true;
+      }
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { cancelled = true; };
