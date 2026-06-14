@@ -1728,8 +1728,11 @@ export default function SSTHeatmapLeaflet(props) {
     const finalMax = activeDataLayer === "composite" ? sstMax : max2;
     const finalRangeMin = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.min != null ? sstRange.min : undefined;
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
-    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
-    const ovGrid = (useGl && activeDataLayer === "composite") ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
+    // Only the composite uses the new GL under-labels sandwich for now. Chlorophyll,
+    // sea color and altimetry have coarse/own-grid + special-bounds handling that needs
+    // more work to migrate cleanly, so they keep their proven imageOverlay rendering.
+    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN) && activeDataLayer === "composite";
+    const ovGrid = useGl ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
     Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,useGl ? null : waterMaskRef.current,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
