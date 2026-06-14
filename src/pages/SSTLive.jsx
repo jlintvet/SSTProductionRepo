@@ -296,7 +296,16 @@ function SSTPageBody() {
   const [userId, setUserId] = useState(null);
   useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setUserId(data.user.id); }); }, []);
 
-  const [sstRange, setSstRange] = useState({ min: 55, max: 78, maskOutside: false });
+  // sstRange is a single shared gain/range across layers. The {55,78} default is the
+  // SST (degF) range; for chl/seacolor it must fall back to each layer's own data range.
+  // On a layer SWITCH, SSTRangeControl clears this to null so overlays use day stats.
+  // But on COLD START the layer never changes, so seed null when the initial layer is
+  // not SST -> chl/seacolor render with their own range instead of the SST 55-78 default
+  // (which on chl's log scale would blank the map).
+  const [sstRange, setSstRange] = useState(() => {
+    const initialLayer = (typeof localStorage !== "undefined" && localStorage.getItem("sst_active_layer")) || "sst";
+    return initialLayer === "sst" ? { min: 55, max: 78, maskOutside: false } : null;
+  });
 
   const [murState,      setMurState]      = useState({ data: null, dateIndex: 0 });
   const [viirsState,    setViirsState]    = useState({ data: null, dateIndex: 0, hour: null });
