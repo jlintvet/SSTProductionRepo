@@ -1664,6 +1664,10 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (overlayLayerRef.current) { map.removeLayer(overlayLayerRef.current); overlayLayerRef.current = null; }
+    // Clear the shared GL sandwich slot for non-sandwich overlay layers (chl /
+    // sea color / altimetry render as imageOverlay on top), else a stale
+    // composite/SST raster lingers under them.
+    if (glLayerRef.current && (activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor" || activeDataLayer === "altimetry")) { removeSstImage(glLayerRef.current); }
     let overlayGrid=null,latSet2=[],lonSet2=[],colorFn=null,min2=0,max2=1;
     if (activeDataLayer==="chlorophyll"&&chlData?.days?.length) {
       const day=chlData.days[chlDateIndex]||chlData.days[chlData.days.length-1];
