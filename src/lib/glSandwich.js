@@ -185,7 +185,7 @@ export function updateLandMask(glMap) {
     const padY = (b.getNorth() - b.getSouth()) * 0.25;
     const w = b.getWest() - padX, e = b.getEast() + padX;
     const s = Math.max(-85, b.getSouth() - padY), n = Math.min(85, b.getNorth() + padY);
-    const W = 1024, H = 1024; // lighter raster -> faster zoom
+    const W = 1536, H = 1536; // >= SST render res so the coastline fully covers
     const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
     const mN = mercY(n), mS = mercY(s);
     const px = (lon) => ((lon - w) / (e - w)) * W;
@@ -286,7 +286,9 @@ export function removeSstImage(glLayer) {
 export function installLandMaskRefresh(map, glLayer) {
   const glMap = getGlMap(glLayer);
   if (!map || !glMap) return;
-  // Recompute only once per settle (idle = movement done + tiles loaded), and
-  // only if the view actually changed -- keeps zoom/pan smooth.
+  // Recompute when the view settles. idle gives full-detail water geometry;
+  // moveend/zoomend guarantee a refresh even if idle is pre-empted by the busy
+  // production map. maskKey dedups so we never recompute for an unchanged view.
   glMap.on("idle", () => { if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap); });
+  map.on("moveend zoomend", () => setTimeout(() => { if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap); }, 200));
 }
