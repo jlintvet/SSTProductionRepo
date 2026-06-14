@@ -701,7 +701,7 @@ export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,r
   if(!latSet.length||!lonSet.length)return null;
   const latNorth=latSet[0],latSouth=latSet[latSet.length-1],lonWest=lonSet[0],lonEast=lonSet[lonSet.length-1];
   const lonRange=lonEast-lonWest||1;
-  const CANVAS_W=512,CANVAS_H=400;const canvas=document.createElement("canvas");canvas.width=CANVAS_W;canvas.height=CANVAS_H;
+  const CANVAS_W=1280,CANVAS_H=1000;const canvas=document.createElement("canvas");canvas.width=CANVAS_W;canvas.height=CANVAS_H;
   const ctx=canvas.getContext("2d");const img=ctx.createImageData(CANVAS_W,CANVAS_H);const d=img.data;
   const latStep=latSet.length>1?(latNorth-latSouth)/(latSet.length-1):0.05;const lonStep=lonSet.length>1?(lonEast-lonWest)/(lonSet.length-1):0.05;
   const mercY=(lat)=>Math.log(Math.tan(Math.PI/4+(lat*Math.PI/180)/2));const invMercY=(y)=>(2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI;
@@ -1270,7 +1270,7 @@ export default function SSTHeatmapLeaflet(props) {
           if (vb.getNorth() <= regionBounds.north + 0.05 && vb.getSouth() >= regionBounds.south - 0.05) break;
           map.setView(mercCenter, map.getZoom() + 0.1, { animate: false });
         }
-        map.setMinZoom(map.getZoom()); map.setMaxZoom(12); map.setMaxBounds(llBounds);
+        map.setMinZoom(map.getZoom()); map.setMaxZoom(glLayerRef.current ? 16 : 12); map.setMaxBounds(llBounds);
       } catch(_) {}
     };
     requestAnimationFrame(() => requestAnimationFrame(() => {
