@@ -225,6 +225,13 @@ export function updateLandMask(glMap) {
         ctx.fill();
       }
     }
+    try {
+      ctx.globalCompositeOperation = "source-over";
+      const samp = ctx.getImageData(0, 0, W, H).data;
+      let opaque = 0, total = (W * H);
+      for (let i = 3; i < samp.length; i += 4) if (samp[i] > 10) opaque++;
+      console.log("[glSandwich] maskCanvas opaqueLand%=", (100*opaque/total).toFixed(1), "landColor=", landColor, "feats=", feats.length);
+    } catch(_) {}
     const coords = [[w, n], [e, n], [e, s], [w, s]];
     canvas.toBlob((blob) => {
       if (!blob) return;
