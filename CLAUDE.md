@@ -41,6 +41,7 @@ Read this file at the start of every session and before any multi-step task.
 - When multiple files need changes in one commit, patch all of them first, then `git add` all at once.
 - Use `assert OLD in text, "FAIL: <description>"` in every patch script. If an assertion fails, stop and investigate before writing any output.
 - After every push, check the Vercel build result using `list_deployments` + `get_deployment_build_logs`. If the deployment is ERROR, fix the build failure and redeploy before doing any other work. Never leave a broken build unresolved.
+- When testing a branch, ALWAYS give Jon the **deployment-specific immutable URL** (from `list_deployments` → the deploy's `url`, e.g. `production-<hash>-jon-lintvet-s-projects.vercel.app`) for every new deployment — NOT the branch alias. The branch alias (`production-sst-git-<branch>-...vercel.app`) caches stale bundles per-client and has repeatedly served old code on hard-refresh, wasting review cycles. The deployment-specific URL is locked to one exact build and can't go stale. Note: it's a different subdomain, so Jon signs in once on it (it's accessible, just logged-out). Provide the fresh deployment URL each time you push.
 
 ---
 
