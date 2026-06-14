@@ -1729,7 +1729,7 @@ export default function SSTHeatmapLeaflet(props) {
     const finalRangeMin = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.min != null ? sstRange.min : undefined;
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
-    const ovGrid = (useGl && activeDataLayer === "composite") ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
+    const ovGrid = (useGl && (activeDataLayer === "composite" || activeDataLayer === "chlorophyll")) ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
     Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,useGl ? null : waterMaskRef.current,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
