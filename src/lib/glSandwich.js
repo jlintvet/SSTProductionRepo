@@ -204,6 +204,7 @@ export function updateLandMask(glMap) {
     ctx.globalCompositeOperation = "destination-out";
     const waterIds = ["water", "water-shadow"].filter((id) => glMap.getLayer(id));
     const feats = glMap.queryRenderedFeatures({ layers: waterIds });
+    try { console.log("[glSandwich] mask: waterFeats=", feats.length, "waterIds=", JSON.stringify(waterIds), "mapBounds=", [b.getWest().toFixed(2),b.getSouth().toFixed(2),b.getEast().toFixed(2),b.getNorth().toFixed(2)].join(","), "maskBox=", [w.toFixed(2),s.toFixed(2),e.toFixed(2),n.toFixed(2)].join(","), "zoom=", glMap.getZoom().toFixed(2)); } catch(_) {}
     for (const f of feats) {
       const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates]
         : f.geometry.type === "MultiPolygon" ? f.geometry.coordinates : [];
@@ -234,6 +235,7 @@ export function updateLandMask(glMap) {
         } else {
           src.updateImage({ url, coordinates: coords });
         }
+        try { const ls=glMap.getStyle().layers.map(l=>l.id); console.log("[glSandwich] mask drawn. order sst-img@", ls.indexOf("sst-img"), "land-mask@", ls.indexOf("land-mask"), "of", ls.length); } catch(_) {}
         glMap.triggerRepaint();
       } finally {
         if (landMaskUrl) { const old = landMaskUrl; setTimeout(() => URL.revokeObjectURL(old), 5000); }
