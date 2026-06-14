@@ -195,7 +195,7 @@ export function scheduleMaskRefresh(glMap) {
       if (maskKey(glMap) !== lastMaskKey) updateLandMask(glMap);
       maskPollTimer = null;
     } else {
-      maskPollTimer = setTimeout(tick, 200);
+      maskPollTimer = setTimeout(tick, 120);
     }
   };
   tick();
@@ -228,7 +228,6 @@ export function updateLandMask(glMap) {
     ctx.globalCompositeOperation = "destination-out";
     const waterIds = ["water", "water-shadow"].filter((id) => glMap.getLayer(id));
     const feats = glMap.queryRenderedFeatures({ layers: waterIds });
-    try { console.log("[glSandwich] mask: waterFeats=", feats.length, "waterIds=", JSON.stringify(waterIds), "mapBounds=", [b.getWest().toFixed(2),b.getSouth().toFixed(2),b.getEast().toFixed(2),b.getNorth().toFixed(2)].join(","), "maskBox=", [w.toFixed(2),s.toFixed(2),e.toFixed(2),n.toFixed(2)].join(","), "zoom=", glMap.getZoom().toFixed(2)); } catch(_) {}
     for (const f of feats) {
       const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates]
         : f.geometry.type === "MultiPolygon" ? f.geometry.coordinates : [];
@@ -244,13 +243,6 @@ export function updateLandMask(glMap) {
         ctx.fill();
       }
     }
-    try {
-      ctx.globalCompositeOperation = "source-over";
-      const samp = ctx.getImageData(0, 0, W, H).data;
-      let opaque = 0, total = (W * H);
-      for (let i = 3; i < samp.length; i += 4) if (samp[i] > 10) opaque++;
-      console.log("[glSandwich] maskCanvas opaqueLand%=", (100*opaque/total).toFixed(1), "landColor=", landColor, "feats=", feats.length);
-    } catch(_) {}
     const coords = [[w, n], [e, n], [e, s], [w, s]];
     canvas.toBlob((blob) => {
       if (!blob) return;
@@ -266,7 +258,6 @@ export function updateLandMask(glMap) {
         } else {
           src.updateImage({ url, coordinates: coords });
         }
-        try { const ls=glMap.getStyle().layers.map(l=>l.id); console.log("[glSandwich] mask drawn. order sst-img@", ls.indexOf("sst-img"), "land-mask@", ls.indexOf("land-mask"), "of", ls.length); } catch(_) {}
         glMap.triggerRepaint();
       } finally {
         if (landMaskUrl) { const old = landMaskUrl; setTimeout(() => URL.revokeObjectURL(old), 5000); }
@@ -325,7 +316,7 @@ export function installLandMaskRefresh(map, glLayer) {
   // syncing the GL camera/bounds before we recompute for the new view.
   const onView = () => {
     const glMap = getGlMap(glLayer);
-    if (glMap) setTimeout(() => scheduleMaskRefresh(glMap), 180);
+    if (glMap) setTimeout(() => scheduleMaskRefresh(glMap), 80);
   };
   map.on("zoomend", onView);
   map.on("moveend", onView);
