@@ -2097,12 +2097,20 @@ export default function SSTHeatmapLeaflet(props) {
       const speedGrid = {};
       latSet.forEach(lat => lonSet.forEach(lon => { const v = windSpeed(lat, lon); if (v != null) speedGrid[`${lat}_${lon}`] = v; }));
       let cancelled = false;
-      Promise.resolve(gridToDataURL(latSet, lonSet, speedGrid, 0, maxSpd, windSpeedColor, waterMaskRef.current)).then(result => {
+      const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
+      Promise.resolve(gridToDataURL(latSet, lonSet, speedGrid, 0, maxSpd, windSpeedColor, useGl ? null : waterMaskRef.current)).then(async result => {
         if (cancelled || !result || !mapRef.current) return;
         const { dataURL, west, east, north, south } = result;
-        blobUrlsRef.current.push(dataURL);
-        const raster = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.82, interactive: false });
-        raster.addTo(mapRef.current); windRasterOverlayRef.current = raster;
+        if (useGl) {
+          const solid = await solidify(dataURL);
+          if (cancelled) return;
+          blobUrlsRef.current.push(solid);
+          upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+        } else {
+          blobUrlsRef.current.push(dataURL);
+          const raster = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.82, interactive: false });
+          raster.addTo(mapRef.current); windRasterOverlayRef.current = raster;
+        }
       });
       return () => { cancelled = true; };
     }
