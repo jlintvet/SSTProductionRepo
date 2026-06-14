@@ -1664,10 +1664,6 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (overlayLayerRef.current) { map.removeLayer(overlayLayerRef.current); overlayLayerRef.current = null; }
-    // Clear the shared GL sandwich slot for non-sandwich overlay layers (chl /
-    // sea color / altimetry render as imageOverlay on top), else a stale
-    // composite/SST raster lingers under them.
-    if (glLayerRef.current && (activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor" || activeDataLayer === "altimetry")) { removeSstImage(glLayerRef.current); }
     let overlayGrid=null,latSet2=[],lonSet2=[],colorFn=null,min2=0,max2=1;
     if (activeDataLayer==="chlorophyll"&&chlData?.days?.length) {
       const day=chlData.days[chlDateIndex]||chlData.days[chlData.days.length-1];
@@ -1732,11 +1728,8 @@ export default function SSTHeatmapLeaflet(props) {
     const finalMax = activeDataLayer === "composite" ? sstMax : max2;
     const finalRangeMin = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.min != null ? sstRange.min : undefined;
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
-    // Only the composite uses the new GL under-labels sandwich for now. Chlorophyll,
-    // sea color and altimetry have coarse/own-grid + special-bounds handling that needs
-    // more work to migrate cleanly, so they keep their proven imageOverlay rendering.
-    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN) && activeDataLayer === "composite";
-    const ovGrid = useGl ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
+    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
+    const ovGrid = (useGl && activeDataLayer === "composite") ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
     Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,useGl ? null : waterMaskRef.current,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
