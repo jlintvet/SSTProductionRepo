@@ -146,7 +146,7 @@ function updateLandMask(glMap) {
 function gapFillGrid(latSet, lonSet, grid, mask, K = 1) {
   const R = latSet.length, C = lonSet.length, N = R * C;
   const ix = (r, c) => r * C + c;
-  const AXIS_D = 22, AXIS_MIN = 1; // ray reach (cells); min opposing-land axes
+  const AXIS_D = 22, AXIS_MIN = 1, MAX_FILL_DIST = 8; // ray reach; min opposing axes; max cells from real data to allow a fill
   const out = {};
   const vals = new Float32Array(N);
   const has = new Uint8Array(N);
@@ -185,8 +185,9 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 1) {
   // Nearest valid SST over water (multi-source BFS).
   const srcVal = new Float32Array(N);
   const reached = new Uint8Array(N);
+  const distData = new Int32Array(N).fill(-1);
   let q = [];
-  for (let i = 0; i < N; i++) if (has[i]) { srcVal[i] = vals[i]; reached[i] = 1; q.push(i); }
+  for (let i = 0; i < N; i++) if (has[i]) { srcVal[i] = vals[i]; reached[i] = 1; distData[i] = 0; q.push(i); }
   while (q.length) {
     const nx = [];
     for (const i of q) {
@@ -197,7 +198,7 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 1) {
           const cc = c + dc; if (cc < 0 || cc >= C) continue;
           const j = ix(rr, cc);
           if (land[j] || reached[j]) continue;
-          srcVal[j] = srcVal[i]; reached[j] = 1; nx.push(j);
+          srcVal[j] = srcVal[i]; reached[j] = 1; distData[j] = distData[i] + 1; nx.push(j);
         }
       }
     }
@@ -231,6 +232,7 @@ function gapFillGrid(latSet, lonSet, grid, mask, K = 1) {
     for (let c = 0; c < C; c++) {
       const i = ix(r, c);
       if (has[i] || land[i] || !reached[i]) continue;
+      if (distData[i] > MAX_FILL_DIST) continue; // never fabricate fill far from real data
       if (distLand[i] <= K || inshore(r, c)) {
         value[i] = srcVal[i]; valued[i] = 1;
         out[`${latSet[r]}_${lonSet[c]}`] = srcVal[i];
