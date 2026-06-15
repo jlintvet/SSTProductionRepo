@@ -1887,16 +1887,33 @@ export default function SSTHeatmapLeaflet(props) {
     const hourData = currentsData.hours[0];
     if (!hourData?.velocityJSON) return;
     const maxSpd = currentsData.maxSpeed ?? 2.0;
+    // leaflet-velocity caps trail persistence at ~5 frames (hardcoded globalAlpha 0.6 +
+    // destination-in fade), so trail length is governed by speed x velocityScale. Slow
+    // nearshore currents therefore make near-invisible dots, and raising velocityScale to
+    // fix that makes the Gulf Stream too fast. So compress the speed range (|v| -> sqrt|v|),
+    // which boosts slow flow toward visibility while keeping fast flow in check. Direction
+    // is preserved; the hover readout and any speed display use the true (uncompressed) data.
+    const compressVel = (vj) => {
+      if (!Array.isArray(vj) || vj.length < 2 || !vj[0]?.data || !vj[1]?.data) return vj;
+      const u = vj[0], v = vj[1], ud = u.data, vd = v.data;
+      const nu = new Array(ud.length), nv = new Array(vd.length);
+      for (let i = 0; i < ud.length; i++) {
+        const a = ud[i], b = vd[i];
+        if (a == null || b == null) { nu[i] = a; nv[i] = b; continue; }
+        const s = Math.hypot(a, b);
+        if (!(s > 0)) { nu[i] = a; nv[i] = b; continue; }
+        const k = Math.sqrt(s) / s;   // magnitude -> sqrt(magnitude), keep direction
+        nu[i] = a * k; nv[i] = b * k;
+      }
+      return [{ ...u, data: nu }, { ...v, data: nv }];
+    };
     const layer = L.velocityLayer({
       displayValues: false,
       displayOptions: { velocityType: "Current", position: "bottomright", emptyString: "No current data", angleConvention: "meteoCW", showCardinal: true, speedUnit: "m/s", directionString: "Direction", speedString: "Speed" },
-      data: hourData.velocityJSON, minVelocity: 0, maxVelocity: maxSpd,
-      velocityScale: 0.05,  // currents are slow (~m/s); tuned to ~match Windy particle speed
-      // Solid white particles; opacity is the trail FADE (persistence ~ 1/(1-opacity)):
-      // 0.9 gave short faded dashes, 0.97 (library default) gives long Windy-like streaks.
-      // particleAge lengthened so each particle traces a longer continuous path.
+      data: compressVel(hourData.velocityJSON), minVelocity: 0, maxVelocity: Math.sqrt(maxSpd),
+      velocityScale: 0.06,  // tuned against sqrt-compressed speeds (fast flow ~matches prior look)
       colorScale: ["rgba(255,255,255,1)","rgba(255,255,255,1)","rgba(255,255,255,1)","rgba(255,255,255,1)"],
-      particleAge: 120, particleMultiplier: 0.0012, lineWidth: 1.6, opacity: 0.97,
+      particleAge: 90, particleMultiplier: 0.0012, lineWidth: 1.6, opacity: 1.0,
     });
     layer.addTo(map);
     currentsLayerRef.current = layer;
