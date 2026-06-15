@@ -519,7 +519,7 @@ function buoyPopupHtml(b, loc){
     + (hasObs
         ? row("Wind",wind)+row("Waves",waves)+row("Water temp",wtmp)+row("Air temp",atmp)+row("Pressure",pres)
           + `<div style="font-size:10px;color:#94a3b8;margin-top:6px;border-top:1px solid #e2e8f0;padding-top:4px;">Observed ${age||"recently"}</div>`
-        : `<div style="font-size:12px;color:#94a3b8;">No recent observations.</div>`)
+        : `<div style="font-size:12px;color:#94a3b8;font-style:italic;">Inactive weather reporting.</div>`)
     + `</div>`;
 }
 
