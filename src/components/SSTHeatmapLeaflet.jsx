@@ -1837,7 +1837,9 @@ export default function SSTHeatmapLeaflet(props) {
     if (!hourData?.velocityJSON) return;
     const isOverlay = showWindOverlay && !isWindMap;
     const maxSpd = windData.maxSpeed ?? 30;
-    const whiteScale = ["rgba(255,255,255,0.4)","rgba(255,255,255,0.65)","rgba(255,255,255,0.85)","rgba(255,255,255,0.95)"];
+    // Uniform particle opacity (was speed-scaled 0.4->0.95, which made slow-wind
+    // streaks look faded/broken). Speed is already shown by the color fill.
+    const whiteScale = ["rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)"];
     const velocityLayer = L.velocityLayer({
       displayValues: false,
       displayOptions: { velocityType: "Wind", position: "bottomright", emptyString: "No wind data", angleConvention: "meteoCW", showCardinal: true, speedUnit: "kt", directionString: "Direction", speedString: "Speed" },
@@ -2149,10 +2151,12 @@ export default function SSTHeatmapLeaflet(props) {
           const solid = await solidify(dataURL);
           if (cancelled) return;
           blobUrlsRef.current.push(solid);
-          upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+          // Softer fill (0.6) so it reads as a background and the white flow
+          // particles stay legible on top, Windy-style.
+          upsertSstImage(glLayerRef.current, solid, west, east, north, south, 0.6);
         } else {
           blobUrlsRef.current.push(dataURL);
-          const raster = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.82, interactive: false });
+          const raster = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.6, interactive: false });
           raster.addTo(mapRef.current); windRasterOverlayRef.current = raster;
         }
       });

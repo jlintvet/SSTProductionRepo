@@ -268,7 +268,7 @@ export function updateLandMask(glMap) {
 }
 
 // Insert or update the SST raster image source under the basemap labels.
-export function upsertSstImage(glLayer, dataURL, west, east, north, south) {
+export function upsertSstImage(glLayer, dataURL, west, east, north, south, opacity = 1) {
   const glMap = getGlMap(glLayer);
   if (!glMap) return;
   const coords = [[west, north], [east, north], [east, south], [west, south]];
@@ -288,8 +288,9 @@ export function upsertSstImage(glLayer, dataURL, west, east, north, south) {
       if (wi >= 0 && wi + 1 < layers.length) beforeId = layers[wi + 1].id;
       else { const sym = layers.find((l) => l.type === "symbol"); beforeId = sym ? sym.id : undefined; }
       glMap.addSource("sst-img", { type: "image", url: dataURL, coordinates: coords });
-      glMap.addLayer({ id: "sst-img", type: "raster", source: "sst-img", paint: { "raster-opacity": 1, "raster-fade-duration": 0, "raster-resampling": "linear" } }, beforeId);
+      glMap.addLayer({ id: "sst-img", type: "raster", source: "sst-img", paint: { "raster-opacity": opacity, "raster-fade-duration": 0, "raster-resampling": "linear" } }, beforeId);
     }
+    try { glMap.setPaintProperty("sst-img", "raster-opacity", opacity); } catch (_) {}
     let k = 0; const t = setInterval(() => { kick(); if (++k >= 10) clearInterval(t); }, 400);
     scheduleMaskRefresh(glMap);
   };
