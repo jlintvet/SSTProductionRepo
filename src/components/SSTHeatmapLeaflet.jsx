@@ -1891,7 +1891,7 @@ export default function SSTHeatmapLeaflet(props) {
       displayValues: false,
       displayOptions: { velocityType: "Current", position: "bottomright", emptyString: "No current data", angleConvention: "meteoCW", showCardinal: true, speedUnit: "m/s", directionString: "Direction", speedString: "Speed" },
       data: hourData.velocityJSON, minVelocity: 0, maxVelocity: maxSpd,
-      velocityScale: 0.1,   // currents are slow (~m/s) -> larger scale than wind so particles visibly flow
+      velocityScale: 0.05,  // currents are slow (~m/s); tuned to ~match Windy particle speed
       colorScale: ["rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)"],
       particleAge: 64, particleMultiplier: 0.0012, lineWidth: 1.6, opacity: 0.9,
     });
