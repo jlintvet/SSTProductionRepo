@@ -3122,12 +3122,12 @@ export default function SSTHeatmapLeaflet(props) {
                       <MobileProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
                         <button onClick={() => setShowWindOverlay(v => !v)}
                           className={`text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center justify-center gap-1.5 transition-colors ${showWindOverlay ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                          <Wind className="w-3.5 h-3.5" />{windLoading ? "Loading…" : showWindOverlay ? "Overlay on" : "Overlay"}
+                          <Wind className="w-3.5 h-3.5" />{windLoading ? "Loading…" : "Overlay"}
                         </button>
                       </MobileProGate>
                       <button onClick={() => { setActiveDataLayer(isWindMap ? "sst" : "windmap"); }}
                         className={`text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center justify-center gap-1.5 transition-colors ${isWindMap ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-600 border-slate-300"}`}>
-                        <Wind className="w-3.5 h-3.5" />{windLoading ? "Loading…" : isWindMap ? "Wind map on" : "Wind map"}
+                        <Wind className="w-3.5 h-3.5" />{windLoading ? "Loading…" : "Wind"}
                       </button>
                     </div>
 
@@ -3190,7 +3190,7 @@ export default function SSTHeatmapLeaflet(props) {
                     <MobileProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
                       <button onClick={() => setShowCurrents(v => !v)}
                         className={`text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center justify-center gap-1.5 transition-colors ${showCurrents ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                        &#x1F30A; {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents overlay"}
+                        &#x1F30A; {currentsLoading ? "Loading…" : "Currents overlay"}
                       </button>
                     </MobileProGate>
                   </div>
@@ -3253,7 +3253,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <MobileProGate isPro={isPro} label="Loran-C grid is available on the Pro plan.">
                           <button onClick={() => setShowLoranGrid(v => !v)}
                             className={`w-full text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showLoranGrid ? "bg-slate-700 text-white border-slate-700" : "bg-white text-slate-600 border-slate-300"}`}>
-                            {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+                            Loran Grid
                           </button>
                         </MobileProGate>
                         <button onClick={() => setLoranHelpOpen(o => !o)}

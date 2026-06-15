@@ -528,7 +528,7 @@ export default function MapControlPanel({
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
-                {windLoading ? "Loading…" : "Wind map"}
+                {windLoading ? "Loading…" : "Wind"}
               </LayerBtn>
             </div>
             {hbtn("windmap")}
@@ -581,7 +581,7 @@ export default function MapControlPanel({
             <div className="flex-1">
               <ProGate isPro={isPro} label="Ocean current overlay is available on the Pro plan.">
                 <ToolBtn active={showCurrents} color="cyan" onClick={() => setShowCurrents(v => !v)}>
-                  {currentsLoading ? "Loading…" : showCurrents ? "Currents on" : "Currents"}
+                  {currentsLoading ? "Loading…" : "Currents"}
                 </ToolBtn>
               </ProGate>
             </div>
@@ -592,7 +592,7 @@ export default function MapControlPanel({
             <div className="flex-1">
               <ProGate isPro={isPro} label="Altimetry overlay is available on the Pro plan.">
                 <ToolBtn active={showAltimetryOverlay} color="violet" onClick={() => setShowAltimetryOverlay(v => !v)}>
-                  {showAltimetryOverlay ? "SLA on" : "SLA Overlay"}
+                  Altimetry
                 </ToolBtn>
               </ProGate>
             </div>
@@ -602,7 +602,7 @@ export default function MapControlPanel({
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
-                {showLoranGrid ? "Loran Grid on" : "Loran Grid"}
+                Loran Grid
               </ToolBtn>
             </div>
             {hbtn("loran")}
@@ -620,11 +620,24 @@ export default function MapControlPanel({
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <ToolBtn active={showCanyonLabels} color="indigo" onClick={() => setShowCanyonLabels?.(v => !v)}>
-                {showCanyonLabels ? "Labels on" : "Labels"}
+                Labels
               </ToolBtn>
             </div>
             {hbtn("labels")}
           </div>
+
+          {!isWindMap && (
+            <div className="flex gap-1 items-stretch">
+              <div className="flex-1">
+                <ProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
+                  <ToolBtn active={showWindOverlay} color="cyan" onClick={() => setShowWindOverlay(v => !v)}>
+                    {windLoading ? "Loading…" : "Wind overlay"}
+                  </ToolBtn>
+                </ProGate>
+              </div>
+              {hbtn("windoverlay")}
+            </div>
+          )}
         </div>
       )}
 
@@ -677,19 +690,6 @@ export default function MapControlPanel({
             </div>
             {hbtn("hotspots")}
           </div>
-
-          {!isWindMap && (
-            <div className="flex gap-1 items-stretch">
-              <div className="flex-1">
-                <ProGate isPro={isPro} label="Wind overlay on the map is available on the Pro plan.">
-                  <ToolBtn active={showWindOverlay} color="cyan" onClick={() => setShowWindOverlay(v => !v)}>
-                    {windLoading ? "Loading…" : showWindOverlay ? "Wind on" : "Wind overlay"}
-                  </ToolBtn>
-                </ProGate>
-              </div>
-              {hbtn("windoverlay")}
-            </div>
-          )}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
