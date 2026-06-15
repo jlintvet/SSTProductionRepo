@@ -972,12 +972,12 @@ export default function SSTHeatmapLeaflet(props) {
   // shallow sounds/bays where sea-level anomaly is not meaningful.
   const depthLookupRef = useRef(null);
   const [depthLookupVersion, setDepthLookupVersion] = useState(0);
-  const MIN_ALT_DEPTH_FT = 30; // tunable: deeper than this = open water (keep altimetry)
+  const MIN_ALT_DEPTH_FT = 40; // tunable: deeper than this = open water (keep altimetry). open shelf nearshore is >=52ft; sounds/bays <=36ft
   function altimetryDeepMask(lat, lon) {
     const dAt = depthLookupRef.current;
     if (!dAt) return true;          // bathy not loaded yet -> don't clip
     const d = dAt(lat, lon);
-    if (d == null) return true;     // unknown depth -> keep (open ocean beyond bathy)
+    if (d == null) return false;    // no GEBCO ocean depth within ~1.7km -> land/river gap -> clip (offshore is fully covered)
     return d >= MIN_ALT_DEPTH_FT;   // known -> keep only if deep enough (drops sounds)
   }
   const [jsonContours,     setJsonContours]     = useState(null);
@@ -2496,7 +2496,17 @@ export default function SSTHeatmapLeaflet(props) {
           if (p.depth_ft == null) continue;
           m.set(Math.round(p.lat/STEP) + "_" + Math.round(p.lon/STEP), p.depth_ft);
         }
-        depthLookupRef.current = (lat, lon) => { const v = m.get(Math.round(lat/STEP) + "_" + Math.round(lon/STEP)); return v == null ? null : v; };
+        depthLookupRef.current = (lat, lon) => {
+          const ri = Math.round(lat/STEP), ci = Math.round(lon/STEP);
+          let v = m.get(ri + "_" + ci); if (v != null) return v;
+          for (let rad = 1; rad <= 2; rad++) {            // tolerate grid rounding: nearest within ~1.7km
+            for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+              if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
+              const vv = m.get((ri+dr) + "_" + (ci+dc)); if (vv != null) return vv;
+            }
+          }
+          return null;
+        };
         setDepthLookupVersion(v => v + 1);
       } catch(_) {}
     }).catch(()=>{});
