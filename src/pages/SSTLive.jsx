@@ -304,7 +304,9 @@ function SSTPageBody() {
   // (which on chl's log scale would blank the map).
   const [sstRange, setSstRange] = useState(() => {
     const initialLayer = (typeof localStorage !== "undefined" && localStorage.getItem("sst_active_layer")) || "sst";
-    return initialLayer === "sst" ? { min: 55, max: 78, maskOutside: false } : null;
+    // SST and Composite are both temperature (degF) -> use the standard 55-78 gain.
+    // chlorophyll/seacolor/altimetry have other units -> null (fall back to their own range).
+    return (initialLayer === "sst" || initialLayer === "composite") ? { min: 55, max: 78, maskOutside: false } : null;
   });
 
   const [murState,      setMurState]      = useState({ data: null, dateIndex: 0 });
