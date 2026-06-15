@@ -1880,27 +1880,28 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (currentsLayerRef.current) { map.removeLayer(currentsLayerRef.current); currentsLayerRef.current = null; }
     if (!showCurrents || !currentsData?.hours?.length) return;
+    // Render currents as a single canvas flow layer (leaflet-velocity) instead of
+    // thousands of DOM marker arrows. The marker approach repositioned ~5k DOM nodes on
+    // every zoom/pan -> crawled, unusable on mobile. The canvas layer is GPU-friendly.
+    if (!L.velocityLayer) { const t = setTimeout(() => setRepaintTrigger(p => p + 1), 500); return () => clearTimeout(t); }
     const hourData = currentsData.hours[0];
-    if (!hourData?.grid?.length) return;
+    if (!hourData?.velocityJSON) return;
     const maxSpd = currentsData.maxSpeed ?? 2.0;
-    // Decimate grid based on zoom to avoid clutter
-    const zoom = map.getZoom();
-    const step = zoom >= 6 ? 1 : 2;
-    const group = L.layerGroup();
-    hourData.grid.forEach((pt, i) => {
-      if (i % step !== 0) return;
-      const { lat, lon, speed_ms, dir_deg, u, v } = pt;
-      if (lat == null || lon == null) return;
-      const spd = speed_ms ?? Math.sqrt((u || 0) ** 2 + (v || 0) ** 2);
-      const dir = dir_deg ?? ((Math.atan2(u || 0, v || 0) * 180 / Math.PI) + 360) % 360;
-      const norm = Math.min(spd / maxSpd, 1);
-      const opacity = (0.60 + 0.40 * norm).toFixed(2);
-      const html = `<div style="width:18px;height:18px;transform:rotate(${dir.toFixed(1)}deg);opacity:${opacity};"><svg viewBox="-5 -10 10 20" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="8" x2="0" y2="-5" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/><polygon points="0,-10 -4,-3.5 4,-3.5" fill="#ffffff"/></svg></div>`;
-      const icon = L.divIcon({ className: "", html, iconSize: [18, 18], iconAnchor: [9, 9] });
-      L.marker([lat, lon], { icon, interactive: false }).addTo(group);
+    const layer = L.velocityLayer({
+      displayValues: false,
+      displayOptions: { velocityType: "Current", position: "bottomright", emptyString: "No current data", angleConvention: "meteoCW", showCardinal: true, speedUnit: "m/s", directionString: "Direction", speedString: "Speed" },
+      data: hourData.velocityJSON, minVelocity: 0, maxVelocity: maxSpd,
+      velocityScale: 0.1,   // currents are slow (~m/s) -> larger scale than wind so particles visibly flow
+      colorScale: ["rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)"],
+      particleAge: 64, particleMultiplier: 0.0012, lineWidth: 1.6, opacity: 0.9,
     });
-    group.addTo(map);
-    currentsLayerRef.current = group;
+    layer.addTo(map);
+    currentsLayerRef.current = layer;
+    try { const vc = layer._canvasLayer?._canvas ?? layer._canvas ?? null; if (vc) vc.style.pointerEvents = 'none'; } catch(_) {}
+    if (layer._onLayerDidMove) {
+      const _orig = layer._onLayerDidMove.bind(layer);
+      layer._onLayerDidMove = function() { if (!this._map) return; try { _orig.call(this); } catch(e) {} };
+    }
     return () => {
       if (currentsLayerRef.current) { map.removeLayer(currentsLayerRef.current); currentsLayerRef.current = null; }
     };
