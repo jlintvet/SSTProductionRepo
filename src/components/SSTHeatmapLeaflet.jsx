@@ -2370,14 +2370,19 @@ export default function SSTHeatmapLeaflet(props) {
       if (b.lat == null || b.lon == null) return;
       if (loc && distanceNm(loc.lat, loc.lon, b.lat, b.lon) > RADIUS_NM) return;
       const o = b.obs || {};
-      const lbl = o.wind_kt != null ? `${Math.round(o.wind_kt)}` : "B";
+      const hasObs = !!(o.wind_kt != null || o.wave_ft != null || o.water_temp_f != null || o.air_temp_f != null || o.pressure_mb != null);
+      const lbl = o.wind_kt != null ? `${Math.round(o.wind_kt)}` : "";   // wind kt at a glance; blank if not reported
+      const bg = hasObs ? "#0e7490" : "#94a3b8";                          // teal = reporting, grey = inactive
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:26px;height:26px;border-radius:50%;background:#0e7490;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font:700 10px/1 system-ui,sans-serif;">${lbl}</div>`,
-        iconSize: [26, 26], iconAnchor: [13, 13],
+        html: `<div style="width:20px;height:20px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font:700 9px/1 system-ui,sans-serif;">${lbl}</div>`,
+        iconSize: [20, 20], iconAnchor: [10, 10],
       });
       const m = L.marker([b.lat, b.lon], { icon, zIndexOffset: 850 });
-      m.bindPopup(buoyPopupHtml(b, loc), { maxWidth: 270, minWidth: 210, closeButton: true });
+      // autoPan keeps edge popups (top/bottom of screen) inside the view; top padding
+      // clears the header, bottom padding clears the wind time slider.
+      m.bindPopup(buoyPopupHtml(b, loc), { maxWidth: 270, minWidth: 210, closeButton: true,
+        autoPan: true, autoPanPaddingTopLeft: [16, 72], autoPanPaddingBottomRight: [16, 92] });
       m.addTo(lyr);
     });
     lyr.addTo(map); buoyLayerRef.current = lyr;
