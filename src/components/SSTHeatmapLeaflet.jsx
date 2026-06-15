@@ -2000,7 +2000,7 @@ export default function SSTHeatmapLeaflet(props) {
       if (labelState.layer) { map.removeLayer(labelState.layer); labelState.layer = null; }
       const bounds = map.getBounds();
       const labelGroup = L.layerGroup();
-      const SPACING_PX = 160; // screen distance between repeated labels along a contour
+      const SPACING_PX = 420; // screen distance between repeated labels along a contour
       const mkLabel = (lat, lon, str) => {
         const icon = L.divIcon({
           className: "",
