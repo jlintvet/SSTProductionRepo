@@ -1041,6 +1041,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [selectedMarker,   setSelectedMarker]   = useState(null);
   const [savedWreckKeys,   setSavedWreckKeys]   = useState(new Set());
   const [hoveredWreck,     setHoveredWreck]     = useState(null);
+  const [buoyPopup,        setBuoyPopup]        = useState(null);
   const [mapReady,         setMapReady]         = useState(false);
   const [sstReady,         setSstReady]         = useState(false);
   const waterMaskRef  = useRef(null);
@@ -2369,23 +2370,35 @@ export default function SSTHeatmapLeaflet(props) {
     buoysData.buoys.forEach(b => {
       if (b.lat == null || b.lon == null) return;
       if (loc && distanceNm(loc.lat, loc.lon, b.lat, b.lon) > RADIUS_NM) return;
-      const o = b.obs || {};
-      const hasObs = !!(o.wind_kt != null || o.wave_ft != null || o.water_temp_f != null || o.air_temp_f != null || o.pressure_mb != null);
-      const lbl = o.wind_kt != null ? `${Math.round(o.wind_kt)}` : "";   // wind kt at a glance; blank if not reported
-      const bg = hasObs ? "#0e7490" : "#94a3b8";                          // teal = reporting, grey = inactive
+      // Uniform navy buoy dot with a white center, identical for every buoy.
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:20px;height:20px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font:700 9px/1 system-ui,sans-serif;">${lbl}</div>`,
-        iconSize: [20, 20], iconAnchor: [10, 10],
+        html: `<div style="width:18px;height:18px;border-radius:50%;background:#1e3a8a;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><div style="width:6px;height:6px;border-radius:50%;background:#fff;"></div></div>`,
+        iconSize: [18, 18], iconAnchor: [9, 9],
       });
       const m = L.marker([b.lat, b.lon], { icon, zIndexOffset: 850 });
-      // autoPan keeps edge popups (top/bottom of screen) inside the view; top padding
-      // clears the header, bottom padding clears the wind time slider.
-      m.bindPopup(buoyPopupHtml(b, loc), { maxWidth: 270, minWidth: 210, closeButton: true,
-        autoPan: true, autoPanPaddingTopLeft: [16, 72], autoPanPaddingBottomRight: [16, 92] });
+      // Custom popup clamped to the map view (flips above/below the marker). Leaflet's
+      // autoPan can't help when the map is zoomed to fit the region (no pan room).
+      m.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        const pt = map.latLngToContainerPoint(e.latlng);
+        const size = map.getSize();
+        const CW = 230, CH = 168, MG = 10, TOP = 8;
+        const left  = Math.max(MG, Math.min(pt.x - CW / 2, size.x - CW - MG));
+        const above = pt.y > (CH + TOP + 16);
+        const top   = above ? Math.max(TOP, pt.y - 16 - CH) : Math.min(pt.y + 16, size.y - CH - MG);
+        setBuoyPopup({ left, top, b, loc });
+      });
       m.addTo(lyr);
     });
     lyr.addTo(map); buoyLayerRef.current = lyr;
+    const closeBuoy = () => setBuoyPopup(null);
+    map.on("click movestart zoomstart", closeBuoy);
+    return () => {
+      map.off("click movestart zoomstart", closeBuoy);
+      if (buoyLayerRef.current) { map.removeLayer(buoyLayerRef.current); buoyLayerRef.current = null; }
+      setBuoyPopup(null);
+    };
   }, [mapReady, showBuoys, buoysData, selectedLocation]);
 
   // ── Fish hotspots ──────────────────────────────────────────────────────────
@@ -3473,6 +3486,15 @@ export default function SSTHeatmapLeaflet(props) {
           })()}
 
           {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:hoveredWreck.px+12,top:hoveredWreck.py-10,zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{{HatterasNC:"Hatteras, NC",MoreheadNC:"Morehead City, NC",ChesapeakeMD:"Chesapeake, MD",OceanCityMD:"Ocean City, MD"}[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
+
+          {buoyPopup && (
+            <div className="absolute bg-white rounded-lg shadow-xl border border-slate-200"
+                 style={{ left: buoyPopup.left, top: buoyPopup.top, width: 230, zIndex: 800, padding: "8px 10px" }}>
+              <button onClick={() => setBuoyPopup(null)}
+                style={{ position: "absolute", top: 2, right: 6, background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1, color: "#94a3b8" }}>&times;</button>
+              <div dangerouslySetInnerHTML={{ __html: buoyPopupHtml(buoyPopup.b, buoyPopup.loc) }} />
+            </div>
+          )}
 
           {clickInfo && (
             <MapClickInfo info={clickInfo} date={date} userId={userId} onClose={() => setClickInfo(null)}
