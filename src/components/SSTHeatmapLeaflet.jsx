@@ -1959,7 +1959,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (slaVals.length < 4) return null;
     const p5  = slaVals[Math.floor(slaVals.length * 0.05)];
     const p95 = slaVals[Math.floor(slaVals.length * 0.95)];
-    const STEP = 0.025; // 2.5 cm intervals
+    const STEP = 0.05; // 5 cm interval (accepted SSH/SLA convention)
     const levelMin = Math.ceil(p5 / STEP) * STEP;
     const levelMax = Math.floor(p95 / STEP) * STEP;
     const levels = [];
@@ -1979,17 +1979,16 @@ export default function SSTHeatmapLeaflet(props) {
     // Draw all polylines (once, permanent)
     const contourGroup = L.layerGroup();
     for (const { level, lines } of levelLines) {
-      const isZero  = Math.abs(level) < 0.013;
-      const isMajor = Math.abs(Math.round(level * 100)) % 10 === 0; // every 10cm = major
-      const isPos   = level >= 0;
-      const dash    = isPos ? null : "4,3";
-      const weight  = isZero ? 1.8 : isMajor ? 1.4 : 0.9;
-      const lineClr = overlayMode ? "rgba(30,41,59,0.75)"   : "rgba(30,41,59,0.65)";
-      const outClr  = overlayMode ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.45)";
+      const isZero = Math.abs(level) < 0.013;
+      const isPos  = level >= 0;
+      const dash   = isPos ? null : "5,4";   // standard: solid = above avg, dashed = below avg
+      const weight = isZero ? 1.8 : 1.0;     // zero contour emphasized, all others uniform thin
+      const lineClr = "rgba(30,41,59,0.85)"; // single understated dark color
+      const outClr  = "rgba(255,255,255,0.6)";
       for (const seg of lines) {
         const latlngs = seg.map(([lon, lat]) => [lat, lon]);
-        L.polyline(latlngs, { color: outClr,   weight: weight + 1.5, opacity: 0.7, dashArray: dash, interactive: false }).addTo(contourGroup);
-        L.polyline(latlngs, { color: lineClr,  weight: weight,       opacity: 1.0, dashArray: dash, interactive: false }).addTo(contourGroup);
+        L.polyline(latlngs, { color: outClr,  weight: weight + 1.6, opacity: 0.7, dashArray: dash, interactive: false }).addTo(contourGroup);
+        L.polyline(latlngs, { color: lineClr, weight: weight,       opacity: 1.0, dashArray: dash, interactive: false }).addTo(contourGroup);
       }
     }
 
@@ -1999,32 +1998,40 @@ export default function SSTHeatmapLeaflet(props) {
 
     function buildSlaLabels() {
       if (labelState.layer) { map.removeLayer(labelState.layer); labelState.layer = null; }
-      if (map.getZoom() < LABEL_ZOOM) return;
       const bounds = map.getBounds();
       const labelGroup = L.layerGroup();
-      const levelCount = {};
-      const MAX_PER_LEVEL = 4;
+      const SPACING_PX = 160; // screen distance between repeated labels along a contour
+      const mkLabel = (lat, lon, str) => {
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="font-size:10px;font-weight:600;font-family:system-ui,sans-serif;color:#1e293b;text-shadow:1px 1px 0 rgba(255,255,255,0.92),-1px 1px 0 rgba(255,255,255,0.92),1px -1px 0 rgba(255,255,255,0.92),-1px -1px 0 rgba(255,255,255,0.92),0 1px 0 rgba(255,255,255,0.92),0 -1px 0 rgba(255,255,255,0.92);white-space:nowrap;pointer-events:none;line-height:1;">${str}</div>`,
+          iconSize: null, iconAnchor: [0, 6],
+        });
+        L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(labelGroup);
+      };
       for (const { level, lines } of levelLines) {
         const cm = Math.round(level * 100);
-        if (Math.abs(cm) % 5 !== 0) continue; // only label multiples of 5cm
         const labelStr = (cm >= 0 ? "+" : "") + cm;
         for (const line of lines) {
-          let bestRun = [], currentRun = [];
+          // split contour into runs of consecutive on-screen vertices
+          const runs = []; let run = [];
           for (const [lon, lat] of line) {
-            if (bounds.contains([lat, lon])) { currentRun.push([lon, lat]); }
-            else { if (currentRun.length > bestRun.length) bestRun = currentRun; currentRun = []; }
+            if (bounds.contains([lat, lon])) run.push([lat, lon]);
+            else { if (run.length) { runs.push(run); run = []; } }
           }
-          if (currentRun.length > bestRun.length) bestRun = currentRun;
-          if (bestRun.length < 10) continue;
-          const cnt = levelCount[cm] || 0; if (cnt >= MAX_PER_LEVEL) continue; levelCount[cm] = cnt + 1;
-          const [lon, lat] = bestRun[Math.floor(bestRun.length / 2)];
-          const color = "#1e293b";
-          const icon = L.divIcon({
-            className: "",
-            html: `<div style="font-size:10px;font-weight:600;font-family:system-ui,sans-serif;color:${color};text-shadow:1px 1px 0 rgba(255,255,255,0.92),-1px 1px 0 rgba(255,255,255,0.92),1px -1px 0 rgba(255,255,255,0.92),-1px -1px 0 rgba(255,255,255,0.92),0 1px 0 rgba(255,255,255,0.92),0 -1px 0 rgba(255,255,255,0.92);white-space:nowrap;pointer-events:none;line-height:1;">${labelStr}</div>`,
-            iconSize: null, iconAnchor: [0, 6],
-          });
-          L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(labelGroup);
+          if (run.length) runs.push(run);
+          // every visible run gets >=1 label; long runs get labels every SPACING_PX of screen distance
+          for (const r of runs) {
+            if (r.length < 2) continue;
+            let acc = SPACING_PX, prevPt = null, placed = 0;
+            for (const [lat, lon] of r) {
+              const pt = map.latLngToContainerPoint([lat, lon]);
+              if (prevPt) acc += pt.distanceTo(prevPt);
+              prevPt = pt;
+              if (acc >= SPACING_PX) { mkLabel(lat, lon, labelStr); acc = 0; placed++; }
+            }
+            if (placed === 0) { const m = r[Math.floor(r.length / 2)]; mkLabel(m[0], m[1], labelStr); }
+          }
         }
       }
       labelGroup.addTo(map);
