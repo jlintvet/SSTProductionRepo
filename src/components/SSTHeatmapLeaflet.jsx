@@ -1892,8 +1892,11 @@ export default function SSTHeatmapLeaflet(props) {
       displayOptions: { velocityType: "Current", position: "bottomright", emptyString: "No current data", angleConvention: "meteoCW", showCardinal: true, speedUnit: "m/s", directionString: "Direction", speedString: "Speed" },
       data: hourData.velocityJSON, minVelocity: 0, maxVelocity: maxSpd,
       velocityScale: 0.05,  // currents are slow (~m/s); tuned to ~match Windy particle speed
-      colorScale: ["rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)"],
-      particleAge: 90, particleMultiplier: 0.004, lineWidth: 1.8, opacity: 0.9,
+      // Solid white particles; opacity is the trail FADE (persistence ~ 1/(1-opacity)):
+      // 0.9 gave short faded dashes, 0.97 (library default) gives long Windy-like streaks.
+      // particleAge lengthened so each particle traces a longer continuous path.
+      colorScale: ["rgba(255,255,255,1)","rgba(255,255,255,1)","rgba(255,255,255,1)","rgba(255,255,255,1)"],
+      particleAge: 120, particleMultiplier: 0.0012, lineWidth: 1.6, opacity: 0.97,
     });
     layer.addTo(map);
     currentsLayerRef.current = layer;
