@@ -1893,7 +1893,7 @@ export default function SSTHeatmapLeaflet(props) {
       data: hourData.velocityJSON, minVelocity: 0, maxVelocity: maxSpd,
       velocityScale: 0.05,  // currents are slow (~m/s); tuned to ~match Windy particle speed
       colorScale: ["rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)","rgba(255,255,255,0.9)"],
-      particleAge: 64, particleMultiplier: 0.0012, lineWidth: 1.6, opacity: 0.9,
+      particleAge: 90, particleMultiplier: 0.004, lineWidth: 1.8, opacity: 0.9,
     });
     layer.addTo(map);
     currentsLayerRef.current = layer;
