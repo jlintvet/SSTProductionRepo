@@ -967,19 +967,35 @@ export default function SSTHeatmapLeaflet(props) {
   const [showWrecks,      setShowWrecks]      = useState(false);
   const [bathyData,       setBathyData]       = useState(null);
   const bathyDataRef = useRef(null);
-  // Depth lookup (GEBCO, ft) built from bathyData. Used to clip altimetry to open
-  // water — coarse 0.125deg SLA otherwise bleeds across barrier islands into the
-  // shallow sounds/bays where sea-level anomaly is not meaningful.
-  const depthLookupRef = useRef(null);
-  const [depthLookupVersion, setDepthLookupVersion] = useState(0);
-  const MIN_ALT_DEPTH_FT = 40; // tunable: deeper than this = open water (keep altimetry). open shelf nearshore is >=52ft; sounds/bays <=36ft
+  // Precomputed open-ocean mask (static, /openocean_mask.json): 1 = open Atlantic/shelf,
+  // 0 = sounds/bays/rivers/land. Built offline from GEBCO via morphological opening
+  // (sever narrow inlets) + bay polygons. Coarse 0.125deg altimetry otherwise bleeds
+  // across the barrier islands into the sounds where sea-level anomaly isn't meaningful.
+  const openOceanRef = useRef(null);
+  const [openOceanVersion, setOpenOceanVersion] = useState(0);
   function altimetryDeepMask(lat, lon) {
-    const dAt = depthLookupRef.current;
-    if (!dAt) return true;          // bathy not loaded yet -> don't clip
-    const d = dAt(lat, lon);
-    if (d == null) return false;    // no GEBCO ocean depth within ~1.7km -> land/river gap -> clip (offshore is fully covered)
-    return d >= MIN_ALT_DEPTH_FT;   // known -> keep only if deep enough (drops sounds)
+    const f = openOceanRef.current;
+    if (!f) return true;            // mask not loaded yet -> don't clip
+    return f(lat, lon);
   }
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/openocean_mask.json").then(r => r.ok ? r.json() : null).then(obj => {
+      if (cancelled || !obj) return;
+      const { bounds, step, rows, cols, packed } = obj;
+      const bin = atob(packed); const bits = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bits[i] = bin.charCodeAt(i);
+      openOceanRef.current = (lat, lon) => {
+        const ri = Math.round((bounds.n - lat) / step);
+        const ci = Math.round((lon - bounds.w) / step);
+        if (ri < 0 || ri >= rows || ci < 0 || ci >= cols) return false;
+        const idx = ri * cols + ci;
+        return (bits[idx >> 3] & (0x80 >> (idx & 7))) !== 0;
+      };
+      setOpenOceanVersion(v => v + 1);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [jsonContours,     setJsonContours]     = useState(null);
   const [jsonContoursLoading, setJsonContoursLoading] = useState(false);
   const [wrecksData,       setWrecksData]       = useState(null);
@@ -1802,7 +1818,7 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { cancelled = true; };
-  }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, depthLookupVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
+  }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
 
   // ── Velocity layer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2036,7 +2052,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (activeDataLayer !== "altimetry" || !altimetryData?.lats?.length) return;
     const grp = buildSlaContourGroup(altimetryData, false, map, (la,lo)=> (waterMaskRef.current ? waterMaskRef.current(la,lo) : true) && altimetryDeepMask(la,lo));
     if (grp) { grp.addTo(map); slaContourLayerRef.current = grp; }
-  }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, depthLookupVersion, repaintTrigger]);
+  }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger]);
 
   // ── SLA contour — Altimetry Overlay mode ────────────────────────────────────
   useEffect(() => {
@@ -2046,7 +2062,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!showAltimetryOverlay || !altimetryData?.lats?.length) return;
     const grp = buildSlaContourGroup(altimetryData, true, map, (la,lo)=> (waterMaskRef.current ? waterMaskRef.current(la,lo) : true) && altimetryDeepMask(la,lo));
     if (grp) { grp.addTo(map); slaOverlayContourLayerRef.current = grp; }
-  }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, depthLookupVersion, repaintTrigger]);
+  }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger]);
 
   // ── Loran-C phantom grid overlay ────────────────────────────────────────────
   useEffect(() => {
@@ -2488,28 +2504,7 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     if (!sstReady) return;
     const BATHY_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry.json";
-    fetch(BATHY_URL).then(r=>r.json()).then(d=>{
-      setBathyData(d); bathyDataRef.current = d;
-      try {
-        const STEP = 0.0083333; const m = new Map();
-        for (const p of (d.points || [])) {
-          if (p.depth_ft == null) continue;
-          m.set(Math.round(p.lat/STEP) + "_" + Math.round(p.lon/STEP), p.depth_ft);
-        }
-        depthLookupRef.current = (lat, lon) => {
-          const ri = Math.round(lat/STEP), ci = Math.round(lon/STEP);
-          let v = m.get(ri + "_" + ci); if (v != null) return v;
-          for (let rad = 1; rad <= 2; rad++) {            // tolerate grid rounding: nearest within ~1.7km
-            for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
-              if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
-              const vv = m.get((ri+dr) + "_" + (ci+dc)); if (vv != null) return vv;
-            }
-          }
-          return null;
-        };
-        setDepthLookupVersion(v => v + 1);
-      } catch(_) {}
-    }).catch(()=>{});
+    fetch(BATHY_URL).then(r=>r.json()).then(d=>{ setBathyData(d); bathyDataRef.current = d; }).catch(()=>{});
   }, [sstReady]);
 
   // One-time refit after SST overlay first renders — by this point the layout is
