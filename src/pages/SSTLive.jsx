@@ -302,13 +302,11 @@ function SSTPageBody() {
   // But on COLD START the layer never changes, so seed null when the initial layer is
   // not SST -> chl/seacolor render with their own range instead of the SST 55-78 default
   // (which on chl's log scale would blank the map).
-  const [sstRange, setSstRange] = useState(() => {
-    const initialLayer = (typeof localStorage !== "undefined" && localStorage.getItem("sst_active_layer")) || "sst";
-    // Only SST daily uses the fixed 55-78 default gain. Composite carries its own
-    // (warmer) percentile range, and chlorophyll/seacolor/altimetry have other units,
-    // so they start with null (no gain override -> each uses its own data range).
-    return initialLayer === "sst" ? { min: 55, max: 78, maskOutside: false } : null;
-  });
+  // Default gain = null for EVERY layer -> each renders on its own data range (auto),
+  // which is the correct/expected look. The fixed 55-78 degF default over-saturated warm
+  // summer SST/composite on cold-start (everything clamped red). Users can still set a
+  // custom gain via the Temp Gain control (which sets sstRange).
+  const [sstRange, setSstRange] = useState(null);
 
   const [murState,      setMurState]      = useState({ data: null, dateIndex: 0 });
   const [viirsState,    setViirsState]    = useState({ data: null, dateIndex: 0, hour: null });
