@@ -1712,7 +1712,13 @@ export default function SSTHeatmapLeaflet(props) {
       });
       latSet2 = [...cLatSet].sort((a,b) => b - a);
       lonSet2 = [...cLonSet].sort((a,b) => a - b);
-      min2 = sstMin; max2 = sstMax; colorFn = null;
+      // Composite has its own (warmer) value distribution; use ITS OWN 2-98 percentile
+      // range. Do NOT borrow sstMin/sstMax — those track the active SST source (MUR) and
+      // are not in this effect's deps, so on cold-start they're stale -> over-saturation.
+      const cvals = Object.values(overlayGrid).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
+      if (cvals.length > 10) { min2 = cvals[Math.floor(cvals.length*0.02)]; max2 = cvals[Math.floor(cvals.length*0.98)]; }
+      else { min2 = sstMin; max2 = sstMax; }
+      colorFn = null;
     } else if (activeDataLayer==="seacolor"&&seaColorData?.days?.length) {
       const day=seaColorData.days[seaColorDateIndex]||seaColorData.days[seaColorData.days.length-1];
       if(!day?.grid?.length)return;
@@ -1753,8 +1759,8 @@ export default function SSTHeatmapLeaflet(props) {
     const renderLonSet = useRefGrid ? lonSet : lonSet2;
     const renderGrid   = useRefGrid ? expandCoarseGrid(latSet2,lonSet2,overlayGrid,latSet,lonSet) : overlayGrid;
     const finalColorFn = activeDataLayer === "composite" ? null : colorFn;
-    const finalMin = activeDataLayer === "composite" ? sstMin : min2;
-    const finalMax = activeDataLayer === "composite" ? sstMax : max2;
+    const finalMin = min2;   // composite now carries its own range in min2/max2
+    const finalMax = max2;
     const finalRangeMin = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.min != null ? sstRange.min : undefined;
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
