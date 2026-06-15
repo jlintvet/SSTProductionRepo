@@ -492,6 +492,37 @@ function distanceNm(lat1,lon1,lat2,lon2){const R=3440.065,dLat=((lat2-lat1)*Math
 function bearingDeg(lat1,lon1,lat2,lon2){const dLon=((lon2-lon1)*Math.PI)/180;const y=Math.sin(dLon)*Math.cos(lat2*Math.PI/180);const x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);return((Math.atan2(y,x)*180/Math.PI)+360)%360;}
 export function bearingLabel(deg){return["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(deg/22.5)%16];}
 
+const BUOYS_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Buoys/buoys_latest.json";
+function buoyAgeStr(iso){
+  if(!iso) return "";
+  const ts=Date.parse(iso); if(isNaN(ts)) return "";
+  const mins=Math.round((Date.now()-ts)/60000);
+  if(mins<1) return "just now";
+  if(mins<60) return `${mins} min ago`;
+  const h=Math.floor(mins/60);
+  return h<24 ? `${h}h ${mins%60}m ago` : `${Math.floor(h/24)}d ago`;
+}
+function buoyPopupHtml(b, loc){
+  const o=b.obs||{};
+  const row=(label,val)=> (val==null||val==="")?"":`<div style="display:flex;justify-content:space-between;gap:12px;font-size:12px;line-height:1.6;"><span style="color:#64748b;">${label}</span><span style="color:#0f172a;font-weight:600;text-align:right;">${val}</span></div>`;
+  const wind = o.wind_kt!=null ? `${Math.round(o.wind_kt)} kt${o.wind_dir_deg!=null?` &middot; ${bearingLabel(o.wind_dir_deg)}`:""}${o.gust_kt!=null?` (G ${Math.round(o.gust_kt)})`:""}` : null;
+  const waves = o.wave_ft!=null ? `${o.wave_ft.toFixed(1)} ft${o.dom_period_s!=null?` @ ${Math.round(o.dom_period_s)}s`:""}${o.mean_wave_dir_deg!=null?` &middot; ${bearingLabel(o.mean_wave_dir_deg)}`:""}` : null;
+  const wtmp = o.water_temp_f!=null ? `${o.water_temp_f.toFixed(1)}&deg;F` : null;
+  const atmp = o.air_temp_f!=null ? `${o.air_temp_f.toFixed(1)}&deg;F` : null;
+  const pres = o.pressure_mb!=null ? `${o.pressure_mb.toFixed(1)} mb` : null;
+  const dist = loc!=null ? `${distanceNm(loc.lat,loc.lon,b.lat,b.lon).toFixed(0)} nm from departure` : null;
+  const age = buoyAgeStr(o.time);
+  const hasObs = wind||waves||wtmp||atmp||pres;
+  return `<div style="font-family:system-ui,sans-serif;min-width:200px;">`
+    + `<div style="font-weight:700;font-size:13px;color:#0f172a;">${b.name||b.id}</div>`
+    + `<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">NDBC ${b.id}${dist?` &middot; ${dist}`:""}</div>`
+    + (hasObs
+        ? row("Wind",wind)+row("Waves",waves)+row("Water temp",wtmp)+row("Air temp",atmp)+row("Pressure",pres)
+          + `<div style="font-size:10px;color:#94a3b8;margin-top:6px;border-top:1px solid #e2e8f0;padding-top:4px;">Observed ${age||"recently"}</div>`
+        : `<div style="font-size:12px;color:#94a3b8;">No recent observations.</div>`)
+    + `</div>`;
+}
+
 // ── Isotherm engine ────────────────────────────────────────────────────────────
 function buildField(latSet, lonSet, grid) {
   const rows = latSet.length, cols = lonSet.length;
@@ -909,6 +940,7 @@ export default function SSTHeatmapLeaflet(props) {
   const bathyLayerRef    = useRef(null);
   const bathyLabelRef    = useRef(null);
   const wreckLayerRef    = useRef(null);
+  const buoyLayerRef     = useRef(null);
   const hotspotLayerRef  = useRef(null);
   const markersLayerRef  = useRef(null);
   const refMarkerRef     = useRef(null);
@@ -965,6 +997,9 @@ export default function SSTHeatmapLeaflet(props) {
   const [showSSTLayer]    = useState(true);
   const [showBathyLayer,  setShowBathyLayer]  = useState(true);
   const [showWrecks,      setShowWrecks]      = useState(false);
+  const [showBuoys,       setShowBuoys]       = useState(false);
+  const [buoysData,       setBuoysData]       = useState(null);
+  const [buoysLoading,    setBuoysLoading]    = useState(false);
   const [bathyData,       setBathyData]       = useState(null);
   const bathyDataRef = useRef(null);
   // Precomputed open-ocean mask (static, /openocean_mask.json): 1 = open Atlantic/shelf,
@@ -2316,6 +2351,38 @@ export default function SSTHeatmapLeaflet(props) {
     lyr.addTo(map); wreckLayerRef.current = lyr;
   }, [mapReady, showWrecks, wrecksData, selectedLocation, regionBounds, wreckRemovedKeys]);
 
+  // ── Weather Buoys ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!showBuoys || buoysData) return;
+    setBuoysLoading(true);
+    fetch(BUOYS_URL).then(r => r.json()).then(d => { setBuoysData(d); setBuoysLoading(false); })
+      .catch(() => setBuoysLoading(false));
+  }, [showBuoys]);
+
+  useEffect(() => {
+    const map = mapRef.current; if (!mapReady || !map) return;
+    if (buoyLayerRef.current) { map.removeLayer(buoyLayerRef.current); buoyLayerRef.current = null; }
+    if (!showBuoys || !buoysData?.buoys?.length) return;
+    const loc = selectedLocationRef.current;
+    const RADIUS_NM = 75;   // only show buoys within this range of the departure location
+    const lyr = L.layerGroup();
+    buoysData.buoys.forEach(b => {
+      if (b.lat == null || b.lon == null) return;
+      if (loc && distanceNm(loc.lat, loc.lon, b.lat, b.lon) > RADIUS_NM) return;
+      const o = b.obs || {};
+      const lbl = o.wind_kt != null ? `${Math.round(o.wind_kt)}` : "B";
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="width:26px;height:26px;border-radius:50%;background:#0e7490;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font:700 10px/1 system-ui,sans-serif;">${lbl}</div>`,
+        iconSize: [26, 26], iconAnchor: [13, 13],
+      });
+      const m = L.marker([b.lat, b.lon], { icon, zIndexOffset: 850 });
+      m.bindPopup(buoyPopupHtml(b, loc), { maxWidth: 270, minWidth: 210, closeButton: true });
+      m.addTo(lyr);
+    });
+    lyr.addTo(map); buoyLayerRef.current = lyr;
+  }, [mapReady, showBuoys, buoysData, selectedLocation]);
+
   // ── Fish hotspots ──────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -2694,6 +2761,7 @@ export default function SSTHeatmapLeaflet(props) {
             showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
+            showBuoys={showBuoys} setShowBuoys={setShowBuoys} buoysLoading={buoysLoading}
             selectedLocation={selectedLocation}
             windSliderHeight={sliderHeight}
             collapsed={panelCollapsed} setCollapsed={setPanelCollapsed}
@@ -3247,6 +3315,12 @@ export default function SSTHeatmapLeaflet(props) {
                           {wrecksLoading ? "Loading…" : "Bottom Features"}
                         </button>
                       </MobileProGate>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <button onClick={() => setShowBuoys(v => !v)}
+                        className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBuoys ? "bg-cyan-700 text-white border-cyan-700" : "bg-white text-slate-600 border-slate-300"}`}>
+                        {buoysLoading ? "Loading…" : "Weather Buoys"}
+                      </button>
                     </div>
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <div className="col-span-2 flex gap-1">

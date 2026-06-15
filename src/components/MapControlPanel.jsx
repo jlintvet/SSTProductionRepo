@@ -92,6 +92,7 @@ const HELP_CONFIG = {
   loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png", text: "" },
   community:   { title: "Community Pins",                image: "/help/community.png",  text: "Community pins show catch reports and live fish activity posted by other anglers. Lime green pins are live (24h), blue pins are catch reports (7 days). Click any pin to see details and tip the poster." },
   labels:      { title: "Map Labels",                    image: "/help/labels.png",     text: "Shows canyon names and geographic feature labels on the map. Labels scale with zoom level and display the names of major offshore canyons, ridges, and banks." },
+  weatherbuoys:{ title: "Weather Buoys",                 image: "/help/buoys.png",      text: "Live observations from NOAA NDBC buoys — wind, gusts, waves, water and air temperature, and pressure. Only buoys within range of your selected departure are shown; tap one for the latest reading and how long ago it was observed. Refreshes about every 15 minutes." },
 };
 
 // ── Tiny helpers ───────────────────────────────────────────────────────────────
@@ -277,6 +278,7 @@ export default function MapControlPanel({
   jsonContoursLoading,
   showWrecks, setShowWrecks,
   wrecksLoading,
+  showBuoys, setShowBuoys, buoysLoading,
   showCanyonLabels, setShowCanyonLabels,
   showLoranGrid, setShowLoranGrid,
   // tier
@@ -638,6 +640,15 @@ export default function MapControlPanel({
               {hbtn("windoverlay")}
             </div>
           )}
+
+          <div className="flex gap-1 items-stretch">
+            <div className="flex-1">
+              <ToolBtn active={showBuoys} color="amber" onClick={() => setShowBuoys?.(v => !v)}>
+                {buoysLoading ? "Loading…" : "Weather Buoys"}
+              </ToolBtn>
+            </div>
+            {hbtn("weatherbuoys")}
+          </div>
         </div>
       )}
 
