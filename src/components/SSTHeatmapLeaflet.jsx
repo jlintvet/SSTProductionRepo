@@ -967,6 +967,19 @@ export default function SSTHeatmapLeaflet(props) {
   const [showWrecks,      setShowWrecks]      = useState(false);
   const [bathyData,       setBathyData]       = useState(null);
   const bathyDataRef = useRef(null);
+  // Depth lookup (GEBCO, ft) built from bathyData. Used to clip altimetry to open
+  // water — coarse 0.125deg SLA otherwise bleeds across barrier islands into the
+  // shallow sounds/bays where sea-level anomaly is not meaningful.
+  const depthLookupRef = useRef(null);
+  const [depthLookupVersion, setDepthLookupVersion] = useState(0);
+  const MIN_ALT_DEPTH_FT = 30; // tunable: deeper than this = open water (keep altimetry)
+  function altimetryDeepMask(lat, lon) {
+    const dAt = depthLookupRef.current;
+    if (!dAt) return true;          // bathy not loaded yet -> don't clip
+    const d = dAt(lat, lon);
+    if (d == null) return true;     // unknown depth -> keep (open ocean beyond bathy)
+    return d >= MIN_ALT_DEPTH_FT;   // known -> keep only if deep enough (drops sounds)
+  }
   const [jsonContours,     setJsonContours]     = useState(null);
   const [jsonContoursLoading, setJsonContoursLoading] = useState(false);
   const [wrecksData,       setWrecksData]       = useState(null);
@@ -1730,7 +1743,10 @@ export default function SSTHeatmapLeaflet(props) {
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
     const ovGrid = (useGl && (activeDataLayer === "composite" || activeDataLayer === "chlorophyll")) ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
-    Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,useGl ? null : waterMaskRef.current,finalRangeMin,finalRangeMax)).then(async result => {
+    const ocMask = activeDataLayer === "altimetry"
+      ? altimetryDeepMask
+      : (useGl ? null : waterMaskRef.current);
+    Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,ocMask,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
@@ -1786,7 +1802,7 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { cancelled = true; };
-  }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
+  }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, depthLookupVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
 
   // ── Velocity layer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2018,9 +2034,9 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (slaContourLayerRef.current) { slaContourLayerRef.current._slaCleanup?.(); map.removeLayer(slaContourLayerRef.current); slaContourLayerRef.current = null; }
     if (activeDataLayer !== "altimetry" || !altimetryData?.lats?.length) return;
-    const grp = buildSlaContourGroup(altimetryData, false, map, waterMaskRef.current);
+    const grp = buildSlaContourGroup(altimetryData, false, map, (la,lo)=> (waterMaskRef.current ? waterMaskRef.current(la,lo) : true) && altimetryDeepMask(la,lo));
     if (grp) { grp.addTo(map); slaContourLayerRef.current = grp; }
-  }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, repaintTrigger]);
+  }, [mapReady, activeDataLayer, altimetryData, waterMaskVersion, depthLookupVersion, repaintTrigger]);
 
   // ── SLA contour — Altimetry Overlay mode ────────────────────────────────────
   useEffect(() => {
@@ -2028,9 +2044,9 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (slaOverlayContourLayerRef.current) { slaOverlayContourLayerRef.current._slaCleanup?.(); map.removeLayer(slaOverlayContourLayerRef.current); slaOverlayContourLayerRef.current = null; }
     if (!showAltimetryOverlay || !altimetryData?.lats?.length) return;
-    const grp = buildSlaContourGroup(altimetryData, true, map, waterMaskRef.current);
+    const grp = buildSlaContourGroup(altimetryData, true, map, (la,lo)=> (waterMaskRef.current ? waterMaskRef.current(la,lo) : true) && altimetryDeepMask(la,lo));
     if (grp) { grp.addTo(map); slaOverlayContourLayerRef.current = grp; }
-  }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, repaintTrigger]);
+  }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, depthLookupVersion, repaintTrigger]);
 
   // ── Loran-C phantom grid overlay ────────────────────────────────────────────
   useEffect(() => {
@@ -2472,7 +2488,18 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     if (!sstReady) return;
     const BATHY_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry.json";
-    fetch(BATHY_URL).then(r=>r.json()).then(d=>{ setBathyData(d); bathyDataRef.current = d; }).catch(()=>{});
+    fetch(BATHY_URL).then(r=>r.json()).then(d=>{
+      setBathyData(d); bathyDataRef.current = d;
+      try {
+        const STEP = 0.0083333; const m = new Map();
+        for (const p of (d.points || [])) {
+          if (p.depth_ft == null) continue;
+          m.set(Math.round(p.lat/STEP) + "_" + Math.round(p.lon/STEP), p.depth_ft);
+        }
+        depthLookupRef.current = (lat, lon) => { const v = m.get(Math.round(lat/STEP) + "_" + Math.round(lon/STEP)); return v == null ? null : v; };
+        setDepthLookupVersion(v => v + 1);
+      } catch(_) {}
+    }).catch(()=>{});
   }, [sstReady]);
 
   // One-time refit after SST overlay first renders — by this point the layout is
