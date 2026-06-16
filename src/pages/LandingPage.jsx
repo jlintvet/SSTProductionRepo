@@ -65,7 +65,9 @@ const GLOBAL_CSS = `
                radial-gradient(ellipse 35% 40% at 85% 80%,rgba(12,196,160,.07) 0%,transparent 60%),
                radial-gradient(ellipse 45% 50% at 15% 20%,rgba(30,111,168,.1) 0%,transparent 60%);}
   .rl-hero-overlay{position:absolute;inset:0;z-index:2;
-    background:linear-gradient(to right,rgba(8,13,24,.94) 42%,rgba(8,13,24,.2) 100%);}
+    background:
+      linear-gradient(to right,rgba(8,16,30,.78) 0%,rgba(8,16,30,.52) 38%,rgba(8,16,30,.04) 72%,transparent 100%),
+      linear-gradient(to top,rgba(8,16,30,.55) 0%,transparent 45%);}
   .rl-hero-content{position:relative;z-index:3;max-width:660px;}
   .rl-eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
     color:#00c8e8;margin-bottom:1.25rem;}
@@ -253,7 +255,7 @@ const GLOBAL_CSS = `
   .rl-final-ph{position:absolute;inset:0;z-index:0;
     background:linear-gradient(160deg,#030609 0%,#07111a 100%);
     display:flex;align-items:center;justify-content:center;}
-  .rl-final-ov{position:absolute;inset:0;z-index:1;background:rgba(8,13,24,.84);}
+  .rl-final-ov{position:absolute;inset:0;z-index:1;background:linear-gradient(to top,rgba(8,16,30,.88) 0%,rgba(8,16,30,.55) 40%,rgba(8,16,30,.3) 100%);}
   .rl-final-glow{position:absolute;inset:0;z-index:1;
     background:radial-gradient(ellipse 70% 70% at 50% 50%,rgba(12,196,160,.07) 0%,transparent 70%);}
   .rl-final-content{position:relative;z-index:2;}
