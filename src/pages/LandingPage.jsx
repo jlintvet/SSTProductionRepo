@@ -887,8 +887,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
         <div className="rl-comm-inner">
           <div>
             <div className="rl-lbl">The Community</div>
-            <h2 className="rl-comm-h2">It's not pay-to-play.</h2>
-            <h2 className="rl-comm-h2"><em>Contribute to play.</em></h2>
+            <h2 className="rl-comm-h2">It's not pay-to-play. <em>Contribute to play.</em></h2>
             <p className="rl-comm-rule">
               Post a catch report. Drop a live pin. Share what you found. The whole community
               opens up. Everyone sharing has skin in the game. That's what keeps the intel honest.
