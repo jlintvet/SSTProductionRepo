@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function TrialBanner({ daysLeft, onUpgrade }) {
   const [dismissed, setDismissed] = useState(false);
+  const navigate = useNavigate();
 
   if (daysLeft === null || dismissed) return null;
 
@@ -24,7 +26,7 @@ export default function TrialBanner({ daysLeft, onUpgrade }) {
       </span>
       <div className="flex items-center gap-3 flex-shrink-0">
         <button
-          onClick={onUpgrade}
+          onClick={() => { if (onUpgrade) onUpgrade(); else navigate("/pricing"); }}
           className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
             urgent
               ? "bg-amber-500 text-white hover:bg-amber-600"

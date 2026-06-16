@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, Component } from "react";
+import { useNavigate } from "react-router-dom";
 import { fetchMURSST, fetchVIIRSSST, fetchGOESComposite, fetchChlorophyll, fetchSeaColor } from "@/lib/dataFetchers";
 import { supabase } from "@/lib/supabase";
 import AppShell from "@/components/shell/AppShell";
@@ -1016,7 +1017,7 @@ export default function SSTLive() {
   if (!authed) return <InlineLogin />;
 
   return (
-    <AppShell region="mid_atlantic" onUpgrade={() => alert("Upgrade coming soon!")}>
+    <AppShell region="mid_atlantic" onUpgrade={() => window.location.href = "/pricing"}>
       <SSTPageBody />
     </AppShell>
   );
