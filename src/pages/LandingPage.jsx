@@ -260,12 +260,15 @@ const GLOBAL_CSS = `
   .rl-final-ov{position:absolute;inset:0;z-index:1;background:linear-gradient(to top,rgba(8,16,30,.88) 0%,rgba(8,16,30,.55) 40%,rgba(8,16,30,.3) 100%);}
   .rl-final-glow{position:absolute;inset:0;z-index:1;
     background:radial-gradient(ellipse 70% 70% at 50% 50%,rgba(12,196,160,.07) 0%,transparent 70%);}
-  .rl-final-content{position:relative;z-index:2;}
+  .rl-final-content{position:relative;z-index:2;max-width:800px;margin:0 auto;}
   .rl-final-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
-    font-size:clamp(3.5rem,10vw,7rem);line-height:.95;color:#fff;letter-spacing:.04em;margin-bottom:1.25rem;}
+    font-size:clamp(5rem,12vw,9rem);color:#fff;margin-bottom:1rem;line-height:.9;
+    text-shadow:0 0 80px rgba(0,200,232,.12);}
   .rl-final-h2 span{color:#00c8e8;}
-  .rl-final-sub{font-size:18px;color:#7a9ab5;max-width:460px;margin:0 auto 2.5rem;line-height:1.65;}
-  .rl-final-note{margin-top:1rem;font-size:13px;color:#7a9ab5;opacity:.65;}
+  .rl-final-sub{font-size:19px;color:#a0bad4;max-width:480px;margin:0 auto 3rem;line-height:1.7;}
+  .rl-final-note{margin-top:1.25rem;font-size:14px;color:#7a9ab5;opacity:.75;letter-spacing:.02em;}
+  .rl-final-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00c8e8;margin-bottom:2rem;}
+  .rl-final-divider{width:60px;height:2px;background:linear-gradient(to right,#1a5fd8,#00c8e8);margin:1.5rem auto 2rem;}
 
   /* FOOTER */
   .rl-footer{background:#030609;padding:2.5rem;border-top:1px solid rgba(255,255,255,.05);}
@@ -377,7 +380,7 @@ function RipLocLogo({ h = 34, lockup = false }) {
     return (
       <img
         src={riplocLockupImg}
-        alt="RipLoc — Offshore Fishing Intelligence"
+        alt="RipLoc: Offshore Fishing Intelligence"
         style={{ height: h, width: Math.round(h * aspect), objectFit:"contain", display:"block" }}
       />
     );
@@ -448,7 +451,7 @@ function AuthForm({ onSuccess }) {
       <h3 style={{ margin: "0 0 8px", color: "#0f172a" }}>Check your email</h3>
       <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>
         Confirmation link sent to <strong>{email}</strong>.<br/>
-        Click it to activate your account and start your 14-day Pro trial.
+        Click it to activate your account and start your 30-day Pro trial.
       </p>
       <button className="rl-fmbtn" style={{ background: "#64748b" }}
         onClick={() => { setSent(false); setMode("login"); }}>Back to sign in</button>
@@ -495,7 +498,7 @@ function AuthForm({ onSuccess }) {
         ))}
       </div>
       {mode === "register" && (
-        <div className="rl-trial">14-day free Pro trial — no credit card required</div>
+        <div className="rl-trial">30-day free Pro trial. No credit card required.</div>
       )}
       <form onSubmit={mode === "login" ? handleLogin : handleRegister}>
         <input className="rl-inp" type="email" placeholder="Email address"
@@ -522,7 +525,7 @@ function AuthForm({ onSuccess }) {
         )}
         {error && <div className="rl-err">{error}</div>}
         <button className="rl-fmbtn" type="submit" disabled={loading}>
-          {loading ? "…" : mode==="login" ? "Sign In" : "Create Account — Start Trial"}
+          {loading ? "…" : mode==="login" ? "Sign In" : "Create Account. Start Trial."}
         </button>
       </form>
     </div>
@@ -559,7 +562,7 @@ const DATA_LAYERS = [
     body: "Track productivity zones and baitfish concentrations. Find the green water where pelagics are stacking.",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> },
   { title: "Sea Level Anomaly",
-    body: "Altimetry-derived eddy detection. Warm-core rings and upwelling zones — where the big fish hold.",
+    body: "Altimetry-derived eddy detection. Warm-core rings and upwelling zones. Where the big fish hold.",
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
   { title: "Ocean Current Vectors",
     body: "OSCAR / HYCOM current direction and speed. Know where the water is moving before you leave the inlet.",
@@ -573,7 +576,7 @@ const DATA_LAYERS = [
 ];
 
 const FREE_FEATS = [
-  "Sea Surface Temperature — daily",
+  "Sea Surface Temperature, daily",
   "Chlorophyll & sea color layers",
   "Bathymetry contours + canyon labels",
   "Wind map & NOAA marine forecast",
@@ -672,7 +675,7 @@ function HeroCarousel({ open, heroBoatImg, featureMahiImg, ctaBillfishImg }) {
         <p className="rl-hero-sub">{slide.sub}</p>
         <div className="rl-hero-ctas">
           <button className="rl-btn-hero" onClick={open}>
-            Start Free &mdash; 14-Day Pro Trial
+            Start Free. 30-Day Pro Trial.
           </button>
           <button className="rl-btn-outline"
             onClick={() => document.getElementById("video")?.scrollIntoView({ behavior: "smooth" })}>
@@ -734,7 +737,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
       {/* TRUST BAR */}
       <div className="rl-trust">
         <div className="rl-trust-inner">
-          {["14-Day Pro Trial Free","No Credit Card","No Ads. Ever.","100% of Tips Go to Anglers","Zero Kickbacks"].map(t => (
+          {["30-Day Pro Trial Free","No Credit Card","No Ads. Ever.","100% of Tips Go to Anglers","Zero Kickbacks"].map(t => (
             <div key={t} className="rl-trust-item"><div className="rl-dot" />{t}</div>
           ))}
         </div>
@@ -746,8 +749,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           <div className="rl-lbl">The Data</div>
           <h2 className="rl-h2">The intel pro captains rely on.<br/>Now free.</h2>
           <p className="rl-sub">
-            Six layers of real satellite data — NOAA, NASA, CMEMS — processed daily and served
-            in a single map built for fishing decisions, not lab reports.
+            Six layers of real satellite data: NOAA, NASA, CMEMS. Processed daily. One map built for fishing decisions, not lab reports.
           </p>
           <div className="rl-data-grid">
             {DATA_LAYERS.map(d => (
@@ -780,7 +782,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
         <div className="rl-video-frame">
           <div className="rl-play"><PlayIcon /></div>
           <div className="rl-vid-note">
-            VIDEO PLACEHOLDER — 90-second product story<br/>
+            VIDEO PLACEHOLDER: 90-second product story<br/>
             Map walkthrough · Live pin drop · Route share · Community tip
           </div>
         </div>
@@ -798,14 +800,14 @@ export default function MarketingLanding({ onAuthSuccess }) {
               <p className="rl-feat-body">
                 Isotherm overlays pinpoint temperature breaks to within a tenth of a degree.
                 Dial in your target temperature, adjust sensitivity, and the map shows exactly
-                where the edge is sitting today — not three days ago.
+                where the edge is sitting today. Not three days ago.
               </p>
               <div className="rl-pills">
                 <span className="rl-pill">VIIRS Daily</span>
                 <span className="rl-pill">36h Composite</span>
                 <span className="rl-pill">MUR 1km</span>
-                <span className="rl-pill">Isotherm Overlay — Pro</span>
-                <span className="rl-pill">Color Gain Control — Pro</span>
+                <span className="rl-pill">Isotherm Overlay</span>
+                <span className="rl-pill">Color Gain Control</span>
               </div>
             </div>
             <div className="rl-scr">
@@ -816,19 +818,19 @@ export default function MarketingLanding({ onAuthSuccess }) {
           {/* Feature 2 */}
           <div className="rl-feat-grid rl-flip">
             <div>
-              <div className="rl-feat-lbl">Trip Planner — Pro</div>
+              <div className="rl-feat-lbl">Trip Planner</div>
               <h3 className="rl-feat-h3">Every waypoint.<br/>Every gallon.</h3>
               <p className="rl-feat-body">
                 Plot your run, set cruise speed, and get heading, distance, ETA, and fuel burn
-                for every leg — before you leave the inlet. Share your route via link or text.
+                for every leg. Before you leave the inlet. Share your route via link or text.
                 No fumbling with multiple apps at 4 AM.
               </p>
               <div className="rl-pills">
                 <span className="rl-pill">Multi-Waypoint Routes</span>
                 <span className="rl-pill">ETA Calculator</span>
                 <span className="rl-pill">Fuel Burn Per Leg</span>
-                <span className="rl-pill">Route Sharing — Pro</span>
-                <span className="rl-pill">GPS Tracking — Pro</span>
+                <span className="rl-pill">Route Sharing</span>
+                <span className="rl-pill">GPS Tracking</span>
               </div>
             </div>
             <div className="rl-two">
@@ -840,7 +842,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           {/* Feature 3 */}
           <div className="rl-feat-grid">
             <div>
-              <div className="rl-feat-lbl">Fishing Hotspots — Pro</div>
+              <div className="rl-feat-lbl">Fishing Hotspots</div>
               <h3 className="rl-feat-h3">Find the fish.<br/>Not the blue desert.</h3>
               <p className="rl-feat-body">
                 RipLoc's daily hotspot scoring model synthesizes SST gradients, chlorophyll
@@ -851,7 +853,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
                 <span className="rl-pill">Daily Hotspot Map</span>
                 <span className="rl-pill">SST + CHL + Bathy Scoring</span>
                 <span className="rl-pill">Canyon & Shelf Edges</span>
-                <span className="rl-pill">Wreck Locations — Pro</span>
+                <span className="rl-pill">Wreck Locations</span>
               </div>
             </div>
             <div className="rl-scr">
@@ -875,7 +877,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
             <h2 className="rl-comm-h2"><em>Contribute to play.</em></h2>
             <p className="rl-comm-rule">
               Post a catch report. Drop a live pin. Share what you found. The whole community
-              opens up. Everyone sharing has skin in the game — that's what keeps the intel honest.
+              opens up. Everyone sharing has skin in the game. That's what keeps the intel honest.
             </p>
             <div className="rl-pillars">
               <div className="rl-pillar">
@@ -914,7 +916,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
             </div>
           </div>
           <div className="rl-comm-photo">
-            <img src={featureMahiImg} alt="Mahi-mahi breaking the surface — offshore action"
+            <img src={featureMahiImg} alt="Mahi-mahi breaking the surface"
               style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center" }} />
           </div>
         </div>
@@ -927,7 +929,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
             <h2 className="rl-nobs-h2">Built for anglers. Not advertisers.</h2>
             <p className="rl-nobs-sub">
               You're running a boat offshore. That costs real money. We built this for people
-              who respond to utility — not interruption.
+              who respond to utility, not interruption.
             </p>
           </div>
           <div className="rl-nobs-grid">
@@ -956,7 +958,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           <div className="rl-price-hdr">
             <div className="rl-lbl" style={{ color: "#1a5fd8", display: "inline-block", marginBottom: "0.75rem" }}>Pricing</div>
             <h2 className="rl-price-h2">Less than one offshore trip.</h2>
-            <p className="rl-price-sub">Pro is less expensive than every competing SST platform — and it outperforms them all.</p>
+            <p className="rl-price-sub">Pro is less expensive than every competing SST platform. And it outperforms them all.</p>
           </div>
           <div className="rl-cards">
             <div className="rl-card free">
@@ -978,33 +980,33 @@ export default function MarketingLanding({ onAuthSuccess }) {
               <ul className="rl-feats">
                 {PRO_FEATS.map(f => <li key={f} className="rl-feat-li dk"><span className="chk">✓</span>{f}</li>)}
               </ul>
-              <button className="rl-pcta dk" onClick={() => navigate("/upgrade")}>Go Pro — $49/yr</button>
+              <button className="rl-pcta dk" onClick={() => navigate("/upgrade")}>Go Pro. $49/yr</button>
             </div>
           </div>
-          <div className="rl-price-footer">Start with a 14-day free Pro trial on any account. No credit card required.</div>
+          <div className="rl-price-footer">30-day free Pro trial on every account. No credit card required.</div>
         </div>
       </section>
 
       {/* FINAL CTA */}
       <section className="rl-final">
         <div className="rl-final-ph">
-          <img src={ctaBillfishImg} alt="Billfish at the waterline — the moment of the catch"
+          <img src={ctaBillfishImg} alt="Billfish at the waterline"
             style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center 30%" }} />
         </div>
         <div className="rl-final-ov" />
         <div className="rl-final-glow" />
         <div className="rl-final-content">
+          <div className="rl-final-eyebrow">Start Fishing Smarter</div>
           <h2 className="rl-final-h2"><span>Lock In.</span></h2>
+          <div className="rl-final-divider" />
           <p className="rl-final-sub">
-            Start your free Pro trial. No credit card. No obligation.<br/>
-            Just better intel before you leave the dock.
+            30 days free. No credit card. No obligation.<br/>Better intel before you leave the dock.
           </p>
-          <button className="rl-btn-hero" style={{ fontSize: 18, padding: "1rem 2.5rem" }} onClick={open}>
-            Start Free — 14-Day Pro Trial
+          <button className="rl-btn-hero" style={{ fontSize: 19, padding: "1.1rem 3rem", letterSpacing:".03em" }} onClick={open}>
+            Start Free. 30-Day Pro Trial.
           </button>
-          <p className="rl-final-note">14 days free · Cancel anytime · East Coast Mid-Atlantic</p>
+          <p className="rl-final-note">30 days free. Cancel anytime. East Coast Mid-Atlantic.</p>
         </div>
-      </section>
 
       {/* FOOTER */}
       <footer className="rl-footer">
