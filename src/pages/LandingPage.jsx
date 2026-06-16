@@ -538,11 +538,14 @@ function AuthModal({ open, onClose, onSuccess }) {
   return (
     <div className="rl-modal-ov" onClick={e => { if (e.target===e.currentTarget) onClose(); }}>
       <div className="rl-modal">
+        <div className="rl-modal-accent" />
         <button className="rl-modal-x" onClick={onClose} aria-label="Close">✕</button>
-        <div className="rl-modal-logo"><RipLocLogo h={30} /></div>
-        <div className="rl-modal-title">Lock In to RipLoc</div>
-        <div className="rl-modal-sub">Start free. No credit card required.</div>
-        <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} />
+        <div className="rl-modal-inner">
+          <div className="rl-modal-logo"><RipLocLogo h={36} /></div>
+          <div className="rl-modal-title">Lock In.</div>
+          <div className="rl-modal-sub">30-day Pro trial. No credit card. No BS.</div>
+          <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} />
+        </div>
       </div>
     </div>
   );
