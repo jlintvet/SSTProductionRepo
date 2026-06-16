@@ -1007,6 +1007,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           </button>
           <p className="rl-final-note">30 days free. Cancel anytime. East Coast Mid-Atlantic.</p>
         </div>
+      </section>
 
       {/* FOOTER */}
       <footer className="rl-footer">
