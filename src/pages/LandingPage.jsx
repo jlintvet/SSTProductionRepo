@@ -182,11 +182,8 @@ const GLOBAL_CSS = `
   .rl-p-title{font-size:15px;font-weight:700;color:#e8f0f7;margin-bottom:.3rem;}
   .rl-p-body{font-size:14px;line-height:1.65;color:#7a9ab5;}
   .rl-comm-photo{border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);
-    aspect-ratio:4/5;background:linear-gradient(160deg,#071525 0%,#0a2035 100%);
-    border:1.5px dashed rgba(30,111,168,.28);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:1rem;color:rgba(12,196,160,.38);font-size:12px;font-weight:600;
-    letter-spacing:.1em;text-transform:uppercase;text-align:center;padding:2rem;}
+    aspect-ratio:4/5;position:relative;}
+  .rl-comm-photo img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
 
   /* NO BS */
   .rl-nobs-sec{background:#0f2244;padding:6rem 2.5rem;
@@ -645,7 +642,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
       <section className="rl-hero">
         <div className="rl-hero-photobg">
           <img src={heroBoatImg} alt="Offshore fishing boat running on blue water with trolling rods deployed"
-            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center 35%" }} />
+            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"55% center" }} />
         </div>
         <div className="rl-hero-glow" />
         <div className="rl-hero-overlay" />
