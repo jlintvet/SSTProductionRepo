@@ -1017,7 +1017,7 @@ export default function SSTLive() {
   if (!authed) return <InlineLogin />;
 
   return (
-    <AppShell region="mid_atlantic" onUpgrade={() => window.location.href = "/pricing"}>
+    <AppShell region="mid_atlantic" onUpgrade={() => window.location.href = "/upgrade"}>
       <SSTPageBody />
     </AppShell>
   );

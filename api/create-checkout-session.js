@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       client_reference_id: user.id,
       customer_email: user.email,
       success_url: `${APP_URL}/?upgraded=1`,
-      cancel_url: `${APP_URL}/pricing`,
+      cancel_url: `${APP_URL}/upgrade`,
       allow_promotion_codes: true,
     });
 

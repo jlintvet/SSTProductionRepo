@@ -17,7 +17,7 @@ import SharedLocationLanding from "@/pages/SharedLocationLanding";
 import SharedRouteLanding from "@/pages/SharedRouteLanding";
 import MapTest from "@/pages/MapTest";
 import WreckReviewAdmin from "@/pages/WreckReviewAdmin";
-import PricingPage from "@/pages/PricingPage";
+import UpgradePage from "@/pages/UpgradePage";
 
 // Loading spinner
 function Spinner() {
@@ -80,7 +80,7 @@ function AppRoot() {
     <Router>
       <Routes>
         {/* Public routes -- no auth required */}
-        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/upgrade" element={<UpgradePage />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/share" element={<SharedLocationLanding />} />
         <Route path="/share/route" element={<SharedRouteLanding />} />
