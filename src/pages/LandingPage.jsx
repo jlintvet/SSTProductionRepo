@@ -1,116 +1,395 @@
 // src/pages/LandingPage.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useNavigate } from "react-router-dom";
 
-const TEAL = "#0e7490";
-const DARK = "#0f172a";
+import altimetryImg   from "../public/altimetry_ref.png";
+import routeShareImg  from "../public/route_sharing_ref.png";
+import routeDetailImg from "../public/route_detail_ref.png";
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  navy:    "#080d18",
+  navyMid: "#0d1827",
+  navyLt:  "#0f2040",
+  teal:    "#0cc4a0",
+  blue:    "#1e6fa8",
+  amber:   "#f59e0b",
+  textOn:  "#e8f0f7",
+  mutedOn: "#7a9ab5",
+  white:   "#ffffff",
+  slate:   "#f8fafc",
+  dark:    "#0f172a",
+  mid:     "#475569",
+};
+
+// ─── Injected CSS ─────────────────────────────────────────────────────────────
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  .rl{font-family:'Inter',system-ui,sans-serif;color:#0f172a;scroll-behavior:smooth;}
+
+  /* NAV */
+  .rl-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;
+    justify-content:space-between;padding:0 2.5rem;height:68px;
+    background:rgba(8,13,24,0.93);backdrop-filter:blur(12px);
+    border-bottom:1px solid rgba(12,196,160,0.12);transition:background .3s;}
+  .rl-nav-links{display:flex;align-items:center;gap:2rem;}
+  .rl-nav-link{color:#7a9ab5;font-size:14px;font-weight:500;text-decoration:none;
+    letter-spacing:.04em;transition:color .2s;}
+  .rl-nav-link:hover{color:#0cc4a0;}
+  .rl-nav-right{display:flex;align-items:center;gap:1rem;}
+  .rl-btn-ghost{background:none;border:none;color:#7a9ab5;font-size:14px;font-weight:500;
+    cursor:pointer;font-family:inherit;padding:.4rem .75rem;border-radius:6px;transition:color .2s;}
+  .rl-btn-ghost:hover{color:#fff;}
+  .rl-btn-primary{background:#0cc4a0;color:#080d18;border:none;border-radius:8px;font-size:14px;
+    font-weight:700;cursor:pointer;font-family:inherit;padding:.5rem 1.25rem;
+    letter-spacing:.03em;transition:background .2s,transform .15s;}
+  .rl-btn-primary:hover{background:#0dd8b1;transform:translateY(-1px);}
+
+  /* HERO */
+  .rl-hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    position:relative;overflow:hidden;background:#080d18;padding:120px 2.5rem 80px;}
+  .rl-hero-photobg{position:absolute;inset:0;z-index:0;
+    background:linear-gradient(135deg,#04090f 0%,#071525 60%,#0a1e2c 100%);
+    display:flex;align-items:center;justify-content:center;}
+  .rl-photo-ph{width:100%;height:100%;border:1.5px dashed rgba(30,111,168,.3);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    color:rgba(12,196,160,.35);font-size:11.5px;font-weight:600;letter-spacing:.1em;
+    text-transform:uppercase;text-align:center;padding:2rem;}
+  .rl-hero-glow{position:absolute;inset:0;z-index:1;
+    background:radial-gradient(ellipse 60% 60% at 65% 50%,rgba(14,116,144,.16) 0%,transparent 70%),
+               radial-gradient(ellipse 35% 40% at 85% 80%,rgba(12,196,160,.07) 0%,transparent 60%),
+               radial-gradient(ellipse 45% 50% at 15% 20%,rgba(30,111,168,.1) 0%,transparent 60%);}
+  .rl-hero-overlay{position:absolute;inset:0;z-index:2;
+    background:linear-gradient(to right,rgba(8,13,24,.94) 42%,rgba(8,13,24,.2) 100%);}
+  .rl-hero-content{position:relative;z-index:3;max-width:660px;}
+  .rl-eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+    color:#0cc4a0;margin-bottom:1.25rem;}
+  .rl-hero-h1{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:clamp(4rem,9vw,7rem);line-height:.95;color:#fff;margin-bottom:1.5rem;letter-spacing:.02em;}
+  .rl-hero-h1 span{color:#0cc4a0;}
+  .rl-hero-sub{font-size:clamp(15px,2vw,18px);line-height:1.7;color:#7a9ab5;
+    max-width:520px;margin-bottom:2.25rem;}
+  .rl-hero-ctas{display:flex;gap:1rem;flex-wrap:wrap;align-items:center;}
+  .rl-btn-hero{background:#0cc4a0;color:#080d18;border:none;border-radius:10px;font-size:16px;
+    font-weight:800;cursor:pointer;font-family:inherit;padding:.85rem 2rem;letter-spacing:.02em;
+    transition:background .2s,transform .15s,box-shadow .2s;
+    box-shadow:0 0 32px rgba(12,196,160,.22);}
+  .rl-btn-hero:hover{background:#0dd8b1;transform:translateY(-2px);box-shadow:0 4px 40px rgba(12,196,160,.38);}
+  .rl-btn-outline{background:transparent;color:#e8f0f7;border:1.5px solid rgba(232,240,247,.22);
+    border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;
+    padding:.85rem 1.75rem;letter-spacing:.02em;transition:border-color .2s,color .2s;
+    display:flex;align-items:center;gap:.5rem;}
+  .rl-btn-outline:hover{border-color:#0cc4a0;color:#0cc4a0;}
+  .rl-hero-note{margin-top:1.25rem;font-size:13px;color:#7a9ab5;}
+
+  /* TRUST BAR */
+  .rl-trust{background:#0f2040;border-top:1px solid rgba(12,196,160,.14);
+    border-bottom:1px solid rgba(12,196,160,.14);padding:1rem 2.5rem;}
+  .rl-trust-inner{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;
+    justify-content:center;gap:1.5rem 3rem;}
+  .rl-trust-item{display:flex;align-items:center;gap:.5rem;font-size:12.5px;font-weight:600;
+    color:#7a9ab5;letter-spacing:.05em;text-transform:uppercase;}
+  .rl-dot{width:6px;height:6px;border-radius:50%;background:#0cc4a0;flex-shrink:0;}
+
+  /* SECTIONS */
+  .rl-sec{padding:6rem 2.5rem;}
+  .rl-dark{background:#080d18;color:#e8f0f7;}
+  .rl-mid{background:#0d1827;color:#e8f0f7;}
+  .rl-light{background:#f8fafc;color:#0f172a;}
+  .rl-inner{max-width:1100px;margin:0 auto;}
+  .rl-lbl{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:#0cc4a0;margin-bottom:1rem;}
+  .rl-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:clamp(2.25rem,5vw,3.5rem);line-height:1;letter-spacing:.03em;margin-bottom:1rem;}
+  .rl-sub{font-size:17px;line-height:1.7;max-width:580px;opacity:.72;margin-bottom:3rem;}
+
+  /* DATA CARDS */
+  .rl-data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem;margin-bottom:3.5rem;}
+  .rl-dcard{background:rgba(255,255,255,.04);border:1px solid rgba(12,196,160,.11);border-radius:14px;
+    padding:1.75rem;transition:border-color .2s,background .2s;}
+  .rl-dcard:hover{border-color:rgba(12,196,160,.32);background:rgba(12,196,160,.05);}
+  .rl-dcard-icon{width:40px;height:40px;border-radius:10px;background:rgba(12,196,160,.14);
+    display:flex;align-items:center;justify-content:center;margin-bottom:1rem;}
+  .rl-dcard-title{font-size:15px;font-weight:700;margin-bottom:.4rem;color:#e8f0f7;}
+  .rl-dcard-body{font-size:13.5px;line-height:1.65;color:#7a9ab5;}
+
+  /* MAP FRAME */
+  .rl-mapframe{border-radius:16px;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(12,196,160,.18),0 24px 80px rgba(0,0,0,.55);position:relative;}
+  .rl-mapframe img{width:100%;display:block;}
+  .rl-maplabel{position:absolute;background:rgba(8,13,24,.88);backdrop-filter:blur(8px);
+    border:1px solid rgba(12,196,160,.22);border-radius:8px;padding:.4rem .75rem;
+    font-size:11.5px;font-weight:600;color:#0cc4a0;letter-spacing:.06em;text-transform:uppercase;}
+
+  /* VIDEO */
+  .rl-video-sec{background:#0d1827;padding:6rem 2.5rem;text-align:center;}
+  .rl-video-frame{max-width:900px;margin:3rem auto 0;border-radius:20px;overflow:hidden;
+    position:relative;aspect-ratio:16/9;
+    background:linear-gradient(135deg,#04090f 0%,#0a1e2c 100%);
+    border:1.5px dashed rgba(30,111,168,.38);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;
+    box-shadow:0 24px 80px rgba(0,0,0,.5);}
+  .rl-play{width:80px;height:80px;border-radius:50%;background:rgba(12,196,160,.14);
+    border:2px solid #0cc4a0;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:background .2s,transform .15s;}
+  .rl-play:hover{background:rgba(12,196,160,.25);transform:scale(1.06);}
+  .rl-vid-note{color:#7a9ab5;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;}
+
+  /* FEATURE ROWS */
+  .rl-feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;margin-bottom:7rem;}
+  .rl-feat-grid:last-child{margin-bottom:0;}
+  .rl-flip{direction:rtl;}
+  .rl-flip>*{direction:ltr;}
+  .rl-feat-lbl{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:#0cc4a0;margin-bottom:.75rem;}
+  .rl-feat-h3{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:clamp(2rem,4vw,2.75rem);line-height:1.05;letter-spacing:.03em;
+    color:#e8f0f7;margin-bottom:1rem;}
+  .rl-feat-body{font-size:16px;line-height:1.75;color:#7a9ab5;margin-bottom:1.5rem;}
+  .rl-pills{display:flex;flex-wrap:wrap;gap:.5rem;}
+  .rl-pill{background:rgba(12,196,160,.11);border:1px solid rgba(12,196,160,.23);
+    color:#0cc4a0;font-size:12px;font-weight:600;letter-spacing:.05em;border-radius:20px;padding:.3rem .85rem;}
+  .rl-scr{border-radius:16px;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(12,196,160,.14),0 20px 60px rgba(0,0,0,.5);background:#0f2040;}
+  .rl-scr img{width:100%;display:block;}
+  .rl-scr-ph{aspect-ratio:4/3;background:linear-gradient(135deg,#0a1828 0%,#071020 100%);
+    border:1.5px dashed rgba(30,111,168,.32);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:.75rem;padding:2rem;text-align:center;color:rgba(12,196,160,.4);
+    font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;}
+  .rl-two{display:grid;grid-template-rows:auto auto;gap:1rem;}
+
+  /* COMMUNITY */
+  .rl-comm-sec{background:#080d18;padding:7rem 2.5rem;position:relative;overflow:hidden;}
+  .rl-comm-glow{position:absolute;inset:0;
+    background:radial-gradient(ellipse 55% 75% at 80% 50%,rgba(12,196,160,.055) 0%,transparent 65%);}
+  .rl-comm-inner{max-width:1100px;margin:0 auto;position:relative;z-index:1;
+    display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;}
+  .rl-comm-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:clamp(2.5rem,6vw,4.5rem);line-height:1;letter-spacing:.03em;color:#fff;margin-bottom:.2rem;}
+  .rl-comm-h2 em{color:#0cc4a0;font-style:normal;}
+  .rl-comm-rule{font-size:16px;line-height:1.75;color:#7a9ab5;margin:1.5rem 0 2.5rem;}
+  .rl-pillars{display:flex;flex-direction:column;gap:1.5rem;}
+  .rl-pillar{display:flex;gap:1.25rem;align-items:flex-start;}
+  .rl-p-icon{flex-shrink:0;width:44px;height:44px;border-radius:10px;
+    background:rgba(12,196,160,.11);border:1px solid rgba(12,196,160,.2);
+    display:flex;align-items:center;justify-content:center;}
+  .rl-p-title{font-size:15px;font-weight:700;color:#e8f0f7;margin-bottom:.3rem;}
+  .rl-p-body{font-size:14px;line-height:1.65;color:#7a9ab5;}
+  .rl-comm-photo{border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);
+    aspect-ratio:4/5;background:linear-gradient(160deg,#071525 0%,#0a2035 100%);
+    border:1.5px dashed rgba(30,111,168,.28);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:1rem;color:rgba(12,196,160,.38);font-size:12px;font-weight:600;
+    letter-spacing:.1em;text-transform:uppercase;text-align:center;padding:2rem;}
+
+  /* NO BS */
+  .rl-nobs-sec{background:#0f2040;padding:6rem 2.5rem;
+    border-top:1px solid rgba(12,196,160,.09);border-bottom:1px solid rgba(12,196,160,.09);}
+  .rl-nobs-hdr{text-align:center;margin-bottom:4rem;}
+  .rl-nobs-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:clamp(2rem,5vw,3.25rem);color:#fff;letter-spacing:.03em;margin-bottom:.75rem;}
+  .rl-nobs-sub{font-size:16px;color:#7a9ab5;max-width:520px;margin:0 auto;line-height:1.7;}
+  .rl-nobs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;}
+  .rl-nobs-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+    border-radius:16px;padding:2rem;}
+  .rl-nbadge{display:inline-flex;align-items:center;justify-content:center;
+    width:36px;height:36px;border-radius:8px;margin-bottom:1rem;font-size:16px;font-weight:800;}
+  .nbno{background:rgba(239,68,68,.14);color:#ef4444;}
+  .nbyes{background:rgba(12,196,160,.14);color:#0cc4a0;}
+  .rl-nc-title{font-size:16px;font-weight:700;color:#e8f0f7;margin-bottom:.5rem;}
+  .rl-nc-body{font-size:14px;line-height:1.65;color:#7a9ab5;}
+
+  /* PRICING */
+  .rl-price-sec{background:#f8fafc;padding:6rem 2.5rem;}
+  .rl-price-inner{max-width:900px;margin:0 auto;}
+  .rl-price-hdr{text-align:center;margin-bottom:3.5rem;}
+  .rl-price-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:clamp(2rem,5vw,3.25rem);color:#0f172a;letter-spacing:.03em;margin-bottom:.75rem;}
+  .rl-price-sub{font-size:16px;color:#475569;max-width:480px;margin:0 auto;line-height:1.7;}
+  .rl-cards{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+  .rl-card{border-radius:20px;padding:2.5rem;position:relative;}
+  .rl-card.free{background:#fff;border:1.5px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.07);}
+  .rl-card.pro{background:#080d18;border:1.5px solid rgba(12,196,160,.28);
+    box-shadow:0 0 0 1px rgba(12,196,160,.18),0 16px 60px rgba(0,0,0,.32);}
+  .rl-pbadge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+    background:#f59e0b;color:#fff;border-radius:20px;padding:4px 16px;
+    font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
+  .rl-tier{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;}
+  .rl-tier.lt{color:#475569;} .rl-tier.dk{color:#0cc4a0;}
+  .rl-amt{display:flex;align-items:baseline;gap:.25rem;margin-bottom:.25rem;}
+  .rl-num{font-family:'Bebas Neue',sans-serif;font-size:3.5rem;line-height:1;}
+  .rl-num.lt{color:#0f172a;} .rl-num.dk{color:#fff;}
+  .rl-per{font-size:14px;} .rl-per.lt{color:#475569;} .rl-per.dk{color:#7a9ab5;}
+  .rl-pnote{font-size:13px;margin-bottom:1.75rem;}
+  .rl-pnote.lt{color:#475569;} .rl-pnote.dk{color:#7a9ab5;}
+  .rl-div{height:1px;margin:1.5rem 0;}
+  .rl-div.lt{background:#e2e8f0;} .rl-div.dk{background:rgba(255,255,255,.08);}
+  .rl-feats{list-style:none;display:flex;flex-direction:column;gap:.6rem;margin-bottom:2rem;}
+  .rl-feat-li{display:flex;gap:.6rem;font-size:14px;line-height:1.5;}
+  .rl-feat-li .chk{color:#0cc4a0;font-weight:700;flex-shrink:0;}
+  .rl-feat-li.lt{color:#475569;} .rl-feat-li.dk{color:rgba(232,240,247,.82);}
+  .rl-pcta{width:100%;padding:.85rem;border-radius:10px;font-size:15px;font-weight:700;
+    cursor:pointer;font-family:inherit;border:none;transition:all .2s;letter-spacing:.03em;}
+  .rl-pcta.lt{background:#0f172a;color:#fff;} .rl-pcta.lt:hover{background:#1e6fa8;}
+  .rl-pcta.dk{background:#0cc4a0;color:#080d18;} .rl-pcta.dk:hover{background:#0dd8b1;}
+  .rl-price-footer{text-align:center;margin-top:2rem;font-size:14px;color:#475569;}
+
+  /* FINAL CTA */
+  .rl-final{position:relative;padding:8rem 2.5rem;overflow:hidden;text-align:center;background:#080d18;}
+  .rl-final-ph{position:absolute;inset:0;z-index:0;
+    background:linear-gradient(160deg,#030609 0%,#07111a 100%);
+    display:flex;align-items:center;justify-content:center;}
+  .rl-final-ov{position:absolute;inset:0;z-index:1;background:rgba(8,13,24,.84);}
+  .rl-final-glow{position:absolute;inset:0;z-index:1;
+    background:radial-gradient(ellipse 70% 70% at 50% 50%,rgba(12,196,160,.07) 0%,transparent 70%);}
+  .rl-final-content{position:relative;z-index:2;}
+  .rl-final-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:clamp(3.5rem,10vw,7rem);line-height:.95;color:#fff;letter-spacing:.04em;margin-bottom:1.25rem;}
+  .rl-final-h2 span{color:#0cc4a0;}
+  .rl-final-sub{font-size:18px;color:#7a9ab5;max-width:460px;margin:0 auto 2.5rem;line-height:1.65;}
+  .rl-final-note{margin-top:1rem;font-size:13px;color:#7a9ab5;opacity:.65;}
+
+  /* FOOTER */
+  .rl-footer{background:#030609;padding:2.5rem;border-top:1px solid rgba(255,255,255,.05);}
+  .rl-footer-in{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;
+    justify-content:space-between;align-items:center;gap:1rem;}
+  .rl-flinks{display:flex;gap:1.5rem;}
+  .rl-flink{font-size:13px;color:rgba(122,154,181,.55);text-decoration:none;transition:color .2s;}
+  .rl-flink:hover{color:#0cc4a0;}
+  .rl-fcopy{font-size:13px;color:rgba(122,154,181,.38);}
+
+  /* MODAL */
+  .rl-modal-ov{position:fixed;inset:0;z-index:1000;background:rgba(4,9,16,.9);
+    backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+  .rl-modal{background:#fff;border-radius:20px;padding:2.5rem;width:100%;max-width:420px;
+    box-shadow:0 24px 80px rgba(0,0,0,.5);position:relative;}
+  .rl-modal-x{position:absolute;top:1rem;right:1rem;background:none;border:none;cursor:pointer;
+    color:#94a3b8;font-size:20px;line-height:1;padding:.25rem;border-radius:4px;transition:color .2s;}
+  .rl-modal-x:hover{color:#0f172a;}
+  .rl-modal-logo{display:flex;justify-content:center;margin-bottom:1.5rem;}
+  .rl-modal-title{font-size:20px;font-weight:700;color:#0f172a;margin-bottom:.4rem;}
+  .rl-modal-sub{font-size:14px;color:#475569;margin-bottom:1.5rem;}
+
+  /* AUTH FORM */
+  .rl-tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .rl-tab{flex:1;padding:.55rem;border-radius:8px;font-size:14px;font-weight:600;
+    cursor:pointer;font-family:inherit;transition:all .15s;border:2px solid;}
+  .rl-tab.on{background:#1e6fa8;color:#fff;border-color:#1e6fa8;}
+  .rl-tab.off{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;}
+  .rl-inp{width:100%;padding:.65rem .9rem;border:1.5px solid #e2e8f0;border-radius:8px;
+    font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;
+    font-family:inherit;transition:border-color .2s;}
+  .rl-inp:focus{border-color:#1e6fa8;}
+  .rl-pw{position:relative;margin-bottom:12px;}
+  .rl-pw .rl-inp{margin-bottom:0;padding-right:2.5rem;}
+  .rl-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    background:none;border:none;cursor:pointer;color:#94a3b8;padding:2px;display:flex;align-items:center;}
+  .rl-trial{font-size:13px;color:#1e6fa8;background:#f0f9ff;border-radius:8px;
+    padding:8px 12px;margin:0 0 14px;text-align:center;}
+  .rl-fmbtn{width:100%;padding:.8rem;background:#1e6fa8;color:#fff;border:none;border-radius:8px;
+    font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:background .2s;}
+  .rl-fmbtn:hover{background:#1a5f94;}
+  .rl-fmbtn:disabled{opacity:.65;cursor:not-allowed;}
+  .rl-err{color:#dc2626;font-size:13px;padding:8px 12px;background:#fef2f2;border-radius:6px;margin-bottom:10px;}
+  .rl-lnk{background:none;border:none;color:#1e6fa8;cursor:pointer;font-size:14px;
+    text-decoration:underline;padding:0;font-family:inherit;}
+  .rl-forgot{text-align:right;margin-top:-8px;margin-bottom:10px;}
+
+  /* RESPONSIVE */
+  @media(max-width:900px){
+    .rl-nav-links{display:none;}
+    .rl-feat-grid{grid-template-columns:1fr;gap:2.5rem;}
+    .rl-flip{direction:ltr;}
+    .rl-comm-inner{grid-template-columns:1fr;gap:3rem;}
+    .rl-comm-photo{display:none;}
+    .rl-nobs-grid{grid-template-columns:1fr;}
+    .rl-cards{grid-template-columns:1fr;}
+    .rl-sec{padding:4rem 1.5rem;}
+    .rl-hero{padding:100px 1.5rem 60px;}
+  }
+  @media(max-width:600px){
+    .rl-hero-ctas{flex-direction:column;}
+    .rl-btn-hero,.rl-btn-outline{width:100%;justify-content:center;}
+    .rl-data-grid{grid-template-columns:1fr;}
+  }
+`;
 
 function EyeIcon({ visible }) {
   return visible ? (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-      <circle cx="12" cy="12" r="3"/>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
     </svg>
   ) : (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-      <line x1="1" y1="1" x2="23" y2="23"/>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
     </svg>
   );
 }
 
-function PasswordInput({ placeholder, value, onChange, required, autoFocus, style }) {
-  const [show, setShow] = useState(false);
+function CamIcon() {
   return (
-    <div style={{ position: "relative", marginBottom: 12 }}>
-      <input
-        type={show ? "text" : "password"}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        required={required}
-        autoFocus={autoFocus}
-        style={{ ...style, marginBottom: 0, paddingRight: "2.5rem" }}
-      />
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        style={{
-          position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-          background: "none", border: "none", cursor: "pointer",
-          color: "#94a3b8", padding: 2, display: "flex", alignItems: "center",
-        }}
-        tabIndex={-1}
-        aria-label={show ? "Hide password" : "Show password"}
-      >
-        <EyeIcon visible={show} />
-      </button>
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24">
+      <polygon points="5,3 19,12 5,21" fill="#0cc4a0"/>
+    </svg>
+  );
+}
+
+function PhotoPH({ label, style = {} }) {
+  return (
+    <div className="rl-photo-ph" style={style}>
+      <CamIcon />
+      <div>PHOTO: {label}</div>
     </div>
   );
 }
 
-const STANDARD_FEATURES = [
-  "Sea Surface Temperature (SST) maps",
-  "Chlorophyll, sea color & wind map",
-  "NOAA weather forecast",
-  "Bathymetry contours",
-  "Community pins — post & view",
-  "Saved locations",
-  "Departure port planning",
-  "No ads, ever",
-];
+function RipLocLogo({ h = 34 }) {
+  return (
+    <svg height={h} viewBox="0 0 200 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="46" height="46" rx="9" fill="#1a5cbf"/>
+      <text x="23" y="33" textAnchor="middle" fontFamily="Arial Black,sans-serif"
+        fontWeight="900" fontStyle="italic" fontSize="28" fill="white">R</text>
+      <path d="M10 39 Q23 34 36 39" stroke="#0cc4a0" strokeWidth="2.5"
+        strokeLinecap="round" fill="none"/>
+      <text x="56" y="30" fontFamily="Arial Black,sans-serif" fontWeight="900"
+        fontStyle="italic" fontSize="24" fill="white">RIPLOC</text>
+      <text x="57" y="42" fontFamily="Arial,sans-serif" fontWeight="600"
+        fontSize="8.5" fill="#0cc4a0" letterSpacing="2">OFFSHORE FISHING INTELLIGENCE</text>
+    </svg>
+  );
+}
 
-const PRO_FEATURES = [
-  "Everything in Standard, plus:",
-  "Share locations & routes with other anglers",
-  "Trip planning — multi-waypoint with ETA",
-  "Real-time GPS tracking",
-  "Fishing hotspot scoring & map",
-  "Isotherm (temp break) overlay",
-  "Color gain control",
-  "Ocean current overlay",
-  "Wind overlay on map",
-  "Sea level anomaly (altimetry) overlay",
-  "Wreck & bottom structure locations",
-  "Community pins — 90-day visibility window",
-];
-
-function AuthForm() {
-  const [mode, setMode]         = useState("login");
+function AuthForm({ onSuccess }) {
+  const [mode, setMode]         = useState("register");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
   const [resetEmail, setResetEmail] = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [showCf, setShowCf]     = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
   const [sent, setSent]         = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const inp = {
-    width: "100%", padding: "0.65rem 0.9rem", border: "1px solid #cbd5e1",
-    borderRadius: 8, fontSize: 15, marginBottom: 12, boxSizing: "border-box",
-    outline: "none", fontFamily: "inherit",
-  };
-  const btn = {
-    width: "100%", padding: "0.75rem", background: TEAL, color: "#fff",
-    border: "none", borderRadius: 8, fontSize: 15, fontWeight: 600,
-    cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1,
-    marginTop: 4, fontFamily: "inherit",
-  };
-  const lnk = {
-    background: "none", border: "none", color: TEAL, cursor: "pointer",
-    fontSize: 14, textDecoration: "underline", padding: 0, fontFamily: "inherit",
-  };
-
   async function handleLogin(e) {
     e.preventDefault(); setError(null); setLoading(true);
     const { error: err } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (err) setError(err.message);
+    if (err) setError(err.message); else onSuccess?.();
   }
-
   async function handleRegister(e) {
     e.preventDefault(); setError(null);
     if (password !== confirm) { setError("Passwords do not match."); return; }
@@ -120,7 +399,6 @@ function AuthForm() {
     setLoading(false);
     if (err) setError(err.message); else setSent(true);
   }
-
   async function handleReset(e) {
     e.preventDefault(); setError(null);
     if (!resetEmail.trim()) { setError("Enter your email address."); return; }
@@ -128,259 +406,511 @@ function AuthForm() {
     await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
       redirectTo: window.location.origin + "/reset-password",
     });
-    setLoading(false);
-    setResetSent(true);
+    setLoading(false); setResetSent(true);
   }
 
   if (sent) return (
     <div style={{ textAlign: "center", padding: "1rem 0" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>&#x1F4E7;</div>
-      <h3 style={{ margin: "0 0 8px", color: DARK }}>Check your email</h3>
-      <p style={{ color: "#64748b", fontSize: 14, margin: "0 0 16px" }}>
-        We sent a confirmation link to <strong>{email}</strong>.<br/>
-        Click it to activate your account and start your 30-day Pro trial.
+      <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
+      <h3 style={{ margin: "0 0 8px", color: "#0f172a" }}>Check your email</h3>
+      <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>
+        Confirmation link sent to <strong>{email}</strong>.<br/>
+        Click it to activate your account and start your 14-day Pro trial.
       </p>
-      <button style={{ ...btn, background: "#64748b" }} onClick={() => { setSent(false); setMode("login"); }}>
-        Back to sign in
-      </button>
+      <button className="rl-fmbtn" style={{ background: "#64748b" }}
+        onClick={() => { setSent(false); setMode("login"); }}>Back to sign in</button>
     </div>
   );
-
   if (resetSent) return (
     <div style={{ textAlign: "center", padding: "1rem 0" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>&#x1F4E7;</div>
-      <h3 style={{ margin: "0 0 8px", color: DARK }}>Check your email</h3>
-      <p style={{ color: "#64748b", fontSize: 14, margin: "0 0 16px" }}>
-        If <strong>{resetEmail}</strong> is a registered account, a password reset link has been sent.
+      <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
+      <h3 style={{ margin: "0 0 8px", color: "#0f172a" }}>Reset link sent</h3>
+      <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>
+        If <strong>{resetEmail}</strong> is registered, a reset link is on its way.
       </p>
-      <button style={{ ...btn, background: "#64748b" }}
+      <button className="rl-fmbtn" style={{ background: "#64748b" }}
         onClick={() => { setResetSent(false); setMode("login"); setResetEmail(""); }}>
-        Back to sign in
-      </button>
+        Back to sign in</button>
     </div>
   );
-
   if (mode === "reset") return (
     <div>
-      <h3 style={{ margin: "0 0 6px", fontSize: 18, color: DARK }}>Reset your password</h3>
-      <p style={{ margin: "0 0 18px", fontSize: 14, color: "#64748b" }}>
-        Enter the email address for your account and we will send a reset link.
+      <h3 style={{ margin: "0 0 6px", fontSize: 17, color: "#0f172a" }}>Reset your password</h3>
+      <p style={{ margin: "0 0 18px", fontSize: 14, color: "#475569" }}>
+        Enter your email and we will send a reset link.
       </p>
       <form onSubmit={handleReset}>
-        <input style={inp} type="email" placeholder="Email address" value={resetEmail}
-          onChange={e => setResetEmail(e.target.value)} required autoFocus />
-        {error && (
-          <p style={{ color: "#dc2626", fontSize: 13, margin: "0 0 10px", padding: "8px 12px", background: "#fef2f2", borderRadius: 6 }}>
-            {error}
-          </p>
-        )}
-        <button style={btn} type="submit" disabled={loading}>
-          {loading ? "..." : "Send reset link"}
-        </button>
+        <input className="rl-inp" type="email" placeholder="Email address"
+          value={resetEmail} onChange={e => setResetEmail(e.target.value)} required autoFocus />
+        {error && <div className="rl-err">{error}</div>}
+        <button className="rl-fmbtn" type="submit" disabled={loading}>
+          {loading ? "Sending…" : "Send reset link"}</button>
       </form>
       <div style={{ textAlign: "center", marginTop: 14 }}>
-        <button type="button" style={lnk} onClick={() => { setMode("login"); setError(null); }}>
-          Back to sign in
-        </button>
+        <button className="rl-lnk" onClick={() => { setMode("login"); setError(null); }}>
+          Back to sign in</button>
       </div>
     </div>
   );
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {["login", "register"].map(m => (
-          <button key={m} onClick={() => { setMode(m); setError(null); }} style={{
-            flex: 1, padding: "0.55rem", borderRadius: 8, fontSize: 14, fontWeight: 600,
-            cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-            background: mode === m ? TEAL : "#f1f5f9",
-            color: mode === m ? "#fff" : "#64748b",
-            border: mode === m ? "2px solid " + TEAL : "2px solid #e2e8f0",
-          }}>
-            {m === "login" ? "Sign in" : "Start free trial"}
-          </button>
+      <div className="rl-tabs">
+        {[["register","Start Free Trial"],["login","Sign In"]].map(([m, lbl]) => (
+          <button key={m} className={`rl-tab ${mode===m?"on":"off"}`}
+            onClick={() => { setMode(m); setError(null); }}>{lbl}</button>
         ))}
       </div>
-
       {mode === "register" && (
-        <p style={{ fontSize: 13, color: "#0e7490", background: "#f0f9ff", borderRadius: 8, padding: "8px 12px", margin: "0 0 14px", textAlign: "center" }}>
-          30-day free Pro trial - no credit card required
-        </p>
+        <div className="rl-trial">14-day free Pro trial — no credit card required</div>
       )}
-
       <form onSubmit={mode === "login" ? handleLogin : handleRegister}>
-        <input style={inp} type="email" placeholder="Email address" value={email}
-          onChange={e => setEmail(e.target.value)} required autoFocus />
-        <PasswordInput style={inp} placeholder="Password" value={password}
-          onChange={e => setPassword(e.target.value)} required />
+        <input className="rl-inp" type="email" placeholder="Email address"
+          value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+        <div className="rl-pw">
+          <input className="rl-inp" type={showPw?"text":"password"} placeholder="Password"
+            value={password} onChange={e => setPassword(e.target.value)} required />
+          <button type="button" className="rl-eye" onClick={() => setShowPw(s=>!s)}>
+            <EyeIcon visible={showPw} /></button>
+        </div>
         {mode === "login" && (
-          <div style={{ textAlign: "right", marginTop: -8, marginBottom: 10 }}>
-            <button type="button" style={lnk} onClick={() => { setMode("reset"); setError(null); }}>
-              Forgot password?
-            </button>
+          <div className="rl-forgot">
+            <button type="button" className="rl-lnk"
+              onClick={() => { setMode("reset"); setError(null); }}>Forgot password?</button>
           </div>
         )}
         {mode === "register" && (
-          <PasswordInput style={inp} placeholder="Confirm password" value={confirm}
-            onChange={e => setConfirm(e.target.value)} required />
+          <div className="rl-pw">
+            <input className="rl-inp" type={showCf?"text":"password"} placeholder="Confirm password"
+              value={confirm} onChange={e => setConfirm(e.target.value)} required />
+            <button type="button" className="rl-eye" onClick={() => setShowCf(s=>!s)}>
+              <EyeIcon visible={showCf} /></button>
+          </div>
         )}
-        {error && (
-          <p style={{ color: "#dc2626", fontSize: 13, margin: "0 0 10px", padding: "8px 12px", background: "#fef2f2", borderRadius: 6 }}>
-            {error}
-          </p>
-        )}
-        <button style={btn} type="submit" disabled={loading}>
-          {loading ? "..." : mode === "login" ? "Sign in" : "Create account & start trial"}
+        {error && <div className="rl-err">{error}</div>}
+        <button className="rl-fmbtn" type="submit" disabled={loading}>
+          {loading ? "…" : mode==="login" ? "Sign In" : "Create Account — Start Trial"}
         </button>
       </form>
     </div>
   );
 }
 
-function PricingCard({ name, price, promoPrice, promoLabel, features, highlight, badge, free }) {
+function AuthModal({ open, onClose, onSuccess }) {
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+  if (!open) return null;
   return (
-    <div style={{
-      background: highlight ? TEAL : "#fff",
-      color: highlight ? "#fff" : DARK,
-      borderRadius: 16,
-      padding: "2rem 1.75rem",
-      flex: 1,
-      minWidth: 240,
-      maxWidth: 320,
-      boxShadow: highlight ? "0 8px 32px rgba(14,116,144,0.25)" : "0 2px 12px rgba(0,0,0,0.08)",
-      border: highlight ? "none" : "1px solid #e2e8f0",
-      position: "relative",
-    }}>
-      {badge && (
-        <div style={{
-          position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)",
-          background: "#f59e0b", color: "#fff", borderRadius: 20, padding: "4px 14px",
-          fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
-        }}>
-          {badge}
-        </div>
-      )}
-      <h3 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 700 }}>{name}</h3>
-      <div style={{ marginBottom: 20 }}>
-        {free ? (
-          <span style={{ fontSize: 38, fontWeight: 800 }}>Free</span>
-        ) : promoPrice ? (
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 38, fontWeight: 800 }}>${promoPrice}</span>
-              <span style={{ fontSize: 14, opacity: 0.8 }}>/year</span>
-              <span style={{ fontSize: 13, textDecoration: "line-through", opacity: 0.5 }}>${price}</span>
-            </div>
-            {promoLabel && (
-              <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2,
-                color: highlight ? "#fde68a" : "#d97706" }}>
-                {promoLabel}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div>
-            <span style={{ fontSize: 38, fontWeight: 800 }}>${price}</span>
-            <span style={{ fontSize: 14, opacity: 0.7 }}>/year</span>
-          </div>
-        )}
+    <div className="rl-modal-ov" onClick={e => { if (e.target===e.currentTarget) onClose(); }}>
+      <div className="rl-modal">
+        <button className="rl-modal-x" onClick={onClose} aria-label="Close">✕</button>
+        <div className="rl-modal-logo"><RipLocLogo h={30} /></div>
+        <div className="rl-modal-title">Lock In to RipLoc</div>
+        <div className="rl-modal-sub">Start free. No credit card required.</div>
+        <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} />
       </div>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {features.map((f, i) => (
-          <li key={i} style={{
-            padding: "6px 0", fontSize: 14,
-            color: highlight ? "rgba(255,255,255,0.9)" : "#475569",
-            fontWeight: i === 0 && f.includes("Everything") ? 600 : 400,
-          }}>
-            {!f.includes("Everything") && (
-              <span style={{ marginRight: 8, color: highlight ? "#7dd3fc" : TEAL }}>&#x2713;</span>
-            )}
-            {f}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
 
+const DATA_LAYERS = [
+  { title: "Sea Surface Temperature",
+    body: "VIIRS daily, 36h composite, MUR 1km, and GOES. The same satellite feeds charter captains pay to access.",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> },
+  { title: "Chlorophyll Concentration",
+    body: "Track productivity zones and baitfish concentrations. Find the green water where pelagics are stacking.",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> },
+  { title: "Sea Level Anomaly",
+    body: "Altimetry-derived eddy detection. Warm-core rings and upwelling zones — where the big fish hold.",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
+  { title: "Ocean Current Vectors",
+    body: "OSCAR / HYCOM current direction and speed. Know where the water is moving before you leave the inlet.",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg> },
+  { title: "Bathymetry + Structure",
+    body: "Depth contours, canyon labels, LORAN grid. Wrecks and hard bottom (Pro). Know the bottom before you drop.",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><polygon points="3,11 22,2 13,21 11,13 3,11"/></svg> },
+  { title: "Wind & Marine Weather",
+    body: "Animated GFS wind raster plus NOAA port-specific forecast. Seven-day marine weather at your departure inlet.",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg> },
+];
+
+const FREE_FEATS = [
+  "Sea Surface Temperature — daily",
+  "Chlorophyll & sea color layers",
+  "Bathymetry contours + canyon labels",
+  "Wind map & NOAA marine forecast",
+  "Departure port planning",
+  "Unlimited saved locations",
+  "Community reports (contribute to access)",
+];
+const PRO_FEATS = [
+  "Everything in Standard",
+  "36h VIIRS composite + MUR 1km SST",
+  "Sea level anomaly (altimetry)",
+  "Ocean current particle overlay",
+  "Isotherm (temp break) overlay",
+  "Fishing hotspot scoring map",
+  "Color gain & rendering controls",
+  "Wreck & bottom structure locations",
+  "Weather buoy live observations",
+  "Trip planner with fuel & ETA calc",
+  "GPS tracking overlay",
+  "Route saving & sharing",
+  "90-day community access window",
+];
+
 export default function MarketingLanding({ onAuthSuccess }) {
+  const [modal, setModal] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const s = document.createElement("style");
+    s.setAttribute("data-rl", "1");
+    s.textContent = GLOBAL_CSS;
+    document.head.appendChild(s);
+    return () => { document.querySelector('[data-rl="1"]')?.remove(); };
+  }, []);
+
+  const open = () => setModal(true);
+  const done = () => { setModal(false); onAuthSuccess?.(); };
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f9ff", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="rl">
 
-      <div style={{
-        background: "linear-gradient(135deg, " + DARK + " 0%, #0c4a6e 60%, #0e7490 100%)",
-        padding: "4rem 2rem 3rem",
-        textAlign: "center",
-        color: "#fff",
-      }}>
-        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: 2, color: "#7dd3fc", marginBottom: 12, textTransform: "uppercase" }}>
-          RipLoc
+      {/* NAV */}
+      <nav className="rl-nav">
+        <RipLocLogo h={30} />
+        <div className="rl-nav-links">
+          <a href="#data"      className="rl-nav-link">Data</a>
+          <a href="#features"  className="rl-nav-link">Features</a>
+          <a href="#community" className="rl-nav-link">Community</a>
+          <a href="#pricing"   className="rl-nav-link">Pricing</a>
         </div>
-        <h1 style={{ margin: "0 0 16px", fontSize: "clamp(2rem, 5vw, 3.25rem)", fontWeight: 800, lineHeight: 1.15 }}>
-          Find Fish.<br/>Not Guesswork.
-        </h1>
-        <p style={{ margin: "0 auto", maxWidth: 560, fontSize: 18, color: "#bae6fd", lineHeight: 1.6 }}>
-          Real-time sea surface temperature, chlorophyll, bathymetry, and wind data -
-          built for offshore anglers who need to know where the bite is before they leave the dock.
-        </p>
-      </div>
-
-      <div style={{
-        maxWidth: 1100, margin: "0 auto", padding: "3rem 1.5rem",
-        display: "flex", flexWrap: "wrap", gap: "3rem", alignItems: "flex-start",
-      }}>
-        <div style={{
-          background: "#fff", borderRadius: 16, padding: "2rem",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
-          minWidth: 300, flex: "1 1 300px", maxWidth: 400,
-        }}>
-          <h2 style={{ margin: "0 0 6px", fontSize: 20, color: DARK }}>Get started free</h2>
-          <p style={{ margin: "0 0 20px", fontSize: 14, color: "#64748b" }}>
-            Free accounts include SST data, NOAA weather, and full community access. New accounts get a 30-day Pro trial.
-          </p>
-          <AuthForm />
+        <div className="rl-nav-right">
+          <button className="rl-btn-ghost" onClick={open}>Sign In</button>
+          <button className="rl-btn-primary" onClick={open}>Start Free</button>
         </div>
+      </nav>
 
-        <div style={{ flex: "2 1 500px" }}>
-          <h2 style={{ margin: "0 0 8px", fontSize: 24, color: DARK, fontWeight: 700 }}>Pricing</h2>
-          <p style={{ margin: "0 0 24px", color: "#64748b", fontSize: 15 }}>
-            No ads. No clickbait. Just data.
+      {/* HERO */}
+      <section className="rl-hero">
+        <div className="rl-hero-photobg">
+          <PhotoPH label="Offshore center console at dawn — golden light, deep blue water, Outer Banks horizon" style={{ maxWidth: 800 }} />
+        </div>
+        <div className="rl-hero-glow" />
+        <div className="rl-hero-overlay" />
+        <div className="rl-hero-content">
+          <div className="rl-eyebrow">Offshore Fishing Intelligence</div>
+          <h1 className="rl-hero-h1">
+            Stop Guessing.<br/><span>Lock In.</span>
+          </h1>
+          <p className="rl-hero-sub">
+            Professional-grade oceanographic data — SST, chlorophyll, altimetry, currents, bathymetry —
+            combined with a real angler intelligence network. Free. No ads. No BS.
           </p>
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <PricingCard name="Standard" free features={STANDARD_FEATURES} />
-            <PricingCard
-              name="Pro"
-              price={99}
-              promoPrice={49}
-              promoLabel="50% off — 2026 promo pricing"
-              features={PRO_FEATURES}
-              highlight
-              badge="Best Value"
-            />
+          <div className="rl-hero-ctas">
+            <button className="rl-btn-hero" onClick={open}>
+              Start Free — 14-Day Pro Trial
+            </button>
+            <button className="rl-btn-outline"
+              onClick={() => document.getElementById("video")?.scrollIntoView({ behavior: "smooth" })}>
+              <PlayIcon /> Watch How It Works
+            </button>
           </div>
-          <p style={{ margin: "20px 0 0", fontSize: 13, color: "#94a3b8", textAlign: "center" }}>
-            New accounts get a 30-day Pro trial. No credit card required.
-          </p>
+          <p className="rl-hero-note">No credit card required · East Coast Mid-Atlantic · More regions coming</p>
         </div>
-      </div>
+      </section>
 
-      <div style={{ background: "#fff", borderTop: "1px solid #e2e8f0", padding: "2.5rem 2rem" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "2rem", justifyContent: "center" }}>
-          {[
-            { icon: "&#x1F30A;", label: "Live SST data updated daily" },
-            { icon: "&#x1F41F;", label: "Fishing hotspots" },
-            { icon: "&#x1F5FA;&#xFE0F;", label: "Chlorophyll, bathy & sea color" },
-            { icon: "&#x1F4A8;", label: "Wind & NOAA weather" },
-            { icon: "&#x1F4CD;", label: "Save & share locations" },
-            { icon: "&#x1F3AF;", label: "Departure port planning" },
-          ].map(({ icon, label }) => (
-            <div key={label} style={{ textAlign: "center", minWidth: 140 }}>
-              <div style={{ fontSize: 28, marginBottom: 6 }} dangerouslySetInnerHTML={{ __html: icon }} />
-              <div style={{ fontSize: 13, color: "#475569", fontWeight: 500 }}>{label}</div>
-            </div>
+      {/* TRUST BAR */}
+      <div className="rl-trust">
+        <div className="rl-trust-inner">
+          {["14-Day Pro Trial Free","No Credit Card","No Ads. Ever.","100% of Tips Go to Anglers","Zero Kickbacks"].map(t => (
+            <div key={t} className="rl-trust-item"><div className="rl-dot" />{t}</div>
           ))}
         </div>
       </div>
+
+      {/* DATA INTELLIGENCE */}
+      <section className="rl-sec rl-dark" id="data">
+        <div className="rl-inner">
+          <div className="rl-lbl">The Data</div>
+          <h2 className="rl-h2">The intel pro captains rely on.<br/>Now free.</h2>
+          <p className="rl-sub">
+            Six layers of real satellite data — NOAA, NASA, CMEMS — processed daily and served
+            in a single map built for fishing decisions, not lab reports.
+          </p>
+          <div className="rl-data-grid">
+            {DATA_LAYERS.map(d => (
+              <div key={d.title} className="rl-dcard">
+                <div className="rl-dcard-icon">{d.icon}</div>
+                <div className="rl-dcard-title">{d.title}</div>
+                <div className="rl-dcard-body">{d.body}</div>
+              </div>
+            ))}
+          </div>
+          <div className="rl-mapframe">
+            <img src={altimetryImg} alt="RipLoc SST and altimetry map showing temperature break off Keller Canyon" />
+            <div className="rl-maplabel" style={{ top: 16, left: 16 }}>Live · Keller Canyon, Mid-Atlantic</div>
+            <div className="rl-maplabel" style={{ bottom: 16, right: 16 }}>SST · Altimetry Contours</div>
+          </div>
+        </div>
+      </section>
+
+      {/* VIDEO */}
+      <section className="rl-video-sec" id="video">
+        <div className="rl-inner">
+          <div className="rl-lbl" style={{ display: "inline-block" }}>See It In Action</div>
+          <h2 className="rl-h2" style={{ color: "#fff" }}>
+            From dock to drop shot<br/>in under 10 minutes.
+          </h2>
+          <p style={{ color: "#7a9ab5", fontSize: 17, maxWidth: 480, lineHeight: 1.7 }}>
+            Watch how RipLoc anglers read the water, plan their run, and share intel with the community.
+          </p>
+        </div>
+        <div className="rl-video-frame">
+          <div className="rl-play"><PlayIcon /></div>
+          <div className="rl-vid-note">
+            VIDEO PLACEHOLDER — 90-second product story<br/>
+            Map walkthrough · Live pin drop · Route share · Community tip
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURE SHOWCASE */}
+      <section className="rl-sec rl-dark" id="features">
+        <div className="rl-inner">
+
+          {/* Feature 1 */}
+          <div className="rl-feat-grid">
+            <div>
+              <div className="rl-feat-lbl">Sea Surface Temperature</div>
+              <h3 className="rl-feat-h3">Read the water<br/>like a pro.</h3>
+              <p className="rl-feat-body">
+                Isotherm overlays pinpoint temperature breaks to within a tenth of a degree.
+                Dial in your target temperature, adjust sensitivity, and the map shows exactly
+                where the edge is sitting today — not three days ago.
+              </p>
+              <div className="rl-pills">
+                <span className="rl-pill">VIIRS Daily</span>
+                <span className="rl-pill">36h Composite</span>
+                <span className="rl-pill">MUR 1km</span>
+                <span className="rl-pill">Isotherm Overlay — Pro</span>
+                <span className="rl-pill">Color Gain Control — Pro</span>
+              </div>
+            </div>
+            <div className="rl-scr">
+              <img src={altimetryImg} alt="RipLoc SST temperature break and altimetry contours" />
+            </div>
+          </div>
+
+          {/* Feature 2 */}
+          <div className="rl-feat-grid rl-flip">
+            <div>
+              <div className="rl-feat-lbl">Trip Planner — Pro</div>
+              <h3 className="rl-feat-h3">Every waypoint.<br/>Every gallon.</h3>
+              <p className="rl-feat-body">
+                Plot your run, set cruise speed, and get heading, distance, ETA, and fuel burn
+                for every leg — before you leave the inlet. Share your route via link or text.
+                No fumbling with multiple apps at 4 AM.
+              </p>
+              <div className="rl-pills">
+                <span className="rl-pill">Multi-Waypoint Routes</span>
+                <span className="rl-pill">ETA Calculator</span>
+                <span className="rl-pill">Fuel Burn Per Leg</span>
+                <span className="rl-pill">Route Sharing — Pro</span>
+                <span className="rl-pill">GPS Tracking — Pro</span>
+              </div>
+            </div>
+            <div className="rl-two">
+              <div className="rl-scr"><img src={routeDetailImg} alt="RipLoc trip planner with waypoints, ETA and fuel burn" /></div>
+              <div className="rl-scr"><img src={routeShareImg}  alt="RipLoc route sharing popup on SST map" /></div>
+            </div>
+          </div>
+
+          {/* Feature 3 */}
+          <div className="rl-feat-grid">
+            <div>
+              <div className="rl-feat-lbl">Fishing Hotspots — Pro</div>
+              <h3 className="rl-feat-h3">Find the fish.<br/>Not the blue desert.</h3>
+              <p className="rl-feat-body">
+                RipLoc's daily hotspot scoring model synthesizes SST gradients, chlorophyll
+                concentration, and bottom structure into a ranked heatmap of where the bite
+                is most likely to be. Satellite data refined by community intel.
+              </p>
+              <div className="rl-pills">
+                <span className="rl-pill">Daily Hotspot Map</span>
+                <span className="rl-pill">SST + CHL + Bathy Scoring</span>
+                <span className="rl-pill">Canyon & Shelf Edges</span>
+                <span className="rl-pill">Wreck Locations — Pro</span>
+              </div>
+            </div>
+            <div className="rl-scr">
+              <div className="rl-scr-ph">
+                <CamIcon />
+                <div>APP SCREENSHOT<br/>Fishing hotspot heatmap overlay on SST map<br/>showing scored zones off Oregon Inlet</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* COMMUNITY */}
+      <section className="rl-comm-sec" id="community">
+        <div className="rl-comm-glow" />
+        <div className="rl-comm-inner">
+          <div>
+            <div className="rl-lbl">The Community</div>
+            <h2 className="rl-comm-h2">It's not pay-to-play.</h2>
+            <h2 className="rl-comm-h2"><em>Contribute to play.</em></h2>
+            <p className="rl-comm-rule">
+              Post a catch report. Drop a live pin. Share what you found. The whole community
+              opens up. Everyone sharing has skin in the game — that's what keeps the intel honest.
+            </p>
+            <div className="rl-pillars">
+              <div className="rl-pillar">
+                <div className="rl-p-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="rl-p-title">Share</div>
+                  <div className="rl-p-body">Drop GPS-pinned live reports (24h) or catch reports (7 days). Every pin earns points. Contribute within the last 30 days and the full community map opens up.</div>
+                </div>
+              </div>
+              <div className="rl-pillar">
+                <div className="rl-p-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="rl-p-title">Tip</div>
+                  <div className="rl-p-body">Found a report that put you on fish? Tip the angler directly via Venmo or CashApp. Real money, peer-to-peer. RipLoc keeps 0%.</div>
+                </div>
+              </div>
+              <div className="rl-pillar">
+                <div className="rl-p-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round">
+                    <polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/><polyline points="17,6 23,6 23,12"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="rl-p-title">Win</div>
+                  <div className="rl-p-body">Community leaderboard tracks points for posts AND for tips given. Monthly corporate-sponsored gear giveaways for top contributors. Free and Pro alike.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="rl-comm-photo">
+            <CamIcon />
+            <div>PHOTO: Two anglers on a center console — yellowfin on the deck, one angler dropping a live pin on the RipLoc app, golden hour light</div>
+          </div>
+        </div>
+      </section>
+
+      {/* NO BS */}
+      <section className="rl-nobs-sec">
+        <div className="rl-inner">
+          <div className="rl-nobs-hdr">
+            <h2 className="rl-nobs-h2">Built for anglers. Not advertisers.</h2>
+            <p className="rl-nobs-sub">
+              You're running a boat offshore. That costs real money. We built this for people
+              who respond to utility — not interruption.
+            </p>
+          </div>
+          <div className="rl-nobs-grid">
+            <div className="rl-nobs-card">
+              <div className="rl-nbadge nbno">✕</div>
+              <div className="rl-nc-title">No Ads. Ever.</div>
+              <div className="rl-nc-body">No banner ads, sponsored content, or third-party tracking. The platform exists to help you catch fish. That is the only job.</div>
+            </div>
+            <div className="rl-nobs-card">
+              <div className="rl-nbadge nbno">✕</div>
+              <div className="rl-nc-title">No In-App Purchases.</div>
+              <div className="rl-nc-body">No features locked behind individual purchases. Free is free. Pro is Pro. One price, everything included. No nickel-and-diming.</div>
+            </div>
+            <div className="rl-nobs-card">
+              <div className="rl-nbadge nbyes">✓</div>
+              <div className="rl-nc-title">100% Tips to Anglers.</div>
+              <div className="rl-nc-body">Every dollar tipped goes directly to the angler who earned it. We take zero. Monetization is Pro subscriptions only. Our interests are aligned with yours.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section className="rl-price-sec" id="pricing">
+        <div className="rl-price-inner">
+          <div className="rl-price-hdr">
+            <div className="rl-lbl" style={{ color: "#1e6fa8", display: "inline-block", marginBottom: "0.75rem" }}>Pricing</div>
+            <h2 className="rl-price-h2">Less than one offshore trip.</h2>
+            <p className="rl-price-sub">Pro is less expensive than every competing SST platform — and it outperforms them all.</p>
+          </div>
+          <div className="rl-cards">
+            <div className="rl-card free">
+              <div className="rl-tier lt">Standard</div>
+              <div className="rl-amt"><span className="rl-num lt">$0</span><span className="rl-per lt">&nbsp;/forever</span></div>
+              <div className="rl-pnote lt">Create an account. No card needed.</div>
+              <div className="rl-div lt" />
+              <ul className="rl-feats">
+                {FREE_FEATS.map(f => <li key={f} className="rl-feat-li lt"><span className="chk">✓</span>{f}</li>)}
+              </ul>
+              <button className="rl-pcta lt" onClick={open}>Create Free Account</button>
+            </div>
+            <div className="rl-card pro">
+              <div className="rl-pbadge">2026 Promo Rate</div>
+              <div className="rl-tier dk">Pro</div>
+              <div className="rl-amt"><span className="rl-num dk">$49</span><span className="rl-per dk">&nbsp;/year</span></div>
+              <div className="rl-pnote dk">$99/yr after 2026 · or $15/mo</div>
+              <div className="rl-div dk" />
+              <ul className="rl-feats">
+                {PRO_FEATS.map(f => <li key={f} className="rl-feat-li dk"><span className="chk">✓</span>{f}</li>)}
+              </ul>
+              <button className="rl-pcta dk" onClick={() => navigate("/upgrade")}>Go Pro — $49/yr</button>
+            </div>
+          </div>
+          <div className="rl-price-footer">Start with a 14-day free Pro trial on any account. No credit card required.</div>
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section className="rl-final">
+        <div className="rl-final-ph">
+          <PhotoPH label="Sunrise over the Atlantic — boat wake, golden horizon, offshore swells" style={{ maxWidth: 700 }} />
+        </div>
+        <div className="rl-final-ov" />
+        <div className="rl-final-glow" />
+        <div className="rl-final-content">
+          <h2 className="rl-final-h2"><span>Lock In.</span></h2>
+          <p className="rl-final-sub">
+            Start your free Pro trial. No credit card. No obligation.<br/>
+            Just better intel before you leave the dock.
+          </p>
+          <button className="rl-btn-hero" style={{ fontSize: 18, padding: "1rem 2.5rem" }} onClick={open}>
+            Start Free — 14-Day Pro Trial
+          </button>
+          <p className="rl-final-note">14 days free · Cancel anytime · East Coast Mid-Atlantic</p>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="rl-footer">
+        <div className="rl-footer-in">
+          <RipLocLogo h={26} />
+          <div className="rl-flinks">
+            <a href="/privacy" className="rl-flink">Privacy</a>
+            <a href="/terms"   className="rl-flink">Terms</a>
+            <a href="mailto:hello@riploc.com" className="rl-flink">Contact</a>
+          </div>
+          <div className="rl-fcopy">© 2026 RipLoc. All rights reserved.</div>
+        </div>
+      </footer>
+
+      <AuthModal open={modal} onClose={() => setModal(false)} onSuccess={done} />
     </div>
   );
 }
