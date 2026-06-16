@@ -201,21 +201,33 @@ const GLOBAL_CSS = `
   .rl-comm-photo img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
 
   /* NO BS */
-  .rl-nobs-sec{background:#0f2244;padding:6rem 2.5rem;
-    border-top:1px solid rgba(12,196,160,.09);border-bottom:1px solid rgba(12,196,160,.09);}
-  .rl-nobs-hdr{text-align:center;margin-bottom:4rem;}
+  .rl-nobs-sec{background:#08101e;padding:7rem 2.5rem;
+    border-top:1px solid rgba(0,200,232,.1);position:relative;overflow:hidden;}
+  .rl-nobs-sec::before{content:'';position:absolute;top:-120px;left:50%;
+    transform:translateX(-50%);width:700px;height:700px;
+    background:radial-gradient(circle,rgba(26,95,216,.1) 0%,transparent 70%);
+    pointer-events:none;}
+  .rl-nobs-hdr{text-align:center;margin-bottom:5rem;position:relative;z-index:1;}
+  .rl-nobs-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;
+    text-transform:uppercase;color:#1a5fd8;margin-bottom:1rem;}
   .rl-nobs-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
-    font-size:clamp(2rem,5vw,3.25rem);color:#fff;letter-spacing:.03em;margin-bottom:.75rem;}
-  .rl-nobs-sub{font-size:16px;color:#7a9ab5;max-width:520px;margin:0 auto;line-height:1.7;}
-  .rl-nobs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;}
-  .rl-nobs-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
-    border-radius:16px;padding:2rem;}
+    font-size:clamp(2.5rem,5vw,4rem);color:#fff;line-height:1.05;margin-bottom:1rem;}
+  .rl-nobs-sub{font-size:17px;color:#7a9ab5;max-width:540px;margin:0 auto;line-height:1.7;}
+  .rl-nobs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+    border:1px solid rgba(0,200,232,.12);border-radius:20px;overflow:hidden;
+    position:relative;z-index:1;}
+  .rl-nobs-card{padding:3rem 2.5rem;background:transparent;
+    border-right:1px solid rgba(0,200,232,.08);transition:background .25s;}
+  .rl-nobs-card:last-child{border-right:none;}
+  .rl-nobs-card:hover{background:rgba(0,200,232,.03);}
   .rl-nbadge{display:inline-flex;align-items:center;justify-content:center;
-    width:36px;height:36px;border-radius:8px;margin-bottom:1rem;font-size:16px;font-weight:800;}
-  .nbno{background:rgba(239,68,68,.14);color:#ef4444;}
-  .nbyes{background:rgba(12,196,160,.14);color:#00c8e8;}
-  .rl-nc-title{font-size:16px;font-weight:700;color:#e8f0f7;margin-bottom:.5rem;}
-  .rl-nc-body{font-size:14px;line-height:1.65;color:#7a9ab5;}
+    width:44px;height:44px;border-radius:12px;margin-bottom:1.5rem;
+    font-size:20px;font-weight:700;}
+  .nbno{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);}
+  .nbyes{background:rgba(0,200,232,.08);color:#00c8e8;border:1px solid rgba(0,200,232,.2);}
+  .rl-nc-title{font-family:'Bebas Neue','Arial Black',sans-serif;
+    font-size:1.6rem;letter-spacing:.02em;color:#fff;margin-bottom:.75rem;line-height:1.1;}
+  .rl-nc-body{font-size:15px;line-height:1.7;color:#7a9ab5;}
 
   /* PRICING */
   .rl-price-sec{background:#f8fafc;padding:6rem 2.5rem;}
@@ -323,7 +335,9 @@ const GLOBAL_CSS = `
     .rl-flip{direction:ltr;}
     .rl-comm-inner{grid-template-columns:1fr;gap:3rem;}
     .rl-comm-photo{display:none;}
-    .rl-nobs-grid{grid-template-columns:1fr;}
+    .rl-nobs-grid{grid-template-columns:1fr;border-radius:16px;}
+    .rl-nobs-card{border-right:none;border-bottom:1px solid rgba(0,200,232,.08);}
+    .rl-nobs-card:last-child{border-bottom:none;}
     .rl-cards{grid-template-columns:1fr;}
     .rl-sec{padding:4rem 1.5rem;}
     .rl-hero{padding:100px 1.5rem 60px;}
@@ -926,10 +940,10 @@ export default function MarketingLanding({ onAuthSuccess }) {
       <section className="rl-nobs-sec">
         <div className="rl-inner">
           <div className="rl-nobs-hdr">
-            <h2 className="rl-nobs-h2">Built for anglers. Not advertisers.</h2>
+            <div className="rl-nobs-eyebrow">Our Commitment</div>
+            <h2 className="rl-nobs-h2">Built for anglers.<br/>Not advertisers.</h2>
             <p className="rl-nobs-sub">
-              You're running a boat offshore. That costs real money. We built this for people
-              who respond to utility, not interruption.
+              You're running a boat offshore. That costs real money. We built this for people who respond to utility, not interruption.
             </p>
           </div>
           <div className="rl-nobs-grid">
