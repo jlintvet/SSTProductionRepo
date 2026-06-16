@@ -1,0 +1,99 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%"   stop-color="#0d2070"/>
+      <stop offset="45%"  stop-color="#0858c8"/>
+      <stop offset="100%" stop-color="#0888e0"/>
+    </linearGradient>
+    <linearGradient id="wg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#00a8e8"/>
+      <stop offset="100%" stop-color="#00e8ff"/>
+    </linearGradient>
+    <linearGradient id="wg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#00c8f8"/>
+      <stop offset="100%" stop-color="#0098d8"/>
+    </linearGradient>
+    <clipPath id="clip">
+      <rect width="200" height="200" rx="36"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" rx="36" fill="url(#bg)"/>
+
+  <!-- Topo contour lines (subtle, upper-right quadrant) -->
+  <g clip-path="url(#clip)" fill="none" stroke="#70b0ff" stroke-width="1.2" opacity="0.18">
+    <ellipse cx="162" cy="52"  rx="38" ry="22"/>
+    <ellipse cx="162" cy="52"  rx="58" ry="36"/>
+    <ellipse cx="162" cy="52"  rx="80" ry="52"/>
+    <ellipse cx="162" cy="52"  rx="104" ry="68"/>
+    <ellipse cx="162" cy="52"  rx="130" ry="86"/>
+  </g>
+
+  <!-- ── R lettermark ─────────────────────────────────────────────────────── -->
+  <!-- Italic lean: skewX(-10), anchored at bottom-left of spine -->
+  <g transform="skewX(-10) translate(6,0)" clip-path="url(#clip)">
+
+    <!-- Outer R silhouette (fill-rule evenodd subtracts the bowl interior and slash void) -->
+    <path fill="white" fill-rule="evenodd" d="
+      M 36 178
+      L 36 24
+      L 130 24
+      C 172 24 178 56 178 72
+      C 178 96 165 110 132 114
+      L 114 106
+      L 160 178
+      L 134 178
+      L 92  110
+      L 58  110
+      L 58  178
+      Z
+
+      M 58 40
+      L 58 94
+      C 58 94 108 98 126 90
+      C 148 80 150 46 126 40
+      Z
+
+      M 96 110
+      L 134 116
+      L 114 106
+      Z
+    "/>
+
+  </g>
+
+  <!-- ── Wave element ────────────────────────────────────────────────────── -->
+  <!-- Sweeping teal-cyan wave from base of R, going right with a curl -->
+  <g clip-path="url(#clip)">
+    <!-- Main wave body -->
+    <path fill="url(#wg)" d="
+      M 28 158
+      C 50 138 78 148 100 136
+      C 122 124 140 134 165 122
+      L 172 134
+      C 146 146 128 136 106 148
+      C 84  160 56  150 34  170
+      Z
+    "/>
+    <!-- Wave highlight / upper crest -->
+    <path fill="url(#wg2)" opacity="0.55" d="
+      M 28 158
+      C 50 138 78 148 100 136
+      C 116 128 130 132 148 126
+      L 152 130
+      C 134 136 120 132 104 140
+      C 82  152 54  142 32  162
+      Z
+    "/>
+    <!-- Wave curl tip (right end) -->
+    <path fill="#00e8ff" opacity="0.7" d="
+      M 155 124
+      C 165 120 176 126 172 134
+      C 168 142 156 138 152 130
+      C 150 126 152 122 155 124
+      Z
+    "/>
+  </g>
+
+</svg>

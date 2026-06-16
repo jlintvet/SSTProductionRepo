@@ -6,14 +6,17 @@ import { useNavigate } from "react-router-dom";
 import altimetryImg   from "../public/altimetry_ref.png";
 import routeShareImg  from "../public/route_sharing_ref.png";
 import routeDetailImg from "../public/route_detail_ref.png";
+import heroBoatImg    from "../public/hero_boat.jpg";
+import featureMahiImg from "../public/feature_mahi.jpg";
+import ctaBillfishImg from "../public/cta_billfish.jpg";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
-  navy:    "#080d18",
-  navyMid: "#0d1827",
-  navyLt:  "#0f2040",
-  teal:    "#0cc4a0",
-  blue:    "#1e6fa8",
+  navy:    "#08101e",
+  navyMid: "#0d1a2e",
+  navyLt:  "#0f2244",
+  teal:    "#00c8e8",
+  blue:    "#1a5fd8",
   amber:   "#f59e0b",
   textOn:  "#e8f0f7",
   mutedOn: "#7a9ab5",
@@ -37,19 +40,19 @@ const GLOBAL_CSS = `
   .rl-nav-links{display:flex;align-items:center;gap:2rem;}
   .rl-nav-link{color:#7a9ab5;font-size:14px;font-weight:500;text-decoration:none;
     letter-spacing:.04em;transition:color .2s;}
-  .rl-nav-link:hover{color:#0cc4a0;}
+  .rl-nav-link:hover{color:#00c8e8;}
   .rl-nav-right{display:flex;align-items:center;gap:1rem;}
   .rl-btn-ghost{background:none;border:none;color:#7a9ab5;font-size:14px;font-weight:500;
     cursor:pointer;font-family:inherit;padding:.4rem .75rem;border-radius:6px;transition:color .2s;}
   .rl-btn-ghost:hover{color:#fff;}
-  .rl-btn-primary{background:#0cc4a0;color:#080d18;border:none;border-radius:8px;font-size:14px;
+  .rl-btn-primary{background:#00c8e8;color:#08101e;border:none;border-radius:8px;font-size:14px;
     font-weight:700;cursor:pointer;font-family:inherit;padding:.5rem 1.25rem;
     letter-spacing:.03em;transition:background .2s,transform .15s;}
-  .rl-btn-primary:hover{background:#0dd8b1;transform:translateY(-1px);}
+  .rl-btn-primary:hover{background:#00deff;transform:translateY(-1px);}
 
   /* HERO */
   .rl-hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;
-    position:relative;overflow:hidden;background:#080d18;padding:120px 2.5rem 80px;}
+    position:relative;overflow:hidden;background:#08101e;padding:120px 2.5rem 80px;}
   .rl-hero-photobg{position:absolute;inset:0;z-index:0;
     background:linear-gradient(135deg,#04090f 0%,#071525 60%,#0a1e2c 100%);
     display:flex;align-items:center;justify-content:center;}
@@ -65,42 +68,42 @@ const GLOBAL_CSS = `
     background:linear-gradient(to right,rgba(8,13,24,.94) 42%,rgba(8,13,24,.2) 100%);}
   .rl-hero-content{position:relative;z-index:3;max-width:660px;}
   .rl-eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
-    color:#0cc4a0;margin-bottom:1.25rem;}
+    color:#00c8e8;margin-bottom:1.25rem;}
   .rl-hero-h1{font-family:'Bebas Neue','Arial Black',sans-serif;
     font-size:clamp(4rem,9vw,7rem);line-height:.95;color:#fff;margin-bottom:1.5rem;letter-spacing:.02em;}
-  .rl-hero-h1 span{color:#0cc4a0;}
+  .rl-hero-h1 span{color:#00c8e8;}
   .rl-hero-sub{font-size:clamp(15px,2vw,18px);line-height:1.7;color:#7a9ab5;
     max-width:520px;margin-bottom:2.25rem;}
   .rl-hero-ctas{display:flex;gap:1rem;flex-wrap:wrap;align-items:center;}
-  .rl-btn-hero{background:#0cc4a0;color:#080d18;border:none;border-radius:10px;font-size:16px;
+  .rl-btn-hero{background:#00c8e8;color:#08101e;border:none;border-radius:10px;font-size:16px;
     font-weight:800;cursor:pointer;font-family:inherit;padding:.85rem 2rem;letter-spacing:.02em;
     transition:background .2s,transform .15s,box-shadow .2s;
     box-shadow:0 0 32px rgba(12,196,160,.22);}
-  .rl-btn-hero:hover{background:#0dd8b1;transform:translateY(-2px);box-shadow:0 4px 40px rgba(12,196,160,.38);}
+  .rl-btn-hero:hover{background:#00deff;transform:translateY(-2px);box-shadow:0 4px 40px rgba(12,196,160,.38);}
   .rl-btn-outline{background:transparent;color:#e8f0f7;border:1.5px solid rgba(232,240,247,.22);
     border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;
     padding:.85rem 1.75rem;letter-spacing:.02em;transition:border-color .2s,color .2s;
     display:flex;align-items:center;gap:.5rem;}
-  .rl-btn-outline:hover{border-color:#0cc4a0;color:#0cc4a0;}
+  .rl-btn-outline:hover{border-color:#00c8e8;color:#00c8e8;}
   .rl-hero-note{margin-top:1.25rem;font-size:13px;color:#7a9ab5;}
 
   /* TRUST BAR */
-  .rl-trust{background:#0f2040;border-top:1px solid rgba(12,196,160,.14);
+  .rl-trust{background:#0f2244;border-top:1px solid rgba(12,196,160,.14);
     border-bottom:1px solid rgba(12,196,160,.14);padding:1rem 2.5rem;}
   .rl-trust-inner{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;
     justify-content:center;gap:1.5rem 3rem;}
   .rl-trust-item{display:flex;align-items:center;gap:.5rem;font-size:12.5px;font-weight:600;
     color:#7a9ab5;letter-spacing:.05em;text-transform:uppercase;}
-  .rl-dot{width:6px;height:6px;border-radius:50%;background:#0cc4a0;flex-shrink:0;}
+  .rl-dot{width:6px;height:6px;border-radius:50%;background:#00c8e8;flex-shrink:0;}
 
   /* SECTIONS */
   .rl-sec{padding:6rem 2.5rem;}
-  .rl-dark{background:#080d18;color:#e8f0f7;}
-  .rl-mid{background:#0d1827;color:#e8f0f7;}
+  .rl-dark{background:#08101e;color:#e8f0f7;}
+  .rl-mid{background:#0d1a2e;color:#e8f0f7;}
   .rl-light{background:#f8fafc;color:#0f172a;}
   .rl-inner{max-width:1100px;margin:0 auto;}
   .rl-lbl{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
-    color:#0cc4a0;margin-bottom:1rem;}
+    color:#00c8e8;margin-bottom:1rem;}
   .rl-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
     font-size:clamp(2.25rem,5vw,3.5rem);line-height:1;letter-spacing:.03em;margin-bottom:1rem;}
   .rl-sub{font-size:17px;line-height:1.7;max-width:580px;opacity:.72;margin-bottom:3rem;}
@@ -121,10 +124,10 @@ const GLOBAL_CSS = `
   .rl-mapframe img{width:100%;display:block;}
   .rl-maplabel{position:absolute;background:rgba(8,13,24,.88);backdrop-filter:blur(8px);
     border:1px solid rgba(12,196,160,.22);border-radius:8px;padding:.4rem .75rem;
-    font-size:11.5px;font-weight:600;color:#0cc4a0;letter-spacing:.06em;text-transform:uppercase;}
+    font-size:11.5px;font-weight:600;color:#00c8e8;letter-spacing:.06em;text-transform:uppercase;}
 
   /* VIDEO */
-  .rl-video-sec{background:#0d1827;padding:6rem 2.5rem;text-align:center;}
+  .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;text-align:center;}
   .rl-video-frame{max-width:900px;margin:3rem auto 0;border-radius:20px;overflow:hidden;
     position:relative;aspect-ratio:16/9;
     background:linear-gradient(135deg,#04090f 0%,#0a1e2c 100%);
@@ -132,7 +135,7 @@ const GLOBAL_CSS = `
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;
     box-shadow:0 24px 80px rgba(0,0,0,.5);}
   .rl-play{width:80px;height:80px;border-radius:50%;background:rgba(12,196,160,.14);
-    border:2px solid #0cc4a0;display:flex;align-items:center;justify-content:center;
+    border:2px solid #00c8e8;display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:background .2s,transform .15s;}
   .rl-play:hover{background:rgba(12,196,160,.25);transform:scale(1.06);}
   .rl-vid-note{color:#7a9ab5;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;}
@@ -143,16 +146,16 @@ const GLOBAL_CSS = `
   .rl-flip{direction:rtl;}
   .rl-flip>*{direction:ltr;}
   .rl-feat-lbl{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
-    color:#0cc4a0;margin-bottom:.75rem;}
+    color:#00c8e8;margin-bottom:.75rem;}
   .rl-feat-h3{font-family:'Bebas Neue','Arial Black',sans-serif;
     font-size:clamp(2rem,4vw,2.75rem);line-height:1.05;letter-spacing:.03em;
     color:#e8f0f7;margin-bottom:1rem;}
   .rl-feat-body{font-size:16px;line-height:1.75;color:#7a9ab5;margin-bottom:1.5rem;}
   .rl-pills{display:flex;flex-wrap:wrap;gap:.5rem;}
   .rl-pill{background:rgba(12,196,160,.11);border:1px solid rgba(12,196,160,.23);
-    color:#0cc4a0;font-size:12px;font-weight:600;letter-spacing:.05em;border-radius:20px;padding:.3rem .85rem;}
+    color:#00c8e8;font-size:12px;font-weight:600;letter-spacing:.05em;border-radius:20px;padding:.3rem .85rem;}
   .rl-scr{border-radius:16px;overflow:hidden;
-    box-shadow:0 0 0 1px rgba(12,196,160,.14),0 20px 60px rgba(0,0,0,.5);background:#0f2040;}
+    box-shadow:0 0 0 1px rgba(12,196,160,.14),0 20px 60px rgba(0,0,0,.5);background:#0f2244;}
   .rl-scr img{width:100%;display:block;}
   .rl-scr-ph{aspect-ratio:4/3;background:linear-gradient(135deg,#0a1828 0%,#071020 100%);
     border:1.5px dashed rgba(30,111,168,.32);
@@ -162,14 +165,14 @@ const GLOBAL_CSS = `
   .rl-two{display:grid;grid-template-rows:auto auto;gap:1rem;}
 
   /* COMMUNITY */
-  .rl-comm-sec{background:#080d18;padding:7rem 2.5rem;position:relative;overflow:hidden;}
+  .rl-comm-sec{background:#08101e;padding:7rem 2.5rem;position:relative;overflow:hidden;}
   .rl-comm-glow{position:absolute;inset:0;
     background:radial-gradient(ellipse 55% 75% at 80% 50%,rgba(12,196,160,.055) 0%,transparent 65%);}
   .rl-comm-inner{max-width:1100px;margin:0 auto;position:relative;z-index:1;
     display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;}
   .rl-comm-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
     font-size:clamp(2.5rem,6vw,4.5rem);line-height:1;letter-spacing:.03em;color:#fff;margin-bottom:.2rem;}
-  .rl-comm-h2 em{color:#0cc4a0;font-style:normal;}
+  .rl-comm-h2 em{color:#00c8e8;font-style:normal;}
   .rl-comm-rule{font-size:16px;line-height:1.75;color:#7a9ab5;margin:1.5rem 0 2.5rem;}
   .rl-pillars{display:flex;flex-direction:column;gap:1.5rem;}
   .rl-pillar{display:flex;gap:1.25rem;align-items:flex-start;}
@@ -186,7 +189,7 @@ const GLOBAL_CSS = `
     letter-spacing:.1em;text-transform:uppercase;text-align:center;padding:2rem;}
 
   /* NO BS */
-  .rl-nobs-sec{background:#0f2040;padding:6rem 2.5rem;
+  .rl-nobs-sec{background:#0f2244;padding:6rem 2.5rem;
     border-top:1px solid rgba(12,196,160,.09);border-bottom:1px solid rgba(12,196,160,.09);}
   .rl-nobs-hdr{text-align:center;margin-bottom:4rem;}
   .rl-nobs-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
@@ -198,7 +201,7 @@ const GLOBAL_CSS = `
   .rl-nbadge{display:inline-flex;align-items:center;justify-content:center;
     width:36px;height:36px;border-radius:8px;margin-bottom:1rem;font-size:16px;font-weight:800;}
   .nbno{background:rgba(239,68,68,.14);color:#ef4444;}
-  .nbyes{background:rgba(12,196,160,.14);color:#0cc4a0;}
+  .nbyes{background:rgba(12,196,160,.14);color:#00c8e8;}
   .rl-nc-title{font-size:16px;font-weight:700;color:#e8f0f7;margin-bottom:.5rem;}
   .rl-nc-body{font-size:14px;line-height:1.65;color:#7a9ab5;}
 
@@ -212,13 +215,13 @@ const GLOBAL_CSS = `
   .rl-cards{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
   .rl-card{border-radius:20px;padding:2.5rem;position:relative;}
   .rl-card.free{background:#fff;border:1.5px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.07);}
-  .rl-card.pro{background:#080d18;border:1.5px solid rgba(12,196,160,.28);
+  .rl-card.pro{background:#08101e;border:1.5px solid rgba(12,196,160,.28);
     box-shadow:0 0 0 1px rgba(12,196,160,.18),0 16px 60px rgba(0,0,0,.32);}
   .rl-pbadge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);
     background:#f59e0b;color:#fff;border-radius:20px;padding:4px 16px;
     font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
   .rl-tier{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;}
-  .rl-tier.lt{color:#475569;} .rl-tier.dk{color:#0cc4a0;}
+  .rl-tier.lt{color:#475569;} .rl-tier.dk{color:#00c8e8;}
   .rl-amt{display:flex;align-items:baseline;gap:.25rem;margin-bottom:.25rem;}
   .rl-num{font-family:'Bebas Neue',sans-serif;font-size:3.5rem;line-height:1;}
   .rl-num.lt{color:#0f172a;} .rl-num.dk{color:#fff;}
@@ -229,16 +232,16 @@ const GLOBAL_CSS = `
   .rl-div.lt{background:#e2e8f0;} .rl-div.dk{background:rgba(255,255,255,.08);}
   .rl-feats{list-style:none;display:flex;flex-direction:column;gap:.6rem;margin-bottom:2rem;}
   .rl-feat-li{display:flex;gap:.6rem;font-size:14px;line-height:1.5;}
-  .rl-feat-li .chk{color:#0cc4a0;font-weight:700;flex-shrink:0;}
+  .rl-feat-li .chk{color:#00c8e8;font-weight:700;flex-shrink:0;}
   .rl-feat-li.lt{color:#475569;} .rl-feat-li.dk{color:rgba(232,240,247,.82);}
   .rl-pcta{width:100%;padding:.85rem;border-radius:10px;font-size:15px;font-weight:700;
     cursor:pointer;font-family:inherit;border:none;transition:all .2s;letter-spacing:.03em;}
-  .rl-pcta.lt{background:#0f172a;color:#fff;} .rl-pcta.lt:hover{background:#1e6fa8;}
-  .rl-pcta.dk{background:#0cc4a0;color:#080d18;} .rl-pcta.dk:hover{background:#0dd8b1;}
+  .rl-pcta.lt{background:#0f172a;color:#fff;} .rl-pcta.lt:hover{background:#1a5fd8;}
+  .rl-pcta.dk{background:#00c8e8;color:#08101e;} .rl-pcta.dk:hover{background:#00deff;}
   .rl-price-footer{text-align:center;margin-top:2rem;font-size:14px;color:#475569;}
 
   /* FINAL CTA */
-  .rl-final{position:relative;padding:8rem 2.5rem;overflow:hidden;text-align:center;background:#080d18;}
+  .rl-final{position:relative;padding:8rem 2.5rem;overflow:hidden;text-align:center;background:#08101e;}
   .rl-final-ph{position:absolute;inset:0;z-index:0;
     background:linear-gradient(160deg,#030609 0%,#07111a 100%);
     display:flex;align-items:center;justify-content:center;}
@@ -248,7 +251,7 @@ const GLOBAL_CSS = `
   .rl-final-content{position:relative;z-index:2;}
   .rl-final-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
     font-size:clamp(3.5rem,10vw,7rem);line-height:.95;color:#fff;letter-spacing:.04em;margin-bottom:1.25rem;}
-  .rl-final-h2 span{color:#0cc4a0;}
+  .rl-final-h2 span{color:#00c8e8;}
   .rl-final-sub{font-size:18px;color:#7a9ab5;max-width:460px;margin:0 auto 2.5rem;line-height:1.65;}
   .rl-final-note{margin-top:1rem;font-size:13px;color:#7a9ab5;opacity:.65;}
 
@@ -258,7 +261,7 @@ const GLOBAL_CSS = `
     justify-content:space-between;align-items:center;gap:1rem;}
   .rl-flinks{display:flex;gap:1.5rem;}
   .rl-flink{font-size:13px;color:rgba(122,154,181,.55);text-decoration:none;transition:color .2s;}
-  .rl-flink:hover{color:#0cc4a0;}
+  .rl-flink:hover{color:#00c8e8;}
   .rl-fcopy{font-size:13px;color:rgba(122,154,181,.38);}
 
   /* MODAL */
@@ -277,24 +280,24 @@ const GLOBAL_CSS = `
   .rl-tabs{display:flex;gap:8px;margin-bottom:20px;}
   .rl-tab{flex:1;padding:.55rem;border-radius:8px;font-size:14px;font-weight:600;
     cursor:pointer;font-family:inherit;transition:all .15s;border:2px solid;}
-  .rl-tab.on{background:#1e6fa8;color:#fff;border-color:#1e6fa8;}
+  .rl-tab.on{background:#1a5fd8;color:#fff;border-color:#1a5fd8;}
   .rl-tab.off{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;}
   .rl-inp{width:100%;padding:.65rem .9rem;border:1.5px solid #e2e8f0;border-radius:8px;
     font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;
     font-family:inherit;transition:border-color .2s;}
-  .rl-inp:focus{border-color:#1e6fa8;}
+  .rl-inp:focus{border-color:#1a5fd8;}
   .rl-pw{position:relative;margin-bottom:12px;}
   .rl-pw .rl-inp{margin-bottom:0;padding-right:2.5rem;}
   .rl-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);
     background:none;border:none;cursor:pointer;color:#94a3b8;padding:2px;display:flex;align-items:center;}
-  .rl-trial{font-size:13px;color:#1e6fa8;background:#f0f9ff;border-radius:8px;
+  .rl-trial{font-size:13px;color:#1a5fd8;background:#f0f9ff;border-radius:8px;
     padding:8px 12px;margin:0 0 14px;text-align:center;}
-  .rl-fmbtn{width:100%;padding:.8rem;background:#1e6fa8;color:#fff;border:none;border-radius:8px;
+  .rl-fmbtn{width:100%;padding:.8rem;background:#1a5fd8;color:#fff;border:none;border-radius:8px;
     font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:background .2s;}
   .rl-fmbtn:hover{background:#1a5f94;}
   .rl-fmbtn:disabled{opacity:.65;cursor:not-allowed;}
   .rl-err{color:#dc2626;font-size:13px;padding:8px 12px;background:#fef2f2;border-radius:6px;margin-bottom:10px;}
-  .rl-lnk{background:none;border:none;color:#1e6fa8;cursor:pointer;font-size:14px;
+  .rl-lnk{background:none;border:none;color:#1a5fd8;cursor:pointer;font-size:14px;
     text-decoration:underline;padding:0;font-family:inherit;}
   .rl-forgot{text-align:right;margin-top:-8px;margin-bottom:10px;}
 
@@ -341,7 +344,7 @@ function CamIcon() {
 function PlayIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24">
-      <polygon points="5,3 19,12 5,21" fill="#0cc4a0"/>
+      <polygon points="5,3 19,12 5,21" fill="#00c8e8"/>
     </svg>
   );
 }
@@ -356,18 +359,62 @@ function PhotoPH({ label, style = {} }) {
 }
 
 function RipLocLogo({ h = 34 }) {
+  const scale = h / 46;
+  const iconW = Math.round(46 * scale);
   return (
-    <svg height={h} viewBox="0 0 200 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="46" height="46" rx="9" fill="#1a5cbf"/>
-      <text x="23" y="33" textAnchor="middle" fontFamily="Arial Black,sans-serif"
-        fontWeight="900" fontStyle="italic" fontSize="28" fill="white">R</text>
-      <path d="M10 39 Q23 34 36 39" stroke="#0cc4a0" strokeWidth="2.5"
-        strokeLinecap="round" fill="none"/>
-      <text x="56" y="30" fontFamily="Arial Black,sans-serif" fontWeight="900"
-        fontStyle="italic" fontSize="24" fill="white">RIPLOC</text>
-      <text x="57" y="42" fontFamily="Arial,sans-serif" fontWeight="600"
-        fontSize="8.5" fill="#0cc4a0" letterSpacing="2">OFFSHORE FISHING INTELLIGENCE</text>
-    </svg>
+    <div style={{ display:"flex", alignItems:"center", gap: Math.round(10 * scale) }}>
+      <svg height={h} width={iconW} viewBox="0 0 200 200" fill="none"
+        xmlns="http://www.w3.org/2000/svg" style={{ display:"block", flexShrink:0 }}>
+        <defs>
+          <linearGradient id="rlbg" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+            <stop offset="0%"   stopColor="#0d2070"/>
+            <stop offset="45%"  stopColor="#0858c8"/>
+            <stop offset="100%" stopColor="#0888e0"/>
+          </linearGradient>
+          <linearGradient id="rlwg" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"  stopColor="#00a8e8"/>
+            <stop offset="100%" stopColor="#00e8ff"/>
+          </linearGradient>
+          <clipPath id="rlclip"><rect width="200" height="200" rx="36"/></clipPath>
+        </defs>
+        <rect width="200" height="200" rx="36" fill="url(#rlbg)"/>
+        <g clipPath="url(#rlclip)" fill="none" stroke="#70b0ff" strokeWidth="1.2" opacity="0.18">
+          <ellipse cx="162" cy="52" rx="38" ry="22"/>
+          <ellipse cx="162" cy="52" rx="58" ry="36"/>
+          <ellipse cx="162" cy="52" rx="80" ry="52"/>
+          <ellipse cx="162" cy="52" rx="104" ry="68"/>
+        </g>
+        <g transform="skewX(-10) translate(6,0)" clipPath="url(#rlclip)">
+          <path fill="white" fillRule="evenodd" d="
+            M 36 178 L 36 24 L 130 24
+            C 172 24 178 56 178 72 C 178 96 165 110 132 114
+            L 114 106 L 160 178 L 134 178 L 92 110 L 58 110 L 58 178 Z
+            M 58 40 L 58 94 C 58 94 108 98 126 90 C 148 80 150 46 126 40 Z
+            M 96 110 L 134 116 L 114 106 Z
+          "/>
+        </g>
+        <g clipPath="url(#rlclip)">
+          <path fill="url(#rlwg)" d="
+            M 28 158 C 50 138 78 148 100 136 C 122 124 140 134 165 122
+            L 172 134 C 146 146 128 136 106 148 C 84 160 56 150 34 170 Z
+          "/>
+          <path fill="#00e8ff" opacity="0.5" d="
+            M 28 158 C 50 138 78 148 100 136 C 116 128 130 132 148 126
+            L 152 130 C 134 136 120 132 104 140 C 82 152 54 142 32 162 Z
+          "/>
+        </g>
+      </svg>
+      <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", lineHeight:1 }}>
+        <span style={{
+          fontFamily:"'Arial Black','Impact',sans-serif", fontWeight:900, fontStyle:"italic",
+          fontSize: Math.round(22 * scale), color:"#ffffff", letterSpacing:"-0.5px", lineHeight:1,
+        }}>RIPLOC</span>
+        <span style={{
+          fontFamily:"Arial,sans-serif", fontWeight:700, fontSize: Math.round(7 * scale),
+          color:"#00c8e8", letterSpacing:"2px", textTransform:"uppercase", lineHeight:1.4,
+        }}>OFFSHORE FISHING INTELLIGENCE</span>
+      </div>
+    </div>
   );
 }
 
@@ -518,22 +565,22 @@ function AuthModal({ open, onClose, onSuccess }) {
 const DATA_LAYERS = [
   { title: "Sea Surface Temperature",
     body: "VIIRS daily, 36h composite, MUR 1km, and GOES. The same satellite feeds charter captains pay to access.",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> },
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> },
   { title: "Chlorophyll Concentration",
     body: "Track productivity zones and baitfish concentrations. Find the green water where pelagics are stacking.",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> },
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> },
   { title: "Sea Level Anomaly",
     body: "Altimetry-derived eddy detection. Warm-core rings and upwelling zones — where the big fish hold.",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
   { title: "Ocean Current Vectors",
     body: "OSCAR / HYCOM current direction and speed. Know where the water is moving before you leave the inlet.",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg> },
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg> },
   { title: "Bathymetry + Structure",
     body: "Depth contours, canyon labels, LORAN grid. Wrecks and hard bottom (Pro). Know the bottom before you drop.",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><polygon points="3,11 22,2 13,21 11,13 3,11"/></svg> },
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><polygon points="3,11 22,2 13,21 11,13 3,11"/></svg> },
   { title: "Wind & Marine Weather",
     body: "Animated GFS wind raster plus NOAA port-specific forecast. Seven-day marine weather at your departure inlet.",
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg> },
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg> },
 ];
 
 const FREE_FEATS = [
@@ -597,7 +644,8 @@ export default function MarketingLanding({ onAuthSuccess }) {
       {/* HERO */}
       <section className="rl-hero">
         <div className="rl-hero-photobg">
-          <PhotoPH label="Offshore center console at dawn — golden light, deep blue water, Outer Banks horizon" style={{ maxWidth: 800 }} />
+          <img src={heroBoatImg} alt="Offshore fishing boat running on blue water with trolling rods deployed"
+            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center 35%" }} />
         </div>
         <div className="rl-hero-glow" />
         <div className="rl-hero-overlay" />
@@ -772,7 +820,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
             <div className="rl-pillars">
               <div className="rl-pillar">
                 <div className="rl-p-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
                   </svg>
                 </div>
@@ -783,7 +831,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
               </div>
               <div className="rl-pillar">
                 <div className="rl-p-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round">
                     <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                   </svg>
                 </div>
@@ -794,7 +842,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
               </div>
               <div className="rl-pillar">
                 <div className="rl-p-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0cc4a0" strokeWidth="2" strokeLinecap="round">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round">
                     <polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/><polyline points="17,6 23,6 23,12"/>
                   </svg>
                 </div>
@@ -806,8 +854,8 @@ export default function MarketingLanding({ onAuthSuccess }) {
             </div>
           </div>
           <div className="rl-comm-photo">
-            <CamIcon />
-            <div>PHOTO: Two anglers on a center console — yellowfin on the deck, one angler dropping a live pin on the RipLoc app, golden hour light</div>
+            <img src={featureMahiImg} alt="Mahi-mahi breaking the surface — offshore action"
+              style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center" }} />
           </div>
         </div>
       </section>
@@ -846,7 +894,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
       <section className="rl-price-sec" id="pricing">
         <div className="rl-price-inner">
           <div className="rl-price-hdr">
-            <div className="rl-lbl" style={{ color: "#1e6fa8", display: "inline-block", marginBottom: "0.75rem" }}>Pricing</div>
+            <div className="rl-lbl" style={{ color: "#1a5fd8", display: "inline-block", marginBottom: "0.75rem" }}>Pricing</div>
             <h2 className="rl-price-h2">Less than one offshore trip.</h2>
             <p className="rl-price-sub">Pro is less expensive than every competing SST platform — and it outperforms them all.</p>
           </div>
@@ -880,7 +928,8 @@ export default function MarketingLanding({ onAuthSuccess }) {
       {/* FINAL CTA */}
       <section className="rl-final">
         <div className="rl-final-ph">
-          <PhotoPH label="Sunrise over the Atlantic — boat wake, golden horizon, offshore swells" style={{ maxWidth: 700 }} />
+          <img src={ctaBillfishImg} alt="Billfish at the waterline — the moment of the catch"
+            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center 30%" }} />
         </div>
         <div className="rl-final-ov" />
         <div className="rl-final-glow" />
