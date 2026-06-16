@@ -1,5 +1,5 @@
 // src/pages/LandingPage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
@@ -86,6 +86,17 @@ const GLOBAL_CSS = `
     display:flex;align-items:center;gap:.5rem;}
   .rl-btn-outline:hover{border-color:#00c8e8;color:#00c8e8;}
   .rl-hero-note{margin-top:1.25rem;font-size:13px;color:#7a9ab5;}
+
+  /* HERO CAROUSEL */
+  .rl-hero-photobg{transition:opacity .7s ease;}
+  .rl-hero-photobg.fading{opacity:0;}
+  .rl-carousel-dots{position:absolute;bottom:2rem;left:2.5rem;z-index:4;
+    display:flex;gap:.6rem;align-items:center;}
+  .rl-cdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.3);
+    border:none;padding:0;cursor:pointer;transition:all .25s;}
+  .rl-cdot.on{width:22px;border-radius:4px;background:#00c8e8;}
+  .rl-hero-content{transition:opacity .5s ease,transform .5s ease;}
+  .rl-hero-content.fading{opacity:0;transform:translateY(12px);}
 
   /* TRUST BAR */
   .rl-trust{background:#0f2244;border-top:1px solid rgba(12,196,160,.14);
@@ -605,6 +616,104 @@ const PRO_FEATS = [
   "90-day community access window",
 ];
 
+const HERO_SLIDES = [
+  {
+    imgKey: "boat",
+    imgPos: "55% center",
+    eyebrow: "Offshore Fishing Intelligence",
+    h1line1: "Stop Guessing.",
+    h1span: "Lock In.",
+    sub: "Professional-grade oceanographic data combined with a real angler intelligence network. SST, chlorophyll, altimetry, currents, bathymetry. Free. No ads. No BS.",
+  },
+  {
+    imgKey: "mahi",
+    imgPos: "center 40%",
+    eyebrow: "Find the Fish",
+    h1line1: "Know Where",
+    h1span: "They're Biting.",
+    sub: "RipLoc layers real satellite data over the exact temperature breaks, current edges, and depth changes where gamefish stack up. Stop running blind.",
+  },
+  {
+    imgKey: "billfish",
+    imgPos: "center 30%",
+    eyebrow: "Contribute to Play",
+    h1line1: "Share the Intel.",
+    h1span: "Win Together.",
+    sub: "Post a catch report. Drop a live pin. Tip a fellow angler. Every contribution earns points and opens the full community map to you.",
+  },
+];
+
+function HeroCarousel({ open, heroBoatImg, featureMahiImg, ctaBillfishImg }) {
+  const IMGS = { boat: heroBoatImg, mahi: featureMahiImg, billfish: ctaBillfishImg };
+  const [idx, setIdx]       = useState(0);
+  const [fading, setFading] = useState(false);
+  const timerRef            = useRef(null);
+
+  function goTo(next) {
+    if (fading) return;
+    clearInterval(timerRef.current);
+    setFading(true);
+    setTimeout(() => { setIdx(next); setFading(false); }, 600);
+    timerRef.current = setInterval(advance, 5500);
+  }
+
+  function advance() {
+    setFading(true);
+    setTimeout(() => {
+      setIdx(i => (i + 1) % HERO_SLIDES.length);
+      setFading(false);
+    }, 600);
+  }
+
+  useEffect(() => {
+    timerRef.current = setInterval(advance, 5500);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const slide = HERO_SLIDES[idx];
+
+  return (
+    <section className="rl-hero">
+      <div className={"rl-hero-photobg" + (fading ? " fading" : "")}>
+        <img
+          src={IMGS[slide.imgKey]}
+          alt="RipLoc offshore fishing"
+          style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition: slide.imgPos }}
+        />
+      </div>
+      <div className="rl-hero-glow" />
+      <div className="rl-hero-overlay" />
+      <div className={"rl-hero-content" + (fading ? " fading" : "")}>
+        <div className="rl-eyebrow">{slide.eyebrow}</div>
+        <h1 className="rl-hero-h1">
+          {slide.h1line1}<br/><span>{slide.h1span}</span>
+        </h1>
+        <p className="rl-hero-sub">{slide.sub}</p>
+        <div className="rl-hero-ctas">
+          <button className="rl-btn-hero" onClick={open}>
+            Start Free &mdash; 14-Day Pro Trial
+          </button>
+          <button className="rl-btn-outline"
+            onClick={() => document.getElementById("video")?.scrollIntoView({ behavior: "smooth" })}>
+            <PlayIcon /> Watch How It Works
+          </button>
+        </div>
+        <p className="rl-hero-note">No credit card required &middot; East Coast Mid-Atlantic &middot; More regions coming</p>
+      </div>
+      <div className="rl-carousel-dots">
+        {HERO_SLIDES.map((_, i) => (
+          <button
+            key={i}
+            className={"rl-cdot" + (i === idx ? " on" : "")}
+            onClick={() => goTo(i)}
+            aria-label={"Slide " + (i + 1)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function MarketingLanding({ onAuthSuccess }) {
   const [modal, setModal] = useState(false);
   const navigate = useNavigate();
@@ -638,35 +747,8 @@ export default function MarketingLanding({ onAuthSuccess }) {
         </div>
       </nav>
 
-      {/* HERO */}
-      <section className="rl-hero">
-        <div className="rl-hero-photobg">
-          <img src={heroBoatImg} alt="Offshore fishing boat running on blue water with trolling rods deployed"
-            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"55% center" }} />
-        </div>
-        <div className="rl-hero-glow" />
-        <div className="rl-hero-overlay" />
-        <div className="rl-hero-content">
-          <div className="rl-eyebrow">Offshore Fishing Intelligence</div>
-          <h1 className="rl-hero-h1">
-            Stop Guessing.<br/><span>Lock In.</span>
-          </h1>
-          <p className="rl-hero-sub">
-            Professional-grade oceanographic data — SST, chlorophyll, altimetry, currents, bathymetry —
-            combined with a real angler intelligence network. Free. No ads. No BS.
-          </p>
-          <div className="rl-hero-ctas">
-            <button className="rl-btn-hero" onClick={open}>
-              Start Free — 14-Day Pro Trial
-            </button>
-            <button className="rl-btn-outline"
-              onClick={() => document.getElementById("video")?.scrollIntoView({ behavior: "smooth" })}>
-              <PlayIcon /> Watch How It Works
-            </button>
-          </div>
-          <p className="rl-hero-note">No credit card required · East Coast Mid-Atlantic · More regions coming</p>
-        </div>
-      </section>
+      {/* HERO CAROUSEL */}
+      <HeroCarousel open={open} heroBoatImg={heroBoatImg} featureMahiImg={featureMahiImg} ctaBillfishImg={ctaBillfishImg} />
 
       {/* TRUST BAR */}
       <div className="rl-trust">
