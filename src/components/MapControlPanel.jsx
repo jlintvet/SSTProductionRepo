@@ -518,11 +518,9 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <ProGate isPro={isPro} label="Sea level anomaly (altimetry) is available on the Pro plan.">
-                <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
-                  Altimetry
-                </LayerBtn>
-              </ProGate>
+              <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
+                Altimetry
+              </LayerBtn>
             </div>
             {hbtn("altimetry")}
           </div>
@@ -603,9 +601,11 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
-                Loran Grid
-              </ToolBtn>
+              <ProGate isPro={isPro} label="Loran-C grid is available on the Pro plan.">
+                <ToolBtn active={showLoranGrid} color="slate" onClick={() => setShowLoranGrid(v => !v)}>
+                  Loran Grid
+                </ToolBtn>
+              </ProGate>
             </div>
             {hbtn("loran")}
           </div>
