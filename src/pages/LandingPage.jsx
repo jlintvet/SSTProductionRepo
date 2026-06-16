@@ -7,6 +7,8 @@ import altimetryImg   from "../public/altimetry_ref.png";
 import routeShareImg  from "../public/route_sharing_ref.png";
 import routeDetailImg from "../public/route_detail_ref.png";
 import heroBoatImg    from "../public/hero_boat.jpg";
+import riplocMarkImg  from "../public/brand/riploc-mark.png";
+import riplocLockupImg from "../public/brand/riploc-lockup-horizontal.png";
 import featureMahiImg from "../public/feature_mahi.jpg";
 import ctaBillfishImg from "../public/cta_billfish.jpg";
 
@@ -368,59 +370,33 @@ function PhotoPH({ label, style = {} }) {
   );
 }
 
-function RipLocLogo({ h = 34 }) {
-  const scale = h / 46;
-  const iconW = Math.round(46 * scale);
+function RipLocLogo({ h = 34, lockup = false }) {
+  if (lockup) {
+    // Full horizontal lockup PNG (RIPLOC + OFFSHORE FISHING INTELLIGENCE + tagline)
+    const aspect = 600 / 130; // approx aspect ratio of the lockup image
+    return (
+      <img
+        src={riplocLockupImg}
+        alt="RipLoc — Offshore Fishing Intelligence"
+        style={{ height: h, width: Math.round(h * aspect), objectFit:"contain", display:"block" }}
+      />
+    );
+  }
+  // Mark-only: iR lettermark + wave
   return (
-    <div style={{ display:"flex", alignItems:"center", gap: Math.round(10 * scale) }}>
-      <svg height={h} width={iconW} viewBox="0 0 200 200" fill="none"
-        xmlns="http://www.w3.org/2000/svg" style={{ display:"block", flexShrink:0 }}>
-        <defs>
-          <linearGradient id="rlbg" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
-            <stop offset="0%"   stopColor="#0d2070"/>
-            <stop offset="45%"  stopColor="#0858c8"/>
-            <stop offset="100%" stopColor="#0888e0"/>
-          </linearGradient>
-          <linearGradient id="rlwg" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"  stopColor="#00a8e8"/>
-            <stop offset="100%" stopColor="#00e8ff"/>
-          </linearGradient>
-          <clipPath id="rlclip"><rect width="200" height="200" rx="36"/></clipPath>
-        </defs>
-        <rect width="200" height="200" rx="36" fill="url(#rlbg)"/>
-        <g clipPath="url(#rlclip)" fill="none" stroke="#70b0ff" strokeWidth="1.2" opacity="0.18">
-          <ellipse cx="162" cy="52" rx="38" ry="22"/>
-          <ellipse cx="162" cy="52" rx="58" ry="36"/>
-          <ellipse cx="162" cy="52" rx="80" ry="52"/>
-          <ellipse cx="162" cy="52" rx="104" ry="68"/>
-        </g>
-        <g transform="skewX(-10) translate(6,0)" clipPath="url(#rlclip)">
-          <path fill="white" fillRule="evenodd" d="
-            M 36 178 L 36 24 L 130 24
-            C 172 24 178 56 178 72 C 178 96 165 110 132 114
-            L 114 106 L 160 178 L 134 178 L 92 110 L 58 110 L 58 178 Z
-            M 58 40 L 58 94 C 58 94 108 98 126 90 C 148 80 150 46 126 40 Z
-            M 96 110 L 134 116 L 114 106 Z
-          "/>
-        </g>
-        <g clipPath="url(#rlclip)">
-          <path fill="url(#rlwg)" d="
-            M 28 158 C 50 138 78 148 100 136 C 122 124 140 134 165 122
-            L 172 134 C 146 146 128 136 106 148 C 84 160 56 150 34 170 Z
-          "/>
-          <path fill="#00e8ff" opacity="0.5" d="
-            M 28 158 C 50 138 78 148 100 136 C 116 128 130 132 148 126
-            L 152 130 C 134 136 120 132 104 140 C 82 152 54 142 32 162 Z
-          "/>
-        </g>
-      </svg>
+    <div style={{ display:"flex", alignItems:"center", gap: Math.round(h * 0.28) }}>
+      <img
+        src={riplocMarkImg}
+        alt="RipLoc"
+        style={{ height: h, width: h, objectFit:"contain", display:"block", borderRadius: Math.round(h * 0.15) }}
+      />
       <div style={{ display:"flex", flexDirection:"column", justifyContent:"center", lineHeight:1 }}>
         <span style={{
           fontFamily:"'Arial Black','Impact',sans-serif", fontWeight:900, fontStyle:"italic",
-          fontSize: Math.round(22 * scale), color:"#ffffff", letterSpacing:"-0.5px", lineHeight:1,
+          fontSize: Math.round(h * 0.52), color:"#ffffff", letterSpacing:"-0.5px", lineHeight:1,
         }}>RIPLOC</span>
         <span style={{
-          fontFamily:"Arial,sans-serif", fontWeight:700, fontSize: Math.round(7 * scale),
+          fontFamily:"Arial,sans-serif", fontWeight:700, fontSize: Math.round(h * 0.17),
           color:"#00c8e8", letterSpacing:"2px", textTransform:"uppercase", lineHeight:1.4,
         }}>OFFSHORE FISHING INTELLIGENCE</span>
       </div>
