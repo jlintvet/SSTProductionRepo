@@ -165,7 +165,7 @@ function CollapsedRail({ location, data, isAvailable, onExpand }) {
   const windText  = firstForecast ? `${firstForecast.wind_direction ?? ""} ${firstForecast.wind_speed ?? ""}`.trim() : null;
   const waveText  = firstForecast?.wave_height ?? null;
   const tempText  = nws?.high != null ? `${nws.high}°` : null;
-  const condIcon  = getWeatherIcon(nws?.dayForecast);
+  const condIcon  = getWeatherIcon(nws?.dayForecast, 22);
 
   return (
     <button

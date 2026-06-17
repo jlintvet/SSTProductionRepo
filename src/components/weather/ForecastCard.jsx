@@ -14,24 +14,24 @@ import ReactDOM from "react-dom";
 import moment from "moment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wind, Waves, ChevronDown, X } from "lucide-react";
+import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { fetchHourlyForecast } from "@/hooks/useMarineForecast";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-export const getWeatherIcon = (shortForecast) => {
-  if (!shortForecast) return "🌤️";
-  const f = shortForecast.toLowerCase();
-  if (f.includes("thunder")) return "⛈️";
-  if (f.includes("snow") || f.includes("flurr")) return "❄️";
-  if (f.includes("rain") || f.includes("shower") || f.includes("drizzle")) return "🌧️";
-  if (f.includes("fog")) return "🌫️";
-  if (f.includes("mostly cloudy") || f.includes("overcast")) return "☁️";
-  if (f.includes("partly") || f.includes("mostly sunny") || f.includes("mostly clear")) return "⛅";
-  if (f.includes("cloudy")) return "🌥️";
-  if (f.includes("sunny") || f.includes("clear")) return "☀️";
-  return "🌤️";
+export const getWeatherIcon = (shortForecast, size = 20) => {
+  const f = (shortForecast || "").toLowerCase();
+  const p = { size, strokeWidth: 2 };
+  if (f.includes("thunder")) return <CloudLightning {...p} className="flex-shrink-0 text-slate-500" />;
+  if (f.includes("snow") || f.includes("flurr")) return <CloudSnow {...p} className="flex-shrink-0 text-slate-400" />;
+  if (f.includes("rain") || f.includes("shower") || f.includes("drizzle")) return <CloudRain {...p} className="flex-shrink-0 text-slate-500" />;
+  if (f.includes("fog")) return <CloudFog {...p} className="flex-shrink-0 text-slate-400" />;
+  if (f.includes("mostly cloudy") || f.includes("overcast")) return <Cloud {...p} className="flex-shrink-0 text-slate-400" />;
+  if (f.includes("partly") || f.includes("mostly sunny") || f.includes("mostly clear")) return <CloudSun {...p} className="flex-shrink-0 text-amber-500" />;
+  if (f.includes("cloudy")) return <Cloudy {...p} className="flex-shrink-0 text-slate-400" />;
+  if (f.includes("sunny") || f.includes("clear")) return <Sun {...p} className="flex-shrink-0 text-amber-500" />;
+  return <CloudSun {...p} className="flex-shrink-0 text-amber-500" />;
 };
 
 function tempColor(t) {
@@ -137,7 +137,7 @@ function HourlyWeatherPopup({ forecastHourlyUrl, date, label, onClose }) {
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>{h.hour}</span>
 
                   {/* Weather icon */}
-                  <span style={{ fontSize: 20, lineHeight: 1 }}>{getWeatherIcon(h.forecast)}</span>
+                  <span className="flex items-center justify-center" style={{ lineHeight: 1 }}>{getWeatherIcon(h.forecast, 20)}</span>
 
                   {/* Temperature */}
                   <span style={{ fontSize: 11, fontWeight: 400, color: tempColor(h.temp) }}>
@@ -150,7 +150,7 @@ function HourlyWeatherPopup({ forecastHourlyUrl, date, label, onClose }) {
                     color: h.precip > 30 ? "#2563eb" : "#94a3b8",
                     minHeight: 14,
                   }}>
-                    {h.precip > 0 ? `💧${h.precip}%` : ""}
+                    {h.precip > 0 ? (<span className="inline-flex items-center gap-px"><Droplets size={9} strokeWidth={2.5} className="text-sky-500" />{h.precip}%</span>) : ""}
                   </span>
 
                   {/* Wind */}
@@ -220,7 +220,7 @@ export default function ForecastCard({
               }}
               title={forecastHourlyUrl ? "Tap for hourly breakdown" : undefined}
             >
-              <div className="text-2xl leading-none">{getWeatherIcon(nws.dayForecast)}</div>
+              <div className="leading-none flex items-center">{getWeatherIcon(nws.dayForecast, 26)}</div>
               <div className="flex-1 text-sm min-w-0">
                 <p className="text-slate-700 font-medium truncate">{nws.dayForecast}</p>
                 {nws.nightForecast && nws.nightForecast !== nws.dayForecast && (
@@ -236,7 +236,7 @@ export default function ForecastCard({
                 </p>
                 {(nws.dayPrecip > 0 || nws.nightPrecip > 0) && (
                   <p className="text-xs text-slate-600">
-                    💧 {nws.dayPrecip ?? 0}% / {nws.nightPrecip ?? 0}%
+                    <span className="inline-flex items-center gap-1"><Droplets size={12} className="text-sky-500" />{nws.dayPrecip ?? 0}% / {nws.nightPrecip ?? 0}%</span>
                   </p>
                 )}
               </div>
@@ -247,7 +247,7 @@ export default function ForecastCard({
           <div className="grid gap-3" style={{ gridTemplateColumns: "3fr 2fr" }}>
             {forecast.wind_direction && (
               <div className="flex items-start gap-1">
-                <Wind className="h-4 w-4 mt-1 text-blue-600 flex-shrink-0" />
+                <Wind className="h-4 w-4 mt-1 text-cyan-700 flex-shrink-0" />
                 <div className="text-sm">
                   <p className="font-semibold text-slate-700">Wind</p>
                   <p className="text-slate-600">{forecast.wind_direction} {forecast.wind_speed}</p>
@@ -258,7 +258,7 @@ export default function ForecastCard({
             )}
             {forecast.wave_height && (
               <div className="flex items-start gap-1">
-                <Waves className="h-4 w-4 mt-1 text-cyan-600 flex-shrink-0" />
+                <Waves className="h-4 w-4 mt-1 text-cyan-700 flex-shrink-0" />
                 <div className="text-sm">
                   <p className="font-semibold text-slate-700">Waves</p>
                   <p className="text-slate-600">{forecast.wave_height}</p>
@@ -271,7 +271,7 @@ export default function ForecastCard({
           {/* Swell Components */}
           {forecast.swell_components && forecast.swell_components.length > 0 && (
             <div className="flex items-start gap-2">
-              <div className="h-4 w-4 mt-1 flex-shrink-0">〰️</div>
+              <Activity className="h-4 w-4 mt-1 text-cyan-700 flex-shrink-0" />
               <div className="text-sm">
                 <p className="font-semibold text-slate-700">Swell</p>
                 {forecast.primary_swell_direction && (
@@ -293,7 +293,7 @@ export default function ForecastCard({
           {/* Tides + Sun side by side */}
           <div className="grid gap-3" style={{ gridTemplateColumns: "3fr 2fr" }}>
             <div className="flex items-start gap-1">
-              <div className="h-4 w-4 mt-1 flex-shrink-0">🌊</div>
+              <ArrowUpDown className="h-4 w-4 mt-1 text-cyan-700 flex-shrink-0" />
               <div className="text-sm">
                 <p className="font-semibold text-slate-700">Tides</p>
                 {dailyTides.length > 0 ? (
@@ -310,7 +310,7 @@ export default function ForecastCard({
             </div>
             {dailySunData && (
               <div className="flex items-start gap-1">
-                <div className="h-4 w-4 mt-1 flex-shrink-0">☀️</div>
+                <Sunrise className="h-4 w-4 mt-1 text-amber-500 flex-shrink-0" />
                 <div className="text-sm">
                   <p className="font-semibold text-slate-700">Sun</p>
                   <p className="text-xs text-slate-600">

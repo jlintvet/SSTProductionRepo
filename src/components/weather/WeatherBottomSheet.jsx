@@ -230,7 +230,7 @@ function PeekSummary({ location, data, isAvailable }) {
 
   return (
     <div className="flex items-center gap-2 min-w-0 text-sm">
-      <span className="text-lg leading-none flex-shrink-0" aria-hidden>{getWeatherIcon(nws?.dayForecast)}</span>
+      <span className="leading-none flex-shrink-0 flex items-center" aria-hidden>{getWeatherIcon(nws?.dayForecast, 18)}</span>
       <span className="font-semibold text-slate-700 truncate flex-shrink-0">{location?.label ?? "—"}</span>
       {tempText && <span className="text-slate-600 tabular-nums flex-shrink-0">{tempText}</span>}
       {windText && <span className="text-slate-500 tabular-nums truncate">· {windText}</span>}
