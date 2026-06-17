@@ -4,8 +4,8 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 import altimetryImg   from "../public/altimetry_ref.png";
-import routeShareImg  from "../public/route_sharing_ref.png";
-import routeDetailImg from "../public/route_detail_ref.png";
+import tripDetailImg  from "../public/trip_detail_ref.png";
+import tripPlanImg    from "../public/trip_plan_ref.png";
 import heroBoatImg    from "../public/hero_boat.jpg";
 import riplocMarkImg  from "../public/brand/riploc-mark.png";
 import riplocLockupImg from "../public/brand/riploc-lockup-horizontal.png";
@@ -848,8 +848,8 @@ export default function MarketingLanding({ onAuthSuccess }) {
               </div>
             </div>
             <div className="rl-two">
-              <div className="rl-scr"><img src={routeDetailImg} alt="RipLoc trip planner with waypoints, ETA and fuel burn" /></div>
-              <div className="rl-scr"><img src={routeShareImg}  alt="RipLoc route sharing popup on SST map" /></div>
+              <div className="rl-scr"><img src={tripDetailImg} alt="RipLoc trip planner detail" /></div>
+              <div className="rl-scr"><img src={tripPlanImg}   alt="RipLoc trip plan on SST map" /></div>
             </div>
           </div>
 

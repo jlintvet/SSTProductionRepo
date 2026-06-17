@@ -2233,10 +2233,10 @@ export default function SSTHeatmapLeaflet(props) {
       isoLatSet = cd.latSet;
       isoLonSet = cd.lonSet;
       isoGrid = {};
+      const nLons = cd.lonSet.length;
       for (let i = 0; i < cd.latSet.length; i++) {
-        const row = cd.sst?.[i]; if (!row) continue;
-        for (let j = 0; j < cd.lonSet.length; j++) {
-          const v = row[j]; if (v != null && Number.isFinite(v)) isoGrid[`${cd.latSet[i]}_${cd.lonSet[j]}`] = v;
+        for (let j = 0; j < nLons; j++) {
+          const v = cd.sst[i * nLons + j]; if (v != null && Number.isFinite(v)) isoGrid[`${cd.latSet[i]}_${cd.lonSet[j]}`] = v;
         }
       }
     }
