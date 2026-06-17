@@ -1055,7 +1055,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [hotspotWarningOpen,   setHotspotWarningOpen]   = useState(false);
   const [showIsotherm,         setShowIsotherm]         = useState(false);
   const [showAltimetryOverlay, setShowAltimetryOverlay] = useState(false);
-  const [showLoranGrid, setShowLoranGrid] = useState(false);
+  const [showLoranGrid, setShowLoranGrid] = useState(() => localStorage.getItem("show_loran_grid") === "true");
   const [loranHelpOpen, setLoranHelpOpen] = useState(false);
   const [showCanyonLabels, setShowCanyonLabels] = useState(true);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(76);
@@ -2135,6 +2135,9 @@ export default function SSTHeatmapLeaflet(props) {
     const grp = buildSlaContourGroup(altimetryData, true, map, (la,lo)=> (waterMaskRef.current ? waterMaskRef.current(la,lo) : true) && altimetryDeepMask(la,lo));
     if (grp) { grp.addTo(map); slaOverlayContourLayerRef.current = grp; }
   }, [mapReady, showAltimetryOverlay, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger]);
+
+  // ── Persist Loran toggle ─────────────────────────────────────────────────────
+  useEffect(() => { localStorage.setItem("show_loran_grid", showLoranGrid); }, [showLoranGrid]);
 
   // ── Loran-C phantom grid overlay ────────────────────────────────────────────
   useEffect(() => {
