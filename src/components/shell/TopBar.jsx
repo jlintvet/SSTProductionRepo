@@ -7,6 +7,7 @@
 // drawers and modals predictably (see z-order scale comment below).
 
 import React from "react";
+import riplocMark from "@/public/brand/riploc-mark.png";
 import LocationPicker from "@/components/shell/LocationPicker";
 import UserMenu from "@/components/auth/UserMenu";
 import { useAppContext } from "@/context/AppContext";
@@ -41,10 +42,8 @@ export default function TopBar({ onUpgrade }) {
     >
       <div className="flex items-center gap-3 min-w-0">
         {/* Brand mark */}
-        <span className="text-sm font-semibold text-slate-700 hidden sm:inline">
-          RipLoc
-        </span>
-        <span className="text-sm font-bold text-cyan-600 sm:hidden">OC</span>
+        <img src={riplocMark} alt="RipLoc" style={{height:28,width:"auto",display:"block",mixBlendMode:"multiply"}} className="hidden sm:block" />
+        <img src={riplocMark} alt="RipLoc" style={{height:22,width:"auto",display:"block",mixBlendMode:"multiply"}} className="sm:hidden" />
 
         <div className="h-5 w-px bg-slate-200 hidden sm:block" />
 
