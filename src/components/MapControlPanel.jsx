@@ -75,7 +75,7 @@ function ProGate({ isPro, children, label }) {
 
 // ── Help content config ───────────────────────────────────────────────────────
 const HELP_CONFIG = {
-  sst:         { title: "Sea Surface Temperature (SST)", image: "/help/sst.png",        text: "SST shows ocean surface water temperature. Warmer water (reds/yellows) holds bait and attracts pelagics. Use the Daily (MUR) source for the clearest composite picture, Hourly (VIIRS) for the most recent passes, or Composite 36h to gap-fill cloud cover." },
+  sst:         { title: "Sea Surface Temperature (SST)", image: "/help/sst.png",        text: "SST shows ocean surface water temperature. Warmer water (reds/yellows) holds bait and attracts pelagics. Use Cloud Free (MUR) for the clearest gap-filled picture, Hourly (VIIRS) for the most recent passes, or HD Composite to gap-fill cloud cover." },
   chlorophyll: { title: "Chlorophyll",                   image: "/chl_ref_point.png",   text: "Chlorophyll concentration indicates biological productivity — greener water has more phytoplankton, which means more bait. The edge between high- and low-chl water often holds mahi, wahoo, and tuna. Adjust the gain to stretch or compress the color scale for your area." },
   seacolor:    { title: "Sea Color / Kd490",             image: "/help/seacolor.png",   text: "Kd490 measures water clarity. Cleaner, bluer water has lower Kd490. The boundary between turbid and clear water is a productive fishing zone, especially for mahi and tuna following the color change." },
   altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/altimetry_ref.png",   text: "Sea Level Anomaly (SLA) reveals mesoscale eddies. Warm-core (positive) eddies rotate clockwise and concentrate bait — fish congregate on their edges. Cold-core (negative) eddies push deep, cold water up. SLA contours are updated weekly." },
@@ -398,7 +398,7 @@ export default function MapControlPanel({
       <Divider />
 
       {/* ── Data layer ────────────────────────────────────────────────── */}
-      <SectionHeader title="Data layer" open={openSections.layers} onToggle={() => toggleSection("layers")} />
+      <SectionHeader title="Sources" open={openSections.layers} onToggle={() => toggleSection("layers")} />
       {openSections.layers && (
         <div className="flex flex-col gap-1 px-2 pb-2">
 
@@ -409,9 +409,9 @@ export default function MapControlPanel({
 
           {isSSTGroup && (
             <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
-              <SubSourceBtn active={isSST && dataSource === "MUR"} onClick={() => { setActiveDataLayer("sst"); setDataSource("MUR"); }}>Daily</SubSourceBtn>
+              <SubSourceBtn active={isSST && dataSource === "MUR"} onClick={() => { setActiveDataLayer("sst"); setDataSource("MUR"); }}>Cloud Free</SubSourceBtn>
               <SubSourceBtn active={isSST && dataSource === "VIIRS"} onClick={() => { setActiveDataLayer("sst"); setDataSource("VIIRS"); }}>Hourly</SubSourceBtn>
-              <SubSourceBtn active={isComposite} onClick={() => setActiveDataLayer("composite")}>Composite 36h</SubSourceBtn>
+              <SubSourceBtn active={isComposite} onClick={() => setActiveDataLayer("composite")}>HD Composite</SubSourceBtn>
 
               {isComposite && compositeData && (
                 compositeDates?.length >= 1 ? (
@@ -605,7 +605,7 @@ export default function MapControlPanel({
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <ToolBtn active={showBathyLayer} color="blue" onClick={() => setShowBathyLayer(b => !b)}>
-                {jsonContoursLoading ? "Loading…" : "Bathy"}
+                {jsonContoursLoading ? "Loading…" : "Bathymetry"}
               </ToolBtn>
             </div>
             {hbtn("bathy")}

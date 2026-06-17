@@ -2993,9 +2993,9 @@ export default function SSTHeatmapLeaflet(props) {
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Source</div>
                     <div className="grid grid-cols-2 gap-1">
                       {[
-                        { label: "Daily",    active: activeDataLayer === "sst" && dataSource === "MUR",      fn: () => { setActiveDataLayer("sst"); setDataSource("MUR"); } },
+                        { label: "Cloud Free", active: activeDataLayer === "sst" && dataSource === "MUR",    fn: () => { setActiveDataLayer("sst"); setDataSource("MUR"); } },
                         { label: "Hourly",   active: activeDataLayer === "sst" && dataSource === "VIIRS",    fn: () => { setActiveDataLayer("sst"); setDataSource("VIIRS"); } },
-                        { label: "Comp 36h", active: activeDataLayer === "composite",                        fn: () => setActiveDataLayer("composite") },
+                        { label: "HD Composite", active: activeDataLayer === "composite",                    fn: () => setActiveDataLayer("composite") },
                       ].map(({ label, active, fn }) => (
                         <button key={label} onClick={fn}
                           className={`text-[10px] font-semibold py-1.5 rounded-lg border transition-colors ${active ? "bg-cyan-600 text-white border-cyan-600" : "bg-white text-slate-600 border-slate-300"}`}>
@@ -3334,7 +3334,7 @@ export default function SSTHeatmapLeaflet(props) {
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <button onClick={() => setShowBathyLayer(b => !b)}
                         className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBathyLayer ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                        {jsonContoursLoading ? "Loading…" : "Bathy"}
+                        {jsonContoursLoading ? "Loading…" : "Bathymetry"}
                       </button>
                       <MobileProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
                         <button onClick={() => setShowWrecks(w => !w)}
