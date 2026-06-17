@@ -658,7 +658,7 @@ export default function MapControlPanel({
       <SectionHeader title="Tools" open={openSections.tools} onToggle={() => toggleSection("tools")} />
       {openSections.tools && (
         <div className="flex flex-col gap-1 px-2 pb-2">
-          {isSST && (
+          {isSSTGroup && (
             <div className="flex gap-1 items-start">
               <div className="flex-1">
                 <ProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
