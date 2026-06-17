@@ -1733,8 +1733,9 @@ export default function SSTHeatmapLeaflet(props) {
     if (activeDataLayer==="chlorophyll"&&chlData?.days?.length) {
       const day=chlData.days[chlDateIndex]||chlData.days[chlData.days.length-1];
       if(!day?.grid?.length)return;
-      latSet2=[...new Set(day.grid.map(d=>d.lat))].sort((a,b)=>b-a);
-      lonSet2=[...new Set(day.grid.map(d=>d.lon))].sort((a,b)=>a-b);
+      const _CHL_BIN=0.02,_CHL_LMXN=39.00,_CHL_LMNN=33.70,_CHL_LOMN=-78.90,_CHL_LOMX=-72.20;
+      latSet2=[];for(let _la=_CHL_LMXN;_la>=_CHL_LMNN-_CHL_BIN/2;_la-=_CHL_BIN)latSet2.push(parseFloat((Math.round(_la/_CHL_BIN)*_CHL_BIN).toFixed(4)));
+      lonSet2=[];for(let _lo=_CHL_LOMN;_lo<=_CHL_LOMX+_CHL_BIN/2;_lo+=_CHL_BIN)lonSet2.push(parseFloat((Math.round(_lo/_CHL_BIN)*_CHL_BIN).toFixed(4)));
       overlayGrid={};day.grid.forEach(d=>{overlayGrid[`${d.lat}_${d.lon}`]=d.chlorophyll;});
       min2=day.stats.min;max2=day.stats.max;colorFn=chlColor;
     } else if (activeDataLayer==="composite"&&compositeData?.sst?.length) {
@@ -1758,8 +1759,9 @@ export default function SSTHeatmapLeaflet(props) {
     } else if (activeDataLayer==="seacolor"&&seaColorData?.days?.length) {
       const day=seaColorData.days[seaColorDateIndex]||seaColorData.days[seaColorData.days.length-1];
       if(!day?.grid?.length)return;
-      latSet2=[...new Set(day.grid.map(d=>d.lat))].sort((a,b)=>b-a);
-      lonSet2=[...new Set(day.grid.map(d=>d.lon))].sort((a,b)=>a-b);
+      const _SC_BIN=0.02,_SC_LMXN=39.00,_SC_LMNN=33.70,_SC_LOMN=-78.90,_SC_LOMX=-72.20;
+      latSet2=[];for(let _la=_SC_LMXN;_la>=_SC_LMNN-_SC_BIN/2;_la-=_SC_BIN)latSet2.push(parseFloat((Math.round(_la/_SC_BIN)*_SC_BIN).toFixed(4)));
+      lonSet2=[];for(let _lo=_SC_LOMN;_lo<=_SC_LOMX+_SC_BIN/2;_lo+=_SC_BIN)lonSet2.push(parseFloat((Math.round(_lo/_SC_BIN)*_SC_BIN).toFixed(4)));
       overlayGrid={};day.grid.forEach(d=>{overlayGrid[`${d.lat}_${d.lon}`]=d.kd490;});
       min2=day.stats.min;max2=day.stats.max;colorFn=kd490Color;
     } else if (activeDataLayer==="altimetry"&&altimetryData?.lats?.length) {
