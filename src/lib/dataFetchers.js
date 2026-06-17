@@ -357,3 +357,129 @@ export async function fetchVIIRSHourly() {
 
   return { source: "VIIRS", days, generated_utc: new Date().toISOString() };
 }
+
+// ── CHL Bundle (flat-array format, pre-binned server-side) ────────────────────
+const CHL_BUNDLE_BASE = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/Bundled/";
+const SC_BUNDLE_BASE  = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/Bundled/";
+
+function _bundleDayToCHLGrid(bundle) {
+  const { date, latSet, lonSet, chl, min, max, coverage_pct } = bundle;
+  const nLons = lonSet.length;
+  const grid = [];
+  for (let i = 0; i < latSet.length; i++) {
+    for (let j = 0; j < nLons; j++) {
+      const val = chl[i * nLons + j];
+      if (val !== null && val !== undefined) {
+        grid.push({ lat: latSet[i], lon: lonSet[j], chlorophyll: val });
+      }
+    }
+  }
+  const vals = grid.map(p => p.chlorophyll);
+  return {
+    date,
+    grid,
+    stats: {
+      min: typeof min === 'number' ? min : (vals.length ? Math.min(...vals) : 0),
+      max: typeof max === 'number' ? max : (vals.length ? Math.max(...vals) : 1),
+      mean: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0,
+    },
+    ocean_count: grid.length,
+    coverage_pct,
+  };
+}
+
+function _bundleDayToSCGrid(bundle) {
+  const { date, latSet, lonSet, kd490, min, max, coverage_pct } = bundle;
+  const nLons = lonSet.length;
+  const grid = [];
+  for (let i = 0; i < latSet.length; i++) {
+    for (let j = 0; j < nLons; j++) {
+      const val = kd490[i * nLons + j];
+      if (val !== null && val !== undefined) {
+        grid.push({ lat: latSet[i], lon: lonSet[j], kd490: val });
+      }
+    }
+  }
+  const vals = grid.map(p => p.kd490);
+  return {
+    date,
+    grid,
+    stats: {
+      min: typeof min === 'number' ? min : (vals.length ? Math.min(...vals) : 0),
+      max: typeof max === 'number' ? max : (vals.length ? Math.max(...vals) : 1),
+      mean: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0,
+    },
+    ocean_count: grid.length,
+    coverage_pct,
+  };
+}
+
+export async function fetchCHLBundle() {
+  try {
+    const idxRes = await fetch(`${CHL_BUNDLE_BASE}chl_bundle_index.json`);
+    if (!idxRes.ok) throw new Error(`Index HTTP ${idxRes.status}`);
+    const idx = await idxRes.json();
+    if (!idx.dates?.length) throw new Error('Empty bundle index');
+    const days = await Promise.all(
+      [...idx.dates].sort().map(async (date) => {
+        try {
+          const res = await fetch(`${CHL_BUNDLE_BASE}chl_bundle_${date}.json`);
+          if (!res.ok) return null;
+          return _bundleDayToCHLGrid(await res.json());
+        } catch { return null; }
+      })
+    );
+    const validDays = days.filter(Boolean);
+    if (!validDays.length) throw new Error('No valid bundle days');
+    return { source: 'CHLOROPHYLL', days: validDays, has_composite: idx.has_composite ?? false };
+  } catch (err) {
+    console.warn('[fetchCHLBundle] falling back to legacy fetch:', err.message);
+    return fetchChlorophyll();
+  }
+}
+
+export async function fetchCHLComposite() {
+  const res = await fetch(`${CHL_BUNDLE_BASE}chl_composite.json`);
+  if (!res.ok) throw new Error(`CHL composite HTTP ${res.status}`);
+  const composite = await res.json();
+  const day = _bundleDayToCHLGrid({ ...composite, date: composite.generated?.slice(0, 10) ?? 'composite' });
+  day.isComposite = true;
+  day.pass_count  = composite.pass_count;
+  day.window_days = composite.window_days;
+  return { source: 'CHLOROPHYLL', days: [day], is_composite: true };
+}
+
+export async function fetchSeaColorBundle() {
+  try {
+    const idxRes = await fetch(`${SC_BUNDLE_BASE}seacolor_bundle_index.json`);
+    if (!idxRes.ok) throw new Error(`Index HTTP ${idxRes.status}`);
+    const idx = await idxRes.json();
+    if (!idx.dates?.length) throw new Error('Empty bundle index');
+    const days = await Promise.all(
+      [...idx.dates].sort().map(async (date) => {
+        try {
+          const res = await fetch(`${SC_BUNDLE_BASE}seacolor_bundle_${date}.json`);
+          if (!res.ok) return null;
+          return _bundleDayToSCGrid(await res.json());
+        } catch { return null; }
+      })
+    );
+    const validDays = days.filter(Boolean);
+    if (!validDays.length) throw new Error('No valid bundle days');
+    return { source: 'SEACOLOR', days: validDays, has_composite: idx.has_composite ?? false };
+  } catch (err) {
+    console.warn('[fetchSeaColorBundle] falling back to legacy fetch:', err.message);
+    return fetchSeaColor();
+  }
+}
+
+export async function fetchSeaColorComposite() {
+  const res = await fetch(`${SC_BUNDLE_BASE}seacolor_composite.json`);
+  if (!res.ok) throw new Error(`SeaColor composite HTTP ${res.status}`);
+  const composite = await res.json();
+  const day = _bundleDayToSCGrid({ ...composite, date: composite.generated?.slice(0, 10) ?? 'composite' });
+  day.isComposite = true;
+  day.pass_count  = composite.pass_count;
+  day.window_days = composite.window_days;
+  return { source: 'SEACOLOR', days: [day], is_composite: true };
+}

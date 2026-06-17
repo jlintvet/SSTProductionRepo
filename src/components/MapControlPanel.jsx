@@ -256,8 +256,8 @@ export default function MapControlPanel({
   goesCompData, goesCompDateIndex, setGoesCompDateIndex, activeGoesCompDay,
   activeViirsNppDay, viirsNppData, viirsNppDateIndex, setViirsNppDateIndex,
   // layer-specific loading
-  chlData, chlDateIndex, setChlDateIndex, chlLoading,
-  seaColorData, seaColorDateIndex, setSeaColorDateIndex, seaColorLoading,
+  chlData, chlDateIndex, setChlDateIndex, chlLoading, chlSource, setChlSource,
+  seaColorData, seaColorDateIndex, setSeaColorDateIndex, seaColorLoading, seaColorSource, setSeaColorSource,
   windLoading,
   date,
   // gain / range
@@ -488,14 +488,25 @@ export default function MapControlPanel({
             </div>
             {hbtn("chlorophyll")}
           </div>
-          {isCHL && chlData?.days?.length > 1 && (
-            <DateNav
-              label={chlData.days[chlDateIndex]?.date ?? "—"} color="green"
-              onPrev={() => setChlDateIndex(i => Math.max(0, i - 1))}
-              onNext={() => setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1))}
-              disablePrev={chlDateIndex === 0}
-              disableNext={chlDateIndex === chlData.days.length - 1}
-            />
+          {isCHL && (
+            <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
+              <SubSourceBtn active={chlSource === "daily"} onClick={() => setChlSource("daily")}>Daily</SubSourceBtn>
+              <SubSourceBtn active={chlSource === "composite"} onClick={() => setChlSource("composite")}>Composite</SubSourceBtn>
+              {chlSource === "daily" && chlData?.days?.length > 1 && (
+                <DateNav
+                  label={chlData.days[chlDateIndex]?.date ?? "—"} color="green"
+                  onPrev={() => setChlDateIndex(i => Math.max(0, i - 1))}
+                  onNext={() => setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1))}
+                  disablePrev={chlDateIndex === 0}
+                  disableNext={chlDateIndex === chlData.days.length - 1}
+                />
+              )}
+              {chlSource === "composite" && chlData?.days?.[0]?.isComposite && (
+                <div className="text-[10px] text-green-700 bg-green-50 rounded px-2 py-1 text-center font-semibold mt-1">
+                  {chlData.days[0].pass_count ?? "—"} passes · {chlData.days[0].window_days ?? 5}d gap-fill
+                </div>
+              )}
+            </div>
           )}
 
           <div className="flex gap-1 items-stretch">
@@ -506,14 +517,25 @@ export default function MapControlPanel({
             </div>
             {hbtn("seacolor")}
           </div>
-          {isSC && seaColorData?.days?.length > 1 && (
-            <DateNav
-              label={seaColorData.days[seaColorDateIndex]?.date ?? "—"} color="teal"
-              onPrev={() => setSeaColorDateIndex(i => Math.max(0, i - 1))}
-              onNext={() => setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1))}
-              disablePrev={seaColorDateIndex === 0}
-              disableNext={seaColorDateIndex === seaColorData.days.length - 1}
-            />
+          {isSC && (
+            <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
+              <SubSourceBtn active={seaColorSource === "daily"} onClick={() => setSeaColorSource("daily")}>Daily</SubSourceBtn>
+              <SubSourceBtn active={seaColorSource === "composite"} onClick={() => setSeaColorSource("composite")}>Composite</SubSourceBtn>
+              {seaColorSource === "daily" && seaColorData?.days?.length > 1 && (
+                <DateNav
+                  label={seaColorData.days[seaColorDateIndex]?.date ?? "—"} color="teal"
+                  onPrev={() => setSeaColorDateIndex(i => Math.max(0, i - 1))}
+                  onNext={() => setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1))}
+                  disablePrev={seaColorDateIndex === 0}
+                  disableNext={seaColorDateIndex === seaColorData.days.length - 1}
+                />
+              )}
+              {seaColorSource === "composite" && seaColorData?.days?.[0]?.isComposite && (
+                <div className="text-[10px] text-teal-700 bg-teal-50 rounded px-2 py-1 text-center font-semibold mt-1">
+                  {seaColorData.days[0].pass_count ?? "—"} passes · {seaColorData.days[0].window_days ?? 5}d gap-fill
+                </div>
+              )}
+            </div>
           )}
 
           <div className="flex gap-1 items-stretch">

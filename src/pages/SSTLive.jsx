@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, Component } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchMURSST, fetchVIIRSSST, fetchGOESComposite, fetchChlorophyll, fetchSeaColor } from "@/lib/dataFetchers";
+import { fetchMURSST, fetchVIIRSSST, fetchGOESComposite, fetchChlorophyll, fetchSeaColor, fetchCHLBundle, fetchCHLComposite, fetchSeaColorBundle, fetchSeaColorComposite } from "@/lib/dataFetchers";
 import { supabase } from "@/lib/supabase";
 import AppShell from "@/components/shell/AppShell";
 import { useAppContext } from "@/context/AppContext";
@@ -339,9 +339,15 @@ function SSTPageBody() {
   const [chlData,        setChlData]        = useState(null);
   const [chlLoading,     setChlLoading]     = useState(false);
   const [chlDateIndex,   setChlDateIndex]   = useState(0);
+  const [chlSource,         setChlSource]         = useState("daily"); // "daily" | "composite"
+  const [chlCompositeData,  setChlCompositeData]  = useState(null);
+  const [chlCompositeLoading,setChlCompositeLoading]= useState(false);
   const [seaColorData,   setSeaColorData]   = useState(null);
   const [seaColorLoading,setSeaColorLoading]= useState(false);
   const [seaColorDateIndex,setSeaColorDateIndex] = useState(0);
+  const [seaColorSource,          setSeaColorSource]          = useState("daily");
+  const [seaColorCompositeData,   setSeaColorCompositeData]   = useState(null);
+  const [seaColorCompositeLoading,setSeaColorCompositeLoading]= useState(false);
   const [highlightedLocation,setHighlightedLocation] = useState(null);
   const [compositeData,      setCompositeData]      = useState(null);
   const [compositeGenerated, setCompositeGenerated] = useState(null);
@@ -689,9 +695,48 @@ function SSTPageBody() {
     })();
   }, [viirsDateIndex, viirsData, dataSource]);
 
-  useEffect(()=>{if(activeDataLayer!=="chlorophyll"||chlData)return;setChlLoading(true);fetchChlorophyll().then(res=>{const result=normalizeSSTResponse(res,"CHL","chlorophyll");if(result.ok){setChlData(result.data);setChlDateIndex(Math.max(0,(result.data.days?.length??1)-1));}else{setChlData(result.data);}setChlLoading(false);}).catch(e=>{console.error("[SST:CHL] fetch failed:",e);setChlLoading(false);});},[activeDataLayer]);
-  useEffect(()=>{if(activeDataLayer!=="seacolor"||seaColorData)return;setSeaColorLoading(true);fetchSeaColor().then(res=>{const result=normalizeSSTResponse(res,"SEACOLOR","kd490");if(result.ok){setSeaColorData(result.data);if(result.data?.days?.length)setSeaColorDateIndex(result.data.days.length-1);}else{setSeaColorData(result.data);}setSeaColorLoading(false);}).catch(e=>{console.error("[SST:SEACOLOR] fetch failed:",e);setSeaColorLoading(false);});},[activeDataLayer]);
+  // CHL daily (bundle format with legacy fallback)
+  useEffect(()=>{
+    if(activeDataLayer!=="chlorophyll"||chlSource!=="daily"||chlData)return;
+    setChlLoading(true);
+    fetchCHLBundle().then(res=>{
+      const result=normalizeSSTResponse(res,"CHL","chlorophyll");
+      if(result.ok){setChlData(result.data);setChlDateIndex(Math.max(0,(result.data.days?.length??1)-1));}
+      else{setChlData(result.data);}
+      setChlLoading(false);
+    }).catch(e=>{console.error("[SST:CHL] fetch failed:",e);setChlLoading(false);});
+  },[activeDataLayer,chlSource]);
+  // CHL composite
+  useEffect(()=>{
+    if(activeDataLayer!=="chlorophyll"||chlSource!=="composite"||chlCompositeData)return;
+    setChlCompositeLoading(true);
+    fetchCHLComposite().then(res=>{setChlCompositeData(res);setChlCompositeLoading(false);})
+      .catch(e=>{console.error("[SST:CHL COMP] fetch failed:",e);setChlCompositeLoading(false);});
+  },[activeDataLayer,chlSource]);
+  // SeaColor daily (bundle format with legacy fallback)
+  useEffect(()=>{
+    if(activeDataLayer!=="seacolor"||seaColorSource!=="daily"||seaColorData)return;
+    setSeaColorLoading(true);
+    fetchSeaColorBundle().then(res=>{
+      const result=normalizeSSTResponse(res,"SEACOLOR","kd490");
+      if(result.ok){setSeaColorData(result.data);if(result.data?.days?.length)setSeaColorDateIndex(result.data.days.length-1);}
+      else{setSeaColorData(result.data);}
+      setSeaColorLoading(false);
+    }).catch(e=>{console.error("[SST:SEACOLOR] fetch failed:",e);setSeaColorLoading(false);});
+  },[activeDataLayer,seaColorSource]);
+  // SeaColor composite
+  useEffect(()=>{
+    if(activeDataLayer!=="seacolor"||seaColorSource!=="composite"||seaColorCompositeData)return;
+    setSeaColorCompositeLoading(true);
+    fetchSeaColorComposite().then(res=>{setSeaColorCompositeData(res);setSeaColorCompositeLoading(false);})
+      .catch(e=>{console.error("[SST:SC COMP] fetch failed:",e);setSeaColorCompositeLoading(false);});
+  },[activeDataLayer,seaColorSource]);
 
+  // When composite source is selected, swap in composite data transparently
+  const activeChlData        = chlSource === "composite" ? chlCompositeData : chlData;
+  const activeChlLoading     = chlSource === "composite" ? chlCompositeLoading : chlLoading;
+  const activeSeaColorData   = seaColorSource === "composite" ? seaColorCompositeData : seaColorData;
+  const activeSeaColorLoading= seaColorSource === "composite" ? seaColorCompositeLoading : seaColorLoading;
   const activeViirsDay    = viirsData?.days?.[viirsDateIndex] ?? null;
   const activeViirsGrid   = viirsHour&&activeViirsDay?.hours_cache?.[viirsHour] ? activeViirsDay.hours_cache[viirsHour].grid : activeViirsDay?.grid ?? null;
   const activeViirsStats  = viirsHour&&activeViirsDay?.hours_cache?.[viirsHour] ? activeViirsDay.hours_cache[viirsHour].stats : activeViirsDay?.stats ?? null;
@@ -738,11 +783,11 @@ function SSTPageBody() {
       {gridHealth?.scattered && dataSource !== "VIIRS" &&<div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800">Backend returning scattered points. See console.</div>}
 
       {(() => {
-        const hasAnyData = !!(murData?.days?.length || viirsData?.days?.length || viirsNppData?.days?.length || goesCompData?.days?.length || compositeData || chlData?.days?.length || seaColorData?.days?.length);
+        const hasAnyData = !!(murData?.days?.length || viirsData?.days?.length || viirsNppData?.days?.length || goesCompData?.days?.length || compositeData || activeChlData?.days?.length || activeSeaColorData?.days?.length);
         if (loading && !hasAnyData) return (
           <div className="flex-1 flex items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-slate-200 border-t-cyan-500 rounded-full animate-spin"/><p className="text-sm text-slate-500 font-medium">Loading SST data...</p></div></div>
         );
-        const currentLayerHasData = !!(activeGrid?.length) || (activeDataLayer==="composite"&&!!compositeData) || (activeDataLayer==="chlorophyll"&&!!chlData?.days?.length) || (activeDataLayer==="seacolor"&&!!seaColorData?.days?.length) || activeDataLayer==="altimetry" || activeDataLayer==="windmap";
+        const currentLayerHasData = !!(activeGrid?.length) || (activeDataLayer==="composite"&&!!compositeData) || (activeDataLayer==="chlorophyll"&&!!activeChlData?.days?.length) || (activeDataLayer==="seacolor"&&!!activeSeaColorData?.days?.length) || activeDataLayer==="altimetry" || activeDataLayer==="windmap";
         const isStillLoading = loading || chlLoading || seaColorLoading || (activeDataLayer === "composite" && !compositeData);
         if (!currentLayerHasData && !isStillLoading) return (
           <div className="flex-1 flex items-center justify-center">
@@ -774,8 +819,10 @@ function SSTPageBody() {
               onLocationSaved={fetchSavedLocations} clearMarkersRef={clearMarkersRef} flyToRef={flyToRef}
               onHoverSst={setLegendHoverSst}
               activeDataLayer={activeDataLayer} setActiveDataLayer={setActiveDataLayer}
-              chlData={chlData} chlDateIndex={chlDateIndex} setChlDateIndex={setChlDateIndex} chlLoading={chlLoading}
-              seaColorData={seaColorData} seaColorDateIndex={seaColorDateIndex} setSeaColorDateIndex={setSeaColorDateIndex} seaColorLoading={seaColorLoading}
+              chlData={activeChlData} chlDateIndex={chlDateIndex} setChlDateIndex={setChlDateIndex} chlLoading={activeChlLoading}
+              chlSource={chlSource} setChlSource={setChlSource}
+              seaColorData={activeSeaColorData} seaColorDateIndex={seaColorDateIndex} setSeaColorDateIndex={setSeaColorDateIndex} seaColorLoading={activeSeaColorLoading}
+              seaColorSource={seaColorSource} setSeaColorSource={setSeaColorSource}
               viirsData={viirsData} viirsDateIndex={viirsDateIndex} setViirsDateIndex={setViirsDateIndex} viirsHour={viirsHour} setViirsHour={setViirsHour}
               viirsNppData={viirsNppData} viirsNppDateIndex={viirsNppDateIndex} setViirsNppDateIndex={setViirsNppDateIndex} activeViirsNppDay={activeViirsNppDay}
               murData={murData} murDateIndex={murDateIndex} setMurDateIndex={setMurDateIndex}
@@ -925,15 +972,15 @@ function SSTPageBody() {
               ? null
               : activeDataLayer === "chlorophyll"
               ? <GradientLegend gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
-                  dataMin={chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01}
-                  dataMax={chlData?.days?.[chlDateIndex]?.stats?.max ?? 10}
+                  dataMin={activeChlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01}
+                  dataMax={activeChlData?.days?.[chlDateIndex]?.stats?.max ?? 10}
                   rangeMin={sstRange?.min} rangeMax={sstRange?.max}
                   hoverVal={legendHoverSst}
                   onClick={() => rangeControlOpenRef.current?.()}/>
               : activeDataLayer === "seacolor"
               ? <GradientLegend gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
-                  dataMin={seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01}
-                  dataMax={seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50}
+                  dataMin={activeSeaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01}
+                  dataMax={activeSeaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50}
                   rangeMin={sstRange?.min} rangeMax={sstRange?.max}
                   hoverVal={legendHoverSst}
                   onClick={() => rangeControlOpenRef.current?.()}/>
