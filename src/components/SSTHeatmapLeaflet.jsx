@@ -883,7 +883,9 @@ export default function SSTHeatmapLeaflet(props) {
     compositeGenerated,
     compositeDateIndex, setCompositeDateIndex, compositeDates,
     chlData, chlDateIndex, setChlDateIndex, chlLoading, chlSource, setChlSource,
+    chlCompositeDates, chlCompositeDateIndex, setChlCompositeDateIndex,
     seaColorData, seaColorDateIndex, setSeaColorDateIndex, seaColorLoading, seaColorSource, setSeaColorSource,
+    seaColorCompositeDates, seaColorCompositeDateIndex, setSeaColorCompositeDateIndex,
     viirsData, viirsDateIndex, setViirsDateIndex, viirsHour, setViirsHour,
     viirsNppData, viirsNppDateIndex, setViirsNppDateIndex, activeViirsNppDay,
     murData, murDateIndex, setMurDateIndex,
@@ -2763,8 +2765,10 @@ export default function SSTHeatmapLeaflet(props) {
             date={date}
             chlData={chlData} chlDateIndex={chlDateIndex} setChlDateIndex={setChlDateIndex} chlLoading={chlLoading}
             chlSource={chlSource} setChlSource={setChlSource}
+            chlCompositeDates={chlCompositeDates} chlCompositeDateIndex={chlCompositeDateIndex} setChlCompositeDateIndex={setChlCompositeDateIndex}
             seaColorData={seaColorData} seaColorDateIndex={seaColorDateIndex} setSeaColorDateIndex={setSeaColorDateIndex} seaColorLoading={seaColorLoading}
             seaColorSource={seaColorSource} setSeaColorSource={setSeaColorSource}
+            seaColorCompositeDates={seaColorCompositeDates} seaColorCompositeDateIndex={seaColorCompositeDateIndex} setSeaColorCompositeDateIndex={setSeaColorCompositeDateIndex}
             windLoading={windLoading}
             sstRange={sstRange} onSstRangeChange={onSstRangeChange} userId={userId} rangeControlOpenRef={rangeControlOpenRef}
             chlDataMin={chlData?.days?.[chlDateIndex]?.stats?.min ?? chlData?.days?.[chlData.days.length-1]?.stats?.min}

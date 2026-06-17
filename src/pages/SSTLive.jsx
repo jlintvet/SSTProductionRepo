@@ -342,12 +342,16 @@ function SSTPageBody() {
   const [chlSource,         setChlSource]         = useState("daily"); // "daily" | "composite"
   const [chlCompositeData,  setChlCompositeData]  = useState(null);
   const [chlCompositeLoading,setChlCompositeLoading]= useState(false);
+  const [chlCompositeDates,  setChlCompositeDates]  = useState([]); // dated composite filenames
+  const [chlCompositeDateIndex,setChlCompositeDateIndex] = useState(0);
   const [seaColorData,   setSeaColorData]   = useState(null);
   const [seaColorLoading,setSeaColorLoading]= useState(false);
   const [seaColorDateIndex,setSeaColorDateIndex] = useState(0);
   const [seaColorSource,          setSeaColorSource]          = useState("daily");
   const [seaColorCompositeData,   setSeaColorCompositeData]   = useState(null);
   const [seaColorCompositeLoading,setSeaColorCompositeLoading]= useState(false);
+  const [seaColorCompositeDates,  setSeaColorCompositeDates]  = useState([]);
+  const [seaColorCompositeDateIndex,setSeaColorCompositeDateIndex] = useState(0);
   const [highlightedLocation,setHighlightedLocation] = useState(null);
   const [compositeData,      setCompositeData]      = useState(null);
   const [compositeGenerated, setCompositeGenerated] = useState(null);
@@ -700,37 +704,43 @@ function SSTPageBody() {
     if(activeDataLayer!=="chlorophyll"||chlSource!=="daily"||chlData)return;
     setChlLoading(true);
     fetchCHLBundle().then(res=>{
+      if(res.composite_dates?.length) setChlCompositeDates(res.composite_dates);
       const result=normalizeSSTResponse(res,"CHL","chlorophyll");
       if(result.ok){setChlData(result.data);setChlDateIndex(Math.max(0,(result.data.days?.length??1)-1));}
       else{setChlData(result.data);}
       setChlLoading(false);
     }).catch(e=>{console.error("[SST:CHL] fetch failed:",e);setChlLoading(false);});
   },[activeDataLayer,chlSource]);
-  // CHL composite
+  // CHL composite — re-fetches when chlCompositeDateIndex changes
   useEffect(()=>{
-    if(activeDataLayer!=="chlorophyll"||chlSource!=="composite"||chlCompositeData)return;
+    if(activeDataLayer!=="chlorophyll"||chlSource!=="composite")return;
+    const dateStr = chlCompositeDates.length ? chlCompositeDates[chlCompositeDateIndex] : undefined;
     setChlCompositeLoading(true);
-    fetchCHLComposite().then(res=>{setChlCompositeData(res);setChlCompositeLoading(false);})
+    setChlCompositeData(null);
+    fetchCHLComposite(dateStr).then(res=>{setChlCompositeData(res);setChlCompositeLoading(false);})
       .catch(e=>{console.error("[SST:CHL COMP] fetch failed:",e);setChlCompositeLoading(false);});
-  },[activeDataLayer,chlSource]);
+  },[activeDataLayer,chlSource,chlCompositeDateIndex,chlCompositeDates]);
   // SeaColor daily (bundle format with legacy fallback)
   useEffect(()=>{
     if(activeDataLayer!=="seacolor"||seaColorSource!=="daily"||seaColorData)return;
     setSeaColorLoading(true);
     fetchSeaColorBundle().then(res=>{
+      if(res.composite_dates?.length) setSeaColorCompositeDates(res.composite_dates);
       const result=normalizeSSTResponse(res,"SEACOLOR","kd490");
       if(result.ok){setSeaColorData(result.data);if(result.data?.days?.length)setSeaColorDateIndex(result.data.days.length-1);}
       else{setSeaColorData(result.data);}
       setSeaColorLoading(false);
     }).catch(e=>{console.error("[SST:SEACOLOR] fetch failed:",e);setSeaColorLoading(false);});
   },[activeDataLayer,seaColorSource]);
-  // SeaColor composite
+  // SeaColor composite — re-fetches when seaColorCompositeDateIndex changes
   useEffect(()=>{
-    if(activeDataLayer!=="seacolor"||seaColorSource!=="composite"||seaColorCompositeData)return;
+    if(activeDataLayer!=="seacolor"||seaColorSource!=="composite")return;
+    const dateStr = seaColorCompositeDates.length ? seaColorCompositeDates[seaColorCompositeDateIndex] : undefined;
     setSeaColorCompositeLoading(true);
-    fetchSeaColorComposite().then(res=>{setSeaColorCompositeData(res);setSeaColorCompositeLoading(false);})
+    setSeaColorCompositeData(null);
+    fetchSeaColorComposite(dateStr).then(res=>{setSeaColorCompositeData(res);setSeaColorCompositeLoading(false);})
       .catch(e=>{console.error("[SST:SC COMP] fetch failed:",e);setSeaColorCompositeLoading(false);});
-  },[activeDataLayer,seaColorSource]);
+  },[activeDataLayer,seaColorSource,seaColorCompositeDateIndex,seaColorCompositeDates]);
 
   // When composite source is selected, swap in composite data transparently
   const activeChlData        = chlSource === "composite" ? chlCompositeData : chlData;
@@ -821,8 +831,10 @@ function SSTPageBody() {
               activeDataLayer={activeDataLayer} setActiveDataLayer={setActiveDataLayer}
               chlData={activeChlData} chlDateIndex={chlDateIndex} setChlDateIndex={setChlDateIndex} chlLoading={activeChlLoading}
               chlSource={chlSource} setChlSource={setChlSource}
+              chlCompositeDates={chlCompositeDates} chlCompositeDateIndex={chlCompositeDateIndex} setChlCompositeDateIndex={setChlCompositeDateIndex}
               seaColorData={activeSeaColorData} seaColorDateIndex={seaColorDateIndex} setSeaColorDateIndex={setSeaColorDateIndex} seaColorLoading={activeSeaColorLoading}
               seaColorSource={seaColorSource} setSeaColorSource={setSeaColorSource}
+              seaColorCompositeDates={seaColorCompositeDates} seaColorCompositeDateIndex={seaColorCompositeDateIndex} setSeaColorCompositeDateIndex={setSeaColorCompositeDateIndex}
               viirsData={viirsData} viirsDateIndex={viirsDateIndex} setViirsDateIndex={setViirsDateIndex} viirsHour={viirsHour} setViirsHour={setViirsHour}
               viirsNppData={viirsNppData} viirsNppDateIndex={viirsNppDateIndex} setViirsNppDateIndex={setViirsNppDateIndex} activeViirsNppDay={activeViirsNppDay}
               murData={murData} murDateIndex={murDateIndex} setMurDateIndex={setMurDateIndex}

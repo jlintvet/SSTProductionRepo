@@ -431,21 +431,25 @@ export async function fetchCHLBundle() {
     );
     const validDays = days.filter(Boolean);
     if (!validDays.length) throw new Error('No valid bundle days');
-    return { source: 'CHLOROPHYLL', days: validDays, has_composite: idx.has_composite ?? false };
+    return { source: 'CHLOROPHYLL', days: validDays, has_composite: idx.has_composite ?? false, composite_dates: idx.composite_dates ?? [] };
   } catch (err) {
     console.warn('[fetchCHLBundle] falling back to legacy fetch:', err.message);
     return fetchChlorophyll();
   }
 }
 
-export async function fetchCHLComposite() {
-  const res = await fetch(`${CHL_BUNDLE_BASE}chl_composite.json`);
+export async function fetchCHLComposite(dateStr) {
+  // If dateStr provided fetch that dated snapshot, else fall back to canonical latest
+  const url = dateStr
+    ? `${CHL_BUNDLE_BASE}chl_composite_${dateStr}.json`
+    : `${CHL_BUNDLE_BASE}chl_composite.json`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`CHL composite HTTP ${res.status}`);
   const composite = await res.json();
-  const day = _bundleDayToCHLGrid({ ...composite, date: composite.generated?.slice(0, 10) ?? 'composite' });
+  const builtDate = composite.generated?.slice(0, 10) ?? dateStr ?? 'composite';
+  const day = _bundleDayToCHLGrid({ ...composite, date: builtDate });
   day.isComposite = true;
-  day.pass_count  = composite.pass_count;
-  day.window_days = composite.window_days;
+  day.builtDate   = builtDate;
   return { source: 'CHLOROPHYLL', days: [day], is_composite: true };
 }
 
@@ -466,20 +470,23 @@ export async function fetchSeaColorBundle() {
     );
     const validDays = days.filter(Boolean);
     if (!validDays.length) throw new Error('No valid bundle days');
-    return { source: 'SEACOLOR', days: validDays, has_composite: idx.has_composite ?? false };
+    return { source: 'SEACOLOR', days: validDays, has_composite: idx.has_composite ?? false, composite_dates: idx.composite_dates ?? [] };
   } catch (err) {
     console.warn('[fetchSeaColorBundle] falling back to legacy fetch:', err.message);
     return fetchSeaColor();
   }
 }
 
-export async function fetchSeaColorComposite() {
-  const res = await fetch(`${SC_BUNDLE_BASE}seacolor_composite.json`);
+export async function fetchSeaColorComposite(dateStr) {
+  const url = dateStr
+    ? `${SC_BUNDLE_BASE}seacolor_composite_${dateStr}.json`
+    : `${SC_BUNDLE_BASE}seacolor_composite.json`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`SeaColor composite HTTP ${res.status}`);
   const composite = await res.json();
-  const day = _bundleDayToSCGrid({ ...composite, date: composite.generated?.slice(0, 10) ?? 'composite' });
+  const builtDate = composite.generated?.slice(0, 10) ?? dateStr ?? 'composite';
+  const day = _bundleDayToSCGrid({ ...composite, date: builtDate });
   day.isComposite = true;
-  day.pass_count  = composite.pass_count;
-  day.window_days = composite.window_days;
+  day.builtDate   = builtDate;
   return { source: 'SEACOLOR', days: [day], is_composite: true };
 }

@@ -257,7 +257,9 @@ export default function MapControlPanel({
   activeViirsNppDay, viirsNppData, viirsNppDateIndex, setViirsNppDateIndex,
   // layer-specific loading
   chlData, chlDateIndex, setChlDateIndex, chlLoading, chlSource, setChlSource,
+  chlCompositeDates, chlCompositeDateIndex, setChlCompositeDateIndex,
   seaColorData, seaColorDateIndex, setSeaColorDateIndex, seaColorLoading, seaColorSource, setSeaColorSource,
+  seaColorCompositeDates, seaColorCompositeDateIndex, setSeaColorCompositeDateIndex,
   windLoading,
   date,
   // gain / range
@@ -502,9 +504,14 @@ export default function MapControlPanel({
                 />
               )}
               {chlSource === "composite" && chlData?.days?.[0]?.isComposite && (
-                <div className="text-[10px] text-green-700 bg-green-50 rounded px-2 py-1 text-center font-semibold mt-1">
-                  {chlData.days[0].pass_count ?? "—"} passes · {chlData.days[0].window_days ?? 5}d gap-fill
-                </div>
+                <DateNav
+                  label={chlData.days[0].builtDate ?? chlData.days[0].date ?? "—"}
+                  color="green"
+                  onPrev={() => setChlCompositeDateIndex(i => Math.max(0, i - 1))}
+                  onNext={() => setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1))}
+                  disablePrev={chlCompositeDateIndex === 0}
+                  disableNext={chlCompositeDateIndex >= chlCompositeDates.length - 1}
+                />
               )}
             </div>
           )}
@@ -531,9 +538,14 @@ export default function MapControlPanel({
                 />
               )}
               {seaColorSource === "composite" && seaColorData?.days?.[0]?.isComposite && (
-                <div className="text-[10px] text-teal-700 bg-teal-50 rounded px-2 py-1 text-center font-semibold mt-1">
-                  {seaColorData.days[0].pass_count ?? "—"} passes · {seaColorData.days[0].window_days ?? 5}d gap-fill
-                </div>
+                <DateNav
+                  label={seaColorData.days[0].builtDate ?? seaColorData.days[0].date ?? "—"}
+                  color="teal"
+                  onPrev={() => setSeaColorCompositeDateIndex(i => Math.max(0, i - 1))}
+                  onNext={() => setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1))}
+                  disablePrev={seaColorCompositeDateIndex === 0}
+                  disableNext={seaColorCompositeDateIndex >= seaColorCompositeDates.length - 1}
+                />
               )}
             </div>
           )}
