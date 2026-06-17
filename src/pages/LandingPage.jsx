@@ -621,7 +621,7 @@ const HERO_SLIDES = [
     eyebrow: "Offshore Fishing Intelligence",
     h1line1: "Stop Guessing.",
     h1span: "Lock In.",
-    sub: "Professional-grade oceanographic data combined with a real angler intelligence network. SST, chlorophyll, altimetry, currents, bathymetry. Free. No ads. No BS.",
+    sub: "Professional-grade oceanographic data combined with real-time weather and a community of active offshore fishermen. SST, chlorophyll, altimetry, sea color, currents, bathymetry and more. Free. No ads. No BS.",
   },
   {
     imgKey: "mahi",
