@@ -12,6 +12,7 @@ export default function UserMenu({ onUpgrade }) {
   const { userId, setUserSettings } = useAppContext();
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [displayName, setDisplayName] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -22,12 +23,16 @@ export default function UserMenu({ onUpgrade }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("user_profiles").select("display_name").eq("id", user.id).single()
+      .then(({ data }) => { if (data?.display_name) setDisplayName(data.display_name); });
+  }, [user]);
+
   if (!user) return null;
 
-  const initials = (user.email ?? "?")
-    .split("@")[0]
-    .slice(0, 2)
-    .toUpperCase();
+  const shortName = displayName || (user.email ?? "?").split("@")[0];
+  const initials = shortName.slice(0, 2).toUpperCase();
 
   function getTierLabel() {
     if (tier === "pro")      return "Pro";
@@ -62,14 +67,15 @@ export default function UserMenu({ onUpgrade }) {
           {initials}
         </span>
         <span className="text-[11px] text-slate-600 hidden sm:block max-w-[120px] truncate">
-          {user.email}
+          {shortName}
         </span>
       </button>
 
       {open && (
         <div className="absolute right-0 top-full mt-1.5 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 text-xs">
           <div className="px-3 py-2 border-b border-slate-100">
-            <p className="text-slate-800 font-medium truncate">{user.email}</p>
+            <p className="text-slate-800 font-medium truncate">{shortName}</p>
+            <p className="text-slate-400 text-[10px] truncate">{user.email}</p>
             <p style={{ color: getTierColor() }} className="mt-0.5 font-semibold">
               {getTierLabel()}
             </p>
