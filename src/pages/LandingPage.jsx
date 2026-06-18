@@ -11,6 +11,10 @@ import riplocMarkImg  from "../public/brand/riploc-mark.png";
 import riplocLockupImg from "../public/brand/riploc-lockup-horizontal.png";
 import featureMahiImg from "../public/feature_mahi.jpg";
 import ctaBillfishImg from "../public/cta_billfish.jpg";
+import appUiImg       from "../public/screenshots/app_ui.jpg";
+import commPinImg     from "../public/screenshots/community_pin.jpg";
+import routeMapImg    from "../public/screenshots/route_map.jpg";
+import hotspotImg     from "../public/screenshots/hotspot_zone.jpg";
 import commPhoto0  from "../public/community/img_0766.jpg";
 import commPhoto1  from "../public/community/img_1092.jpg";
 import commPhoto2  from "../public/community/img_1676.jpg";
@@ -162,7 +166,7 @@ const GLOBAL_CSS = `
     font-size:11.5px;font-weight:600;color:#00c8e8;letter-spacing:.06em;text-transform:uppercase;}
 
   /* VIDEO */
-  .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;text-align:center;}
+  .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;}
   .rl-video-frame{max-width:900px;margin:3rem auto 0;border-radius:20px;overflow:hidden;
     position:relative;aspect-ratio:16/9;
     background:linear-gradient(135deg,#04090f 0%,#0a1e2c 100%);
@@ -921,9 +925,9 @@ export default function MarketingLanding({ onAuthSuccess }) {
             ))}
           </div>
           <div className="rl-mapframe">
-            <img src={altimetryImg} alt="RipLoc SST and altimetry map showing temperature break off Keller Canyon" />
-            <div className="rl-maplabel" style={{ top: 16, left: 16 }}>Live · Keller Canyon, Mid-Atlantic</div>
-            <div className="rl-maplabel" style={{ bottom: 16, right: 16 }}>SST · Altimetry Contours</div>
+            <img src={appUiImg} alt="RipLoc app — marine forecast, SST map, and route planner" />
+            <div className="rl-maplabel" style={{ top: 16, left: 16 }}>Live · Oregon Inlet, NC</div>
+            <div className="rl-maplabel" style={{ bottom: 16, right: 16 }}>SST + Route Planning + Marine Forecast</div>
           </div>
         </div>
       </section>
@@ -931,11 +935,11 @@ export default function MarketingLanding({ onAuthSuccess }) {
       {/* VIDEO */}
       <section className="rl-video-sec" id="video">
         <div className="rl-inner">
-          <div className="rl-lbl" style={{ display: "inline-block" }}>See It In Action</div>
+          <div className="rl-lbl">See It In Action</div>
           <h2 className="rl-h2" style={{ color: "#fff" }}>
             From dock to drop shot<br/>in under 10 minutes.
           </h2>
-          <p style={{ color: "#7a9ab5", fontSize: 17, maxWidth: 480, lineHeight: 1.7 }}>
+          <p style={{ color: "#7a9ab5", fontSize: 17, maxWidth: 580, lineHeight: 1.7 }}>
             Watch how RipLoc anglers read the water, plan their run, and share intel with the community.
           </p>
         </div>
@@ -971,7 +975,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
               </div>
             </div>
             <div className="rl-scr">
-              <img src={altimetryImg} alt="RipLoc SST temperature break and altimetry contours" />
+              <img src={commPinImg} alt="RipLoc live community catch report pin popup" />
             </div>
           </div>
 
@@ -993,9 +997,8 @@ export default function MarketingLanding({ onAuthSuccess }) {
                 <span className="rl-pill">GPS Tracking</span>
               </div>
             </div>
-            <div className="rl-two">
-              <div className="rl-scr"><img src={tripDetailImg} alt="RipLoc trip planner detail" /></div>
-              <div className="rl-scr"><img src={tripPlanImg}   alt="RipLoc trip plan on SST map" /></div>
+            <div className="rl-scr">
+              <img src={routeMapImg} alt="RipLoc trip plan — multi-waypoint route on SST map" />
             </div>
           </div>
 
@@ -1017,10 +1020,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
               </div>
             </div>
             <div className="rl-scr">
-              <div className="rl-scr-ph">
-                <CamIcon />
-                <div>APP SCREENSHOT<br/>Fishing hotspot heatmap overlay on SST map<br/>showing scored zones off Oregon Inlet</div>
-              </div>
+              <img src={hotspotImg} alt="RipLoc fishing hotspot scored zones on SST map" />
             </div>
           </div>
 
