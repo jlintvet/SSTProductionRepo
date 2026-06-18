@@ -1294,6 +1294,14 @@ export default function SSTHeatmapLeaflet(props) {
       keyboard: false,
     });
 
+    // Layer stacking: keep bathymetry directly above the data raster (SST / CHL /
+    // sea color) but below all other overlays, markers, labels and tools.
+    //   tilePane 200 (GL basemap+SST in GL mode) < sstDataPane 350 (non-GL data
+    //   raster) < bathyPane 375 < overlayPane 400 (wind/currents/contours) <
+    //   markerPane 600 (locations/wrecks/buoys/labels/tools).
+    map.createPane("sstDataPane"); map.getPane("sstDataPane").style.zIndex = "350"; map.getPane("sstDataPane").style.pointerEvents = "none";
+    map.createPane("bathyPane");   map.getPane("bathyPane").style.zIndex   = "375"; map.getPane("bathyPane").style.pointerEvents   = "none";
+
     // Prevent Leaflet from intercepting spacebar when the user is typing in an input/textarea
     const stopSpaceInInputs = (e) => {
       if (e.key === " " || e.code === "Space") {
@@ -1714,7 +1722,7 @@ export default function SSTHeatmapLeaflet(props) {
       } else {
         blobUrlsRef.current.push(dataURL);
         const opacity = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP" || dataSource === "GOESCOMP") ? 0.78 : 0.92;
-        const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity, interactive: false });
+        const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity, interactive: false, pane: "sstDataPane" });
         overlay.addTo(map); sstOverlayRef.current = overlay;
       }
       sstReadyRef.current = true; setSstReady(true);
@@ -1825,7 +1833,7 @@ export default function SSTHeatmapLeaflet(props) {
         upsertSstImage(glLayerRef.current, solid, west, east, north, south);
       } else {
         blobUrlsRef.current.push(dataURL);
-        const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false });
+        const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false, pane: "sstDataPane" });
         overlay.addTo(map); overlayLayerRef.current = overlay;
       }
       // CHL/seacolor/composite data stops at 39.00°N — set tight minZoom+maxBounds so
@@ -2288,18 +2296,26 @@ export default function SSTHeatmapLeaflet(props) {
     if (bathyLayerRef.current) { map.removeLayer(bathyLayerRef.current); bathyLayerRef.current = null; }
     if (bathyLabelRef.current) { map.removeLayer(bathyLabelRef.current); bathyLabelRef.current = null; }
     if (!showBathyLayer || !jsonContours) return;
-    const lyr = L.geoJSON(jsonContours, {
-      interactive: false,
-      style: f => {
-        const d = f.properties.depth_ft;
-        if (d >= 1200) return { color: "rgba(40,55,85,0.65)",  weight: 1.3, opacity: 0.70 };
-        if (d >= 600)  return { color: "rgba(50,65,95,0.55)",  weight: 1.0, opacity: 0.60 };
-        if (d >= 300)  return { color: "rgba(60,75,105,0.48)", weight: 0.8, opacity: 0.52 };
-        if (d >= 100)  return { color: "rgba(70,85,115,0.40)", weight: 0.7, opacity: 0.45 };
-        if (d >= 60)   return { color: "rgba(80,95,125,0.32)", weight: 0.6, opacity: 0.38 };
-        return              { color: "rgba(90,105,135,0.25)", weight: 0.5, opacity: 0.30 };
-      },
+    // Two-pass draw for legibility over vivid SST: a soft white casing underneath,
+    // then a darker navy line on top. Both live in bathyPane (above the data raster).
+    const bathyWeight = d => (d >= 1200 ? 1.5 : d >= 600 ? 1.3 : d >= 300 ? 1.1 : d >= 100 ? 1.0 : d >= 60 ? 0.9 : 0.8);
+    const bathyMain   = d => {
+      if (d >= 1200) return { color: "rgba(15,23,42,0.92)", weight: bathyWeight(d), opacity: 0.92 };
+      if (d >= 600)  return { color: "rgba(20,30,55,0.88)", weight: bathyWeight(d), opacity: 0.88 };
+      if (d >= 300)  return { color: "rgba(25,38,65,0.84)", weight: bathyWeight(d), opacity: 0.84 };
+      if (d >= 100)  return { color: "rgba(30,45,72,0.78)", weight: bathyWeight(d), opacity: 0.78 };
+      if (d >= 60)   return { color: "rgba(35,50,80,0.70)", weight: bathyWeight(d), opacity: 0.70 };
+      return              { color: "rgba(40,55,88,0.62)", weight: bathyWeight(d), opacity: 0.62 };
+    };
+    const casing = L.geoJSON(jsonContours, {
+      interactive: false, pane: "bathyPane",
+      style: f => ({ color: "rgba(255,255,255,0.55)", weight: bathyWeight(f.properties.depth_ft) + 1.8, opacity: 0.45 }),
     });
+    const mainLines = L.geoJSON(jsonContours, {
+      interactive: false, pane: "bathyPane",
+      style: f => bathyMain(f.properties.depth_ft),
+    });
+    const lyr = L.layerGroup([casing, mainLines]);
     lyr.addTo(map); bathyLayerRef.current = lyr;
 
     const LABEL_ZOOM = 10;
@@ -2323,7 +2339,7 @@ export default function SSTHeatmapLeaflet(props) {
           const count = depthLabelCount[d] || 0; if (count >= 5) return; depthLabelCount[d] = count + 1;
           const mid = bestRun[Math.floor(bestRun.length / 2)]; const [lon, lat] = mid;
           const icon = L.divIcon({ className: "", html: `<div style="font-size:10px;font-weight:600;font-family:system-ui,sans-serif;color:${color};text-shadow:1px 1px 0 rgba(255,255,255,0.92),-1px 1px 0 rgba(255,255,255,0.92),1px -1px 0 rgba(255,255,255,0.92),-1px -1px 0 rgba(255,255,255,0.92),0 1px 0 rgba(255,255,255,0.92),0 -1px 0 rgba(255,255,255,0.92);white-space:nowrap;pointer-events:none;line-height:1;">${label}</div>`, iconSize: null, iconAnchor: [0, 6] });
-          L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(labelGroup);
+          L.marker([lat, lon], { icon, interactive: false, keyboard: false, pane: "bathyPane" }).addTo(labelGroup);
         });
       });
       labelGroup.addTo(map); bathyLabelRef.current = labelGroup;
@@ -2356,7 +2372,8 @@ export default function SSTHeatmapLeaflet(props) {
       if (loc?.wreckRegion && props.region && props.region !== loc.wreckRegion) return;
       const fKey = `${(props.name ?? "").trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
       if (wreckRemovedKeys?.has(fKey)) return;
-      const m = L.circleMarker([lat, lon], { radius:6, color:"#fff", weight:1.5, fillColor:"#CAD8DB", fillOpacity:0.9 });
+      const wreckIcon = L.divIcon({ className:"", html:'<div style="width:12px;height:12px;border-radius:50%;background:#CAD8DB;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>', iconSize:[12,12], iconAnchor:[6,6] });
+      const m = L.marker([lat, lon], { icon: wreckIcon });
       const showPopup = e => { const containerPt=map.latLngToContainerPoint(e.latlng); setHoveredWreck({px:containerPt.x,py:containerPt.y,props,lat,lon}); try{map.getContainer().style.cursor="pointer";}catch(_){} };
       m.on("mouseover", showPopup);
       m.on("click", e => { L.DomEvent.stopPropagation(e); showPopup(e); });
