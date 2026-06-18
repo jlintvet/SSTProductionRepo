@@ -2287,19 +2287,26 @@ export default function SSTHeatmapLeaflet(props) {
     if (bathyLayerRef.current) { map.removeLayer(bathyLayerRef.current); bathyLayerRef.current = null; }
     if (bathyLabelRef.current) { map.removeLayer(bathyLabelRef.current); bathyLabelRef.current = null; }
     if (!showBathyLayer || !jsonContours) return;
-    const lyr = L.geoJSON(jsonContours, {
-      interactive: false,
-      pane: "bathyPane",
-      style: f => {
-        const d = f.properties.depth_ft;
-        if (d >= 1200) return { color: "rgba(40,55,85,0.65)",  weight: 1.3, opacity: 0.70 };
-        if (d >= 600)  return { color: "rgba(50,65,95,0.55)",  weight: 1.0, opacity: 0.60 };
-        if (d >= 300)  return { color: "rgba(60,75,105,0.48)", weight: 0.8, opacity: 0.52 };
-        if (d >= 100)  return { color: "rgba(70,85,115,0.40)", weight: 0.7, opacity: 0.45 };
-        if (d >= 60)   return { color: "rgba(80,95,125,0.32)", weight: 0.6, opacity: 0.38 };
-        return              { color: "rgba(90,105,135,0.25)", weight: 0.5, opacity: 0.30 };
-      },
+    // Two-pass draw for legibility over vivid SST: a soft white casing underneath,
+    // then a darker navy line on top. Both live in bathyPane (above the data raster).
+    const bathyWeight = d => (d >= 1200 ? 1.5 : d >= 600 ? 1.3 : d >= 300 ? 1.1 : d >= 100 ? 1.0 : d >= 60 ? 0.9 : 0.8);
+    const bathyMain   = d => {
+      if (d >= 1200) return { color: "rgba(15,23,42,0.92)", weight: bathyWeight(d), opacity: 0.92 };
+      if (d >= 600)  return { color: "rgba(20,30,55,0.88)", weight: bathyWeight(d), opacity: 0.88 };
+      if (d >= 300)  return { color: "rgba(25,38,65,0.84)", weight: bathyWeight(d), opacity: 0.84 };
+      if (d >= 100)  return { color: "rgba(30,45,72,0.78)", weight: bathyWeight(d), opacity: 0.78 };
+      if (d >= 60)   return { color: "rgba(35,50,80,0.70)", weight: bathyWeight(d), opacity: 0.70 };
+      return              { color: "rgba(40,55,88,0.62)", weight: bathyWeight(d), opacity: 0.62 };
+    };
+    const casing = L.geoJSON(jsonContours, {
+      interactive: false, pane: "bathyPane",
+      style: f => ({ color: "rgba(255,255,255,0.55)", weight: bathyWeight(f.properties.depth_ft) + 1.8, opacity: 0.45 }),
     });
+    const mainLines = L.geoJSON(jsonContours, {
+      interactive: false, pane: "bathyPane",
+      style: f => bathyMain(f.properties.depth_ft),
+    });
+    const lyr = L.layerGroup([casing, mainLines]);
     lyr.addTo(map); bathyLayerRef.current = lyr;
 
     const LABEL_ZOOM = 10;
