@@ -282,6 +282,58 @@ const GLOBAL_CSS = `
   .rl-final-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00c8e8;margin-bottom:2rem;}
   .rl-final-divider{width:60px;height:2px;background:linear-gradient(to right,#1a5fd8,#00c8e8);margin:1.5rem auto 2rem;}
 
+  /* ── Community Photo Carousel ─────────────────────────────────────────────── */
+  .rl-photos-sec{background:#04090f;padding:5rem 0;overflow:hidden;border-top:1px solid rgba(0,200,232,.07);}
+  .rl-photos-hdr{max-width:1100px;margin:0 auto 2.5rem;padding:0 2.5rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;}
+  .rl-photos-left{}
+  .rl-photos-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#1a5fd8;margin-bottom:.75rem;}
+  .rl-photos-h2{font-family:'Bebas Neue','Arial Black',sans-serif;font-size:clamp(2rem,4vw,3rem);color:#fff;line-height:1;}
+  .rl-photos-nav{display:flex;gap:.5rem;flex-shrink:0;}
+  .rl-photos-nbtn{width:40px;height:40px;border-radius:50%;border:1px solid rgba(0,200,232,.2);background:transparent;color:#00c8e8;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px;}
+  .rl-photos-nbtn:hover{background:rgba(0,200,232,.1);}
+  .rl-photos-nbtn:disabled{opacity:.3;cursor:default;}
+  .rl-photos-track-wrap{padding-left:2.5rem;overflow:hidden;}
+  .rl-photos-track{display:flex;gap:1rem;transition:transform .6s cubic-bezier(.4,0,.2,1);}
+  .rl-photo-slide{flex:0 0 400px;height:280px;border-radius:16px;overflow:hidden;position:relative;background:#0d1a2e;}
+  .rl-photo-slide img{width:100%;height:100%;object-fit:cover;display:block;}
+  .rl-photo-caption{position:absolute;bottom:0;left:0;right:0;padding:1rem 1.25rem .875rem;background:linear-gradient(to top,rgba(0,0,0,.65),transparent);font-size:12px;color:rgba(255,255,255,.8);letter-spacing:.03em;}
+  .rl-photo-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;border:1px dashed rgba(0,200,232,.15);border-radius:16px;}
+  .rl-photo-ph-label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#2a4a6a;}
+
+  /* ── Ambassador Section ────────────────────────────────────────────────────── */
+  .rl-amb-sec{background:#06101e;padding:8rem 2.5rem;border-top:1px solid rgba(0,200,232,.1);position:relative;overflow:hidden;}
+  .rl-amb-sec::before{content:'';position:absolute;top:-80px;right:-80px;width:500px;height:500px;background:radial-gradient(circle,rgba(26,95,216,.08) 0%,transparent 70%);pointer-events:none;}
+  .rl-amb-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:start;position:relative;z-index:1;}
+  .rl-amb-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#1a5fd8;margin-bottom:1rem;}
+  .rl-amb-h2{font-family:'Bebas Neue','Arial Black',sans-serif;font-size:clamp(2.5rem,5vw,4rem);color:#fff;line-height:1.05;margin-bottom:1.5rem;}
+  .rl-amb-body{font-size:16px;line-height:1.8;color:#7a9ab5;margin-bottom:2rem;}
+  .rl-amb-perks{display:flex;flex-direction:column;gap:1rem;}
+  .rl-amb-perk{display:flex;gap:.875rem;align-items:flex-start;}
+  .rl-amb-dot{width:6px;height:6px;border-radius:50%;background:#00c8e8;flex-shrink:0;margin-top:.55rem;}
+  .rl-amb-perk-text{font-size:15px;color:#a0bad4;line-height:1.6;}
+  .rl-amb-form-wrap{background:rgba(13,26,46,.7);border:1px solid rgba(0,200,232,.12);border-radius:20px;padding:2.5rem;}
+  .rl-amb-form-title{font-family:'Bebas Neue','Arial Black',sans-serif;font-size:1.8rem;color:#fff;margin-bottom:.4rem;letter-spacing:.02em;line-height:1;}
+  .rl-amb-form-sub{font-size:13px;color:#4a6a85;margin-bottom:2rem;line-height:1.5;}
+  .rl-amb-field{margin-bottom:1.1rem;}
+  .rl-amb-label{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a6a85;margin-bottom:.4rem;}
+  .rl-amb-input{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(0,200,232,.12);border-radius:10px;padding:.7rem 1rem;font-size:14px;color:#e0eaf4;outline:none;transition:border-color .2s;box-sizing:border-box;font-family:inherit;}
+  .rl-amb-input:focus{border-color:rgba(0,200,232,.4);}
+  .rl-amb-input::placeholder{color:#2a4060;}
+  .rl-amb-textarea{resize:vertical;min-height:90px;}
+  .rl-amb-row{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;}
+  .rl-amb-submit{width:100%;margin-top:.75rem;padding:.95rem;background:linear-gradient(135deg,#1a5fd8,#00c8e8);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:opacity .2s;font-family:inherit;}
+  .rl-amb-submit:hover{opacity:.88;}
+  .rl-amb-submit:disabled{opacity:.45;cursor:not-allowed;}
+  .rl-amb-error{font-size:13px;color:#f87171;margin-top:.75rem;text-align:center;}
+  .rl-amb-success{text-align:center;padding:2.5rem 1rem;}
+  .rl-amb-success-h{font-family:'Bebas Neue','Arial Black',sans-serif;font-size:2.2rem;color:#00c8e8;margin-bottom:.75rem;line-height:1;}
+  .rl-amb-success-p{font-size:15px;color:#7a9ab5;line-height:1.7;}
+  @media(max-width:900px){
+    .rl-amb-inner{grid-template-columns:1fr;}
+    .rl-photo-slide{flex:0 0 280px;height:200px;}
+    .rl-amb-row{grid-template-columns:1fr;}
+  }
+
   /* FOOTER */
   .rl-footer{background:#030609;padding:2.5rem;border-top:1px solid rgba(255,255,255,.05);}
   .rl-footer-in{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;
@@ -712,8 +764,25 @@ function HeroCarousel({ open, heroBoatImg, featureMahiImg, ctaBillfishImg }) {
   );
 }
 
+// ── Community photo carousel ──────────────────────────────────────────────────
+// To add photos: import the file at the top, then add { src: myImg, caption: "..." }
+// Use src: null to keep a placeholder slot while curating.
+const COMMUNITY_PHOTOS = [
+  { src: null, caption: "" },
+  { src: null, caption: "" },
+  { src: null, caption: "" },
+  { src: null, caption: "" },
+  { src: null, caption: "" },
+];
+const PHOTOS_VISIBLE = 3;
+
 export default function MarketingLanding({ onAuthSuccess }) {
   const [modal, setModal] = useState(false);
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const [ambForm, setAmbForm]             = useState({ name:"", boatName:"", location:"", email:"", phone:"", comments:"" });
+  const [ambSubmitting, setAmbSubmitting] = useState(false);
+  const [ambSubmitted,  setAmbSubmitted]  = useState(false);
+  const [ambError,      setAmbError]      = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -723,6 +792,27 @@ export default function MarketingLanding({ onAuthSuccess }) {
     document.head.appendChild(s);
     return () => { document.querySelector('[data-rl="1"]')?.remove(); };
   }, []);
+
+  async function submitAmbassador() {
+    if (!ambForm.name.trim() || !ambForm.email.trim()) {
+      setAmbError("Name and email are required."); return;
+    }
+    setAmbSubmitting(true); setAmbError("");
+    try {
+      const { error } = await supabase.from("ambassador_applications").insert([{
+        name:      ambForm.name.trim(),
+        boat_name: ambForm.boatName.trim(),
+        location:  ambForm.location.trim(),
+        email:     ambForm.email.trim(),
+        phone:     ambForm.phone.trim(),
+        comments:  ambForm.comments.trim(),
+      }]);
+      if (error) throw error;
+      setAmbSubmitted(true);
+    } catch(e) {
+      setAmbError("Something went wrong. Please email us directly.");
+    } finally { setAmbSubmitting(false); }
+  }
 
   const open = () => setModal(true);
   const done = () => { setModal(false); onAuthSuccess?.(); };
@@ -947,6 +1037,33 @@ export default function MarketingLanding({ onAuthSuccess }) {
         </div>
       </section>
 
+
+      {/* COMMUNITY PHOTOS */}
+      <section className="rl-photos-sec">
+        <div className="rl-photos-hdr">
+          <div className="rl-photos-left">
+            <div className="rl-photos-eyebrow">From The Water</div>
+            <h2 className="rl-photos-h2">Real Catches. Real Data.</h2>
+          </div>
+          <div className="rl-photos-nav">
+            <button className="rl-photos-nbtn" onClick={() => setPhotoIdx(i => Math.max(0, i-1))} disabled={photoIdx === 0} aria-label="Previous">&#8592;</button>
+            <button className="rl-photos-nbtn" onClick={() => setPhotoIdx(i => Math.min(COMMUNITY_PHOTOS.length - PHOTOS_VISIBLE, i+1))} disabled={photoIdx >= COMMUNITY_PHOTOS.length - PHOTOS_VISIBLE} aria-label="Next">&#8594;</button>
+          </div>
+        </div>
+        <div className="rl-photos-track-wrap">
+          <div className="rl-photos-track" style={{ transform: `translateX(calc(-${photoIdx * 416}px))` }}>
+            {COMMUNITY_PHOTOS.map((p, i) => (
+              <div className="rl-photo-slide" key={i}>
+                {p.src
+                  ? <><img src={p.src} alt={p.caption || "Community catch"} />{p.caption && <div className="rl-photo-caption">{p.caption}</div>}</>
+                  : <div className="rl-photo-placeholder"><div className="rl-photo-ph-label">Photo coming soon</div></div>
+                }
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* NO BS */}
       <section className="rl-nobs-sec">
         <div className="rl-inner">
@@ -1013,6 +1130,72 @@ export default function MarketingLanding({ onAuthSuccess }) {
       </section>
 
       {/* FINAL CTA */}
+
+      {/* AMBASSADOR */}
+      <section className="rl-amb-sec" id="ambassador">
+        <div className="rl-amb-inner">
+          <div>
+            <div className="rl-amb-eyebrow">Ambassador Program</div>
+            <h2 className="rl-amb-h2">Run the water.<br/>Fly the flag.</h2>
+            <p className="rl-amb-body">
+              Captains, mates, and folks in the trade who use the app, push the product forward, and hold us accountable to build something worth fishing with. In return, the app is yours free. And you get Pro subscriptions to gift to your crew.
+            </p>
+            <div className="rl-amb-perks">
+              <div className="rl-amb-perk"><div className="rl-amb-dot"/><div className="rl-amb-perk-text">Free Pro subscription, no expiration</div></div>
+              <div className="rl-amb-perk"><div className="rl-amb-dot"/><div className="rl-amb-perk-text">Pro gift subscriptions to pass to your crew</div></div>
+              <div className="rl-amb-perk"><div className="rl-amb-dot"/><div className="rl-amb-perk-text">Direct line to the dev team -- your feedback shapes the roadmap</div></div>
+              <div className="rl-amb-perk"><div className="rl-amb-dot"/><div className="rl-amb-perk-text">Featured on the community leaderboard</div></div>
+              <div className="rl-amb-perk"><div className="rl-amb-dot"/><div className="rl-amb-perk-text">One requirement: stay active, contribute, and keep it honest</div></div>
+            </div>
+          </div>
+          <div className="rl-amb-form-wrap">
+            {ambSubmitted ? (
+              <div className="rl-amb-success">
+                <div className="rl-amb-success-h">Application Received.</div>
+                <p className="rl-amb-success-p">We review every application personally. Expect to hear from us within a few days. Welcome to the program.</p>
+              </div>
+            ) : (
+              <>
+                <div className="rl-amb-form-title">Apply</div>
+                <div className="rl-amb-form-sub">Takes 2 minutes. We read every one.</div>
+                <div className="rl-amb-row">
+                  <div className="rl-amb-field">
+                    <label className="rl-amb-label">Name</label>
+                    <input className="rl-amb-input" placeholder="Captain Jane Smith" value={ambForm.name} onChange={e => setAmbForm(f=>({...f,name:e.target.value}))} />
+                  </div>
+                  <div className="rl-amb-field">
+                    <label className="rl-amb-label">Boat Name</label>
+                    <input className="rl-amb-input" placeholder="Reel Therapy" value={ambForm.boatName} onChange={e => setAmbForm(f=>({...f,boatName:e.target.value}))} />
+                  </div>
+                </div>
+                <div className="rl-amb-field">
+                  <label className="rl-amb-label">Home Port / Location</label>
+                  <input className="rl-amb-input" placeholder="Oregon Inlet, NC" value={ambForm.location} onChange={e => setAmbForm(f=>({...f,location:e.target.value}))} />
+                </div>
+                <div className="rl-amb-row">
+                  <div className="rl-amb-field">
+                    <label className="rl-amb-label">Email</label>
+                    <input className="rl-amb-input" type="email" placeholder="you@email.com" value={ambForm.email} onChange={e => setAmbForm(f=>({...f,email:e.target.value}))} />
+                  </div>
+                  <div className="rl-amb-field">
+                    <label className="rl-amb-label">Phone</label>
+                    <input className="rl-amb-input" type="tel" placeholder="(252) 555-0100" value={ambForm.phone} onChange={e => setAmbForm(f=>({...f,phone:e.target.value}))} />
+                  </div>
+                </div>
+                <div className="rl-amb-field">
+                  <label className="rl-amb-label">Tell us about yourself</label>
+                  <textarea className="rl-amb-input rl-amb-textarea" placeholder="How you fish, how you use the app, what you'd change, who you'd tell about it..." value={ambForm.comments} onChange={e => setAmbForm(f=>({...f,comments:e.target.value}))} />
+                </div>
+                {ambError && <div className="rl-amb-error">{ambError}</div>}
+                <button className="rl-amb-submit" disabled={ambSubmitting} onClick={submitAmbassador}>
+                  {ambSubmitting ? "Sending..." : "Submit Application"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
       <section className="rl-final">
         <div className="rl-final-ph">
           <img src={ctaBillfishImg} alt="Billfish at the waterline"
