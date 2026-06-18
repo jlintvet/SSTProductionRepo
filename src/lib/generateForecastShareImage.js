@@ -1,3 +1,4 @@
+import riplocLogo from "@/public/brand/riploc-app-icon.png";
 // generateForecastShareImage.js
 // Renders a branded "day forecast" card to a PNG Blob for sharing — mirrors
 // the share pipeline used by generateShareImage.js (SST) and
@@ -19,6 +20,17 @@ const SKY       = "#0ea5e9";
 
 const W = 440;
 const SCALE = 2;
+
+let _logoImg = null;
+function loadLogo() {
+  if (_logoImg) return Promise.resolve(_logoImg);
+  return new Promise((res) => {
+    const im = new Image();
+    im.onload = () => { _logoImg = im; res(im); };
+    im.onerror = () => res(null);
+    im.src = riplocLogo;
+  });
+}
 
 function fmtTime(iso) {
   if (!iso) return "--";
@@ -185,6 +197,8 @@ export async function generateForecastShareImage(opts) {
   const FOOTER = 34;
   const H = HEADER + COND + WIND + SEAS + TIDES + SUN + FOOTER;
 
+  const logo = await loadLogo();
+
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE; canvas.height = H * SCALE;
   const ctx = canvas.getContext("2d");
@@ -209,10 +223,15 @@ export async function generateForecastShareImage(opts) {
   ctx.font = "600 13px -apple-system, Segoe UI, Roboto, sans-serif";
   ctx.fillText(periodLabel || "", 18, 52);
 
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.font = "700 13px -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.textAlign = "right";
-  ctx.fillText("RipLoc", W - 18, 30);
+  if (logo) {
+    const lh = 38, lw = lh * (logo.width / logo.height);
+    ctx.drawImage(logo, W - 18 - lw, (HEADER - lh) / 2, lw, lh);
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.font = "700 15px -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("RipLoc", W - 18, 30);
+  }
 
   let y = HEADER;
   ctx.fillStyle = WASH;
@@ -232,16 +251,22 @@ export async function generateForecastShareImage(opts) {
     ctx.fillText(`Precip ${dayPrecip}%`, 72, y + COND / 2 + 16);
   }
 
-  ctx.textAlign = "right";
+  // Match the forecast card: "{high}° / {low}°F"
+  ctx.textAlign = "left";
   const hi = high != null ? `${high}°` : "--";
-  const lo = low != null ? `${low}°` : "--";
-  ctx.fillStyle = INK;
+  const loStr = ` / ${low != null ? `${low}°F` : "--"}`;
   ctx.font = "700 26px -apple-system, Segoe UI, Roboto, sans-serif";
   const hiW = ctx.measureText(hi).width;
-  ctx.fillText(hi, W - 18, y + COND / 2 + 2);
+  ctx.font = "600 16px -apple-system, Segoe UI, Roboto, sans-serif";
+  const loW = ctx.measureText(loStr).width;
+  const tStartX = W - 18 - hiW - loW;
+  const tBaseY = y + COND / 2 + 2;
+  ctx.fillStyle = INK;
+  ctx.font = "700 26px -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.fillText(hi, tStartX, tBaseY);
   ctx.fillStyle = SLATE_LT;
   ctx.font = "600 16px -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.fillText(` / ${lo}F`, W - 18 - hiW, y + COND / 2 + 2);
+  ctx.fillText(loStr, tStartX + hiW, tBaseY);
 
   const LX = 18, VX = 78;
   function rowLabel(text, iconFn, yy) {
@@ -326,7 +351,7 @@ export async function generateForecastShareImage(opts) {
   ctx.textAlign = "right";
   ctx.fillStyle = TEAL;
   ctx.font = "700 10px -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.fillText("riploc.app", W - 18, y + 21);
+  ctx.fillText("riploc.com", W - 18, y + 21);
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob ?? null), "image/png");

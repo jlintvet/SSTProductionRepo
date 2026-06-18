@@ -14,7 +14,7 @@ import ReactDOM from "react-dom";
 import moment from "moment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, Share2 } from "lucide-react";
+import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { fetchHourlyForecast } from "@/hooks/useMarineForecast";
 import ShareForecastDialog from "@/components/weather/ShareForecastDialog";
@@ -217,7 +217,7 @@ export default function ForecastCard({
                 aria-label="Share this forecast"
                 title="Share forecast"
               >
-                <Share2 className="w-4 h-4" />
+                <MessageSquare className="w-4 h-4" />
               </button>
             </div>
           </CardTitle>
