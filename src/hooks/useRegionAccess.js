@@ -1,6 +1,7 @@
 // src/hooks/useRegionAccess.js
-// tier values in user_profiles: "trial" | "standard" | "pro"
+// tier values in user_profiles: "trial" | "standard" | "pro" | "ambassador"
 // isPro = trial or pro (trial gets full Pro access for 30 days)
+// ambassador = permanent pro-equivalent; no expiry, no countdown
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_REGION } from "@/config/regionConfig";
@@ -56,7 +57,7 @@ export function useRegionAccess() {
         // Use the actual tier column: "trial" | "standard" | "pro"
         const profileTier = profile.tier ?? "standard";
         setTier(profileTier);
-        setIsPro(profileTier === "pro" || profileTier === "trial");
+        setIsPro(profileTier === "pro" || profileTier === "trial" || profileTier === "ambassador");
 
         // Trial countdown
         if (profileTier === "trial") {
@@ -70,6 +71,10 @@ export function useRegionAccess() {
             setDaysLeft(30);
             setIsExpired(false);
           }
+        } else if (profileTier === "ambassador") {
+          // Ambassadors get permanent pro access — no expiry
+          setDaysLeft(null);
+          setIsExpired(false);
         } else if (profile.subscription_status === "cancelled") {
           setIsExpired(true);
           setIsPro(false);
