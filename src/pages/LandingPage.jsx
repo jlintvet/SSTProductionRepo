@@ -11,6 +11,16 @@ import riplocMarkImg  from "../public/brand/riploc-mark.png";
 import riplocLockupImg from "../public/brand/riploc-lockup-horizontal.png";
 import featureMahiImg from "../public/feature_mahi.jpg";
 import ctaBillfishImg from "../public/cta_billfish.jpg";
+import commPhoto0 from "../public/community/img_0766.jpg";
+import commPhoto1 from "../public/community/img_1092.jpg";
+import commPhoto2 from "../public/community/img_1676.jpg";
+import commPhoto3 from "../public/community/img_2641.jpg";
+import commPhoto4 from "../public/community/img_2674.jpg";
+import commPhoto5 from "../public/community/img_2697.jpg";
+import commPhoto6 from "../public/community/img_5849.jpg";
+import commPhoto7 from "../public/community/img_7142.jpg";
+import commPhoto8 from "../public/community/img_7404.jpg";
+import commPhoto9 from "../public/community/img_9568.jpg";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -768,11 +778,16 @@ function HeroCarousel({ open, heroBoatImg, featureMahiImg, ctaBillfishImg }) {
 // To add photos: import the file at the top, then add { src: myImg, caption: "..." }
 // Use src: null to keep a placeholder slot while curating.
 const COMMUNITY_PHOTOS = [
-  { src: null, caption: "" },
-  { src: null, caption: "" },
-  { src: null, caption: "" },
-  { src: null, caption: "" },
-  { src: null, caption: "" },
+  { src: commPhoto0, caption: "" },
+  { src: commPhoto1, caption: "" },
+  { src: commPhoto2, caption: "" },
+  { src: commPhoto3, caption: "" },
+  { src: commPhoto4, caption: "" },
+  { src: commPhoto5, caption: "" },
+  { src: commPhoto6, caption: "" },
+  { src: commPhoto7, caption: "" },
+  { src: commPhoto8, caption: "" },
+  { src: commPhoto9, caption: "" },
 ];
 const PHOTOS_VISIBLE = 3;
 
