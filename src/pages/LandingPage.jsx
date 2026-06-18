@@ -11,16 +11,26 @@ import riplocMarkImg  from "../public/brand/riploc-mark.png";
 import riplocLockupImg from "../public/brand/riploc-lockup-horizontal.png";
 import featureMahiImg from "../public/feature_mahi.jpg";
 import ctaBillfishImg from "../public/cta_billfish.jpg";
-import commPhoto0 from "../public/community/img_0766.jpg";
-import commPhoto1 from "../public/community/img_1092.jpg";
-import commPhoto2 from "../public/community/img_1676.jpg";
-import commPhoto3 from "../public/community/img_2641.jpg";
-import commPhoto4 from "../public/community/img_2674.jpg";
-import commPhoto5 from "../public/community/img_2697.jpg";
-import commPhoto6 from "../public/community/img_5849.jpg";
-import commPhoto7 from "../public/community/img_7142.jpg";
-import commPhoto8 from "../public/community/img_7404.jpg";
-import commPhoto9 from "../public/community/img_9568.jpg";
+import commPhoto0  from "../public/community/img_0766.jpg";
+import commPhoto1  from "../public/community/img_1092.jpg";
+import commPhoto2  from "../public/community/img_1676.jpg";
+import commPhoto3  from "../public/community/img_2641.jpg";
+import commPhoto4  from "../public/community/img_2674.jpg";
+import commPhoto5  from "../public/community/img_2697.jpg";
+import commPhoto6  from "../public/community/img_5849.jpg";
+import commPhoto7  from "../public/community/img_7142.jpg";
+import commPhoto8  from "../public/community/img_7404.jpg";
+import commPhoto9  from "../public/community/img_9568.jpg";
+import commPhoto10 from "../public/community/img_1109.jpg";
+import commPhoto11 from "../public/community/img_1162.jpg";
+import commPhoto12 from "../public/community/img_1598.jpg";
+import commPhoto13 from "../public/community/img_1963.jpg";
+import commPhoto14 from "../public/community/img_2613.jpg";
+import commPhoto15 from "../public/community/img_2776.jpg";
+import commPhoto16 from "../public/community/img_2804.jpg";
+import commPhoto17 from "../public/community/img_2925.jpg";
+import commPhoto18 from "../public/community/img_2947.jpg";
+import commPhoto19 from "../public/community/img_3034.jpg";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -777,23 +787,54 @@ function HeroCarousel({ open, heroBoatImg, featureMahiImg, ctaBillfishImg }) {
 // ── Community photo carousel ──────────────────────────────────────────────────
 // To add photos: import the file at the top, then add { src: myImg, caption: "..." }
 // Use src: null to keep a placeholder slot while curating.
-const COMMUNITY_PHOTOS = [
-  { src: commPhoto0, caption: "" },
-  { src: commPhoto1, caption: "" },
-  { src: commPhoto2, caption: "" },
-  { src: commPhoto3, caption: "" },
-  { src: commPhoto4, caption: "" },
-  { src: commPhoto5, caption: "" },
-  { src: commPhoto6, caption: "" },
-  { src: commPhoto7, caption: "" },
-  { src: commPhoto8, caption: "" },
-  { src: commPhoto9, caption: "" },
+const ALL_COMMUNITY_PHOTOS = [
+  { src: commPhoto0  },
+  { src: commPhoto1  },
+  { src: commPhoto2  },
+  { src: commPhoto3  },
+  { src: commPhoto4  },
+  { src: commPhoto5  },
+  { src: commPhoto6  },
+  { src: commPhoto7  },
+  { src: commPhoto8  },
+  { src: commPhoto9  },
+  { src: commPhoto10 },
+  { src: commPhoto11 },
+  { src: commPhoto12 },
+  { src: commPhoto13 },
+  { src: commPhoto14 },
+  { src: commPhoto15 },
+  { src: commPhoto16 },
+  { src: commPhoto17 },
+  { src: commPhoto18 },
+  { src: commPhoto19 },
 ];
 const PHOTOS_VISIBLE = 3;
+function shufflePhotos(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function MarketingLanding({ onAuthSuccess }) {
   const [modal, setModal] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
+  const [photos, setPhotos] = useState(() => shufflePhotos(ALL_COMMUNITY_PHOTOS));
+  // Auto-cycle carousel every 4 seconds; reset on manual nav
+  const photoTimerRef = React.useRef(null);
+  const startPhotoTimer = React.useCallback(() => {
+    clearInterval(photoTimerRef.current);
+    photoTimerRef.current = setInterval(() => {
+      setPhotoIdx(i => {
+        const next = i + 1;
+        return next > photos.length - PHOTOS_VISIBLE ? 0 : next;
+      });
+    }, 4000);
+  }, [photos.length]);
+  React.useEffect(() => { startPhotoTimer(); return () => clearInterval(photoTimerRef.current); }, [startPhotoTimer]);
   const [ambForm, setAmbForm]             = useState({ name:"", boatName:"", location:"", email:"", phone:"", comments:"" });
   const [ambSubmitting, setAmbSubmitting] = useState(false);
   const [ambSubmitted,  setAmbSubmitted]  = useState(false);
@@ -1061,13 +1102,13 @@ export default function MarketingLanding({ onAuthSuccess }) {
             <h2 className="rl-photos-h2">Real Catches. Real Data.</h2>
           </div>
           <div className="rl-photos-nav">
-            <button className="rl-photos-nbtn" onClick={() => setPhotoIdx(i => Math.max(0, i-1))} disabled={photoIdx === 0} aria-label="Previous">&#8592;</button>
-            <button className="rl-photos-nbtn" onClick={() => setPhotoIdx(i => Math.min(COMMUNITY_PHOTOS.length - PHOTOS_VISIBLE, i+1))} disabled={photoIdx >= COMMUNITY_PHOTOS.length - PHOTOS_VISIBLE} aria-label="Next">&#8594;</button>
+            <button className="rl-photos-nbtn" onClick={() => { setPhotoIdx(i => Math.max(0, i-1)); startPhotoTimer(); }} disabled={photoIdx === 0} aria-label="Previous">&#8592;</button>
+            <button className="rl-photos-nbtn" onClick={() => { setPhotoIdx(i => Math.min(photos.length - PHOTOS_VISIBLE, i+1)); startPhotoTimer(); }} disabled={photoIdx >= photos.length - PHOTOS_VISIBLE} aria-label="Next">&#8594;</button>
           </div>
         </div>
         <div className="rl-photos-track-wrap">
           <div className="rl-photos-track" style={{ transform: `translateX(calc(-${photoIdx * 416}px))` }}>
-            {COMMUNITY_PHOTOS.map((p, i) => (
+            {photos.map((p, i) => (
               <div className="rl-photo-slide" key={i}>
                 {p.src
                   ? <><img src={p.src} alt={p.caption || "Community catch"} />{p.caption && <div className="rl-photo-caption">{p.caption}</div>}</>
