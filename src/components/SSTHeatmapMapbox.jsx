@@ -99,7 +99,16 @@ function windSpeedColor(val, min, max) {
   return interpColor(Math.max(0, Math.min(1, (val - min) / (max - min))), WIND_SPEED_STOPS);
 }
 
-export const FISH_SPECIES=[{key:"yellowfin",label:"Yellowfin",color:"#f59e0b"},{key:"mahi",label:"Mahi",color:"#10b981"},{key:"wahoo",label:"Wahoo",color:"#3b82f6"},{key:"bluefin",label:"Bluefin",color:"#6366f1"},{key:"kingfish",label:"Kingfish",color:"#ef4444"},{key:"white_marlin",label:"W. Marlin",color:"#8b5cf6"},{key:"blue_marlin",label:"B. Marlin",color:"#0ea5e9"}];
+export const FISH_SPECIES=[
+  {key:"yellowfin",label:"Yellowfin",color:"#f59e0b"},
+  {key:"mahi",label:"Mahi",color:"#10b981"},
+  {key:"wahoo",label:"Wahoo",color:"#3b82f6"},
+  {key:"blue_marlin",label:"Marlin",color:"#0ea5e9"},
+  // Temporarily hidden in the UI per request — backend scoring is unchanged. Re-enable by uncommenting:
+  // {key:"bluefin",label:"Bluefin",color:"#6366f1"},
+  // {key:"kingfish",label:"Kingfish",color:"#ef4444"},
+  // {key:"white_marlin",label:"W. Marlin",color:"#8b5cf6"},
+];
 
 function distanceNm(lat1,lon1,lat2,lon2){const R=3440.065,dLat=((lat2-lat1)*Math.PI)/180,dLon=((lon2-lon1)*Math.PI)/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function bearingDeg(lat1,lon1,lat2,lon2){const dLon=((lon2-lon1)*Math.PI)/180;const y=Math.sin(dLon)*Math.cos(lat2*Math.PI/180);const x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);return((Math.atan2(y,x)*180/Math.PI)+360)%360;}

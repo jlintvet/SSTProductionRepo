@@ -45,7 +45,7 @@ export default function CommunityReportForm({
   }
 
   function setQty(key, val) {
-    setQuantities(q => ({ ...q, [key]: Math.max(1, parseInt(val) || 1) }));
+    setQuantities(q => ({ ...q, [key]: Math.max(0, parseInt(val) || 0) }));
   }
 
   async function handleSubmit() {

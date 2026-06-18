@@ -173,10 +173,12 @@ const FISH_SPECIES = [
   { key: "yellowfin",    label: "Yellowfin", color: "#fafbfc" },
   { key: "mahi",         label: "Mahi",       color: "#10b981" },
   { key: "wahoo",        label: "Wahoo",      color: "#3b82f6" },
-  { key: "bluefin",      label: "Bluefin",    color: "#6366f1" },
-  { key: "kingfish",     label: "Kingfish",   color: "#ef4444" },
-  { key: "white_marlin", label: "W. Marlin",  color: "#8b5cf6" },
-  { key: "blue_marlin",  label: "B. Marlin",  color: "#0ea5e9" },
+  { key: "blue_marlin",  label: "Marlin",     color: "#0ea5e9" },
+  // Temporarily hidden in the UI per request — backend scoring is unchanged.
+  // Re-enable by uncommenting:
+  // { key: "bluefin",      label: "Bluefin",    color: "#6366f1" },
+  // { key: "kingfish",     label: "Kingfish",   color: "#ef4444" },
+  // { key: "white_marlin", label: "W. Marlin",  color: "#8b5cf6" },
 ];
 
 // ── Isotherm sub-controls ──────────────────────────────────────────────────────
