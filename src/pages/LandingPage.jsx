@@ -231,12 +231,12 @@ const GLOBAL_CSS = `
     transform:translateX(-50%);width:700px;height:700px;
     background:radial-gradient(circle,rgba(26,95,216,.1) 0%,transparent 70%);
     pointer-events:none;}
-  .rl-nobs-hdr{text-align:center;margin-bottom:5rem;position:relative;z-index:1;}
+  .rl-nobs-hdr{text-align:left;margin-bottom:5rem;position:relative;z-index:1;}
   .rl-nobs-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;
-    text-transform:uppercase;color:#1a5fd8;margin-bottom:1rem;}
+    text-transform:uppercase;color:#00c8e8;margin-bottom:1rem;}
   .rl-nobs-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
     font-size:clamp(2.5rem,5vw,4rem);color:#fff;line-height:1.05;margin-bottom:1rem;}
-  .rl-nobs-sub{font-size:17px;color:#7a9ab5;max-width:540px;margin:0 auto;line-height:1.7;}
+  .rl-nobs-sub{font-size:17px;color:#7a9ab5;max-width:640px;margin:0;line-height:1.7;}
   .rl-nobs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;
     border:1px solid rgba(0,200,232,.12);border-radius:20px;overflow:hidden;
     position:relative;z-index:1;}
@@ -256,10 +256,10 @@ const GLOBAL_CSS = `
   /* PRICING */
   .rl-price-sec{background:#f8fafc;padding:6rem 2.5rem;}
   .rl-price-inner{max-width:900px;margin:0 auto;}
-  .rl-price-hdr{text-align:center;margin-bottom:3.5rem;}
+  .rl-price-hdr{text-align:left;margin-bottom:3.5rem;}
   .rl-price-h2{font-family:'Bebas Neue','Arial Black',sans-serif;
     font-size:clamp(2rem,5vw,3.25rem);color:#0f172a;letter-spacing:.03em;margin-bottom:.75rem;}
-  .rl-price-sub{font-size:16px;color:#475569;max-width:480px;margin:0 auto;line-height:1.7;}
+  .rl-price-sub{font-size:16px;color:#475569;max-width:640px;margin:0;line-height:1.7;}
   .rl-cards{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
   .rl-card{border-radius:20px;padding:2.5rem;position:relative;}
   .rl-card.free{background:#fff;border:1.5px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.07);}
@@ -310,7 +310,7 @@ const GLOBAL_CSS = `
   .rl-photos-sec{background:#04090f;padding:5rem 0;overflow:hidden;border-top:1px solid rgba(0,200,232,.07);}
   .rl-photos-hdr{max-width:1100px;margin:0 auto 2.5rem;padding:0 2.5rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;}
   .rl-photos-left{}
-  .rl-photos-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#1a5fd8;margin-bottom:.75rem;}
+  .rl-photos-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00c8e8;margin-bottom:.75rem;}
   .rl-photos-h2{font-family:'Bebas Neue','Arial Black',sans-serif;font-size:clamp(2rem,4vw,3rem);color:#fff;line-height:1;}
   .rl-photos-nav{display:flex;gap:.5rem;flex-shrink:0;}
   .rl-photos-nbtn{width:40px;height:40px;border-radius:50%;border:1px solid rgba(0,200,232,.2);background:transparent;color:#00c8e8;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:16px;}
@@ -318,7 +318,7 @@ const GLOBAL_CSS = `
   .rl-photos-nbtn:disabled{opacity:.3;cursor:default;}
   .rl-photos-track-wrap{padding-left:2.5rem;overflow:hidden;}
   .rl-photos-track{display:flex;gap:1rem;transition:transform .6s cubic-bezier(.4,0,.2,1);}
-  .rl-photo-slide{flex:0 0 400px;height:280px;border-radius:16px;overflow:hidden;position:relative;background:#0d1a2e;}
+  .rl-photo-slide{flex:0 0 500px;height:350px;border-radius:16px;overflow:hidden;position:relative;background:#0d1a2e;}
   .rl-photo-slide img{width:100%;height:100%;object-fit:cover;display:block;}
   .rl-photo-caption{position:absolute;bottom:0;left:0;right:0;padding:1rem 1.25rem .875rem;background:linear-gradient(to top,rgba(0,0,0,.65),transparent);font-size:12px;color:rgba(255,255,255,.8);letter-spacing:.03em;}
   .rl-photo-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;border:1px dashed rgba(0,200,232,.15);border-radius:16px;}
@@ -328,7 +328,7 @@ const GLOBAL_CSS = `
   .rl-amb-sec{background:#06101e;padding:8rem 2.5rem;border-top:1px solid rgba(0,200,232,.1);position:relative;overflow:hidden;}
   .rl-amb-sec::before{content:'';position:absolute;top:-80px;right:-80px;width:500px;height:500px;background:radial-gradient(circle,rgba(26,95,216,.08) 0%,transparent 70%);pointer-events:none;}
   .rl-amb-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:start;position:relative;z-index:1;}
-  .rl-amb-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#1a5fd8;margin-bottom:1rem;}
+  .rl-amb-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00c8e8;margin-bottom:1rem;}
   .rl-amb-h2{font-family:'Bebas Neue','Arial Black',sans-serif;font-size:clamp(2.5rem,5vw,4rem);color:#fff;line-height:1.05;margin-bottom:1.5rem;}
   .rl-amb-body{font-size:16px;line-height:1.8;color:#7a9ab5;margin-bottom:2rem;}
   .rl-amb-perks{display:flex;flex-direction:column;gap:1rem;}
@@ -354,7 +354,7 @@ const GLOBAL_CSS = `
   .rl-amb-success-p{font-size:15px;color:#7a9ab5;line-height:1.7;}
   @media(max-width:900px){
     .rl-amb-inner{grid-template-columns:1fr;}
-    .rl-photo-slide{flex:0 0 280px;height:200px;}
+    .rl-photo-slide{flex:0 0 350px;height:250px;}
     .rl-amb-row{grid-template-columns:1fr;}
   }
 
@@ -888,6 +888,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           <a href="#features"  className="rl-nav-link">Features</a>
           <a href="#community" className="rl-nav-link">Community</a>
           <a href="#pricing"   className="rl-nav-link">Pricing</a>
+          <a href="#ambassador" className="rl-nav-link">Ambassador</a>
         </div>
         <div className="rl-nav-right">
           <button className="rl-btn-ghost" onClick={open}>Sign In</button>
@@ -1077,7 +1078,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           </div>
           <div className="rl-comm-photo" style={{background:"#0d1a2e",display:"flex",alignItems:"center",justifyContent:"center",minHeight:420,border:"1px solid rgba(0,200,232,.15)",borderRadius:16}}>
             <div style={{width:"100%",padding:"2rem 1.5rem",fontFamily:"inherit"}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:".16em",textTransform:"uppercase",color:"#1a5fd8",marginBottom:"1.25rem"}}>Community Leaderboard</div>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:".16em",textTransform:"uppercase",color:"#00c8e8",marginBottom:"1.25rem"}}>Community Leaderboard</div>
               {[{n:"capt_jones",pts:4200,tip:"$18"},{n:"offshore_kev",pts:3850,tip:"$12"},{n:"bluewaterjen",pts:3100,tip:"$9"},{n:"mahi_mike",pts:2780,tip:"$7"},{n:"you",pts:0,tip:"--"}].map((r,i)=>(
                 <div key={r.n} style={{display:"flex",alignItems:"center",gap:"1rem",padding:".75rem 0",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
                   <div style={{width:24,textAlign:"right",fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",color:i<3?"#00c8e8":"#4a6a85"}}>{i+1}</div>
@@ -1099,7 +1100,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
         <div className="rl-photos-hdr">
           <div className="rl-photos-left">
             <div className="rl-photos-eyebrow">From The Water</div>
-            <h2 className="rl-photos-h2">Real Catches. Real Data.</h2>
+            <h2 className="rl-photos-h2">Real Community. Real Data.</h2>
           </div>
           <div className="rl-photos-nav">
             <button className="rl-photos-nbtn" onClick={() => { setPhotoIdx(i => Math.max(0, i-1)); startPhotoTimer(); }} disabled={photoIdx === 0} aria-label="Previous">&#8592;</button>
@@ -1107,7 +1108,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           </div>
         </div>
         <div className="rl-photos-track-wrap">
-          <div className="rl-photos-track" style={{ transform: `translateX(calc(-${photoIdx * 416}px))` }}>
+          <div className="rl-photos-track" style={{ transform: `translateX(calc(-${photoIdx * 516}px))` }}>
             {photos.map((p, i) => (
               <div className="rl-photo-slide" key={i}>
                 {p.src
@@ -1154,7 +1155,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
       <section className="rl-price-sec" id="pricing">
         <div className="rl-price-inner">
           <div className="rl-price-hdr">
-            <div className="rl-lbl" style={{ color: "#1a5fd8", display: "inline-block", marginBottom: "0.75rem" }}>Pricing</div>
+            <div className="rl-lbl" style={{ marginBottom: "0.75rem" }}>Pricing</div>
             <h2 className="rl-price-h2">Less than one offshore trip.</h2>
             <p className="rl-price-sub">Pro is less expensive than every competing SST platform. And it outperforms them all.</p>
           </div>
@@ -1208,7 +1209,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
             {ambSubmitted ? (
               <div className="rl-amb-success">
                 <div className="rl-amb-success-h">Application Received.</div>
-                <p className="rl-amb-success-p">We review every application personally. Expect to hear from us within a few days. Welcome to the program.</p>
+                <p className="rl-amb-success-p">We review every application personally. Expect to hear from us within a few days. Thank you!</p>
               </div>
             ) : (
               <>
