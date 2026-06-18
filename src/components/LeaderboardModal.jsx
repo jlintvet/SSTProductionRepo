@@ -35,14 +35,14 @@ export default function LeaderboardModal({ onClose }) {
         else map[l.user_id].reports++;
       });
 
-      let tipQuery = supabase.from("community_tips").select("recipient_user_id, amount_cents");
-      if (period === "month") {
-        tipQuery = tipQuery.gte("created_at",
-          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-      }
-      const { data: tips } = await tipQuery;
-      (tips || []).forEach(t => {
-        if (map[t.recipient_user_id]) map[t.recipient_user_id].tips_cents += t.amount_cents || 0;
+      // Tip totals via a SECURITY DEFINER aggregate so seed + real tips are visible
+      // to everyone (community_tips row RLS only exposes a viewer's own tips -> $0).
+      const tipsSince = period === "month"
+        ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+      const { data: tipTotals } = await supabase.rpc("community_tip_totals", { since: tipsSince });
+      (tipTotals || []).forEach(t => {
+        if (map[t.recipient_user_id]) map[t.recipient_user_id].tips_cents += t.total_cents || 0;
       });
 
       setRows(Object.values(map).sort((a, b) => b.points - a.points).slice(0, 25));
