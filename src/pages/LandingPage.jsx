@@ -869,6 +869,17 @@ export default function MarketingLanding({ onAuthSuccess }) {
         comments:  ambForm.comments.trim(),
       }]);
       if (error) throw error;
+      // Fire-and-forget email notification (non-blocking)
+      supabase.functions.invoke("notify-ambassador", {
+        body: {
+          name:     ambForm.name.trim(),
+          email:    ambForm.email.trim(),
+          boatName: ambForm.boatName.trim(),
+          location: ambForm.location.trim(),
+          phone:    ambForm.phone.trim(),
+          comments: ambForm.comments.trim(),
+        },
+      }).catch(() => {}); // don't block submission on email failure
       setAmbSubmitted(true);
     } catch(e) {
       setAmbError("Something went wrong. Please email us directly.");
