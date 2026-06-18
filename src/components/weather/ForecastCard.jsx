@@ -14,9 +14,10 @@ import ReactDOM from "react-dom";
 import moment from "moment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X } from "lucide-react";
+import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, Share2 } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { fetchHourlyForecast } from "@/hooks/useMarineForecast";
+import ShareForecastDialog from "@/components/weather/ShareForecastDialog";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -181,10 +182,12 @@ export default function ForecastCard({
   nwsForecast,
   tideData,
   sunData,
+  locationLabel,
   forecastHourlyUrl,   // from data.forecastHourlyUrl via useMarineForecast
 }) {
   const [showNarrative, setShowNarrative] = useState(false);
   const [showHourly,    setShowHourly]    = useState(false);
+  const [showShare,     setShowShare]     = useState(false);
 
   // Parse "Tonight 5/4" / "Tue 5/5" → "YYYY-MM-DD" key for joining with the
   // NWS / tide / sun maps. Falls back to dayOffset if the regex misses.
@@ -205,7 +208,18 @@ export default function ForecastCard({
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between">
             <span className="text-lg">{forecast.period.replace(" Of ", " of ")}</span>
-            <Badge variant="outline" className="text-xs">{badgeLabel}</Badge>
+            <div className="flex items-center gap-1.5">
+              <Badge variant="outline" className="text-xs">{badgeLabel}</Badge>
+              <button
+                type="button"
+                onClick={() => setShowShare(true)}
+                className="p-1.5 -mr-1 rounded-md text-cyan-700 hover:bg-cyan-50 transition-colors"
+                aria-label="Share this forecast"
+                title="Share forecast"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+            </div>
           </CardTitle>
         </CardHeader>
 
@@ -347,6 +361,38 @@ export default function ForecastCard({
           date={forecastDate}
           label={forecast.period}
           onClose={() => setShowHourly(false)}
+        />
+      )}
+
+      {/* Forecast share dialog */}
+      {showShare && (
+        <ShareForecastDialog
+          payload={{
+            locationLabel: locationLabel || "Fishing Spot",
+            periodLabel: forecast.period.replace(" Of ", " of "),
+            condition: nws?.dayForecast || "",
+            high: nws?.high ?? null,
+            low: nws?.low ?? null,
+            dayPrecip: nws?.dayPrecip ?? 0,
+            wind: {
+              direction: forecast.wind_direction,
+              speed: forecast.wind_speed,
+              gusts: forecast.wind_gusts,
+            },
+            waves: forecast.wave_height || null,
+            swell: forecast.primary_swell_direction
+              ? {
+                  direction: forecast.primary_swell_direction,
+                  height: forecast.primary_wave_height,
+                  period: forecast.primary_wave_period,
+                }
+              : null,
+            tides: dailyTides,
+            sun: dailySunData
+              ? { sunrise: dailySunData.sunrise, sunset: dailySunData.sunset }
+              : null,
+          }}
+          onClose={() => setShowShare(false)}
         />
       )}
     </>

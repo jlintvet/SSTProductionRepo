@@ -114,6 +114,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, onCollapse,
               nwsForecast={data.nws}
               tideData={data.tides}
               sunData={data.sun}
+              locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
             />
             <ExtendedOutlook
@@ -121,6 +122,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, onCollapse,
               nwsForecast={data.nws}
               tideData={data.tides}
               sunData={data.sun}
+              locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
             />
             {data.forecast?.timestamp && (

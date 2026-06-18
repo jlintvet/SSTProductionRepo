@@ -41,6 +41,7 @@ export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sun
               nwsForecast={nwsForecast}
               tideData={tideData}
               sunData={sunData}
+              locationLabel={locationLabel}
               forecastHourlyUrl={forecastHourlyUrl}
             />
           ))}

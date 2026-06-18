@@ -9,7 +9,7 @@ import { ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import ForecastCard from "@/components/weather/ForecastCard";
 
-export default function ExtendedOutlook({ forecasts, nwsForecast, tideData, sunData, forecastHourlyUrl }) {
+export default function ExtendedOutlook({ forecasts, nwsForecast, tideData, sunData, locationLabel, forecastHourlyUrl }) {
   const cards = forecasts?.slice(3) ?? [];
   if (!cards.length) return null;
 
@@ -31,6 +31,7 @@ export default function ExtendedOutlook({ forecasts, nwsForecast, tideData, sunD
               nwsForecast={nwsForecast}
               tideData={tideData}
               sunData={sunData}
+              locationLabel={locationLabel}
               forecastHourlyUrl={forecastHourlyUrl}
             />
           ))}

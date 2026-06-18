@@ -183,6 +183,7 @@ export default function WeatherBottomSheet() {
                 nwsForecast={data.nws}
                 tideData={data.tides}
                 sunData={data.sun}
+                locationLabel={selectedLocation?.label}
                 forecastHourlyUrl={data.forecastHourlyUrl}
               />
             </div>
@@ -192,6 +193,7 @@ export default function WeatherBottomSheet() {
                 nwsForecast={data.nws}
                 tideData={data.tides}
                 sunData={data.sun}
+                locationLabel={selectedLocation?.label}
                 forecastHourlyUrl={data.forecastHourlyUrl}
               />
             )}
