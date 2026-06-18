@@ -277,6 +277,7 @@ function TipFlow({ pin, userId, onClose }) {
   const [custom,     setCustom]     = React.useState("");
   const [useCustom,  setUseCustom]  = React.useState(false);
   const [recording,  setRecording]  = React.useState(false);
+  const [tipError,   setTipError]   = React.useState(false);
 
   const finalAmount = useCustom ? (parseFloat(custom) || 0) : amount;
 
@@ -314,6 +315,21 @@ function TipFlow({ pin, userId, onClose }) {
     onClose();
   }
 
+  // Gate the payment deep link on the recipient actually having a handle. Seed pins
+  // (and real users who never set one) have null handles -> show a graceful error and
+  // open NO payment link / record NO tip. Admin-notify is a quiet client log to avoid
+  // spam from the many handle-less pins; wire to a deduped server log later if desired.
+  function attemptTip(platform) {
+    if (finalAmount <= 0) return;
+    const handle = platform === "venmo" ? pin.venmo_handle : pin.cashapp_handle;
+    if (!handle) {
+      console.warn("[tip] recipient has no", platform, "handle:", pin.user_id);
+      setTipError(true);
+      return;
+    }
+    recordAndOpen(platform);
+  }
+
   return (
     <div>
       <p className="text-xs text-slate-500 mb-3">Choose an amount, then open your payment app:</p>
@@ -333,25 +349,27 @@ function TipFlow({ pin, userId, onClose }) {
         <input type="number" min="1" max="500" value={custom} onChange={e => setCustom(e.target.value)}
           placeholder="Enter amount" className="w-full mb-3 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500" />
       )}
-      <div className="flex flex-col gap-2">
-        {!pin.venmo_handle && !pin.cashapp_handle && (
-          <div className="text-center text-xs text-slate-400 py-2 border border-dashed border-slate-200 rounded-lg">
-            This angler hasn’t set up a payment handle yet.
-          </div>
-        )}
-        {pin.venmo_handle && (
-          <button onClick={() => recordAndOpen("venmo")} disabled={recording || finalAmount <= 0}
-            className="w-full py-2 rounded-xl bg-[#3D95CE] hover:bg-[#2d7ab8] text-white font-semibold text-sm transition-colors disabled:opacity-50">
-            Open Venmo — ${finalAmount}
-          </button>
-        )}
-        {pin.cashapp_handle && (
-          <button onClick={() => recordAndOpen("cashapp")} disabled={recording || finalAmount <= 0}
-            className="w-full py-2 rounded-xl bg-[#00D64F] hover:bg-[#00b843] text-white font-semibold text-sm transition-colors disabled:opacity-50">
-            Open Cash App — ${finalAmount}
-          </button>
-        )}
-      </div>
+      {tipError ? (
+        <div className="text-sm text-slate-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-3 text-center leading-snug">
+          Sorry — there’s an error preventing this tip from processing right now.
+          We’ve notified the admin and are working to resolve it.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {(pin.venmo_handle || (!pin.venmo_handle && !pin.cashapp_handle)) && (
+            <button onClick={() => attemptTip("venmo")} disabled={recording || finalAmount <= 0}
+              className="w-full py-2 rounded-xl bg-[#3D95CE] hover:bg-[#2d7ab8] text-white font-semibold text-sm transition-colors disabled:opacity-50">
+              Open Venmo — ${finalAmount}
+            </button>
+          )}
+          {(pin.cashapp_handle || (!pin.venmo_handle && !pin.cashapp_handle)) && (
+            <button onClick={() => attemptTip("cashapp")} disabled={recording || finalAmount <= 0}
+              className="w-full py-2 rounded-xl bg-[#00D64F] hover:bg-[#00b843] text-white font-semibold text-sm transition-colors disabled:opacity-50">
+              Open Cash App — ${finalAmount}
+            </button>
+          )}
+        </div>
+      )}
       <p className="text-[10px] text-slate-400 mt-2 text-center">Amount is pre-filled where supported. You confirm payment in the app.</p>
     </div>
   );
