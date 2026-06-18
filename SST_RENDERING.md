@@ -113,6 +113,8 @@ Since CHL at ~0.011° is close to the SST grid at 0.01°, `expandCoarseGrid` pro
 
 Leaflet image overlays sit above the tile layer automatically. SST is rendered first, then the CHL/SeaColor/Composite overlay on top. No z-index tricks needed.
 
+**Bathymetry stacking (explicit panes).** Two custom panes pin the order so the bathy contours read clearly over the data raster but never cover the overlays/markers: `sstDataPane` (z-index 350) holds the non-GL SST and CHL/SeaColor/Composite/Altimetry image overlays; `bathyPane` (z-index 375) holds the bathy contours + depth labels. Result, bottom→top: tilePane 200 (GL basemap + SST in GL mode) < sstDataPane 350 < bathyPane 375 < overlayPane 400 (wind/currents/isotherm/SLA) < markerPane 600 (locations, wrecks, buoys, place labels, tools). Wreck pins are `L.marker` divIcons (markerPane), matched in size to the saved-location pins.
+
 SST must still be **ocean-only by the time it hits the canvas**. The basemap's land areas show through transparent pixels — so land-filtered SST is correct. The `waterMaskRef` ocean mask function is passed to `gridToDataURL` as `isOcean` to skip land pixels.
 
 ---
