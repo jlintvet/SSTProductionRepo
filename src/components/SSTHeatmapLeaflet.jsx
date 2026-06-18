@@ -2347,7 +2347,7 @@ export default function SSTHeatmapLeaflet(props) {
       if (loc?.wreckRegion && props.region && props.region !== loc.wreckRegion) return;
       const fKey = `${(props.name ?? "").trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
       if (wreckRemovedKeys?.has(fKey)) return;
-      const m = L.circleMarker([lat, lon], { radius:6, color:"#fff", weight:1.5, fillColor:"#67e8f9", fillOpacity:0.9 });
+      const m = L.circleMarker([lat, lon], { radius:6, color:"#fff", weight:1.5, fillColor:"#CAD8DB", fillOpacity:0.9 });
       const showPopup = e => { const containerPt=map.latLngToContainerPoint(e.latlng); setHoveredWreck({px:containerPt.x,py:containerPt.y,props,lat,lon}); try{map.getContainer().style.cursor="pointer";}catch(_){} };
       m.on("mouseover", showPopup);
       m.on("click", e => { L.DomEvent.stopPropagation(e); showPopup(e); });
