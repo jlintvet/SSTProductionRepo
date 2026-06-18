@@ -17,7 +17,9 @@ function buildShareText(payload) {
   if (t.length) lines.push(t.join("  "));
   if (wind && (wind.direction || wind.speed)) lines.push(`Wind ${[wind.direction, wind.speed].filter(Boolean).join(" ")}`);
   if (waves) lines.push(`Seas ${waves}`);
-  lines.push(`\n${window.location.origin}`);
+  lines.push("");
+  lines.push("Shared from RipLoc — live SST, marine forecasts & fishing intel");
+  lines.push("https://riploc.com");
   return lines.join("\n");
 }
 
