@@ -9,6 +9,7 @@ import tripPlanImg    from "../public/trip_plan_ref.png";
 import heroBoatImg    from "../public/hero_boat.jpg";
 import riplocMarkImg  from "../public/brand/riploc-mark.png";
 import riplocLockupImg from "../public/brand/riploc-lockup-horizontal.png";
+import riplocOfiImg    from "../public/brand/riploc-ofi-icon.png";
 import featureMahiImg from "../public/feature_mahi.jpg";
 import ctaBillfishImg from "../public/cta_billfish.jpg";
 import appUiImg       from "../public/screenshots/app_ui.jpg";
@@ -882,7 +883,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
 
       {/* NAV */}
       <nav className="rl-nav">
-        <RipLocLogo h={30} />
+        <img src={riplocOfiImg} alt="Riploc" style={{ height: 34, width: Math.round(34 * 5.295), objectFit:"contain", display:"block" }} />
         <div className="rl-nav-links">
           <a href="#data"      className="rl-nav-link">Data</a>
           <a href="#features"  className="rl-nav-link">Features</a>
