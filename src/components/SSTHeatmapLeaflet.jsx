@@ -2856,13 +2856,14 @@ export default function SSTHeatmapLeaflet(props) {
           {/* ── Community pin-drop mode banner ─────────────────────── */}
           {communityPinDrop && (
             <div
-              className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
-              style={{ zIndex: 1200, pointerEvents: "auto" }}
+              className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg"
+              style={{ zIndex: 1200, pointerEvents: "auto", background: "#0891b2" }}
             >
-              <span>📍 Click the map to place your {communityPinDrop === "live" ? "live" : "catch"} pin</span>
+              <Crosshair className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Select location for your community report</span>
               <button
                 onClick={e => { e.stopPropagation(); onCancelPinDrop?.(); }}
-                className="ml-1 text-emerald-200 hover:text-white leading-none"
+                className="ml-1 text-cyan-200 hover:text-white leading-none"
               >✕</button>
             </div>
           )}
@@ -2959,12 +2960,21 @@ export default function SSTHeatmapLeaflet(props) {
               style={{ width:30, height:30, padding:0, background:showCommunityLayer?"#84cc16":"rgba(255,255,255,0.9)", borderColor:showCommunityLayer?"#84cc16":"#e2e8f0" }}>
               <span style={{ fontSize:9, fontWeight:700, color:showCommunityLayer?"#fff":"#64748b", lineHeight:1 }}>COM</span>
             </button>
-            {/* Drop Live Pin */}
-            <button onClick={() => onPostCommunityReport?.({ type: "live" })} title="Drop Live Pin"
+            {/* Live Report */}
+            <button onClick={() => onPostCommunityReport?.({ type: "live" })} title="Live Report"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#16a34a" stroke="#16a34a" strokeWidth="1"/>
+                <circle cx="12" cy="9" r="2.5" fill="#fff"/>
+              </svg>
+            </button>
+            {/* Post-Trip Report */}
+            <button onClick={() => onPostCommunityReport?.({ type: "report" })} title="Post-Trip Report"
+              className="flex items-center justify-center rounded-lg shadow-sm border"
+              style={{ width:30, height:30, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#00bcd4" stroke="#00bcd4" strokeWidth="1"/>
                 <circle cx="12" cy="9" r="2.5" fill="#fff"/>
               </svg>
             </button>
