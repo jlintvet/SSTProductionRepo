@@ -858,9 +858,14 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
   const [ambError,      setAmbError]      = useState("");
   const navigate = useNavigate();
 
-  // CSS injected at module level (no FOUC); cleanup on unmount
+  // Re-inject CSS if missing (e.g. after sign-out remount); no cleanup — global style persists
   useEffect(() => {
-    return () => { document.querySelector('[data-rl="1"]')?.remove(); };
+    if (!document.querySelector('[data-rl="1"]')) {
+      const s = document.createElement("style");
+      s.setAttribute("data-rl", "1");
+      s.textContent = GLOBAL_CSS;
+      document.head.appendChild(s);
+    }
   }, []);
 
   async function submitAmbassador() {
