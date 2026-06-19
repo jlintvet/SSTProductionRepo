@@ -138,7 +138,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/40 px-4 pt-4 overflow-y-auto"
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}

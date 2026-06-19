@@ -58,13 +58,13 @@ export default function LeaderboardModal({ onClose }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9600] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9600] flex items-start justify-center p-4 overflow-y-auto"
       style={{ background: "rgba(0,0,0,0.72)" }}
       onClick={onClose}
     >
       <div
         className="w-full flex flex-col overflow-hidden"
-        style={{ maxWidth: 460, maxHeight: "92vh", borderRadius: 20,
+        style={{ maxWidth: 460, borderRadius: 20,
           boxShadow: "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)" }}
         onClick={e => e.stopPropagation()}
       >

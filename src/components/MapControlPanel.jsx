@@ -575,30 +575,7 @@ export default function MapControlPanel({
 
       <Divider />
 
-      {/* ── Gain / range (Pro) ────────────────────────────────────────── */}
-      {showGain && (
-        <>
-          <ProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
-            <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
-            {openSections.gain && (
-              <div className="px-2 pb-2">
-                <SSTRangeControl
-                  activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
-                  userId={userId}
-                  range={sstRange}
-                  onRangeChange={onSstRangeChange}
-                  onApply={onSstRangeChange}
-                  style={{ width: "100%" }}
-                  openRef={rangeControlOpenRef}
-                  dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
-                  dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
-                />
-              </div>
-            )}
-          </ProGate>
-          <Divider />
-        </>
-      )}
+
 
       {/* ── Overlays ──────────────────────────────────────────────────── */}
       <SectionHeader title="Overlays" open={openSections.overlays} onToggle={() => toggleSection("overlays")} />
@@ -764,7 +741,7 @@ export default function MapControlPanel({
             <div className="flex-1">
               <ProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
                 <ToolBtn active={gpsActive} color="green" onClick={onToggleGps}>
-                  {gpsActive ? "GPS On" : "Real Time"}
+                  {gpsActive ? "GPS On" : "GPS"}
                 </ToolBtn>
               </ProGate>
             </div>

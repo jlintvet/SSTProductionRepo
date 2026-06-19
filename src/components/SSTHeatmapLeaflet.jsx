@@ -2899,6 +2899,14 @@ export default function SSTHeatmapLeaflet(props) {
                 borderColor: mobilePanel==="seacolor" ? "#0d9488" : "#e2e8f0" }}>
               <span style={{ fontSize:9, fontWeight:700, color: mobilePanel==="seacolor" ? "#fff" : "#64748b", lineHeight:1 }}>SC</span>
             </button>
+            {/* Altimetry */}
+            <button onClick={() => setMobilePanel(p => p === "altimetry" ? null : "altimetry")} title="Altimetry"
+              className="flex items-center justify-center rounded-lg shadow-sm border"
+              style={{ width:30, height:30, padding:0,
+                background: activeDataLayer==="altimetry" ? "#7c3aed" : "rgba(255,255,255,0.9)",
+                borderColor: activeDataLayer==="altimetry" ? "#7c3aed" : "#e2e8f0" }}>
+              <span style={{ fontSize:9, fontWeight:700, color: activeDataLayer==="altimetry" ? "#fff" : "#64748b", lineHeight:1 }}>ALT</span>
+            </button>
             {/* Wind */}
             <button onClick={() => setMobilePanel(p => p === "wind" ? null : "wind")} title="Wind"
               className="flex items-center justify-center rounded-lg shadow-sm border"
@@ -2914,14 +2922,6 @@ export default function SSTHeatmapLeaflet(props) {
                 background: showCurrents ? "#0284c7" : "rgba(255,255,255,0.9)",
                 borderColor: showCurrents ? "#0284c7" : "#e2e8f0" }}>
               <span style={{ fontSize:9, fontWeight:700, color: showCurrents ? "#fff" : "#64748b", lineHeight:1 }}>CUR</span>
-            </button>
-            {/* Altimetry */}
-            <button onClick={() => setMobilePanel(p => p === "altimetry" ? null : "altimetry")} title="Altimetry"
-              className="flex items-center justify-center rounded-lg shadow-sm border"
-              style={{ width:30, height:30, padding:0,
-                background: activeDataLayer==="altimetry" ? "#7c3aed" : "rgba(255,255,255,0.9)",
-                borderColor: activeDataLayer==="altimetry" ? "#7c3aed" : "#e2e8f0" }}>
-              <span style={{ fontSize:9, fontWeight:700, color: activeDataLayer==="altimetry" ? "#fff" : "#64748b", lineHeight:1 }}>ALT</span>
             </button>
             {/* Tools */}
             <button onClick={() => setMobilePanel(p => p === "tools" ? null : "tools")} title="Tools"
@@ -2989,7 +2989,7 @@ export default function SSTHeatmapLeaflet(props) {
             {/* Real Time GPS */}
             <button
               onClick={onToggleGps}
-              title={gpsActive ? "GPS On — tap to stop" : "Real-time GPS"}
+              title={gpsActive ? "GPS On — tap to stop" : "GPS"}
               className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
               style={{ width:30, height:30, padding:0, borderColor:gpsActive?"#16a34a":undefined, background:gpsActive?"#16a34a":undefined }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={gpsActive?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3131,67 +3131,25 @@ export default function SSTHeatmapLeaflet(props) {
                       </div>
                     )}
 
-                    {/* Temp gain */}
-                    {!isWindMap && (
-                      <MobileProGate isPro={isPro} label="Color gain control is available on the Pro plan.">
-                        <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide mt-1">Temp gain</div>
-                        <SSTRangeControl
-                          activeLayer="sst"
-                          userId={userId}
-                          range={sstRange}
-                          onRangeChange={onSstRangeChange}
-                          onApply={onSstRangeChange}
-                          openRef={rangeControlOpenRef}
-                        />
-                      </MobileProGate>
-                    )}
-
-                    {/* Temp break */}
-                    {(activeDataLayer === "sst" || activeDataLayer === "composite") && (
-                      <MobileProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
-                        <button onClick={() => setShowIsotherm(v => !v)}
-                          className={`w-full text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${showIsotherm ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-600 border-slate-300"}`}>
-                          <span className="text-sm leading-none">~</span> Temp break
-                        </button>
-                        {showIsotherm && (
-                          <div className="space-y-2 px-1 pt-1">
-                            <div>
-                              <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                                <span>Target temp</span>
-                                <span className="text-sky-600 font-semibold">{effectiveTargetTemp.toFixed(1)}°F</span>
-                              </div>
-                              <input type="range" min={Math.floor(sstMin)} max={Math.ceil(sstMax)} step={0.5}
-                                value={Math.max(sstMin, Math.min(sstMax, effectiveTargetTemp))}
-                                onChange={e => setIsothermalTargetTemp(parseFloat(e.target.value))}
-                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-sky-500"/>
-                              <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-                                <span>{Math.floor(sstMin)}°F</span><span>{Math.ceil(sstMax)}°F</span>
-                              </div>
-                            </div>
-                            <div>
-                              <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                                <span>Sharpness</span>
-                                <span className="text-violet-600 font-semibold">{isothermalSensitivity.toFixed(1)}°F</span>
-                              </div>
-                              <input type="range" min={0.5} max={8} step={0.5}
-                                value={isothermalSensitivity}
-                                onChange={e => setIsothermalSensitivity(parseFloat(e.target.value))}
-                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-violet-500"/>
-                              <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-                                <span>← sharp only</span><span>all →</span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </MobileProGate>
-                    )}
                   </>
                 )}
 
                 {/* ── CHL panel ──────────────────────────────────────── */}
                 {mobilePanel === "chl" && (
                   <>
-                    {chlData?.days?.length > 1 && (
+                    <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Source</div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {[
+                        { label: "Daily",     active: chlSource === "daily",     fn: () => setChlSource("daily") },
+                        { label: "Composite", active: chlSource === "composite", fn: () => setChlSource("composite") },
+                      ].map(({ label, active, fn }) => (
+                        <button key={label} onClick={fn}
+                          className={`text-[10px] font-semibold py-1.5 rounded-lg border transition-colors ${active ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {chlSource === "daily" && chlData?.days?.length > 1 && (
                       <>
                         <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Date</div>
                         <div className="flex items-center gap-1">
@@ -3359,6 +3317,42 @@ export default function SSTHeatmapLeaflet(props) {
                 {mobilePanel === "tools" && (
                   <>
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Fish &amp; Overlays</div>
+                    {(activeDataLayer === "sst" || activeDataLayer === "composite") && (
+                      <MobileProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
+                        <button onClick={() => setShowIsotherm(v => !v)}
+                          className={`w-full text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${showIsotherm ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-600 border-slate-300"}`}>
+                          <span className="text-sm leading-none">~</span> Temp Break
+                        </button>
+                        {showIsotherm && (
+                          <div className="space-y-2 px-1 pt-1">
+                            <div>
+                              <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
+                                <span>Target temp</span><span className="text-sky-600 font-semibold">{effectiveTargetTemp.toFixed(1)}°F</span>
+                              </div>
+                              <input type="range" min={Math.floor(sstMin)} max={Math.ceil(sstMax)} step={0.5}
+                                value={Math.max(sstMin, Math.min(sstMax, effectiveTargetTemp))}
+                                onChange={e => setIsothermalTargetTemp(parseFloat(e.target.value))}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-sky-500"/>
+                              <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                                <span>{Math.floor(sstMin)}°F</span><span>{Math.ceil(sstMax)}°F</span>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
+                                <span>Sharpness</span><span className="text-violet-600 font-semibold">{isothermalSensitivity.toFixed(1)}°F</span>
+                              </div>
+                              <input type="range" min={0.5} max={8} step={0.5}
+                                value={isothermalSensitivity}
+                                onChange={e => setIsothermalSensitivity(parseFloat(e.target.value))}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-violet-500"/>
+                              <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                                <span>← sharp only</span><span>all →</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </MobileProGate>
+                    )}
                     <MobileProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
                       <button onClick={() => setShowHotspots(h => !h)}
                         className={`w-full text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${showHotspots ? "bg-amber-700 text-white border-amber-700" : "bg-white text-slate-600 border-slate-300"}`}>
@@ -3539,7 +3533,7 @@ export default function SSTHeatmapLeaflet(props) {
             );
           })()}
 
-          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:hoveredWreck.px+12,top:hoveredWreck.py-10,zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{{HatterasNC:"Hatteras, NC",MoreheadNC:"Morehead City, NC",ChesapeakeMD:"Chesapeake, MD",OceanCityMD:"Ocean City, MD"}[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
+          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:Math.min(hoveredWreck.px+12,(mapDivRef.current?.clientWidth??800)-172),top:Math.max(8,hoveredWreck.py-10),zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{{HatterasNC:"Hatteras, NC",MoreheadNC:"Morehead City, NC",ChesapeakeMD:"Chesapeake, MD",OceanCityMD:"Ocean City, MD"}[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
 
           {buoyPopup && (
             <div className="absolute bg-white rounded-lg shadow-xl border border-slate-200"
@@ -3567,7 +3561,7 @@ export default function SSTHeatmapLeaflet(props) {
             const mapW = mapDivRef.current?.clientWidth  ?? 800;
             const mapH = mapDivRef.current?.clientHeight ?? 600;
             const rawL = px + 14;
-            const popL = rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL;
+            const popL = Math.max(8, rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL);
             const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H - 8);
             const isLive    = pin.type === "live";
             const isPulsing = isLive && (Date.now() - new Date(pin.created_at).getTime()) < 48 * 3600000;
