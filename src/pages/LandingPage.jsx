@@ -428,6 +428,14 @@ const GLOBAL_CSS = `
   }
 `;
 
+// Inject styles at module level — before React renders, no FOUC
+if (typeof document !== "undefined" && !document.querySelector('[data-rl="1"]')) {
+  const _s = document.createElement("style");
+  _s.setAttribute("data-rl", "1");
+  _s.textContent = GLOBAL_CSS;
+  document.head.appendChild(_s);
+}
+
 function EyeIcon({ visible }) {
   return visible ? (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -849,11 +857,8 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
   const [ambError,      setAmbError]      = useState("");
   const navigate = useNavigate();
 
+  // CSS injected at module level (no FOUC); cleanup on unmount
   useEffect(() => {
-    const s = document.createElement("style");
-    s.setAttribute("data-rl", "1");
-    s.textContent = GLOBAL_CSS;
-    document.head.appendChild(s);
     return () => { document.querySelector('[data-rl="1"]')?.remove(); };
   }, []);
 
