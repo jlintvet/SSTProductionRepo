@@ -146,6 +146,25 @@ function SavedPanel({
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isLivePin?"bg-lime-100 text-lime-700":"bg-cyan-100 text-cyan-700"}`}>
                         {isLivePin?"LIVE":"RPT"}
                       </span>
+                      {onShare && isPro && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            onShare({
+                              id: loc.id,
+                              label: loc.display_name,
+                              lat: loc.lat,
+                              lon: loc.lon,
+                              notes: loc.notes ?? "",
+                              source_type: "community",
+                            });
+                          }}
+                          className="p-1 rounded-md hover:bg-sky-100 text-sky-400 hover:text-sky-600 transition-colors flex-shrink-0"
+                          title="Share this location"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -3685,6 +3704,26 @@ export default function SSTHeatmapLeaflet(props) {
                   >
                     {alreadySaved ? "Saved" : "Save Location"}
                   </button>
+                  {onShare && isPro && (
+                    <button
+                      onClick={() => {
+                        // Build a share-compatible location object from the community pin
+                        onShare({
+                          id: pin.id,
+                          label: pin.display_name,
+                          lat: pin.lat,
+                          lon: pin.lon,
+                          notes: pin.notes ?? "",
+                          source_type: "community",
+                        });
+                        setSelectedCommunityPin(null);
+                      }}
+                      className="flex-1 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      Share
+                    </button>
+                  )}
                   <button
                     onClick={() => setCommunityTipModal({ pin })}
                     className="flex-1 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-white font-semibold text-xs transition-colors"
