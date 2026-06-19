@@ -90,8 +90,16 @@ function AppRoot() {
         <Route path="/wreck-review" element={
           <ProtectedRoute authed={authed}><WreckReviewAdmin /></ProtectedRoute>
         } />
-        <Route path="/*" element={
+        <Route path="/app" element={
           <ProtectedRoute authed={authed}><SSTLive /></ProtectedRoute>
+        } />
+
+        {/* Landing page — always shown at root regardless of auth */}
+        <Route path="/*" element={
+          <LandingPage
+            authed={authed}
+            onAuthSuccess={() => { window.location.href = "/app"; }}
+          />
         } />
       </Routes>
     </Router>

@@ -500,8 +500,8 @@ function RipLocLogo({ h = 34, lockup = false }) {
   );
 }
 
-function AuthForm({ onSuccess }) {
-  const [mode, setMode]         = useState("register");
+function AuthForm({ onSuccess, initialMode }) {
+  const [mode, setMode]         = useState(initialMode ?? "register");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
@@ -625,7 +625,7 @@ function AuthForm({ onSuccess }) {
   );
 }
 
-function AuthModal({ open, onClose, onSuccess }) {
+function AuthModal({ open, onClose, onSuccess, initialMode }) {
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -640,7 +640,7 @@ function AuthModal({ open, onClose, onSuccess }) {
           <div className="rl-modal-logo"><RipLocLogo h={36} /></div>
           <div className="rl-modal-title">Lock In.</div>
           <div className="rl-modal-sub">30-day Pro trial. No credit card. No BS.</div>
-          <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} />
+          <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} initialMode={initialMode} />
         </div>
       </div>
     </div>
@@ -826,8 +826,9 @@ function shufflePhotos(arr) {
   return a;
 }
 
-export default function MarketingLanding({ onAuthSuccess }) {
-  const [modal, setModal] = useState(false);
+export default function MarketingLanding({ onAuthSuccess, authed }) {
+  const [modal, setModal]     = useState(false);
+  const [modalMode, setModalMode] = useState("register");
   const [photoIdx, setPhotoIdx] = useState(0);
   const [photos, setPhotos] = useState(() => shufflePhotos(ALL_COMMUNITY_PHOTOS));
   // Auto-cycle carousel every 4 seconds; reset on manual nav
@@ -888,7 +889,11 @@ export default function MarketingLanding({ onAuthSuccess }) {
     } finally { setAmbSubmitting(false); }
   }
 
-  const open = () => setModal(true);
+  const openRegister = () => { setModalMode("register"); setModal(true); };
+  const openLogin    = () => {
+    if (authed) { window.location.href = "/app"; return; }
+    setModalMode("login"); setModal(true);
+  };
   const done = () => { setModal(false); onAuthSuccess?.(); };
 
   return (
@@ -905,13 +910,13 @@ export default function MarketingLanding({ onAuthSuccess }) {
           <a href="#ambassador" className="rl-nav-link">Ambassador</a>
         </div>
         <div className="rl-nav-right">
-          <button className="rl-btn-ghost" onClick={open}>Sign In</button>
-          <button className="rl-btn-primary" onClick={open}>Start Free</button>
+          <button className="rl-btn-ghost" onClick={openLogin}>Sign In</button>
+          <button className="rl-btn-primary" onClick={openRegister}>Start Free</button>
         </div>
       </nav>
 
       {/* HERO CAROUSEL */}
-      <HeroCarousel open={open} heroBoatImg={heroBoatImg} featureMahiImg={featureMahiImg} ctaBillfishImg={ctaBillfishImg} />
+      <HeroCarousel open={openRegister} heroBoatImg={heroBoatImg} featureMahiImg={featureMahiImg} ctaBillfishImg={ctaBillfishImg} />
 
       {/* TRUST BAR */}
       <div className="rl-trust">
@@ -1232,7 +1237,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
               <ul className="rl-feats">
                 {FREE_FEATS.map(f => <li key={f} className="rl-feat-li lt"><span className="chk">✓</span>{f}</li>)}
               </ul>
-              <button className="rl-pcta lt" onClick={open}>Create Free Account</button>
+              <button className="rl-pcta lt" onClick={openRegister}>Create Free Account</button>
             </div>
             <div className="rl-card pro">
               <div className="rl-pbadge">2026 Promo Rate</div>
@@ -1331,7 +1336,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
           <p className="rl-final-sub">
             30 days free. No credit card. No obligation.<br/>Better intel before you leave the dock.
           </p>
-          <button className="rl-btn-hero" style={{ fontSize: 19, padding: "1.1rem 3rem", letterSpacing:".03em" }} onClick={open}>
+          <button className="rl-btn-hero" style={{ fontSize: 19, padding: "1.1rem 3rem", letterSpacing:".03em" }} onClick={openRegister}>
             Start Free. 30-Day Pro Trial.
           </button>
           <p className="rl-final-note">30 days free. Cancel anytime. East Coast Mid-Atlantic.</p>
@@ -1351,7 +1356,7 @@ export default function MarketingLanding({ onAuthSuccess }) {
         </div>
       </footer>
 
-      <AuthModal open={modal} onClose={() => setModal(false)} onSuccess={done} />
+      <AuthModal open={modal} onClose={() => setModal(false)} onSuccess={done} initialMode={modalMode} />
     </div>
   );
 }
