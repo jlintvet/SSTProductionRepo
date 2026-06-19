@@ -83,7 +83,8 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: #0f172a; /* match hero; eliminates white flash on load */
   }
 }
 
