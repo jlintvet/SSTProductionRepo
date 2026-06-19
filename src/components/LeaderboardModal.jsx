@@ -71,10 +71,10 @@ export default function LeaderboardModal({ onClose }) {
         {/* ── Hero image + title ─────────────────────────────────────── */}
         <div style={{ position: "relative", flexShrink: 0 }}>
           <img
-            src="/nomad_DTX_200_ref.png"
+            src="/nomad_dtx_lure.jpg"
             alt="Nomad DTX 200"
             style={{ width: "100%", display: "block",
-              height: 200, objectFit: "cover", objectPosition: "center 40%" }}
+              height: 280, objectFit: "cover", objectPosition: "center 50%" }}
           />
           {/* dark gradient overlay */}
           <div style={{
@@ -95,14 +95,14 @@ export default function LeaderboardModal({ onClose }) {
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 20px 16px" }}>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
               color: "#06b6d4", textTransform: "uppercase", marginBottom: 4 }}>
-              SST Fishing — Community
+              Riploc Community
             </div>
             <div style={{ fontSize: 26, fontWeight: 800, color: "#fff",
               letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-              Community Leaders
+              Leaderboard
             </div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>
-              Sponsored by Nomad Tackle · DTX 200 Offshore Series
+              June Giveaway: Nomad Tackle – DTX 220 Heavy Duty Sinking 9" Trolling Minnow
             </div>
           </div>
         </div>

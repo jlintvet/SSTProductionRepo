@@ -2969,7 +2969,7 @@ export default function SSTHeatmapLeaflet(props) {
               </svg>
             </button>
             {/* Community Leaders */}
-            <button onClick={() => onOpenLeaderboard?.()} title="Community Leaders"
+            <button onClick={() => onOpenLeaderboard?.()} title="Leaderboard"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
