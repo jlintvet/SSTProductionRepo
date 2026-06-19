@@ -10,6 +10,7 @@ import heroBoatImg    from "../public/hero_boat.jpg";
 import riplocMarkImg  from "../public/brand/riploc-mark.png";
 import riplocLockupImg from "../public/brand/riploc-lockup-horizontal.png";
 import riplocOfiImg    from "../public/brand/riploc-ofi-icon.png";
+import riplocBTextImg  from "../public/brand/riploc-b-text-icon.png";
 import featureMahiImg from "../public/feature_mahi.jpg";
 import ctaBillfishImg from "../public/cta_billfish.jpg";
 import appUiImg       from "../public/screenshots/app_ui.jpg";
@@ -646,7 +647,9 @@ function AuthModal({ open, onClose, onSuccess, initialMode }) {
         <div className="rl-modal-accent" />
         <button className="rl-modal-x" onClick={onClose} aria-label="Close">✕</button>
         <div className="rl-modal-inner">
-          <div className="rl-modal-logo"><RipLocLogo h={36} /></div>
+          <div className="rl-modal-logo">
+            <img src={riplocBTextImg} alt="Riploc" style={{ height: 56, width: Math.round(56 * 5.295), objectFit: "contain", display: "block" }} />
+          </div>
           <div className="rl-modal-title">Lock In.</div>
           <div className="rl-modal-sub">30-day Pro trial. No credit card. No BS.</div>
           <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} initialMode={initialMode} />
