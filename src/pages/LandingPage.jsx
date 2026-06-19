@@ -18,6 +18,7 @@ import routeMapImg    from "../public/screenshots/route_map.jpg";
 import hotspotImg     from "../public/screenshots/hotspot_zone.jpg";
 import weatherImg     from "../public/screenshots/weather.jpg";
 import sharingImg     from "../public/screenshots/sharing.jpg";
+import commLbImg      from "../public/screenshots/community_leaderboard.jpg";
 import commPhoto0  from "../public/community/img_0766.jpg";
 import commPhoto1  from "../public/community/img_1092.jpg";
 import commPhoto2  from "../public/community/img_1676.jpg";
@@ -1150,20 +1151,8 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
               </div>
             </div>
           </div>
-          <div className="rl-comm-photo" style={{background:"#0d1a2e",display:"flex",alignItems:"center",justifyContent:"center",minHeight:420,border:"1px solid rgba(0,200,232,.15)",borderRadius:16}}>
-            <div style={{width:"100%",padding:"2rem 1.5rem",fontFamily:"inherit"}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:".16em",textTransform:"uppercase",color:"#00c8e8",marginBottom:"1.25rem"}}>Community Leaderboard</div>
-              {[{n:"capt_jones",pts:4200,tip:"$18"},{n:"offshore_kev",pts:3850,tip:"$12"},{n:"bluewaterjen",pts:3100,tip:"$9"},{n:"mahi_mike",pts:2780,tip:"$7"},{n:"you",pts:0,tip:"--"}].map((r,i)=>(
-                <div key={r.n} style={{display:"flex",alignItems:"center",gap:"1rem",padding:".75rem 0",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
-                  <div style={{width:24,textAlign:"right",fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",color:i<3?"#00c8e8":"#4a6a85"}}>{i+1}</div>
-                  <div style={{flex:1,fontSize:14,color:r.n==="you"?"#00c8e8":"#c8dae8",fontWeight:r.n==="you"?700:400}}>@{r.n}</div>
-                  <div style={{fontSize:13,color:"#4a6a85"}}>{r.pts.toLocaleString()} pts</div>
-                  <div style={{fontSize:13,color:"#00c8e8",minWidth:36,textAlign:"right"}}>{r.tip}</div>
-                </div>
-              ))}
-              <div style={{marginTop:"1.25rem",fontSize:12,color:"#4a6a85",textAlign:"center"}}>Tips go peer-to-peer. RipLoc keeps 0%.</div>
-            </div>
-            {false && <img src={featureMahiImg} alt="" />}
+          <div className="rl-comm-photo" style={{borderRadius:16,overflow:"hidden",border:"1px solid rgba(0,200,232,.15)"}}>
+            <img src={commLbImg} alt="RipLoc community leaderboard" style={{width:"100%",display:"block"}} />
           </div>
         </div>
       </section>
