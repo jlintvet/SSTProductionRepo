@@ -16,6 +16,8 @@ import appUiImg       from "../public/screenshots/app_ui.jpg";
 import commPinImg     from "../public/screenshots/community_pin.jpg";
 import routeMapImg    from "../public/screenshots/route_map.jpg";
 import hotspotImg     from "../public/screenshots/hotspot_zone.jpg";
+import weatherImg     from "../public/screenshots/weather.jpg";
+import sharingImg     from "../public/screenshots/sharing.jpg";
 import commPhoto0  from "../public/community/img_0766.jpg";
 import commPhoto1  from "../public/community/img_1092.jpg";
 import commPhoto2  from "../public/community/img_1676.jpg";
@@ -1034,6 +1036,56 @@ export default function MarketingLanding({ onAuthSuccess }) {
             </div>
             <div className="rl-scr">
               <img src={hotspotImg} alt="RipLoc fishing hotspot scored zones on SST map" />
+            </div>
+          </div>
+
+          {/* Feature 4 — Weather */}
+          <div className="rl-feat-grid rl-flip">
+            <div>
+              <div className="rl-feat-lbl">Marine Weather</div>
+              <h3 className="rl-feat-h3">Every forecast.<br/>One place.</h3>
+              <p className="rl-feat-body">
+                NOAA sea conditions, tides, wind, sunrise/sunset, and general weather — immediate
+                and extended forecasts with hourly breakdowns — all built seamlessly into the app
+                and pinned to your departure location. No more bouncing between five different apps
+                at 4 AM. Shareable with your crew in one tap.
+              </p>
+              <div className="rl-pills">
+                <span className="rl-pill">NOAA Sea Conditions</span>
+                <span className="rl-pill">Tides</span>
+                <span className="rl-pill">Wind &amp; Gusts</span>
+                <span className="rl-pill">Sunrise / Sunset</span>
+                <span className="rl-pill">Hourly Breakdown</span>
+                <span className="rl-pill">Extended Forecast</span>
+              </div>
+            </div>
+            <div className="rl-scr">
+              <img src={weatherImg} alt="RipLoc marine weather forecast panel" />
+            </div>
+          </div>
+
+          {/* Feature 5 — Sharing */}
+          <div className="rl-feat-grid">
+            <div>
+              <div className="rl-feat-lbl">Crew Sharing</div>
+              <h3 className="rl-feat-h3">Send the plan.<br/>Not a screenshot.</h3>
+              <p className="rl-feat-body">
+                Pro subscribers can share locations, routes, and weather with their crew via email
+                or text. Recipients import everything directly into their account with one tap —
+                exact waypoints, fuel calculations, and forecast included. No manual entry, no
+                blurry screenshots.
+              </p>
+              <div className="rl-pills">
+                <span className="rl-pill">Share Locations</span>
+                <span className="rl-pill">Share Routes</span>
+                <span className="rl-pill">Share Weather</span>
+                <span className="rl-pill">Email &amp; Text</span>
+                <span className="rl-pill">One-Tap Import</span>
+                <span className="rl-pill">Pro Feature</span>
+              </div>
+            </div>
+            <div className="rl-scr">
+              <img src={sharingImg} alt="RipLoc crew sharing — send routes and weather to crew" />
             </div>
           </div>
 
