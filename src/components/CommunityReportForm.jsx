@@ -28,8 +28,12 @@ export default function CommunityReportForm({
   const [species,    setSpecies]    = useState(new Set());
   const [quantities, setQuantities] = useState({});
   const [notes,      setNotes]      = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error,      setError]      = useState(null);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState(null);
+  const [useGpsLoc,   setUseGpsLoc]   = useState(false);
+  const [gpsCoords,   setGpsCoords]   = useState(null);   // {lat, lon}
+  const [gpsLoading,  setGpsLoading]  = useState(false);
+  const [gpsError,    setGpsError]    = useState(null);
 
   function toggleSpecies(key) {
     setSpecies(prev => {
@@ -48,10 +52,21 @@ export default function CommunityReportForm({
     setQuantities(q => ({ ...q, [key]: Math.max(0, parseInt(val) || 0) }));
   }
 
+  function requestGps() {
+    if (!navigator.geolocation) { setGpsError("Geolocation not supported."); return; }
+    setGpsLoading(true); setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      pos => { setGpsCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }); setUseGpsLoc(true); setGpsLoading(false); },
+      ()  => { setGpsError("Could not get GPS location."); setGpsLoading(false); }
+    );
+  }
+
   async function handleSubmit() {
     if (species.size === 0) { setError("Select at least one species."); return; }
     setError(null);
     setSubmitting(true);
+    const effectiveLat = (useGpsLoc && gpsCoords) ? gpsCoords.lat : lat;
+    const effectiveLon = (useGpsLoc && gpsCoords) ? gpsCoords.lon : lon;
 
     try {
       // Get display name from user_profiles; fall back to email prefix
@@ -81,8 +96,8 @@ export default function CommunityReportForm({
           user_id:        userId,
           display_name:   displayName,
           type,
-          lat,
-          lon,
+          lat:            effectiveLat,
+          lon:            effectiveLon,
           species:        Array.from(species),
           quantity:       qty,
           water_temp:     waterTemp,
@@ -175,16 +190,37 @@ export default function CommunityReportForm({
         </div>
 
         {/* Location + temp strip */}
-        <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-3 text-xs text-slate-500">
-          <span className="font-mono">
-            {lat?.toFixed(4)}°N, {Math.abs(lon)?.toFixed(4)}°W
-          </span>
-          {waterTemp != null && (
-            <span className="text-cyan-600 font-semibold">{waterTemp.toFixed(1)}°F</span>
+        <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-xs text-slate-500">
+          <div className="flex items-center gap-3">
+            <span className="font-mono">
+              {useGpsLoc && gpsCoords
+                ? <>{gpsCoords.lat.toFixed(4)}°N, {Math.abs(gpsCoords.lon).toFixed(4)}°W <span className="text-emerald-600 font-semibold">(GPS)</span></>
+                : <>{lat?.toFixed(4)}°N, {Math.abs(lon)?.toFixed(4)}°W</>
+              }
+            </span>
+            {waterTemp != null && !useGpsLoc && (
+              <span className="text-cyan-600 font-semibold">{waterTemp.toFixed(1)}°F</span>
+            )}
+            <span className={`ml-auto font-semibold ${type === "live" ? "text-emerald-600" : "text-cyan-600"}`}>
+              +{type === "live" ? "5,000" : "1,000"} pts
+            </span>
+          </div>
+          {type === "live" && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <button
+                onClick={useGpsLoc ? () => { setUseGpsLoc(false); setGpsCoords(null); } : requestGps}
+                disabled={gpsLoading}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors border ${
+                  useGpsLoc
+                    ? "bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200"
+                    : "bg-white text-slate-600 border-slate-300 hover:border-emerald-400"
+                }`}
+              >
+                {gpsLoading ? "Getting GPS…" : useGpsLoc ? "Using GPS — tap to reset" : "Use GPS location"}
+              </button>
+              {gpsError && <span className="text-red-500 text-[10px]">{gpsError}</span>}
+            </div>
           )}
-          <span className={`ml-auto font-semibold ${type === "live" ? "text-emerald-600" : "text-cyan-600"}`}>
-            +{type === "live" ? "5,000" : "1,000"} pts
-          </span>
         </div>
 
         {/* Species */}

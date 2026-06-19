@@ -138,7 +138,7 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
             onClick={() => { onPostCommunityReport({ lat: info.lat, lon: info.lon, waterTemp: info.sst ?? null }); }}
             className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm font-semibold"
           >
-            🎣 Post Catch Report
+            Post-Trip Report
           </button>
         )}
       </div>

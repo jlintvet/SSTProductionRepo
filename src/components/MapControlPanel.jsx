@@ -304,6 +304,7 @@ export default function MapControlPanel({
   communityCount,
   onOpenLeaderboard,
   onDropLivePin,
+  onPostReport,
 }) {
   const [openSections, setOpenSections] = useState({
     layers:    true,
@@ -762,9 +763,15 @@ export default function MapControlPanel({
           )}
           <button
             onClick={onDropLivePin}
-            className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-colors"
+            className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
           >
-            Drop Live Pin
+            Live Report
+          </button>
+          <button
+            onClick={onPostReport}
+            className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+          >
+            Post-Trip Report
           </button>
           <button
             onClick={onOpenLeaderboard}

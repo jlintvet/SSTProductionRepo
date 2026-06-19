@@ -1104,7 +1104,7 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     communityPinDropRef.current = communityPinDrop;
     const el = mapDivRef.current;
-    if (el) el.style.cursor = communityPinDrop ? "crosshair" : "";
+    if (el) el.style.cursor = communityPinDrop ? 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3C/svg%3E") 10 10, crosshair' : "";
   }, [communityPinDrop]);
   const [selectedCommunityPin, setSelectedCommunityPin] = useState(null); // { pin, px, py }
   const [savedCommunityPins,   setSavedCommunityPins]   = useState(new Set()); // set of pin ids saved this session
@@ -1577,7 +1577,7 @@ export default function SSTHeatmapLeaflet(props) {
     const map = mapRef.current; if (!map) return;
     const c = map.getContainer();
     try {
-      const CROSSHAIR_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cline x1='8' y1='0' x2='8' y2='16' stroke='%23111' stroke-width='1.2'/%3E%3Cline x1='0' y1='8' x2='16' y2='8' stroke='%23111' stroke-width='1.2'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='none' stroke='%23111' stroke-width='1.2'/%3E%3C/svg%3E") 8 8, crosshair`;
+      const CROSSHAIR_SVG = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3C/svg%3E") 10 10, crosshair';
       c.style.cursor = interactionMode === "crosshair" ? CROSSHAIR_SVG : "grab";
     } catch(_){}
     if (interactionMode === "pan") { setHoverInfo(null); setTouchMarker(null); map.dragging.enable(); return; }
@@ -1587,7 +1587,7 @@ export default function SSTHeatmapLeaflet(props) {
     //   • Space + left-drag  (hold Space to pan)
     map.dragging.disable();
 
-    const XHAIR_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cline x1='8' y1='0' x2='8' y2='16' stroke='%23111' stroke-width='1.2'/%3E%3Cline x1='0' y1='8' x2='16' y2='8' stroke='%23111' stroke-width='1.2'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='none' stroke='%23111' stroke-width='1.2'/%3E%3C/svg%3E") 8 8, crosshair`;
+    const XHAIR_SVG = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3C/svg%3E") 10 10, crosshair';
 
     let spaceHeld = false;
 
@@ -2969,15 +2969,7 @@ export default function SSTHeatmapLeaflet(props) {
                 <circle cx="12" cy="9" r="2.5" fill="#fff"/>
               </svg>
             </button>
-            {/* Post-Trip Report */}
-            <button onClick={() => onPostCommunityReport?.({ type: "report" })} title="Post-Trip Report"
-              className="flex items-center justify-center rounded-lg shadow-sm border"
-              style={{ width:30, height:30, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#00bcd4" stroke="#00bcd4" strokeWidth="1"/>
-                <circle cx="12" cy="9" r="2.5" fill="#fff"/>
-              </svg>
-            </button>
+
             {/* Community Leaders */}
             <button onClick={() => onOpenLeaderboard?.()} title="Leaderboard"
               className="flex items-center justify-center rounded-lg shadow-sm border"
