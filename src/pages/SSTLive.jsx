@@ -268,31 +268,7 @@ function SSTPageBody() {
   const { regionConfig, selectedLocation } = useAppContext();
   const { isPro } = useRegionAccess();
 
-  // ── Auth gate (belt-and-suspenders) ────────────────────────────────────────
-  const [authed, setAuthed] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    supabase.auth.getUser()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        const ok = !error && !!data?.user?.email;
-        console.log("[SST:AUTH] getUser →", { email: data?.user?.email ?? null, error: error?.message ?? null, ok });
-        if (ok) setAuthed(true);
-      })
-      .catch(err => { console.log("[SST:AUTH] threw →", err?.message); });
-    let sub;
-    try {
-      const r = supabase.auth.onAuthStateChange((event, s) => {
-        if (cancelled) return;
-        const ok = !!s?.user?.email;
-        console.log("[SST:AUTH] change →", event, s?.user?.email ?? null, ok);
-        setAuthed(ok);
-      });
-      sub = r?.data?.subscription ?? r;
-    } catch (_) {}
-    return () => { cancelled = true; try { sub?.unsubscribe?.(); } catch (_) {} };
-  }, []);
-  // ───────────────────────────────────────────────────────────────────────────
+  // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
   const [userId, setUserId] = useState(null);
   useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setUserId(data.user.id); }); }, []);
@@ -785,8 +761,6 @@ function SSTPageBody() {
   const isWindMap = activeDataLayer === "windmap";
   const currentSourceStatus = sourceStatus[dataSource];
 
-  if (!authed) return <InlineLogin />;
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-2 sm:p-3 gap-2">
       {error&&<div className="flex-shrink-0 bg-red-50 border-b border-red-200 px-4 py-2 text-xs text-red-600">Error: {error}</div>}
@@ -1036,8 +1010,8 @@ class SSTErrorBoundary extends Component {
 }
 
 export default function SSTLive() {
-  // Start false — show login immediately; flip to true only after confirmed auth
-  const [authed, setAuthed] = useState(false);
+  // null = loading (show nothing), false = signed out, true = authenticated
+  const [authed, setAuthed] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1060,7 +1034,12 @@ export default function SSTLive() {
         if (cancelled) return;
         const ok = !!s?.user?.email;
         console.log("[SST:AUTH] onAuthStateChange →", event, s?.user?.email ?? null, "ok:", ok);
-        setAuthed(ok);
+        // Only downgrade on explicit sign-out — don't flash login on INITIAL_SESSION / TOKEN_REFRESHED
+        if (event === "SIGNED_OUT" || event === "TOKEN_REMOVED") {
+          setAuthed(false);
+        } else if (ok) {
+          setAuthed(true);
+        }
       });
       sub = result?.data?.subscription ?? result;
     } catch (e) {
@@ -1073,6 +1052,7 @@ export default function SSTLive() {
     };
   }, []);
 
+  if (authed === null) return null; // loading — show nothing until auth resolves
   if (!authed) return <InlineLogin />;
 
   return (
