@@ -3141,7 +3141,7 @@ export default function SSTHeatmapLeaflet(props) {
                     <div className="grid grid-cols-2 gap-1">
                       {[
                         { label: "Daily",     active: chlSource === "daily",     fn: () => setChlSource("daily") },
-                        { label: "Composite", active: chlSource === "composite", fn: () => setChlSource("composite") },
+                        { label: "HD Composite", active: chlSource === "composite", fn: () => setChlSource("composite") },
                       ].map(({ label, active, fn }) => (
                         <button key={label} onClick={fn}
                           className={`text-[10px] font-semibold py-1.5 rounded-lg border transition-colors ${active ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"}`}>
@@ -3316,7 +3316,7 @@ export default function SSTHeatmapLeaflet(props) {
                                 {/* ── Tools panel ────────────────────────────────────── */}
                 {mobilePanel === "tools" && (
                   <>
-                    <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Fish &amp; Overlays</div>
+                    <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Tools</div>
                     {(activeDataLayer === "sst" || activeDataLayer === "composite") && (
                       <MobileProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
                         <button onClick={() => setShowIsotherm(v => !v)}
@@ -3387,6 +3387,12 @@ export default function SSTHeatmapLeaflet(props) {
                         className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBuoys ? "bg-cyan-700 text-white border-cyan-700" : "bg-white text-slate-600 border-slate-300"}`}>
                         {buoysLoading ? "Loading…" : "Weather Buoys"}
                       </button>
+                      <MobileProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
+                        <button onClick={onToggleGps}
+                          className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${gpsActive ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                          {gpsActive ? "GPS On" : "GPS"}
+                        </button>
+                      </MobileProGate>
                     </div>
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <div className="col-span-2 flex gap-1">
@@ -3421,14 +3427,7 @@ export default function SSTHeatmapLeaflet(props) {
                         document.body
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-1 mt-1">
-                      <MobileProGate isPro={isPro} label="Real-time GPS tracking is a Pro feature.">
-                        <button onClick={onToggleGps}
-                          className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${gpsActive ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                          {gpsActive ? "GPS On" : "Real Time"}
-                        </button>
-                      </MobileProGate>
-                    </div>
+
                   </>
                 )}
 
@@ -3750,7 +3749,7 @@ export default function SSTHeatmapLeaflet(props) {
             const POPUP_W = 220, POPUP_H = 200;
             const mapW = mapDivRef.current?.clientWidth ?? 800, mapH = mapDivRef.current?.clientHeight ?? 600;
             const rawL = selectedMarker.px + 14;
-            const popLeft = rawL + POPUP_W > mapW - 8 ? selectedMarker.px - POPUP_W - 14 : rawL;
+            const popLeft = Math.max(8, rawL + POPUP_W > mapW - 8 ? selectedMarker.px - POPUP_W - 14 : rawL);
             const popTop = Math.min(Math.max(8, selectedMarker.py - 40), mapH - POPUP_H - 8);
             return (
               <div className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs" style={{ left: popLeft, top: popTop, zIndex: 800, width: 220 }} onClick={e => e.stopPropagation()}>
@@ -3784,7 +3783,7 @@ export default function SSTHeatmapLeaflet(props) {
           })()}
 
           {shareLocation && (
-            <ShareLocationDialog location={shareLocation} userId={userId} onClose={() => setShareLocation(null)}
+            <ShareLocationDialog key={shareLocation?.id ?? shareLocation?.lat} location={shareLocation} userId={userId} onClose={() => setShareLocation(null)}
               onNotesUpdated={(id, newNotes) => { onNotesUpdated?.(id, newNotes); }}
               heatmapData={data} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}/>
           )}
@@ -3850,7 +3849,7 @@ export default function SSTHeatmapLeaflet(props) {
           )}
 
           {!tripMode && (
-          <div className="sm:hidden absolute left-0 right-0 px-2" style={{ bottom: 64, zIndex: 600, pointerEvents: "auto" }}>
+          <div className="sm:hidden absolute left-0 px-2" style={{ right: 44, bottom: 64, zIndex: 600, pointerEvents: "auto" }}>
             {isWindMap
               ? null
               : activeDataLayer === "chlorophyll"
@@ -3866,7 +3865,7 @@ export default function SSTHeatmapLeaflet(props) {
                   lo={sstRange?.min ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01)}
                   hi={sstRange?.max ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50)}
                   onBarClick={() => rangeControlOpenRef?.current?.()}/>
-              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max} onClick={() => rangeControlOpenRef?.current?.()}/>
+              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max}/>
             }
           </div>
           )}
