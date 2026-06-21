@@ -19,6 +19,7 @@ const cors = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
+    if (!RESEND_API_KEY) console.error("notify-support: RESEND_API_KEY secret is NOT set on this function");
     const b = await req.json();
     const imgs = (b.image_urls || []).map((u: string) => `<a href="${u}">${u}</a>`).join("<br>") || "none";
     const html = `
@@ -39,9 +40,11 @@ serve(async (req) => {
         html,
       }),
     });
-    if (!r.ok) throw new Error(await r.text());
-    return new Response(JSON.stringify({ ok: true }), { headers: { ...cors, "Content-Type": "application/json" } });
+    const text = await r.text();
+    if (!r.ok) { console.error("notify-support: Resend", r.status, text); throw new Error(`Resend ${r.status}: ${text}`); }
+    return new Response(text || JSON.stringify({ ok: true }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e) {
+    console.error("notify-support error:", String(e));
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
   }
 });
