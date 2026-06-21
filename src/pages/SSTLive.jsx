@@ -272,7 +272,27 @@ function SSTPageBody() {
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
   const [userId, setUserId] = useState(null);
-  useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setUserId(data.user.id); }); }, []);
+  useEffect(() => {
+    // getUser() can transiently reject (seen in the wild: "Lock broken by
+    // another request with the 'steal' option" from supabase-js's auth
+    // lock under multi-tab/rapid-reload contention). Previously this had no
+    // .catch(), so a single failed call left userId stuck at null for the
+    // rest of the session with no retry -- silently breaking every
+    // userId-gated feature (saved locations, community posts, push
+    // notifications) without any visible error. Retry once after a short
+    // delay before giving up.
+    let cancelled = false;
+    function fetchUser(isRetry) {
+      supabase.auth.getUser().then(({ data }) => {
+        if (!cancelled && data?.user) setUserId(data.user.id);
+      }).catch(err => {
+        console.warn("[SST:AUTH] getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
+        if (!isRetry && !cancelled) setTimeout(() => fetchUser(true), 1500);
+      });
+    }
+    fetchUser(false);
+    return () => { cancelled = true; };
+  }, []);
 
   // sstRange is a single shared gain/range across layers. The {55,78} default is the
   // SST (degF) range; for chl/seacolor it must fall back to each layer's own data range.

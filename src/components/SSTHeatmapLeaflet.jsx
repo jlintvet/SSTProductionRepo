@@ -1164,8 +1164,22 @@ export default function SSTHeatmapLeaflet(props) {
     }
     setPushBusy(true);
     try {
+      // Defensive: userId can be stale/null if the parent's getUser() call
+      // hit a transient failure (e.g. supabase-js auth-lock contention) --
+      // re-resolve it directly rather than silently sending user_id: null,
+      // which RLS rejects with an opaque "violates row-level security
+      // policy" error that gives no hint the real cause was an empty id.
+      let uid = userId;
+      if (!uid) {
+        const { data: authData } = await supabase.auth.getUser();
+        uid = authData?.user?.id || null;
+      }
+      if (!uid) {
+        setPushError("Couldn't verify your account — try reloading the page.");
+        return;
+      }
       await enablePushNotifications({
-        userId,
+        userId: uid,
         lat: selectedLocation.lat,
         lon: selectedLocation.lon,
         radiusMiles: pushRadius,
