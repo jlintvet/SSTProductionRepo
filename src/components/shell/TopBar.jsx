@@ -6,10 +6,12 @@
 // Height: 48px desktop / 44px mobile. Uses inline z-index so it sits above
 // drawers and modals predictably (see z-order scale comment below).
 
-import React from "react";
+import React, { useState } from "react";
+import { LifeBuoy } from "lucide-react";
 import riplocIcon from "@/public/brand/riploc-app-icon.png";
 import LocationPicker from "@/components/shell/LocationPicker";
 import UserMenu from "@/components/auth/UserMenu";
+import HelpReportModal from "@/components/HelpReportModal";
 import { useAppContext } from "@/context/AppContext";
 
 // Z-order scale (documented in one place so it's easy to keep coherent):
@@ -28,10 +30,12 @@ const Z_TOPBAR = 1100;
 
 export default function TopBar({ onUpgrade }) {
   const { daysLeft } = useAppContext();
+  const [showHelp, setShowHelp] = useState(false);
   const showTrial = typeof daysLeft === "number";
   const urgent = showTrial && daysLeft <= 2;
 
   return (
+    <>
     <header
       className="flex-shrink-0 flex items-center justify-between gap-2 bg-white border-b border-slate-200 px-3 sm:px-4"
       style={{
@@ -64,9 +68,20 @@ export default function TopBar({ onUpgrade }) {
         </button>
       )}
 
+      <button
+        onClick={() => setShowHelp(true)}
+        title="Help & report an issue"
+        aria-label="Help & report an issue"
+        className="flex-shrink-0 w-8 h-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-cyan-700 flex items-center justify-center transition-colors"
+      >
+        <LifeBuoy className="w-4 h-4" />
+      </button>
+
       <div className="flex-shrink-0">
         <UserMenu onUpgrade={onUpgrade} />
       </div>
     </header>
+    {showHelp && <HelpReportModal onClose={() => setShowHelp(false)} />}
+    </>
   );
 }
