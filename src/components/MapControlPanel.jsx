@@ -90,7 +90,7 @@ const HELP_CONFIG = {
   altoverlay:  { title: "SLA Overlay",                   image: "/altimetry_ref.png",   text: "Sea Level Anomaly contours overlaid on the current data layer. Lets you combine SST or chlorophyll with eddy information. Positive SLA = warm-core eddy = look here. Updated weekly." },
   bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png", text: "Wrecks, reefs, rock piles, and hard bottom from NOAA charts. Bottom structure concentrates bait and holds amberjack, grouper, cobia, and sharks. Many offshore wrecks also attract pelagics when the conditions are right." },
   loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png", text: "" },
-  community:   { title: "Community Pins",                image: "/help/community.png",  text: "Community pins show catch reports and live fish activity posted by other anglers. Lime green pins are live (24h), blue pins are catch reports (7 days). Click any pin to see details and tip the poster." },
+  community:   { title: "Community Pins",                image: "/help/community.png",  text: "Community pins show catch reports and live fish activity posted by other anglers. Lime green pins are live (48h) and pulse while active; after 48h they turn blue like a regular catch report. All pins stay visible for 7 days total. Click any pin to see details and tip the poster." },
   labels:      { title: "Map Labels",                    image: "/help/labels.png",     text: "Shows canyon names and geographic feature labels on the map. Labels scale with zoom level and display the names of major offshore canyons, ridges, and banks." },
   weatherbuoys:{ title: "Weather Buoys",                 image: "/help/buoys.png",      text: "Live observations from NOAA NDBC buoys — wind, gusts, waves, water and air temperature, and pressure. Only buoys within range of your selected departure are shown; tap one for the latest reading and how long ago it was observed. Refreshes about every 15 minutes." },
 };
@@ -305,6 +305,14 @@ export default function MapControlPanel({
   onOpenLeaderboard,
   onDropLivePin,
   onPostReport,
+  // nearby live-pin push notifications
+  pushSupported,
+  pushEnabled,
+  pushRadius,
+  pushBusy,
+  pushError,
+  onTogglePush,
+  onChangePushRadius,
 }) {
   const [openSections, setOpenSections] = useState({
     layers:    true,
@@ -779,6 +787,43 @@ export default function MapControlPanel({
           >
             Leaderboard
           </button>
+
+          {pushSupported && (
+            <div className="mt-1 pt-2 border-t border-slate-100">
+              <button
+                onClick={onTogglePush}
+                disabled={pushBusy}
+                className={`w-full py-1.5 rounded-lg text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+                  pushEnabled
+                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+              >
+                {pushBusy
+                  ? "Updating…"
+                  : pushEnabled
+                    ? "Notifying you of nearby live pins — tap to turn off"
+                    : "Notify me about nearby live pins"}
+              </button>
+              {pushEnabled && (
+                <div className="flex items-center gap-2 mt-1.5 px-1">
+                  <span className="text-[10px] text-slate-500">Within</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={250}
+                    value={pushRadius}
+                    onChange={e => onChangePushRadius?.(Math.max(1, Math.min(250, parseInt(e.target.value) || 1)))}
+                    className="w-14 text-[11px] text-center border border-slate-300 rounded-md py-0.5"
+                  />
+                  <span className="text-[10px] text-slate-500">miles of your departure location</span>
+                </div>
+              )}
+              {pushError && (
+                <div className="text-[10px] text-red-500 mt-1 px-1">{pushError}</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

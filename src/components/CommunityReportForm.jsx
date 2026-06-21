@@ -13,7 +13,17 @@ const SPECIES = [
   { key: "white_marlin",  label: "White Marlin" },
   { key: "blue_marlin",   label: "Blue Marlin" },
   { key: "wahoo",         label: "Wahoo" },
+  { key: "cobia",         label: "Cobia" },
+  { key: "grouper",       label: "Grouper" },
+  { key: "rockfish",      label: "Rockfish" },
+  { key: "seabass",       label: "Seabass" },
+  { key: "tilefish",      label: "Tilefish" },
+  { key: "flounder",      label: "Flounder" },
+  { key: "other",         label: "Other" },
 ];
+
+// Exported so map/popup rendering elsewhere can show full labels instead of raw keys.
+export const SPECIES_LABELS = SPECIES.reduce((m, s) => { m[s.key] = s.label; return m; }, {});
 
 export default function CommunityReportForm({
   userId,
@@ -34,6 +44,9 @@ export default function CommunityReportForm({
   const [gpsCoords,   setGpsCoords]   = useState(null);   // {lat, lon}
   const [gpsLoading,  setGpsLoading]  = useState(false);
   const [gpsError,    setGpsError]    = useState(null);
+  const [photo,       setPhoto]       = useState(null);   // File
+  const [photoPreview,setPhotoPreview]= useState(null);   // object URL for preview
+  const [photoError,  setPhotoError]  = useState(null);
 
   function toggleSpecies(key) {
     setSpecies(prev => {
@@ -61,6 +74,22 @@ export default function CommunityReportForm({
     );
   }
 
+  function handlePhotoPick(e) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { setPhotoError("Please choose an image file."); return; }
+    if (f.size > 8 * 1024 * 1024) { setPhotoError("Image must be 8 MB or smaller."); return; }
+    setPhotoError(null);
+    setPhoto(f);
+    setPhotoPreview(URL.createObjectURL(f));
+  }
+  function removePhoto() {
+    setPhoto(null);
+    setPhotoPreview(null);
+    setPhotoError(null);
+  }
+
   async function handleSubmit() {
     if (species.size === 0) { setError("Select at least one species."); return; }
     setError(null);
@@ -75,6 +104,20 @@ export default function CommunityReportForm({
         .select("display_name, venmo_handle, cashapp_handle")
         .eq("id", userId)
         .single();
+
+      // Optional photo: upload to the existing share-images bucket (same
+      // pattern as HelpReportModal) before inserting the row.
+      let imageUrl = null;
+      if (photo) {
+        const path = `community/${crypto.randomUUID()}-${photo.name.replace(/[^\w.\-]/g, "_")}`;
+        const { error: upErr } = await supabase.storage.from("share-images")
+          .upload(path, photo, { contentType: photo.type, upsert: false });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from("share-images").getPublicUrl(path);
+          imageUrl = pub?.publicUrl || null;
+        }
+        // Non-fatal: if the upload fails, still post the report without a photo.
+      }
       const { data: authData } = await supabase.auth.getUser();
       const displayName =
         profile?.display_name?.trim() ||
@@ -83,8 +126,12 @@ export default function CommunityReportForm({
 
       const isLive    = type === "live";
       const pointsAmt = isLive ? 5000 : 1000;
+      // Both types persist 7 days. Live pins additionally render with the
+      // pulsing live style for their first 48h (see isPulsing in
+      // SSTHeatmapLeaflet.jsx), then automatically revert to the report
+      // styling/color while remaining visible for the rest of the 7 days.
       const expiresAt = new Date(
-        Date.now() + (isLive ? 24 : 7 * 24) * 60 * 60 * 1000
+        Date.now() + 7 * 24 * 60 * 60 * 1000
       ).toISOString();
 
       const qty = {};
@@ -102,6 +149,7 @@ export default function CommunityReportForm({
           quantity:       qty,
           water_temp:     waterTemp,
           notes:          notes.trim() || null,
+          image_url:      imageUrl,
           venmo_handle:   profile?.venmo_handle   || null,
           cashapp_handle: profile?.cashapp_handle || null,
           points_awarded: pointsAmt,
@@ -287,6 +335,30 @@ export default function CommunityReportForm({
             placeholder="Notes — depth, technique, conditions… (optional)"
             className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-cyan-500 resize-none"
           />
+        </div>
+
+        {/* Photo */}
+        <div className="px-4 pt-1 pb-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            Photo (optional)
+          </p>
+          {photoPreview ? (
+            <div className="relative inline-block">
+              <img src={photoPreview} alt="" className="h-20 w-20 object-cover rounded-lg border border-slate-200" />
+              <button
+                onClick={removePhoto}
+                className="absolute -top-1.5 -right-1.5 bg-slate-700 text-white rounded-full w-5 h-5 flex items-center justify-center shadow"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 text-xs text-slate-500 cursor-pointer hover:border-cyan-400 hover:text-cyan-600">
+              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoPick} />
+              Add a photo
+            </label>
+          )}
+          {photoError && <p className="text-[10px] text-red-500 mt-1">{photoError}</p>}
         </div>
 
         {error && (

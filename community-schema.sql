@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS community_locations (
   quantity        jsonb       NOT NULL DEFAULT '{}',
   water_temp      float4,
   notes           text,
+  image_url       text,
   points_awarded  int         NOT NULL DEFAULT 0,
   tip_count       int         NOT NULL DEFAULT 0,
   tip_total_cents int         NOT NULL DEFAULT 0,
@@ -29,6 +30,10 @@ CREATE TABLE IF NOT EXISTS community_locations (
   expires_at      timestamptz NOT NULL,
   is_flagged      bool        NOT NULL DEFAULT false
 );
+
+-- 2026-06-21: photo attachment on community reports/live pins
+ALTER TABLE community_locations
+  ADD COLUMN IF NOT EXISTS image_url text;
 
 CREATE INDEX IF NOT EXISTS idx_community_locations_expires
   ON community_locations (expires_at);

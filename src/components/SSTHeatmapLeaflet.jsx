@@ -6,6 +6,11 @@ import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
 import ShareRouteDialogModal from "@/components/ShareRouteDialog";
+import { SPECIES_LABELS } from "@/components/CommunityReportForm";
+import {
+  isPushSupported, enablePushNotifications, disablePushNotifications,
+  updatePushPreferences, getExistingSubscription,
+} from "@/lib/pushNotifications";
 
 // ── SavedPanel: tabbed Locations + Routes panel ───────────────────────────────
 function SavedPanel({
@@ -128,9 +133,14 @@ function SavedPanel({
             <div className="flex flex-col gap-1.5">
               {[...communityLocations].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map(loc => {
                 const isLivePin = loc.type === "live";
+                // Live styling/badge only for the first 48h; after that it
+                // reads identically to a Post-Trip Report even though the
+                // row's `type` stays "live" as a permanent record.
+                const isLiveActive = isLivePin && (Date.now() - new Date(loc.created_at).getTime()) < 48 * 3600000;
                 const diff = Date.now() - new Date(loc.created_at);
                 const h = Math.floor(diff/3600000);
                 const timeAgo = h < 1 ? `${Math.floor(diff/60000)}m ago` : h < 24 ? `${h}h ago` : `${Math.floor(h/24)}d ago`;
+                const speciesLabel = (loc.species||[]).map(s => SPECIES_LABELS[s] || s).join(", ");
                 return (
                   <div
                     key={loc.id}
@@ -138,13 +148,13 @@ function SavedPanel({
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs cursor-pointer hover:bg-slate-50 hover:border-slate-300"
                   >
                     <div className="flex items-center gap-2">
-                      <div style={{width:10,height:10,borderRadius:"50%",background:isLivePin?"#84cc16":"#00d4ff",flexShrink:0}} />
+                      <div style={{width:10,height:10,borderRadius:"50%",background:isLiveActive?"#84cc16":"#00d4ff",flexShrink:0}} />
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-slate-800 truncate">{loc.display_name}</div>
-                        <div className="text-[10px] text-slate-400">{(loc.species||[]).join(", ")||"Unknown"} · {timeAgo}</div>
+                        <div className="text-[10px] text-slate-400">{speciesLabel||"Unknown"} · {timeAgo}</div>
                       </div>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isLivePin?"bg-lime-100 text-lime-700":"bg-cyan-100 text-cyan-700"}`}>
-                        {isLivePin?"LIVE":"RPT"}
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isLiveActive?"bg-lime-100 text-lime-700":"bg-cyan-100 text-cyan-700"}`}>
+                        {isLiveActive?"LIVE":"RPT"}
                       </span>
                       {onShare && isPro && (
                         <button
@@ -1111,6 +1121,73 @@ export default function SSTHeatmapLeaflet(props) {
   const [communityTipModal,    setCommunityTipModal]    = useState(null); // { pin }
   const [thankingId,           setThankingId]           = useState(null);
 
+  // ── Nearby live-pin push notifications ────────────────────────────
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushRadius,  setPushRadius]  = useState(25);   // miles
+  const [pushBusy,    setPushBusy]    = useState(false);
+  const [pushError,   setPushError]   = useState(null);
+  const pushSupported = isPushSupported();
+
+  useEffect(() => {
+    if (!pushSupported) return;
+    getExistingSubscription().then(async sub => {
+      if (!sub) return;
+      setPushEnabled(true);
+      // Restore the previously-saved radius so the input doesn't silently
+      // reset to the 25mi default and overwrite their actual preference.
+      const { data } = await supabase
+        .from("push_subscriptions")
+        .select("radius_miles")
+        .eq("endpoint", sub.endpoint)
+        .single();
+      if (data?.radius_miles) setPushRadius(data.radius_miles);
+    }).catch(() => {});
+  }, [pushSupported]);
+
+  async function handleTogglePush() {
+    setPushError(null);
+    if (pushEnabled) {
+      setPushBusy(true);
+      try {
+        await disablePushNotifications();
+        setPushEnabled(false);
+      } catch (e) {
+        setPushError(e.message || "Couldn't turn off notifications.");
+      } finally {
+        setPushBusy(false);
+      }
+      return;
+    }
+    if (!selectedLocation) {
+      setPushError("Set a departure location first.");
+      return;
+    }
+    setPushBusy(true);
+    try {
+      await enablePushNotifications({
+        userId,
+        lat: selectedLocation.lat,
+        lon: selectedLocation.lon,
+        radiusMiles: pushRadius,
+      });
+      setPushEnabled(true);
+    } catch (e) {
+      setPushError(e.message || "Couldn't enable notifications.");
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  async function handleChangePushRadius(miles) {
+    setPushRadius(miles);
+    if (!pushEnabled || !selectedLocation) return;
+    try {
+      await updatePushPreferences({ lat: selectedLocation.lat, lon: selectedLocation.lon, radiusMiles: miles });
+    } catch (e) {
+      setPushError(e.message || "Couldn't update radius.");
+    }
+  }
+
   function speciesColor(sp) {
     const m = { yellowfin:"#0891b2", blackfin:"#0e7490", bluefin:"#1d4ed8",
                 mahi:"#15803d", white_marlin:"#7c3aed", blue_marlin:"#4f46e5", wahoo:"#0f766e" };
@@ -1126,15 +1203,17 @@ export default function SSTHeatmapLeaflet(props) {
 
     communityLocations.forEach(loc => {
       const isLive    = loc.type === "live";
-      // Pulse ring only shown for first 48h after creation
-      const isPulsing = isLive && (Date.now() - new Date(loc.created_at).getTime()) < 48 * 3600000;
-      const color  = isLive ? "#84cc16" : "#00d4ff";
-      const html = isLive
-        ? isPulsing
-          ? `<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,0.75);animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#84cc16;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
-          : `<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#84cc16;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
+      // Pulse + live coloring only for the first 48h after creation. After
+      // that, a live pin renders identically to a Post-Trip Report (cyan,
+      // small dot) while staying visible for the rest of its 7-day life —
+      // it never just disappears.
+      const isPulsing   = isLive && (Date.now() - new Date(loc.created_at).getTime()) < 48 * 3600000;
+      const isLiveActive = isPulsing; // alias for readability below
+      const color  = isLiveActive ? "#84cc16" : "#00d4ff";
+      const html = isLiveActive
+        ? `<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,0.75);animation:community-pulse 1.8s ease-out infinite;"></div><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#84cc16;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div></div>`
         : `<div style="width:12px;height:12px;border-radius:50%;background:#00d4ff;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
-      const icon   = L.divIcon({ className: "", iconSize: isLive ? [24,24] : [12,12], iconAnchor: isLive ? [12,12] : [6,6], html });
+      const icon   = L.divIcon({ className: "", iconSize: isLiveActive ? [24,24] : [12,12], iconAnchor: isLiveActive ? [12,12] : [6,6], html });
       const marker = L.marker([loc.lat, loc.lon], { icon, zIndexOffset: 950 });
       marker.on("click", e => {
         L.DomEvent.stopPropagation(e);
@@ -2851,6 +2930,13 @@ export default function SSTHeatmapLeaflet(props) {
             onOpenLeaderboard={onOpenLeaderboard}
             onPostReport={() => onPostCommunityReport?.({ type: "report" })}
             onDropLivePin={() => onPostCommunityReport?.({ type: "live" })}
+            pushSupported={pushSupported}
+            pushEnabled={pushEnabled}
+            pushRadius={pushRadius}
+            pushBusy={pushBusy}
+            pushError={pushError}
+            onTogglePush={handleTogglePush}
+            onChangePushRadius={handleChangePushRadius}
           />
 
           {/* ── Community pin-drop mode banner ─────────────────────── */}
@@ -3565,11 +3651,11 @@ export default function SSTHeatmapLeaflet(props) {
             const popL = Math.max(8, rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL);
             const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H - 8);
             const isLive    = pin.type === "live";
+            // Live styling is time-boxed to 48h; afterward the pin is shown
+            // exactly like a Post-Trip Report (revert, don't disappear).
             const isPulsing = isLive && (Date.now() - new Date(pin.created_at).getTime()) < 48 * 3600000;
-            const speciesList = (pin.species || []).map(s =>
-              ({ yellowfin:"Yellowfin", blackfin:"Blackfin", bluefin:"Bluefin",
-                 mahi:"Mahi", white_marlin:"White Marlin", blue_marlin:"Blue Marlin", wahoo:"Wahoo" }[s] || s)
-            ).join(", ");
+            const isLiveActive = isPulsing;
+            const speciesList = (pin.species || []).map(s => SPECIES_LABELS[s] || s).join(", ");
             const qty = pin.quantity || {};
             const hoursAgo = Math.round((Date.now() - new Date(pin.created_at).getTime()) / 3600000);
             const timeStr = hoursAgo < 1 ? "Just now" : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo/24)}d ago`;
@@ -3632,9 +3718,9 @@ export default function SSTHeatmapLeaflet(props) {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      {isLive && (
+                      {isLiveActive && (
                         <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                          {isPulsing && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"/>}
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"/>
                           LIVE
                         </span>
                       )}
@@ -3655,6 +3741,15 @@ export default function SSTHeatmapLeaflet(props) {
                       <span key={k} className="inline-block mr-2 text-slate-500">{k}: <span className="font-semibold">{v}</span></span>
                     ))}
                   </div>
+                )}
+
+                {/* Photo */}
+                {pin.image_url && (
+                  <img
+                    src={pin.image_url}
+                    alt=""
+                    className="w-full h-28 object-cover rounded-lg mb-2 border border-slate-100"
+                  />
                 )}
 
                 {/* Temp + notes */}
