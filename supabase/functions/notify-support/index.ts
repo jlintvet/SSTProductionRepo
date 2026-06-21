@@ -21,7 +21,12 @@ serve(async (req) => {
   try {
     if (!RESEND_API_KEY) console.error("notify-support: RESEND_API_KEY secret is NOT set on this function");
     const b = await req.json();
-    const imgs = (b.image_urls || []).map((u: string) => `<a href="${u}">${u}</a>`).join("<br>") || "none";
+    const imgs = (b.image_urls || []).map((u: string) =>
+      `<div style="margin:6px 0"><img src="${u}" style="max-width:480px;border-radius:8px"/><br><a href="${u}">${u}</a></div>`
+    ).join("") || "none";
+    const attachments = Array.isArray(b.attachments)
+      ? b.attachments.filter((a: any) => a && a.filename && a.content).map((a: any) => ({ filename: a.filename, content: a.content }))
+      : [];
     const html = `
       <h2>RipLoc — ${b.type ?? "support"} request</h2>
       <p><b>Priority:</b> ${b.priority ?? "Normal"}<br>
@@ -38,6 +43,7 @@ serve(async (req) => {
         reply_to: b.email || undefined,
         subject: `[${(b.priority ?? "Normal").toUpperCase()}] ${b.type ?? "support"} — ${b.category ?? "general"}`,
         html,
+        attachments: attachments.length ? attachments : undefined,
       }),
     });
     const text = await r.text();

@@ -39,9 +39,19 @@ export default function HelpReportModal({ onClose }) {
   const fileRef = useRef(null);
 
   function addFiles(e) {
-    const picked = Array.from(e.target.files || []).filter(f => f.type.startsWith("image/"));
-    setFiles(prev => [...prev, ...picked].slice(0, 5)); // cap at 5
+    const all = Array.from(e.target.files || []).filter(f => f.type.startsWith("image/"));
+    const ok  = all.filter(f => f.size <= 5 * 1024 * 1024); // 5 MB cap per image
+    if (ok.length < all.length) setError("Some images were skipped (max 5 MB each).");
+    setFiles(prev => [...prev, ...ok].slice(0, 5)); // cap at 5
     e.target.value = "";
+  }
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload  = () => resolve(String(r.result).split(",")[1] || "");
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
   }
   function removeFile(i) { setFiles(prev => prev.filter((_, idx) => idx !== i)); }
 
@@ -49,9 +59,11 @@ export default function HelpReportModal({ onClose }) {
     if (!notes.trim()) { setError("Please add a few details so we can help."); return; }
     setSubmitting(true); setError("");
     try {
-      // 1) upload any images to the public share-images bucket under support/
+      // 1) images: attach to the email (base64) AND keep a durable copy in storage
       const image_urls = [];
+      const attachments = [];
       for (const f of files) {
+        try { attachments.push({ filename: f.name, content: await fileToBase64(f) }); } catch (_) {}
         const path = `support/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]/g, "_")}`;
         const { error: upErr } = await supabase.storage.from("share-images")
           .upload(path, f, { contentType: f.type, upsert: false });
@@ -71,7 +83,7 @@ export default function HelpReportModal({ onClose }) {
       const { error: insErr } = await supabase.from("support_requests").insert([payload]);
       if (insErr) throw insErr;
       // 3) fire-and-forget email notification (non-blocking)
-      supabase.functions.invoke("notify-support", { body: payload }).catch(() => {});
+      supabase.functions.invoke("notify-support", { body: { ...payload, attachments } }).catch(() => {});
       setSubmitted(true);
     } catch (e) {
       setError("Something went wrong submitting your request. Please email jlintvet@riploc.com directly.");
