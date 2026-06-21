@@ -166,6 +166,7 @@ tr:hover td{background:#1e293b}
     <div class="pill cyan">Tips today <span id="statTipsToday">—</span></div>
     <div class="pill green">Tips total <span id="statTipsAll">—</span></div>
     <button id="bathyBtn" class="btn btn-slate btn-sm" onclick="toggleBathy()" style="margin-left:4px;background:#1e40af;border-color:#3b82f6;color:#bfdbfe">Bathy on</button>
+    <button id="sstBtn" class="btn btn-slate btn-sm" onclick="togglePinsSst()" style="margin-left:4px">SST off</button>
     <div id="tokenWrap">
       <input id="tokenInput" type="password" placeholder="GitHub token" autocomplete="off"/>
       <button id="signOutBtn" class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
@@ -176,6 +177,7 @@ tr:hover td{background:#1e293b}
     <button class="tab-btn active" onclick="switchTab('pins')">Pins</button>
     <button class="tab-btn" onclick="switchTab('leaderboard')">Leaderboard</button>
     <button class="tab-btn" onclick="switchTab('tips')">Tips</button>
+    <button class="tab-btn" onclick="switchTab('zones')">Zones</button>
     <button class="tab-btn" onclick="switchTab('prizes')">Prizes</button>
   </div>
 
@@ -232,6 +234,16 @@ tr:hover td{background:#1e293b}
           <textarea id="eNotes" class="finput" rows="3" style="resize:vertical"></textarea>
         </div>
         <div>
+          <div class="flabel">Photo</div>
+          <img id="eImagePreview" style="display:none;width:100%;max-height:140px;object-fit:cover;border-radius:6px;border:1px solid #334155;margin-bottom:6px"/>
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="file" id="eImageFile" accept="image/*" style="display:none" onchange="uploadPinImage()"/>
+            <button class="btn btn-slate btn-sm" onclick="document.getElementById('eImageFile').click()">Upload / replace</button>
+            <button id="eImageRemoveBtn" class="btn btn-red btn-sm" style="display:none" onclick="removePinImage()">Remove</button>
+          </div>
+          <div id="eImageStatus" style="font-size:11px;min-height:14px;margin-top:3px"></div>
+        </div>
+        <div>
           <div class="flabel">Created At</div>
           <input id="eCreated" class="finput" type="datetime-local"/>
         </div>
@@ -249,8 +261,8 @@ tr:hover td{background:#1e293b}
           <div style="font-size:11px;color:#64748b;font-family:monospace" id="eCoords">—</div>
         </div>
         <div>
-          <div class="flabel">Tips</div>
-          <div style="font-size:12px;color:#94a3b8" id="eTips">—</div>
+          <div class="flabel">Tips <span id="eTipsSummary" style="color:#64748b;font-weight:400"></span></div>
+          <div id="eTipsList" style="display:flex;flex-direction:column;gap:4px"></div>
         </div>
         <div class="action-row">
           <button class="btn btn-green btn-sm" onclick="savePin()">Save</button>
@@ -263,6 +275,35 @@ tr:hover td{background:#1e293b}
   </div>
 
   <!-- ── LEADERBOARD ── -->
+  <!-- ── ZONES ── -->
+  <div id="tabZones" class="tab-pane" style="flex-direction:row">
+    <div style="width:300px;flex-shrink:0;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:8px 12px 0;display:flex;gap:6px">
+        <button id="zBathyBtn" class="btn btn-slate btn-sm" onclick="toggleZonesBathy()">Bathy</button>
+        <button id="zSstBtn" class="btn btn-slate btn-sm" onclick="toggleZonesSst()">SST</button>
+      </div>
+      <div style="padding:12px;border-bottom:1px solid #334155">
+        <div class="flabel">New / edit zone</div>
+        <input id="zName" class="finput" type="text" placeholder="Zone name (e.g. Norfolk Canyon)" style="margin-bottom:6px"/>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <div style="flex:1"><div class="flabel">Radius (nm)</div><input id="zRadius" class="finput" type="number" min="1" max="60" value="8" oninput="updateDraftCircle()"/></div>
+          <div style="flex:1"><div class="flabel">Weight</div><input id="zWeight" class="finput" type="number" min="1" max="20" value="1"/></div>
+        </div>
+        <div class="flabel">Species for this area</div>
+        <div class="species-grid" id="zoneSpeciesGrid" style="margin-bottom:6px"></div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:6px" id="zCenterLabel">Click the map to set the center.</div>
+        <div class="action-row">
+          <button class="btn btn-green btn-sm" onclick="saveZone()">Save zone</button>
+          <button class="btn btn-slate btn-sm" onclick="resetZoneDraft()">Clear</button>
+        </div>
+        <div id="zoneStatus" style="font-size:11px;min-height:14px;text-align:center"></div>
+      </div>
+      <div style="padding:8px 12px 2px;font-size:11px;color:#64748b">Existing zones</div>
+      <div id="zonesListBody" style="flex:1;overflow-y:auto"></div>
+    </div>
+    <div style="flex:1"><div id="zonesMap" style="width:100%;height:100%"></div></div>
+  </div>
+
   <div id="tabLeaderboard" class="tab-pane data-pane">
     <div class="data-header">
       <h2>Leaderboard</h2>
@@ -367,10 +408,13 @@ const GH_REPO  = 'jlintvet/SSTProductionRepo';
 const GH_PATH  = 'src/public/prizes.json';
 const GH_API   = 'https://api.github.com';
 const BATHY_URL = 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json';
+const VIIRS_COMPOSITE_URL = 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/viirs_composite.json';
 
 const SPECIES = {
   yellowfin:'Yellowfin Tuna', blackfin:'Blackfin Tuna', bluefin:'Bluefin Tuna',
-  mahi:'Mahi-mahi', white_marlin:'White Marlin', blue_marlin:'Blue Marlin', wahoo:'Wahoo'
+  mahi:'Mahi-mahi', white_marlin:'White Marlin', blue_marlin:'Blue Marlin', wahoo:'Wahoo',
+  cobia:'Cobia', grouper:'Grouper', rockfish:'Rockfish', seabass:'Seabass',
+  tilefish:'Tilefish', flounder:'Flounder', other:'Other'
 };
 
 // ── Supabase ────────────────────────────────────────────────────────────────
@@ -424,20 +468,21 @@ document.getElementById('authPass').addEventListener('keydown', e => { if (e.key
 let activeTab = 'pins';
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const tabs = ['pins','leaderboard','tips','prizes'];
+    const tabs = ['pins','leaderboard','tips','zones','prizes'];
     b.classList.toggle('active', tabs[i] === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   const el = document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1));
   if (el) { el.classList.add('active'); el.style.display = 'flex'; }
   // hide others
-  ['Pins','Leaderboard','Tips','Prizes'].filter(t => t.toLowerCase() !== name).forEach(t => {
+  ['Pins','Leaderboard','Tips','Zones','Prizes'].filter(t => t.toLowerCase() !== name).forEach(t => {
     const e = document.getElementById('tab' + t);
     if (e) e.style.display = 'none';
   });
   activeTab = name;
   if (name === 'leaderboard') loadLeaderboard();
   if (name === 'tips') loadTips();
+  if (name === 'zones') initZones();
   if (name === 'prizes') loadPrizesJson();
   if (map) setTimeout(() => map.invalidateSize(), 50);
 }
@@ -458,7 +503,7 @@ async function loadStats() {
   if (!pins) return;
   const now = new Date();
   document.getElementById('statPins').textContent     = pins.length;
-  document.getElementById('statLive').textContent     = pins.filter(p => p.type === 'live' && new Date(p.expires_at) > now).length;
+  document.getElementById('statLive').textContent     = pins.filter(isPinLiveActive).length;
   document.getElementById('statFlagged').textContent  = pins.filter(p => p.is_flagged).length;
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -506,6 +551,86 @@ function toggleBathy() {
   else         { btn.textContent = 'Bathy off'; btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = ''; if (bathyLayer) map.removeLayer(bathyLayer); }
 }
 
+// ── Reusable bathy + SST overlays (pins map & zones map) ─────────────────────
+let _bathyGeo = null;
+async function getBathyGeo() {
+  if (_bathyGeo) return _bathyGeo;
+  const r = await fetch(BATHY_URL + '?t=' + Date.now());
+  if (!r.ok) throw new Error('bathy HTTP ' + r.status);
+  _bathyGeo = await r.json();
+  return _bathyGeo;
+}
+const SST_STOPS = [[0,[15,40,140]],[0.2,[0,130,200]],[0.4,[0,200,180]],[0.6,[50,210,50]],[0.75,[255,220,0]],[0.9,[255,120,0]],[1,[220,30,30]]];
+function _sstInterp(t) {
+  let lo = SST_STOPS[0], hi = SST_STOPS[SST_STOPS.length-1];
+  for (let i=0;i<SST_STOPS.length-1;i++){ if (t>=SST_STOPS[i][0] && t<=SST_STOPS[i+1][0]){ lo=SST_STOPS[i]; hi=SST_STOPS[i+1]; break; } }
+  const f = (hi[0]-lo[0])===0 ? 0 : (t-lo[0])/(hi[0]-lo[0]);
+  return [Math.round(lo[1][0]+(hi[1][0]-lo[1][0])*f), Math.round(lo[1][1]+(hi[1][1]-lo[1][1])*f), Math.round(lo[1][2]+(hi[1][2]-lo[1][2])*f)];
+}
+let _sstCache = null;
+async function getSst() {
+  if (_sstCache) return _sstCache;
+  const r = await fetch(VIIRS_COMPOSITE_URL + '?t=' + Date.now());
+  if (!r.ok) throw new Error('composite HTTP ' + r.status);
+  const d = await r.json();
+  const { latSet, lonSet, sst } = d;
+  if (!latSet || !lonSet || !sst) throw new Error('composite missing latSet/lonSet/sst');
+  const nLat = latSet.length, nLon = lonSet.length;
+  const latMin = Math.min(latSet[0], latSet[nLat-1]), latMax = Math.max(latSet[0], latSet[nLat-1]);
+  const lonMin = Math.min(lonSet[0], lonSet[nLon-1]), lonMax = Math.max(lonSet[0], lonSet[nLon-1]);
+  const vals = sst.filter(v => v != null && isFinite(v)).sort((a,b)=>a-b);
+  if (!vals.length) throw new Error('composite has no SST values');
+  const rmin = vals[Math.floor(vals.length*0.02)], rmax = vals[Math.floor(vals.length*0.98)] || vals[vals.length-1];
+  const cv = document.createElement('canvas'); cv.width = nLon; cv.height = nLat;
+  const ctx = cv.getContext('2d'); const im = ctx.createImageData(nLon, nLat); const a = im.data;
+  const latAsc = latSet[0] < latSet[nLat-1];
+  for (let i=0;i<nLat;i++) for (let j=0;j<nLon;j++) {
+    const v = sst[i*nLon+j];
+    if (v == null || !isFinite(v)) continue;
+    const py = latAsc ? (nLat-1-i) : i;
+    const k = (py*nLon+j)*4;
+    const t = Math.max(0, Math.min(1, (v-rmin)/((rmax-rmin)||1)));
+    const c = _sstInterp(t);
+    a[k]=c[0]; a[k+1]=c[1]; a[k+2]=c[2]; a[k+3]=210;
+  }
+  ctx.putImageData(im, 0, 0);
+  _sstCache = { url: cv.toDataURL(), bounds: [[latMin, lonMin],[latMax, lonMax]] };
+  return _sstCache;
+}
+function _ovBtn(btn, on, color) {
+  if (!btn) return;
+  if (on) { btn.style.background=color; btn.style.borderColor=color; btn.style.color='#fff'; }
+  else    { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; }
+}
+let pinsSst = null;
+async function togglePinsSst() {
+  const btn = document.getElementById('sstBtn');
+  if (pinsSst) { map.removeLayer(pinsSst); pinsSst = null; btn.textContent='SST off'; _ovBtn(btn,false); return; }
+  btn.textContent = 'SST…';
+  try {
+    const s = await getSst();
+    pinsSst = L.imageOverlay(s.url, s.bounds, { opacity:0.7, interactive:false }).addTo(map);
+    if (bathyLayer && map.hasLayer(bathyLayer)) bathyLayer.bringToFront();  // keep contours on top
+    Object.values(markers).forEach(m => m.setZIndexOffset(1000));            // keep pins on top
+    btn.textContent='SST on'; _ovBtn(btn,true,'#0e7490');
+    setTimeout(() => map.invalidateSize(), 50);
+  }
+  catch(e) { btn.textContent='SST off'; alert('SST failed: ' + e.message); }
+}
+let zonesBathy = null, zonesSst = null;
+async function toggleZonesBathy() {
+  const btn = document.getElementById('zBathyBtn');
+  if (zonesBathy) { zonesMap.removeLayer(zonesBathy); zonesBathy=null; _ovBtn(btn,false); return; }
+  try { const geo = await getBathyGeo(); zonesBathy = L.geoJSON(geo, { style: bathyStyle, interactive:false }).addTo(zonesMap); _ovBtn(btn,true,'#1e40af'); }
+  catch(e){ alert('Bathy failed: ' + e.message); }
+}
+async function toggleZonesSst() {
+  const btn = document.getElementById('zSstBtn');
+  if (zonesSst) { zonesMap.removeLayer(zonesSst); zonesSst=null; _ovBtn(btn,false); return; }
+  try { const s = await getSst(); zonesSst = L.imageOverlay(s.url, s.bounds, { opacity:0.7, interactive:false }).addTo(zonesMap); zonesSst.bringToBack(); _ovBtn(btn,true,'#0e7490'); }
+  catch(e){ alert('SST failed: ' + e.message); }
+}
+
 async function loadPins(silent = false) {
   if (!silent) document.getElementById('pinsCountText').textContent = 'Loading...';
   const { data, error } = await sb.from('community_locations')
@@ -517,7 +642,10 @@ async function loadPins(silent = false) {
   renderPinList();
 }
 
-function pinColor(p) { return p.type === 'live' ? '#84cc16' : '#00d4ff'; }
+function isPinLiveActive(p) {
+  return p.type === 'live' && (Date.now() - new Date(p.created_at).getTime()) < 48 * 3600000;
+}
+function pinColor(p) { return isPinLiveActive(p) ? '#84cc16' : '#00d4ff'; }
 
 function buildPinMarkers() {
   Object.values(markers).forEach(m => map.removeLayer(m));
@@ -530,8 +658,17 @@ function buildPinMarkers() {
       html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
       iconSize: [12, 12], iconAnchor: [6, 6]
     });
-    const m = L.marker([p.lat, p.lon], { icon }).addTo(map);
+    const m = L.marker([p.lat, p.lon], { icon, draggable: true }).addTo(map);
     m.on('click', () => selectPin(p.id, false));
+    m.on('dragend', async () => {
+      const ll = m.getLatLng();
+      const lat = +ll.lat.toFixed(5), lon = +ll.lng.toFixed(5);
+      const { error } = await sb.from('community_locations').update({ lat, lon }).eq('id', p.id);
+      if (error) { alert('Move failed: ' + error.message); m.setLatLng([p.lat, p.lon]); return; }
+      p.lat = lat; p.lon = lon;
+      if (selectedPinId === p.id) renderEditPanel(p);
+      renderPinList();
+    });
     markers[p.id] = m;
   });
 }
@@ -617,7 +754,12 @@ function renderEditPanel(pin) {
   document.getElementById('eName').value    = pin.display_name || '';
   document.getElementById('eNotes').value   = pin.notes || '';
   document.getElementById('eCoords').textContent = pin.lat ? `${pin.lat.toFixed(5)}° N, ${Math.abs(pin.lon).toFixed(5)}° W` : '—';
-  document.getElementById('eTips').textContent   = `${pin.tip_count || 0} tips · $${((pin.tip_total_cents || 0)/100).toFixed(2)} total`;
+  const imgPreview = document.getElementById('eImagePreview');
+  const imgRemoveBtn = document.getElementById('eImageRemoveBtn');
+  if (pin.image_url) { imgPreview.src = pin.image_url; imgPreview.style.display = 'block'; imgRemoveBtn.style.display = 'inline-block'; }
+  else { imgPreview.style.display = 'none'; imgPreview.src = ''; imgRemoveBtn.style.display = 'none'; }
+  document.getElementById('eImageStatus').textContent = '';
+  loadPinTips(pin);
   // type toggle
   document.getElementById('typeLive').classList.toggle('active', pin.type === 'live');
   document.getElementById('typeReport').classList.toggle('active', pin.type === 'report');
@@ -666,6 +808,145 @@ function extendExpiry(days) {
   inp.value = toLocalDatetime(base.toISOString());
 }
 
+// ── Per-pin tips editor ──────────────────────────────────────────────────────
+async function loadPinTips(pin) {
+  const sum  = document.getElementById('eTipsSummary');
+  const list = document.getElementById('eTipsList');
+  sum.textContent = `· ${pin.tip_count || 0} tips · $${((pin.tip_total_cents||0)/100).toFixed(2)}`;
+  list.innerHTML = '<div style="font-size:11px;color:#64748b">Loading…</div>';
+  const { data: tips, error } = await sb.from('community_tips')
+    .select('id, amount_cents, platform, created_at')
+    .eq('location_id', pin.id).order('created_at', { ascending: false });
+  if (error) { list.innerHTML = `<div style="font-size:11px;color:#f87171">${error.message}</div>`; return; }
+  if (!tips || !tips.length) { list.innerHTML = '<div style="font-size:11px;color:#64748b">No tips on this pin.</div>'; return; }
+  list.innerHTML = tips.map(t => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:4px 6px">
+      <span style="color:#94a3b8;flex:1">${new Date(t.created_at).toLocaleDateString()} · ${t.platform||''}</span>
+      <span style="color:#64748b">$</span>
+      <input type="number" min="0" step="1" value="${(t.amount_cents/100).toFixed(0)}" id="tip_${t.id}" style="width:50px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-size:11px;padding:2px 4px;text-align:right"/>
+      <button class="btn btn-green btn-sm" style="padding:2px 6px" onclick="saveTip('${pin.id}','${t.id}')">✓</button>
+      <button class="btn btn-red btn-sm" style="padding:2px 6px" onclick="deleteTip('${pin.id}','${t.id}')">✕</button>
+    </div>`).join('');
+}
+async function resyncPinTips(pinId) {
+  const { data: tips } = await sb.from('community_tips').select('amount_cents').eq('location_id', pinId);
+  const count = (tips||[]).length;
+  const total = (tips||[]).reduce((s,t)=>s+(t.amount_cents||0),0);
+  await sb.from('community_locations').update({ tip_count: count, tip_total_cents: total }).eq('id', pinId);
+  const pin = allPins.find(p=>p.id===pinId);
+  if (pin) {
+    pin.tip_count = count; pin.tip_total_cents = total;
+    if (pin.user_id) {
+      const { data: recTips } = await sb.from('community_tips').select('amount_cents').eq('recipient_user_id', pin.user_id);
+      const recTotal = (recTips||[]).reduce((s,t)=>s+(t.amount_cents||0),0);
+      await sb.from('user_points').update({ tips_received_cents: recTotal }).eq('user_id', pin.user_id);
+    }
+    renderEditPanel(pin); renderPinList(); loadStats();
+  }
+}
+async function saveTip(pinId, tipId) {
+  const dollars = parseFloat(document.getElementById('tip_'+tipId)?.value);
+  if (isNaN(dollars) || dollars < 0) return;
+  const { error } = await sb.from('community_tips').update({ amount_cents: Math.round(dollars*100) }).eq('id', tipId);
+  if (error) { alert('Tip update failed: '+error.message); return; }
+  await resyncPinTips(pinId);
+}
+async function deleteTip(pinId, tipId) {
+  if (!confirm('Delete this tip?')) return;
+  const { error } = await sb.from('community_tips').delete().eq('id', tipId);
+  if (error) { alert('Tip delete failed: '+error.message); return; }
+  await resyncPinTips(pinId);
+}
+
+// ── Zones (draw an area + assign species) ────────────────────────────────────
+let zonesMap=null, zoneLayers={}, draftCenter=null, draftCircle=null, draftMarker=null, editingZoneId=null, _zones=[];
+function initZones() {
+  if (!zonesMap) {
+    zonesMap = L.map('zonesMap', { center: [35.5, -75.5], zoom: 7 });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB', maxZoom: 19 }).addTo(zonesMap);
+    zonesMap.on('click', e => {
+      draftCenter = e.latlng; updateDraftCircle();
+      document.getElementById('zCenterLabel').textContent = `Center: ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+    });
+    buildZoneSpeciesGrid();
+    toggleZonesBathy();   // bathy on by default for drawing zones
+  }
+  setTimeout(()=>zonesMap.invalidateSize(), 60);
+  loadZones();
+}
+function buildZoneSpeciesGrid() {
+  document.getElementById('zoneSpeciesGrid').innerHTML = Object.entries(SPECIES).map(([k,label]) =>
+    `<div class="sp-row"><input type="checkbox" id="zsp_${k}"/><label for="zsp_${k}">${label}</label></div>`).join('');
+}
+function updateDraftCircle() {
+  if (!draftCenter || !zonesMap) return;
+  const nm = parseFloat(document.getElementById('zRadius').value)||8;
+  if (draftCircle) zonesMap.removeLayer(draftCircle);
+  if (draftMarker) zonesMap.removeLayer(draftMarker);
+  draftCircle = L.circle(draftCenter, { radius:nm*1852, color:'#f59e0b', weight:2, fillOpacity:0.12 }).addTo(zonesMap);
+  draftMarker = L.circleMarker(draftCenter, { radius:4, color:'#f59e0b', fillColor:'#f59e0b', fillOpacity:1 }).addTo(zonesMap);
+}
+function resetZoneDraft() {
+  editingZoneId=null; draftCenter=null;
+  if (draftCircle){zonesMap.removeLayer(draftCircle);draftCircle=null;}
+  if (draftMarker){zonesMap.removeLayer(draftMarker);draftMarker=null;}
+  document.getElementById('zName').value=''; document.getElementById('zRadius').value=8; document.getElementById('zWeight').value=1;
+  Object.keys(SPECIES).forEach(k=>{const c=document.getElementById('zsp_'+k); if(c)c.checked=false;});
+  document.getElementById('zCenterLabel').textContent='Click the map to set the center.';
+  document.getElementById('zoneStatus').textContent='';
+}
+async function loadZones() {
+  const { data: zones, error } = await sb.from('seed_zones').select('*').order('created_at',{ascending:false});
+  Object.values(zoneLayers).forEach(l=>zonesMap.removeLayer(l)); zoneLayers={};
+  const body = document.getElementById('zonesListBody');
+  if (error) { body.innerHTML=`<div style="padding:10px;font-size:11px;color:#f87171">${error.message}</div>`; return; }
+  _zones = zones||[];
+  _zones.forEach(z => {
+    zoneLayers[z.id] = L.circle([z.center_lat, z.center_lon], { radius:(z.radius_nm||8)*1852, color:z.active?'#38bdf8':'#475569', weight:1.5, fillOpacity:0.08 }).addTo(zonesMap);
+  });
+  body.innerHTML = _zones.map(z => `
+    <div style="padding:8px 12px;border-bottom:1px solid #1e293b;font-size:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#e2e8f0;font-weight:600">${z.name}</span>
+        <span style="color:#64748b;font-size:10px">${z.active?'active':'off'} · w${z.weight}</span>
+      </div>
+      <div style="color:#64748b;font-size:10px;margin:2px 0">${(z.species||[]).map(s=>SPECIES[s]||s).join(', ')||'no species'} · ${z.radius_nm}nm</div>
+      <div style="display:flex;gap:5px;margin-top:3px">
+        <button class="btn btn-slate btn-sm" style="padding:2px 6px" onclick="editZone('${z.id}')">Edit</button>
+        <button class="btn btn-slate btn-sm" style="padding:2px 6px" onclick="toggleZone('${z.id}',${!z.active})">${z.active?'Disable':'Enable'}</button>
+        <button class="btn btn-red btn-sm" style="padding:2px 6px;margin-left:auto" onclick="deleteZone('${z.id}')">Del</button>
+      </div>
+    </div>`).join('') || '<div style="padding:10px;font-size:11px;color:#64748b">No zones yet — click the map and Save.</div>';
+}
+function editZone(id) {
+  const z = _zones.find(x=>x.id===id); if(!z) return;
+  editingZoneId=id; draftCenter=L.latLng(z.center_lat, z.center_lon);
+  document.getElementById('zName').value=z.name; document.getElementById('zRadius').value=z.radius_nm; document.getElementById('zWeight').value=z.weight;
+  Object.keys(SPECIES).forEach(k=>{const c=document.getElementById('zsp_'+k); if(c)c.checked=(z.species||[]).includes(k);});
+  document.getElementById('zCenterLabel').textContent=`Center: ${z.center_lat.toFixed(4)}, ${z.center_lon.toFixed(4)} (editing "${z.name}")`;
+  updateDraftCircle(); zonesMap.setView([z.center_lat,z.center_lon], 8);
+}
+async function saveZone() {
+  const st = document.getElementById('zoneStatus');
+  if (!draftCenter) { st.style.color='#f87171'; st.textContent='Click the map to set a center first.'; return; }
+  const species = Object.keys(SPECIES).filter(k=>document.getElementById('zsp_'+k)?.checked);
+  const row = {
+    name: document.getElementById('zName').value.trim() || 'Zone',
+    center_lat:+draftCenter.lat.toFixed(5), center_lon:+draftCenter.lng.toFixed(5),
+    radius_nm: parseFloat(document.getElementById('zRadius').value)||8,
+    weight: parseInt(document.getElementById('zWeight').value)||1,
+    species,
+  };
+  st.style.color='#67e8f9'; st.textContent='Saving…';
+  const { error } = editingZoneId
+    ? await sb.from('seed_zones').update(row).eq('id', editingZoneId)
+    : await sb.from('seed_zones').insert(row);
+  if (error) { st.style.color='#f87171'; st.textContent='Error: '+error.message; return; }
+  st.style.color='#86efac'; st.textContent='Saved'; resetZoneDraft(); loadZones();
+}
+async function toggleZone(id, active) { await sb.from('seed_zones').update({active}).eq('id',id); loadZones(); }
+async function deleteZone(id) { if(!confirm('Delete this zone?'))return; await sb.from('seed_zones').delete().eq('id',id); loadZones(); }
+
 async function savePin() {
   const pin = allPins.find(p => p.id === selectedPinId);
   if (!pin) return;
@@ -697,6 +978,49 @@ async function toggleFlag() {
   const newVal = !pin.is_flagged;
   const { error } = await sb.from('community_locations').update({ is_flagged: newVal }).eq('id', pin.id);
   if (!error) { pin.is_flagged = newVal; renderEditPanel(pin); renderPinList(); loadStats(); }
+}
+
+// ── Photo management (append/replace or remove) ──────────────────────────────
+async function uploadPinImage() {
+  const pin = allPins.find(p => p.id === selectedPinId);
+  const fileInput = document.getElementById('eImageFile');
+  const file = fileInput.files?.[0];
+  fileInput.value = '';
+  if (!pin || !file) return;
+  const statusEl = document.getElementById('eImageStatus');
+  if (!file.type.startsWith('image/')) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Please choose an image file.'; return; }
+  if (file.size > 8 * 1024 * 1024) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Image must be 8 MB or smaller.'; return; }
+  statusEl.style.color = '#67e8f9'; statusEl.textContent = 'Uploading…';
+  try {
+    const path = `community/${pin.id}-${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('share-images').upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) throw upErr;
+    const { data: pub } = sb.storage.from('share-images').getPublicUrl(path);
+    const imageUrl = pub?.publicUrl;
+    if (!imageUrl) throw new Error('Upload succeeded but no public URL was returned.');
+    const { error: updErr } = await sb.from('community_locations').update({ image_url: imageUrl }).eq('id', pin.id);
+    if (updErr) throw updErr;
+    pin.image_url = imageUrl;
+    renderEditPanel(pin);
+    statusEl.style.color = '#86efac'; statusEl.textContent = 'Photo updated';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  } catch (e) {
+    statusEl.style.color = '#f87171'; statusEl.textContent = 'Upload failed: ' + e.message;
+  }
+}
+
+async function removePinImage() {
+  const pin = allPins.find(p => p.id === selectedPinId);
+  if (!pin || !pin.image_url) return;
+  if (!confirm('Remove this photo from the pin?')) return;
+  const statusEl = document.getElementById('eImageStatus');
+  statusEl.style.color = '#67e8f9'; statusEl.textContent = 'Removing…';
+  const { error } = await sb.from('community_locations').update({ image_url: null }).eq('id', pin.id);
+  if (error) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Error: ' + error.message; return; }
+  pin.image_url = null;
+  renderEditPanel(pin);
+  statusEl.style.color = '#86efac'; statusEl.textContent = 'Photo removed';
+  setTimeout(() => { statusEl.textContent = ''; }, 2000);
 }
 
 async function deletePin() {
@@ -931,4 +1255,61 @@ async function commitPrizes() {
 }
 
 // ── GitHub helpers ────────────────────────────────────────────────────────────
-const ghHeaders = tok => ({ 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-T
+const ghHeaders = tok => ({ 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' });
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+let progLines = [];
+function openModal(title) {
+  progLines = [];
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalLines').innerHTML   = '';
+  document.getElementById('modalClose').style.display = 'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function logP(icon, text, cls='cur') {
+  progLines.push({icon, text, cls});
+  document.getElementById('modalLines').innerHTML = progLines.map(l =>
+    `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`
+  ).join('');
+}
+function updP(icon, text, cls='ok') {
+  if (!progLines.length) return;
+  Object.assign(progLines[progLines.length-1], {icon, text, cls});
+  document.getElementById('modalLines').innerHTML = progLines.map(l =>
+    `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`
+  ).join('');
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (d > 0) return d + 'd ago';
+  if (h > 0) return h + 'h ago';
+  return m + 'm ago';
+}
+
+function timeUntil(iso) {
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return 'expired';
+  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (d > 0) return d + 'd';
+  if (h > 0) return h + 'h';
+  return m + 'm';
+}
+
+function toLocalDatetime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+checkExistingSession();
+</script>
+</body>
+</html>
