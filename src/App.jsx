@@ -71,6 +71,26 @@ function AppRoot() {
       const ok = !!session?.user?.email;
       console.log("[APP:AUTH] change ->", event, session?.user?.email ?? null, ok);
       setAuthed(ok);
+
+      // First real sign-in (covers: signup -> email confirm -> auto sign-in,
+      // and plain login). This is the first point a usable access token exists,
+      // since supabase.auth.signUp() returns no session until confirmation.
+      if (event === "SIGNED_IN" && session?.access_token) {
+        fetch("/api/create-trial-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+        }).catch(e => console.error("create-trial-subscription failed:", e));
+
+        const pendingCode = sessionStorage.getItem("pendingReferralCode");
+        if (pendingCode) {
+          sessionStorage.removeItem("pendingReferralCode");
+          supabase.rpc("redeem_referral_code", { p_code: pendingCode })
+            .then(({ error: redeemError }) => {
+              if (redeemError) console.warn("[REFERRAL] redeem failed:", redeemError.message);
+              else console.log("[REFERRAL] code redeemed:", pendingCode);
+            });
+        }
+      }
     });
 
     return () => subscription.unsubscribe();

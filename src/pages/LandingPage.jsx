@@ -516,6 +516,7 @@ function AuthForm({ onSuccess, initialMode }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
   const [resetEmail, setResetEmail] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [showPw, setShowPw]     = useState(false);
   const [showCf, setShowCf]     = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -533,21 +534,18 @@ function AuthForm({ onSuccess, initialMode }) {
     e.preventDefault(); setError(null);
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8)  { setError("Password must be at least 8 characters."); return; }
+    if (referralCode.trim()) {
+      sessionStorage.setItem("pendingReferralCode", referralCode.trim());
+    }
     setLoading(true);
-    const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
+    const { error: err } = await supabase.auth.signUp({ email, password });
     setLoading(false);
     if (err) { setError(err.message); return; }
     setSent(true);
-    // Create the Stripe trial subscription in the background — non-blocking,
-    // and not fatal if it fails (the app's own trial_end still governs access;
-    // this just keeps Stripe in sync with trial state).
-    const accessToken = signUpData?.session?.access_token;
-    if (accessToken) {
-      fetch("/api/create-trial-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${accessToken}` },
-      }).catch((e) => console.error("create-trial-subscription failed:", e));
-    }
+    // Note: the Stripe trial subscription is NOT created here — signUp() returns
+    // no session until the user confirms their email, so there's no access token
+    // yet. It's created in App.jsx's onAuthStateChange handler on first SIGNED_IN,
+    // which fires once the user actually completes confirmation and logs in.
   }
   async function handleReset(e) {
     e.preventDefault(); setError(null);
@@ -636,6 +634,10 @@ function AuthForm({ onSuccess, initialMode }) {
             <button type="button" className="rl-eye" onClick={() => setShowCf(s=>!s)}>
               <EyeIcon visible={showCf} /></button>
           </div>
+        )}
+        {mode === "register" && (
+          <input className="rl-inp" type="text" placeholder="Referral code (optional)"
+            value={referralCode} onChange={e => setReferralCode(e.target.value)} />
         )}
         {error && <div className="rl-err">{error}</div>}
         <button className="rl-fmbtn" type="submit" disabled={loading}>

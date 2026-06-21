@@ -1,7 +1,8 @@
 // src/hooks/useRegionAccess.js
-// tier values in user_profiles: "trial" | "standard" | "pro" | "ambassador"
-// isPro = trial or pro (trial gets full Pro access for 30 days)
+// tier values in user_profiles: "trial" | "standard" | "pro" | "ambassador" | "referral"
+// isPro = trial, pro, ambassador, or referral (trial gets full Pro access for 30 days)
 // ambassador = permanent pro-equivalent; no expiry, no countdown
+// referral = redeemed an ambassador's referral code; full Pro access for 365 days
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_REGION } from "@/config/regionConfig";
@@ -33,7 +34,7 @@ export function useRegionAccess() {
 
         const { data: profile, error: profileError } = await supabase
           .from("user_profiles")
-          .select("tier, region, subscription_status, trial_end")
+          .select("tier, region, subscription_status, trial_end, referral_end")
           .eq("id", user.id)
           .single();
 
@@ -57,7 +58,7 @@ export function useRegionAccess() {
         // Use the actual tier column: "trial" | "standard" | "pro"
         const profileTier = profile.tier ?? "standard";
         setTier(profileTier);
-        setIsPro(profileTier === "pro" || profileTier === "trial" || profileTier === "ambassador");
+        setIsPro(profileTier === "pro" || profileTier === "trial" || profileTier === "ambassador" || profileTier === "referral");
 
         // Trial countdown
         if (profileTier === "trial") {
@@ -75,6 +76,20 @@ export function useRegionAccess() {
           // Ambassadors get permanent pro access — no expiry
           setDaysLeft(null);
           setIsExpired(false);
+        } else if (profileTier === "referral") {
+          // Redeemed an ambassador code — full Pro access for 365 days from redemption.
+          // Computed client-side, same pattern as trial — no scheduled job flips this
+          // back to "standard" in the DB when it lapses.
+          if (profile.referral_end) {
+            const msLeft = new Date(profile.referral_end) - new Date();
+            const days   = Math.max(0, Math.ceil(msLeft / 86400000));
+            setDaysLeft(days);
+            setIsExpired(days === 0);
+            if (days === 0) setIsPro(false);
+          } else {
+            setDaysLeft(365);
+            setIsExpired(false);
+          }
         } else if (profile.subscription_status === "cancelled") {
           setIsExpired(true);
           setIsPro(false);

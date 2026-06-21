@@ -35,8 +35,15 @@ export default function UserMenu({ onUpgrade }) {
   const initials = shortName.slice(0, 2).toUpperCase();
 
   function getTierLabel() {
-    if (tier === "pro")      return "Pro";
-    if (tier === "standard") return "Standard";
+    if (tier === "pro")        return "Pro";
+    if (tier === "ambassador") return "Ambassador";
+    if (tier === "standard")   return "Standard";
+    if (tier === "referral") {
+      if (daysLeft === null) return "Ambassador Referral";
+      if (daysLeft === 0)    return "Referral expired";
+      if (daysLeft === 1)    return "Ambassador Referral (1 day left)";
+      return "Ambassador Referral (" + daysLeft + " days left)";
+    }
     if (tier === "trial") {
       if (daysLeft === null) return "Free Trial";
       if (daysLeft === 0)    return "Trial expired";
@@ -47,15 +54,19 @@ export default function UserMenu({ onUpgrade }) {
   }
 
   function getTierColor() {
-    if (tier === "pro")      return "#16a34a";
-    if (tier === "standard") return "#475569";
+    if (tier === "pro")        return "#16a34a";
+    if (tier === "ambassador") return "#7c3aed";
+    if (tier === "standard")   return "#475569";
+    if (tier === "referral") {
+      return daysLeft === 0 ? "#dc2626" : "#7c3aed";
+    }
     if (tier === "trial") {
       return daysLeft === 0 ? "#dc2626" : "#d97706";
     }
     return "#94a3b8";
   }
 
-  const showUpgrade = (tier === "trial" || tier === "standard") && onUpgrade;
+  const showUpgrade = (tier === "trial" || tier === "standard" || tier === "referral") && onUpgrade;
 
   return (
     <div ref={ref} className="relative flex-shrink-0">

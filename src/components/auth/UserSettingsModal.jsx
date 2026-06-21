@@ -81,19 +81,27 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
   const [profile, setProfile] = useState({ display_name: "", venmo_handle: "", cashapp_handle: "" });
+  const [referral, setReferral] = useState({ tier: null, referred_by: null, referral_end: null });
+  const [referralInput, setReferralInput] = useState("");
+  const [referralStatus, setReferralStatus] = useState(null); // null | "redeeming" | "ok" | error message
   const overlayRef            = useRef(null);
 
   useEffect(() => {
     if (!userId) return;
     Promise.all([
       loadUserSettings(userId),
-      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle").eq("id", userId).single(),
+      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle, tier, referred_by, referral_end").eq("id", userId).single(),
     ]).then(([s, { data: prof }]) => {
       setForm(s);
       setProfile({
         display_name:   prof?.display_name   ?? "",
         venmo_handle:   prof?.venmo_handle   ?? "",
         cashapp_handle: prof?.cashapp_handle ?? "",
+      });
+      setReferral({
+        tier:         prof?.tier ?? null,
+        referred_by:  prof?.referred_by ?? null,
+        referral_end: prof?.referral_end ?? null,
       });
       setLoading(false);
     });
@@ -125,6 +133,19 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
       setSaved(true);
       onSaved?.(form);
       setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  async function handleRedeemReferral() {
+    const code = referralInput.trim();
+    if (!code) return;
+    setReferralStatus("redeeming");
+    const { error } = await supabase.rpc("redeem_referral_code", { p_code: code });
+    if (error) {
+      setReferralStatus(error.message || "Invalid code");
+    } else {
+      setReferralStatus("ok");
+      setReferral(r => ({ ...r, tier: "referral", referred_by: code }));
     }
   }
 
@@ -257,6 +278,47 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
               Display name appears on your community pins. Payment handles let other anglers tip you for catch reports.
             </p>
           </Section>
+
+          {/* ── Referral Code ── */}
+          {referral.tier !== "pro" && referral.tier !== "ambassador" && (
+            <Section title="Referral Code">
+              {referral.referred_by ? (
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Redeemed code <strong>{referral.referred_by}</strong>
+                  {referral.referral_end && (
+                    <> — active until {new Date(referral.referral_end).toLocaleDateString()}</>
+                  )}
+                  .
+                </p>
+              ) : (
+                <>
+                  <Row label="Code">
+                    <TextInput
+                      value={referralInput}
+                      placeholder="e.g. captainjoethankyou"
+                      onChange={setReferralInput}
+                    />
+                  </Row>
+                  <button
+                    onClick={handleRedeemReferral}
+                    disabled={referralStatus === "redeeming" || !referralInput.trim()}
+                    className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
+                  >
+                    {referralStatus === "redeeming" ? "Redeeming…" : "Redeem code"}
+                  </button>
+                  {referralStatus && referralStatus !== "redeeming" && referralStatus !== "ok" && (
+                    <p className="text-[11px] text-red-500">{referralStatus}</p>
+                  )}
+                  {referralStatus === "ok" && (
+                    <p className="text-[11px] text-emerald-600">Code redeemed — you now have a year of Pro access.</p>
+                  )}
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Have a code from one of our ambassadors? Redeem it here for a free year of Pro access.
+                  </p>
+                </>
+              )}
+            </Section>
+          )}
 
           {/* ── GPS ── */}
           <Section title="GPS Device">
