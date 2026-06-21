@@ -53,7 +53,8 @@ export default function TopBar({ onUpgrade }) {
         <LocationPicker />
       </div>
 
-      {/* Trial notice — sits between location picker and user menu */}
+      {/* Right cluster: trial badge, help, user menu (kept together, far right) */}
+      <div className="flex items-center gap-2 flex-shrink-0">
       {showTrial && (
         <button
           onClick={onUpgrade}
@@ -79,6 +80,7 @@ export default function TopBar({ onUpgrade }) {
 
       <div className="flex-shrink-0">
         <UserMenu onUpgrade={onUpgrade} />
+      </div>
       </div>
     </header>
     {showHelp && <HelpReportModal onClose={() => setShowHelp(false)} />}
