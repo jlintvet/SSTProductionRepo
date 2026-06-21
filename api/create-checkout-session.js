@@ -55,8 +55,8 @@ export default async function handler(req, res) {
 
   // Only allow known Stripe price IDs — prevents price manipulation attacks
   const ALLOWED_PRICES = new Set([
-    process.env.STRIPE_PRICE_PRO_ANNUAL,
-    process.env.STRIPE_PRICE_PRO_MONTHLY,
+    process.env.STRIPE_PRICE_ANNUAL,
+    process.env.STRIPE_PRICE_MONTHLY,
   ].filter(Boolean));
 
   if (!ALLOWED_PRICES.has(priceId)) {
