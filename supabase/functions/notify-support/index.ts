@@ -8,10 +8,8 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const TO    = "jlintvet@riploc.com";
-// Starts with Resend's no-DNS sandbox sender (works the moment you have an API key,
-// but only delivers to your Resend account email). After you verify riploc.com in
-// Resend, switch this to e.g. "RipLoc <noreply@riploc.com>" to send branded mail to anyone.
-const FROM  = "RipLoc <onboarding@resend.dev>";
+// riploc.com is verified in Resend, so send from a branded sender to any recipient.
+const FROM  = "RipLoc Support <noreply@riploc.com>";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
