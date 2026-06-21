@@ -13,6 +13,8 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY
 );
 
+const ALLOWED_ORIGINS = new Set(["https://riploc.com", "https://www.riploc.com"]);
+
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -23,7 +25,11 @@ async function getRawBody(req) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
@@ -46,6 +52,16 @@ export default async function handler(req, res) {
 
   const { priceId } = body;
   if (!priceId) return res.status(400).json({ error: "Missing priceId" });
+
+  // Only allow known Stripe price IDs — prevents price manipulation attacks
+  const ALLOWED_PRICES = new Set([
+    process.env.STRIPE_PRICE_PRO_ANNUAL,
+    process.env.STRIPE_PRICE_PRO_MONTHLY,
+  ].filter(Boolean));
+
+  if (!ALLOWED_PRICES.has(priceId)) {
+    return res.status(400).json({ error: "Invalid price" });
+  }
 
   const APP_URL = process.env.APP_URL || "https://riploc.com";
 
