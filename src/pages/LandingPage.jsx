@@ -534,9 +534,20 @@ function AuthForm({ onSuccess, initialMode }) {
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8)  { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
-    const { error: err } = await supabase.auth.signUp({ email, password });
+    const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
     setLoading(false);
-    if (err) setError(err.message); else setSent(true);
+    if (err) { setError(err.message); return; }
+    setSent(true);
+    // Create the Stripe trial subscription in the background — non-blocking,
+    // and not fatal if it fails (the app's own trial_end still governs access;
+    // this just keeps Stripe in sync with trial state).
+    const accessToken = signUpData?.session?.access_token;
+    if (accessToken) {
+      fetch("/api/create-trial-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${accessToken}` },
+      }).catch((e) => console.error("create-trial-subscription failed:", e));
+    }
   }
   async function handleReset(e) {
     e.preventDefault(); setError(null);
