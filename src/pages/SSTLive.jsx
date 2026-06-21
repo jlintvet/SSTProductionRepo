@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchMURSST, fetchVIIRSSST, fetchGOESComposite, fetchChlorophyll, fetchSeaColor, fetchCHLBundle, fetchCHLComposite, fetchSeaColorBundle, fetchSeaColorComposite } from "@/lib/dataFetchers";
 import { supabase } from "@/lib/supabase";
 import AppShell from "@/components/shell/AppShell";
+import TrialExpiredWall from "@/components/auth/TrialExpiredWall";
 import { useAppContext } from "@/context/AppContext";
 import SSTHeatmapLeaflet from "@/components/SSTHeatmapLeaflet";
 import SSTLegend from "@/components/SSTLegend";
@@ -1009,6 +1010,29 @@ class SSTErrorBoundary extends Component {
   }
 }
 
+// SSTLiveGate — mounts only after auth confirmed; blocks expired trial users
+function SSTLiveGate() {
+  const { isExpired, loading: accessLoading } = useRegionAccess();
+
+  if (accessLoading) return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center",
+      justifyContent:"center", background:"#0f172a" }}>
+      <div style={{ width:36, height:36, borderRadius:"50%",
+        border:"3px solid #1e3a5f", borderTopColor:"#0e7490",
+        animation:"spin 0.7s linear infinite" }}/>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  if (isExpired) return <TrialExpiredWall />;
+
+  return (
+    <AppShell region="mid_atlantic" onUpgrade={() => window.location.href = "/upgrade"}>
+      <SSTPageBody />
+    </AppShell>
+  );
+}
+
 export default function SSTLive() {
   // null = loading (show nothing), false = signed out, true = authenticated
   const [authed, setAuthed] = useState(null);
@@ -1055,9 +1079,5 @@ export default function SSTLive() {
   if (authed === null) return null; // loading — show nothing until auth resolves
   if (!authed) return <InlineLogin />;
 
-  return (
-    <AppShell region="mid_atlantic" onUpgrade={() => window.location.href = "/upgrade"}>
-      <SSTPageBody />
-    </AppShell>
-  );
+  return <SSTLiveGate />;
 }

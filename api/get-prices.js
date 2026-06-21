@@ -10,7 +10,11 @@ const PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY || "price_1TikyxDWsT9O1Ej
 const PRICE_ANNUAL  = process.env.STRIPE_PRICE_ANNUAL  || "price_1Til1NDWsT9O1Ejonzrd7hIJ";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const _gpOrigin = req.headers.origin;
+  if (["https://riploc.com","https://www.riploc.com"].includes(_gpOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", _gpOrigin);
+    res.setHeader("Vary", "Origin");
+  }
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).end();
 

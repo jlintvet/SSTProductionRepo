@@ -5,7 +5,7 @@ export default function TrialBanner({ daysLeft, onUpgrade }) {
   const [dismissed, setDismissed] = useState(false);
   const navigate = useNavigate();
 
-  if (daysLeft === null || dismissed) return null;
+  if (daysLeft === null || daysLeft === 0 || dismissed) return null;
 
   const urgent = daysLeft <= 2;
 
