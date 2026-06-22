@@ -1214,8 +1214,6 @@ export default function SSTHeatmapLeaflet(props) {
     } else {
       boatMarkerRef.current = L.marker([boatPosition.lat, boatPosition.lon], { icon, zIndexOffset: 1500 }).addTo(map);
       boatMarkerRef.current.on("click", () => setBoatPopupOpen(v => !v));
-    } else {
-      // Keep click handler in sync (re-add each update would duplicate)
     }
   }, [gpsActive, boatPosition]); // eslint-disable-line react-hooks/exhaustive-deps
 
