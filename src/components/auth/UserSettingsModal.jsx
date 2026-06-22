@@ -22,6 +22,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAppContext } from "@/context/AppContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export const DEFAULT_SETTINGS = {
   speed_unit: "knots",
@@ -76,6 +78,11 @@ export async function saveUserSettings(userId, settings) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function UserSettingsModal({ userId, onClose, onSaved }) {
+  // gpsActive/boatPosition live in AppContext (not local map state) so this
+  // modal -- a sibling of the map, not nested under it -- can read live
+  // position for the "use my live GPS" notification preference.
+  const { selectedLocation, gpsActive, boatPosition } = useAppContext();
+  const push = usePushNotifications({ userId, selectedLocation, gpsActive, boatPosition });
   const [form, setForm]       = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -278,6 +285,65 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
               Display name appears on your community pins. Payment handles let other anglers tip you for catch reports.
             </p>
           </Section>
+
+          {/* ── Notifications ── */}
+          {push.pushSupported && (
+            <Section title="Notifications">
+              <button
+                onClick={push.handleTogglePush}
+                disabled={push.pushBusy}
+                className={`w-full py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  push.pushEnabled
+                    ? "bg-cyan-500 text-white hover:bg-cyan-600"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {push.pushBusy
+                  ? "Updating…"
+                  : push.pushEnabled
+                    ? "Notifying you of nearby live pins — tap to turn off"
+                    : "Notify me about nearby live pins"}
+              </button>
+              {push.pushEnabled && (
+                <>
+                  <Row label="Within">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={1}
+                        max={250}
+                        value={push.pushRadius}
+                        onChange={e => push.handleChangePushRadius(Math.max(1, Math.min(250, parseInt(e.target.value) || 1)))}
+                        className="w-16 text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-cyan-400 text-slate-800"
+                      />
+                      <span className="text-[11px] text-slate-400">
+                        miles of {push.pushUseGps ? "my live position" : "my departure location"}
+                      </span>
+                    </div>
+                  </Row>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!push.pushUseGps}
+                      onChange={e => push.handleTogglePushUseGps(e.target.checked)}
+                      className="accent-cyan-500"
+                    />
+                    <span className="text-[11px] text-slate-500">
+                      Use my live GPS position while tracking
+                      {!gpsActive && " (turn on GPS to use this)"}
+                    </span>
+                  </label>
+                </>
+              )}
+              {push.pushError && (
+                <p className="text-[11px] text-red-500">{push.pushError}</p>
+              )}
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Get a push notification when another angler drops a Live pin nearby. Anchored to your
+                departure location by default, or your live GPS position while tracking if you turn that on above.
+              </p>
+            </Section>
+          )}
 
           {/* ── Referral Code ── */}
           {referral.tier !== "pro" && referral.tier !== "ambassador" && (

@@ -5,6 +5,10 @@
 // State:
 //   selectedLocation : the user's chosen departure point (one of regionConfig.locations)
 //   weatherPanel     : 'expanded' | 'collapsed' | 'hidden'
+//   gpsActive/boatPosition : mirrored here (SSTLive.jsx owns the actual
+//     navigator.geolocation.watchPosition() call) so non-map components
+//     -- e.g. UserSettingsModal's "use live GPS" notification preference --
+//     can read live position without being nested under the map.
 //
 // Default location precedence (first match wins):
 //   1. localStorage value from previous session, if it still exists in the region
@@ -91,6 +95,8 @@ export function AppProvider({ region, children }) {
   const userDefaultFetchedRef           = useRef(false);
   const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS);
   const [userId, setUserId]             = useState(null);
+  const [gpsActive, setGpsActive]       = useState(false);
+  const [boatPosition, setBoatPosition] = useState(null);
 
   useEffect(() => {
     if (userDefaultFetchedRef.current) return;
@@ -151,8 +157,12 @@ export function AppProvider({ region, children }) {
       userId,
       userSettings,
       setUserSettings,
+      gpsActive,
+      setGpsActive,
+      boatPosition,
+      setBoatPosition,
     }),
-    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings]
+    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings, gpsActive, boatPosition]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

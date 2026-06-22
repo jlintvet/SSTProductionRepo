@@ -266,7 +266,14 @@ function InlineLogin() {
 // ─────────────────────────────────────────────────────────────────────────────
 function SSTPageBody() {
   console.log("[SST:GATE] SSTPageBody mounted");
-  const { regionConfig, selectedLocation } = useAppContext();
+  const {
+    regionConfig, selectedLocation,
+    // Lifted to AppContext so non-map components (UserSettingsModal's
+    // "use live GPS" notification preference) can read live position
+    // without being nested under the map. The actual
+    // navigator.geolocation.watchPosition() call still lives here.
+    gpsActive, setGpsActive, boatPosition, setBoatPosition,
+  } = useAppContext();
   const { isPro } = useRegionAccess();
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
@@ -378,9 +385,8 @@ function SSTPageBody() {
   const [waypoints,      setWaypoints]      = useState([]);
   const [loadedRoute,    setLoadedRoute]    = useState(null);
   const [endTripPrompt,  setEndTripPrompt]  = useState(false);
-  // GPS / Real-Time tracking
-  const [gpsActive,      setGpsActive]      = useState(false);
-  const [boatPosition,   setBoatPosition]   = useState(null);
+  // GPS / Real-Time tracking (gpsActive/boatPosition now come from
+  // AppContext -- see destructuring above)
   const [boatTrack,      setBoatTrack]      = useState([]);
   const gpsWatchRef = useRef(null);
 
