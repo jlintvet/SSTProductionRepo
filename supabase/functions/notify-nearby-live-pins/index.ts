@@ -12,6 +12,12 @@
 // Database Webhook setup (Dashboard → Database → Webhooks):
 //   Table: community_locations · Events: Insert · Type: Supabase Edge Function
 //   Function: notify-nearby-live-pins
+//
+// NOTE: this function previously had zero console output on the success
+// path (only the catch-all error logged anything) -- so "empty logs"
+// looked identical whether the webhook never fired at all, or fired and
+// ran perfectly every time. Every branch below now logs explicitly so the
+// Logs tab actually tells us which case we're in.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -22,6 +28,8 @@ const SERVICE_ROLE_KEY      = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VAPID_PUBLIC_KEY      = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE_KEY     = Deno.env.get("VAPID_PRIVATE_KEY")!;
 const VAPID_SUBJECT         = Deno.env.get("VAPID_SUBJECT") || "mailto:jlintvet@riploc.com";
+
+console.log("[notify-nearby-live-pins] cold start. VAPID_PUBLIC_KEY set:", !!VAPID_PUBLIC_KEY, "VAPID_PRIVATE_KEY set:", !!VAPID_PRIVATE_KEY);
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
@@ -47,21 +55,28 @@ const SPECIES_LABELS: Record<string, string> = {
 };
 
 serve(async (req: Request) => {
+  console.log("[notify-nearby-live-pins] invoked:", req.method, new Date().toISOString());
   try {
     const payload = await req.json();
+    console.log("[notify-nearby-live-pins] payload.type:", payload?.type, "record.type:", payload?.record?.type, "record.id:", payload?.record?.id);
     const record = payload?.record;
 
     if (!record || record.type !== "live") {
-      // Not a live pin (or malformed payload) — nothing to notify.
+      console.log("[notify-nearby-live-pins] skipped -- not a live pin (or no record in payload)");
       return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 });
     }
 
     const { lat, lon, species, display_name, user_id, id } = record;
+    console.log("[notify-nearby-live-pins] new live pin:", { id, user_id, lat, lon });
 
     const { data: subs, error } = await supabase
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth_key, lat, lon, radius_miles, user_id");
-    if (error) throw error;
+    if (error) {
+      console.error("[notify-nearby-live-pins] push_subscriptions query failed:", error);
+      throw error;
+    }
+    console.log("[notify-nearby-live-pins] total subscriptions in table:", subs?.length ?? 0);
 
     const speciesLabel = (species || []).map((s: string) => SPECIES_LABELS[s] || s).join(", ");
     const body = speciesLabel
@@ -69,10 +84,16 @@ serve(async (req: Request) => {
       : `${display_name || "Someone"} just dropped a live pin nearby`;
 
     const targets = (subs || []).filter((s: any) => {
-      if (s.user_id === user_id) return false; // don't notify the poster about their own pin
+      if (s.user_id === user_id) {
+        console.log("[notify-nearby-live-pins] skip subscription (same user as poster):", s.endpoint.slice(-20));
+        return false;
+      }
       const dist = haversineMiles(lat, lon, s.lat, s.lon);
-      return dist <= (s.radius_miles ?? 25);
+      const within = dist <= (s.radius_miles ?? 25);
+      console.log("[notify-nearby-live-pins] subscription", s.endpoint.slice(-20), "distance:", dist.toFixed(1), "mi, radius:", s.radius_miles, "-> within range:", within);
+      return within;
     });
+    console.log("[notify-nearby-live-pins] targets after filtering:", targets.length);
 
     const results = await Promise.allSettled(
       targets.map((s: any) =>
@@ -87,11 +108,15 @@ serve(async (req: Request) => {
             url: `/app?pin=${id}`,
             tag: "riploc-live-pin",
           })
-        ).catch(async (err: any) => {
+        ).then(() => {
+          console.log("[notify-nearby-live-pins] sent OK to", s.endpoint.slice(-20));
+        }).catch(async (err: any) => {
+          console.error("[notify-nearby-live-pins] send FAILED to", s.endpoint.slice(-20), "statusCode:", err?.statusCode, "body:", err?.body, "message:", err?.message);
           // 404/410 = subscription is gone (browser unsubscribed, uninstalled, etc).
           // Clean it up so we stop trying.
           if (err?.statusCode === 404 || err?.statusCode === 410) {
             await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+            console.log("[notify-nearby-live-pins] removed dead subscription", s.endpoint.slice(-20));
           }
           throw err;
         })
@@ -99,6 +124,7 @@ serve(async (req: Request) => {
     );
 
     const sent = results.filter((r) => r.status === "fulfilled").length;
+    console.log("[notify-nearby-live-pins] done. targeted:", targets.length, "sent:", sent);
     return new Response(JSON.stringify({ ok: true, targeted: targets.length, sent }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
