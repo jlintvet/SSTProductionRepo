@@ -30,12 +30,24 @@ export function usePushNotifications({ userId, selectedLocation, gpsActive, boat
   const [pushError,   setPushError]   = useState(null);
   const pushSupported = isPushSupported();
   const lastGpsSyncRef = useRef({ t: 0, lat: null, lon: null });
+  // Guards the auto-sync effect below from firing with the *default*
+  // radius/useGps before the restore query has actually completed. Without
+  // this, setPushEnabled(true) and setPushRadius(restoredValue) land as two
+  // separate state updates -- the moment pushEnabled flips true, the
+  // auto-sync effect (keyed on pushEnabled) fires using whatever pushRadius
+  // currently is, which on a fresh mount is still the 25 default, not yet
+  // the restored value. That immediately overwrites the real saved radius
+  // back to 25 in the database -- "changing it doesn't stick" from the
+  // user's perspective, even though the save itself succeeded moments
+  // earlier. Restoring radius/useGps BEFORE enabling (same callback, so
+  // React 18 batches them into one render) fixes the ordering; this ref is
+  // an extra belt-and-suspenders guard.
+  const hasRestoredRef = useRef(false);
 
   useEffect(() => {
-    if (!pushSupported) return;
+    if (!pushSupported) { hasRestoredRef.current = true; return; }
     getExistingSubscription().then(async sub => {
-      if (!sub) return;
-      setPushEnabled(true);
+      if (!sub) { hasRestoredRef.current = true; return; }
       // Restore the previously-saved radius/mode so the inputs don't
       // silently reset to defaults and overwrite the actual preference.
       const { data } = await supabase
@@ -45,7 +57,9 @@ export function usePushNotifications({ userId, selectedLocation, gpsActive, boat
         .single();
       if (data?.radius_miles) setPushRadius(data.radius_miles);
       if (data?.use_gps != null) setPushUseGps(data.use_gps);
-    }).catch(() => {});
+      hasRestoredRef.current = true;
+      setPushEnabled(true); // enable AFTER restoring, never before
+    }).catch(() => { hasRestoredRef.current = true; });
   }, [pushSupported]);
 
   async function handleTogglePush() {
@@ -113,6 +127,7 @@ export function usePushNotifications({ userId, selectedLocation, gpsActive, boat
   // GPS fix itself.
   useEffect(() => {
     if (!pushEnabled) return;
+    if (!hasRestoredRef.current) return; // never sync with possibly-stale defaults
 
     const useLiveGps = pushUseGps && gpsActive && boatPosition?.lat != null && boatPosition?.lon != null;
     const anchor = useLiveGps

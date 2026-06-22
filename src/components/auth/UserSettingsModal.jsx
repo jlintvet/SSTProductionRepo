@@ -99,6 +99,16 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   // position for the "use my live GPS" notification preference.
   const { selectedLocation, gpsActive, boatPosition } = useAppContext();
   const push = usePushNotifications({ userId, selectedLocation, gpsActive, boatPosition });
+  // Local text buffer for the radius input -- lets the user freely clear/
+  // retype without the controlled value immediately snapping to a clamped
+  // fallback on every keystroke. Only clamps + commits on blur.
+  const [radiusInput, setRadiusInput] = useState(String(push.pushRadius));
+  useEffect(() => { setRadiusInput(String(push.pushRadius)); }, [push.pushRadius]);
+  function commitRadiusInput() {
+    const n = Math.max(1, Math.min(250, parseInt(radiusInput, 10) || 1));
+    setRadiusInput(String(n));
+    if (n !== push.pushRadius) push.handleChangePushRadius(n);
+  }
   const [form, setForm]       = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -336,8 +346,10 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                         type="number"
                         min={1}
                         max={250}
-                        value={push.pushRadius}
-                        onChange={e => push.handleChangePushRadius(Math.max(1, Math.min(250, parseInt(e.target.value) || 1)))}
+                        value={radiusInput}
+                        onChange={e => setRadiusInput(e.target.value)}
+                        onBlur={commitRadiusInput}
+                        onKeyDown={e => { if (e.key === "Enter") { commitRadiusInput(); e.target.blur(); } }}
                         className="w-16 text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-cyan-400 text-slate-800"
                       />
                       <span className="text-[11px] text-slate-400">
