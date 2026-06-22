@@ -3802,12 +3802,13 @@ export default function SSTHeatmapLeaflet(props) {
                   </div>
                 )}
 
-                {/* Photo */}
+                {/* Photo — object-contain (not cover) so portrait photos aren't
+                    center-cropped; max-height caps how tall the card can grow */}
                 {pin.image_url && (
                   <img
                     src={pin.image_url}
                     alt=""
-                    className="w-full h-28 object-cover rounded-lg mb-2 border border-slate-100"
+                    className="w-full max-h-48 object-contain rounded-lg mb-2 border border-slate-100 bg-slate-50"
                   />
                 )}
 
