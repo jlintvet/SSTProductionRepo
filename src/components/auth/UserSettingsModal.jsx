@@ -25,6 +25,22 @@ import { supabase } from "@/lib/supabase";
 import { useAppContext } from "@/context/AppContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
+// iOS Safari doesn't expose the Push API in a regular browser tab at all --
+// only inside a PWA that's been added to the Home Screen (iOS 16.4+). When
+// push isn't supported we still show the section (rather than hiding it,
+// which just looked like the setting was missing/broken), with whichever
+// explanation applies.
+function isIOS() {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPadOS 13+ reports as Mac
+}
+function isStandalonePwa() {
+  if (typeof window === "undefined") return false;
+  return window.navigator.standalone === true ||
+    window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+}
+
 export const DEFAULT_SETTINGS = {
   speed_unit: "knots",
   depth_unit: "feet",
@@ -287,8 +303,16 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
           </Section>
 
           {/* ── Notifications ── */}
-          {push.pushSupported && (
-            <Section title="Notifications">
+          <Section title="Notifications">
+            {!push.pushSupported ? (
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                {isIOS() && !isStandalonePwa()
+                  ? <>Push notifications aren't available in Safari directly. Tap the Share button and choose
+                     <strong> "Add to Home Screen,"</strong> then open RipLoc from the icon it creates to turn this on.</>
+                  : "Push notifications aren't supported in this browser."}
+              </p>
+            ) : (
+              <>
               <button
                 onClick={push.handleTogglePush}
                 disabled={push.pushBusy}
@@ -342,8 +366,9 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 Get a push notification when another angler drops a Live pin nearby. Anchored to your
                 departure location by default, or your live GPS position while tracking if you turn that on above.
               </p>
-            </Section>
-          )}
+              </>
+            )}
+          </Section>
 
           {/* ── Referral Code ── */}
           {referral.tier !== "pro" && referral.tier !== "ambassador" && (
