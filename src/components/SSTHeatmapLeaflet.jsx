@@ -141,7 +141,15 @@ function SavedPanel({
                 return (
                   <div
                     key={loc.id}
-                    onClick={() => { flyToRef.current?.(loc.lat, loc.lon); onMobileSelect?.(); }}
+                    onClick={() => {
+                      if (tripMode && onAddWaypoint) {
+                        onAddWaypoint(parseFloat(loc.lat), parseFloat(loc.lon), loc.display_name || "Community Pin");
+                        onClose?.();
+                        return;
+                      }
+                      flyToRef.current?.(loc.lat, loc.lon);
+                      onMobileSelect?.();
+                    }}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs cursor-pointer hover:bg-slate-50 hover:border-slate-300"
                   >
                     <div className="flex items-center gap-2">
@@ -2618,7 +2626,14 @@ export default function SSTHeatmapLeaflet(props) {
       const m = L.marker([lat, lon], { icon: wreckIcon });
       const showPopup = e => { const containerPt=map.latLngToContainerPoint(e.latlng); setHoveredWreck({px:containerPt.x,py:containerPt.y,props,lat,lon}); try{map.getContainer().style.cursor="pointer";}catch(_){} };
       m.on("mouseover", showPopup);
-      m.on("click", e => { L.DomEvent.stopPropagation(e); showPopup(e); });
+      m.on("click", e => {
+        L.DomEvent.stopPropagation(e);
+        if (tripModeRef.current) {
+          onAddWaypoint?.(lat, lon, props.name || (props.symbol === "Wreck" ? "Wreck" : "Structure"));
+          return;
+        }
+        showPopup(e);
+      });
       m.on("mouseout", () => { setHoveredWreck(null); try{ const XHAIR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cline x1='8' y1='0' x2='8' y2='16' stroke='%23111' stroke-width='1.2'/%3E%3Cline x1='0' y1='8' x2='16' y2='8' stroke='%23111' stroke-width='1.2'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='none' stroke='%23111' stroke-width='1.2'/%3E%3C/svg%3E") 8 8, crosshair`; map.getContainer().style.cursor=interactionModeRef.current==="crosshair"?XHAIR:"grab";}catch(_){} });
       m.addTo(lyr);
     });

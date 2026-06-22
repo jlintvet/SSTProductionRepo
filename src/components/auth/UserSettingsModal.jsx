@@ -110,6 +110,9 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     if (n !== push.pushRadius) push.handleChangePushRadius(n);
   }
   const [form, setForm]       = useState(DEFAULT_SETTINGS);
+  const [navShareDefault, setNavShareDefault] = useState(() => {
+    try { return localStorage.getItem("riploc.navShareDefault") === "1"; } catch (_) { return false; }
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
@@ -281,6 +284,29 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 unit="kts"
                 onChange={v => set("cruise_speed_kts", v)}
               />
+            </Row>
+          </Section>
+
+          {/* ── Navigation ── */}
+          <Section title="Navigation">
+            <Row label="Display name">
+              <span className="text-xs text-slate-500 leading-snug">
+                Set in <span className="font-medium text-slate-700">Community Profile</span> below — shown to other users when you share live location while navigating.
+              </span>
+            </Row>
+            <Row label="Share by default">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={navShareDefault}
+                  onChange={e => {
+                    setNavShareDefault(e.target.checked);
+                    try { localStorage.setItem("riploc.navShareDefault", e.target.checked ? "1" : "0"); } catch (_) {}
+                  }}
+                  className="rounded border-slate-300 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span className="text-xs text-slate-600">Share live location when starting navigation</span>
+              </label>
             </Row>
           </Section>
 

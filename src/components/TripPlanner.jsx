@@ -97,7 +97,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
   const [sharingRoute,  setSharingRoute]  = useState(null);
   const [collapsed,     setCollapsed]     = useState(false);
   const [showNavPrompt, setShowNavPrompt] = useState(false); // inline nav-start prompt
-  const [shareThisTrip, setShareThisTrip] = useState(false); // share toggle in prompt
+  const [shareThisTrip, setShareThisTrip] = useState(() => { try { return localStorage.getItem("riploc.navShareDefault") === "1"; } catch (_) { return false; } }); // share toggle in prompt
 
   // Saved routes dropdown
   const [showRoutes,    setShowRoutes]    = useState(false);
