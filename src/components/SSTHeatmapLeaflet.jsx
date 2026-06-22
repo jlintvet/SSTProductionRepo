@@ -1273,7 +1273,6 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => { waypointsRef.current = waypoints || []; }, [waypoints]);
 
   // ── Community live-dot Realtime subscription ──────────────────────────────
-  const { userId } = useAppContext();
   useEffect(() => {
     // Subscribe to live_locations table changes
     const channel = supabase
