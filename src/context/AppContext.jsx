@@ -27,16 +27,30 @@ import { loadUserSettings, DEFAULT_SETTINGS } from "@/components/auth/UserSettin
 function useSupabaseTrial() {
   const [daysLeft, setDaysLeft] = useState(undefined);
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data?.user) { setDaysLeft(null); return; }
-      supabase.from("user_profiles").select("trial_end, subscription_status").eq("id", data.user.id).single()
-        .then(({ data: profile, error }) => {
-          if (error || !profile) { setDaysLeft(null); return; }
-          if (profile.subscription_status === "active") { setDaysLeft(null); return; }
-          const msLeft = new Date(profile.trial_end) - new Date();
-          setDaysLeft(Math.max(0, Math.ceil(msLeft / 86400000)));
-        });
-    });
+    // getUser() can transiently reject ("Lock broken by another request,
+    // steal option" -- supabase-js's auth lock under multi-tab/rapid-reload
+    // contention). No .catch() here previously meant a single failed call
+    // left daysLeft stuck at undefined forever. Retry once before giving up.
+    let cancelled = false;
+    function run(isRetry) {
+      supabase.auth.getUser().then(({ data }) => {
+        if (cancelled) return;
+        if (!data?.user) { setDaysLeft(null); return; }
+        supabase.from("user_profiles").select("trial_end, subscription_status").eq("id", data.user.id).single()
+          .then(({ data: profile, error }) => {
+            if (cancelled) return;
+            if (error || !profile) { setDaysLeft(null); return; }
+            if (profile.subscription_status === "active") { setDaysLeft(null); return; }
+            const msLeft = new Date(profile.trial_end) - new Date();
+            setDaysLeft(Math.max(0, Math.ceil(msLeft / 86400000)));
+          });
+      }).catch(err => {
+        console.warn("[AppContext] trial getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
+        if (!isRetry && !cancelled) setTimeout(() => run(true), 1500);
+      });
+    }
+    run(false);
+    return () => { cancelled = true; };
   }, []);
   return daysLeft;
 }
@@ -102,13 +116,18 @@ export function AppProvider({ region, children }) {
     if (userDefaultFetchedRef.current) return;
     userDefaultFetchedRef.current = true;
 
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data?.user?.id;
-      if (!uid) return;
-      setUserId(uid);
-
-      loadUserSettings(uid).then(s => setUserSettings(s));
-    });
+    function fetchUser(isRetry) {
+      supabase.auth.getUser().then(({ data }) => {
+        const uid = data?.user?.id;
+        if (!uid) return;
+        setUserId(uid);
+        loadUserSettings(uid).then(s => setUserSettings(s));
+      }).catch(err => {
+        console.warn("[AppContext] userId getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
+        if (!isRetry) setTimeout(() => fetchUser(true), 1500);
+      });
+    }
+    fetchUser(false);
   }, []);
 
   const [selectedLocation, setSelectedLocation] = useState(
