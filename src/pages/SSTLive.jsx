@@ -665,7 +665,7 @@ function SSTPageBody() {
   // "I locked my phone, someone posted, I unlock and want it to show up
   // now" rather than waiting out the interval.
   useEffect(() => {
-    const REFRESH_MS = 45000;
+    const REFRESH_MS = 20000;
     let intervalId = null;
     function startPolling() {
       if (intervalId) return;
@@ -686,9 +686,20 @@ function SSTPageBody() {
     }
     if (document.visibilityState === "visible") startPolling();
     document.addEventListener("visibilitychange", handleVisibility);
+
+    // The service worker messages every open tab the instant a push lands
+    // (see sw.js) so the map updates right away instead of waiting on the
+    // poll interval above -- that's what makes this feel "near real time"
+    // while the app is open, the poll is just the fallback/catch-all.
+    function handleSwMessage(event) {
+      if (event.data?.type === "riploc-refresh-community") fetchCommunityLocations();
+    }
+    navigator.serviceWorker?.addEventListener?.("message", handleSwMessage);
+
     return () => {
       stopPolling();
       document.removeEventListener("visibilitychange", handleVisibility);
+      navigator.serviceWorker?.removeEventListener?.("message", handleSwMessage);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

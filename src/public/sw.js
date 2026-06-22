@@ -31,7 +31,17 @@ self.addEventListener("push", (event) => {
     tag: payload.tag || "riploc-live-pin",
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  // Tell any open tab(s) to refresh community pins right away, instead of
+  // waiting on the page's own 45s poll -- this is what makes the map feel
+  // "near real time" when the app is already open and a push lands.
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+        clientsArr.forEach((client) => client.postMessage({ type: "riploc-refresh-community" }));
+      }),
+    ])
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
