@@ -70,8 +70,8 @@ function calcSunrise(lat, lon, date) {
   return d;
 }
 
-export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro, loadedRoute, heatmapData, sstMin, sstMax, sstRange }) {
-  const { userSettings } = useAppContext();
+export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, isPro, loadedRoute, heatmapData, sstMin, sstMax, sstRange, onNavigationEnded }) {
+  const { userSettings, startNavigation, endNavigation, navigatingRoute } = useAppContext();
   const cruiseSpeedKts  = Number(userSettings?.cruise_speed_kts)  || 0;
   const fuelBurnGalHr   = Number(userSettings?.fuel_burn_gal_hr)  || 0;
 
@@ -96,6 +96,8 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
   const [savedRouteData,setSavedRouteData]= useState(null);
   const [sharingRoute,  setSharingRoute]  = useState(null);
   const [collapsed,     setCollapsed]     = useState(false);
+  const [showNavPrompt, setShowNavPrompt] = useState(false); // inline nav-start prompt
+  const [shareThisTrip, setShareThisTrip] = useState(false); // share toggle in prompt
 
   // Saved routes dropdown
   const [showRoutes,    setShowRoutes]    = useState(false);
@@ -369,8 +371,28 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
             </button>
           )}
 
+          {/* Start / Stop Navigation */}
+          {waypoints.length >= 2 && isPro && !navigatingRoute && (
+            <button
+              onClick={() => setShowNavPrompt(v => !v)}
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
+              title="Start navigating this route"
+            >
+              Navigate
+            </button>
+          )}
+          {navigatingRoute && (
+            <button
+              onClick={() => { const d = endNavigation(); onNavigationEnded?.(d); }}
+              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0 animate-pulse"
+              title="End navigation"
+            >
+              End Nav
+            </button>
+          )}
+
           {/* Clear */}
-          {waypoints.length > 0 && (
+          {waypoints.length > 0 && !navigatingRoute && (
             <button
               onClick={() => { setWaypoints([]); setSavedRouteData(null); }}
               className="text-[10px] text-slate-400 hover:text-red-500 transition-colors px-1.5 py-1 shrink-0"
@@ -404,6 +426,35 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
         </div>
       )}
 
+      {/* ── Nav start prompt (inline) ── */}
+      {!collapsed && showNavPrompt && !navigatingRoute && (
+        <div className="flex items-center gap-2 px-3 border-b border-emerald-100 bg-emerald-50 h-10 flex-shrink-0">
+          <span className="text-[10px] text-emerald-700 font-semibold whitespace-nowrap">Share live location?</span>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={shareThisTrip}
+              onChange={e => setShareThisTrip(e.target.checked)}
+              className="accent-emerald-600"
+            />
+            <span className="text-[10px] text-emerald-800">Yes</span>
+          </label>
+          <button
+            onClick={() => {
+              const routeObj = savedRouteData || { name: routeName, waypoints, cruise_speed_kts: speed || null };
+              startNavigation(routeObj, shareThisTrip);
+              setShowNavPrompt(false);
+            }}
+            className="ml-auto px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap"
+          >
+            Start
+          </button>
+          <button onClick={() => setShowNavPrompt(false)} className="text-emerald-400 hover:text-emerald-700 p-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      )}
+
       {/* ── Header row 3: depart / speed — mobile only ── */}
       {!collapsed && (
         <div className="sm:hidden flex items-center gap-2 px-3 border-b border-slate-100 h-10 flex-shrink-0">
@@ -425,6 +476,15 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
             className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-14 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
           />
           <span className="text-[10px] text-slate-400 shrink-0">kts</span>
+        </div>
+      )}
+
+      {/* ── Navigation active banner ── */}
+      {!collapsed && navigatingRoute && (
+        <div className="flex items-center gap-2 px-3 border-b border-emerald-200 bg-emerald-600 h-8 flex-shrink-0">
+          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%",
+                         background: "#fff", boxShadow: "0 0 5px #fff" }}/>
+          <span className="text-[11px] text-white font-semibold">Navigation active</span>
         </div>
       )}
 

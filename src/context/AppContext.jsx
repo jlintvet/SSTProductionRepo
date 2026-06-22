@@ -114,11 +114,32 @@ export function AppProvider({ region, children }) {
   const [gpsActive, setGpsActive]       = useState(false);
   const [boatPosition, setBoatPosition] = useState(null);
   const [boatTrack, setBoatTrack]       = useState([]);
-  const gpsWatchRef = useRef(null);
+  const [navigatingRoute,     setNavigatingRoute]     = useState(null);  // route object or null
+  const [currentWpIndex,      setCurrentWpIndex]      = useState(0);     // active leg index
+  const [tripSharing,         setTripSharing]         = useState(false); // broadcasting live pos
+  // Keep ref in sync so watchPosition closure can read current value
+  const [displayName,         setDisplayName]         = useState("");
+  const [navStartedAt,        setNavStartedAt]        = useState(null);  // Date for duration calc
+  const [navMaxSpeedKts,      setNavMaxSpeedKts]      = useState(0);
+  const gpsWatchRef    = useRef(null);
+  const speedBufRef      = useRef([]);   // [{speed_kts, ts}] rolling 30-s window for nav ETA
+  const navTrackRef      = useRef([]);   // full GPS track for trip-history save (one pt / ~30s)
+  const lastTrackPtRef   = useRef(0);    // timestamp of last track sample
+  const lastLiveUpsertRef = useRef(0);   // throttle live_locations upsert to ~10s
+  // Refs for use inside watchPosition closure (state doesn't update there)
+  const tripSharingRef   = useRef(false);
+  const displayNameRef   = useRef("");
+  const userIdRef        = useRef(null);
+
+  // Sync mutable refs so watchPosition closure always reads current values
+  useEffect(() => { tripSharingRef.current = tripSharing; }, [tripSharing]);
+  useEffect(() => { displayNameRef.current = displayName; }, [displayName]);
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
 
   function stopGps() {
     if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
     gpsWatchRef.current = null;
+    speedBufRef.current = [];
     setGpsActive(false);
     setBoatPosition(null);
     setBoatTrack([]);
@@ -136,9 +157,47 @@ export function AppProvider({ region, children }) {
       pos => {
         const { latitude, longitude, heading, speed, accuracy } = pos.coords;
         const speedKts = speed != null ? +(speed * 1.94384).toFixed(1) : null;
+        const now = Date.now();
+
+        // ── Rolling 30-second speed buffer for navigation ETA ──
+        if (speedKts != null) {
+          speedBufRef.current = [
+            ...speedBufRef.current.filter(p => now - p.ts < 30000),
+            { speedKts, ts: now },
+          ];
+        }
+
+        // ── Max speed tracking ──
+        if (speedKts != null) {
+          setNavMaxSpeedKts(prev => speedKts > prev ? speedKts : prev);
+        }
+
+        // ── Nav track: sample one point every ~30 seconds ──
+        if (now - lastTrackPtRef.current >= 30000) {
+          navTrackRef.current = [...navTrackRef.current, [latitude, longitude]];
+          lastTrackPtRef.current = now;
+        }
+
         setBoatPosition({ lat: latitude, lon: longitude, heading, speedKts, accuracy });
         setBoatTrack(prev => [...prev.slice(-500), [latitude, longitude]]);
         setGpsActive(true);
+
+        // ── Live community location broadcast (throttled to ~10s) ─────
+        if (tripSharingRef.current && now - lastLiveUpsertRef.current >= 10000) {
+          lastLiveUpsertRef.current = now;
+          supabase.from("live_locations").upsert({
+            user_id:       userIdRef.current,
+            display_name:  displayNameRef.current || "Angler",
+            lat:           latitude,
+            lon:           longitude,
+            heading:       heading ?? null,
+            speed_kts:     speedKts ?? null,
+            sharing_active: true,
+            updated_at:    new Date().toISOString(),
+          }, { onConflict: "user_id" }).then(({ error }) => {
+            if (error) console.warn("[AppContext] live_locations upsert:", error.message);
+          });
+        }
       },
       err => {
         console.warn("GPS error:", err.message);
@@ -157,6 +216,97 @@ export function AppProvider({ region, children }) {
     if (gpsActive) stopGps(); else startGps();
   }
 
+  // ── Smoothed speed (30-s rolling average) — used for nav ETA ──────────
+  function smoothedSpeedKts() {
+    const buf = speedBufRef.current;
+    if (!buf.length) return null;
+    const avg = buf.reduce((s, p) => s + p.speedKts, 0) / buf.length;
+    return +avg.toFixed(1);
+  }
+
+  // ── startNavigation ────────────────────────────────────────────────────
+  // route:      { id, name, waypoints, cruise_speed_kts }
+  // shareTrip:  boolean — broadcast live position to community
+  function startNavigation(route, shareTrip = false) {
+    if (!route?.waypoints?.length) return;
+    navTrackRef.current   = [];
+    lastTrackPtRef.current = 0;
+    speedBufRef.current   = [];
+    setNavigatingRoute(route);
+    setCurrentWpIndex(1);          // index 0 is departure, start navigating toward WP 1
+    setNavStartedAt(new Date());
+    setNavMaxSpeedKts(0);
+    setTripSharing(shareTrip);
+    startGps();
+  }
+
+  // ── endNavigation ──────────────────────────────────────────────────────
+  // Returns a trip-data object for TripSummaryModal to display and save.
+  function endNavigation() {
+    const track    = navTrackRef.current;
+    const startedAt = navStartedAt;
+    const maxSpd   = navMaxSpeedKts;
+    const route    = navigatingRoute;
+
+    // Compute actual distance from track
+    let actualNm = 0;
+    for (let i = 1; i < track.length; i++) {
+      const [la1, lo1] = track[i - 1], [la2, lo2] = track[i];
+      const R = 3440.065;
+      const dLa = (la2 - la1) * Math.PI / 180;
+      const dLo = (lo2 - lo1) * Math.PI / 180;
+      const a = Math.sin(dLa / 2) ** 2 +
+        Math.cos(la1 * Math.PI / 180) * Math.cos(la2 * Math.PI / 180) * Math.sin(dLo / 2) ** 2;
+      actualNm += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    const durationHrs = startedAt ? (Date.now() - startedAt.getTime()) / 3600000 : null;
+    const avgSpd = durationHrs && actualNm ? +(actualNm / durationHrs).toFixed(1) : null;
+
+    // Stop community live broadcast if active
+    if (tripSharingRef.current) {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data?.user?.id) {
+          supabase.from("live_locations").delete().eq("user_id", data.user.id)
+            .then(() => {});
+        }
+      });
+    }
+
+    // Reset navigation state
+    setNavigatingRoute(null);
+    setCurrentWpIndex(0);
+    setNavStartedAt(null);
+    setNavMaxSpeedKts(0);
+    setTripSharing(false);
+    speedBufRef.current = [];
+    navTrackRef.current = [];
+    stopGps();
+
+    return {
+      route,
+      actualDistanceNm:  +actualNm.toFixed(2),
+      actualDurationHrs: durationHrs ? +durationHrs.toFixed(3) : null,
+      avgSpeedKts:       avgSpd,
+      maxSpeedKts:       maxSpd || null,
+      track:             track,
+      startedAt,
+    };
+  }
+
+  // ── Page Visibility: resume GPS+nav when app is foregrounded ──────────
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+      // If we were navigating and GPS watch got killed by the browser, restart it
+      if (navigatingRoute && gpsWatchRef.current == null) {
+        startGps();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [navigatingRoute]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (userDefaultFetchedRef.current) return;
     userDefaultFetchedRef.current = true;
@@ -167,6 +317,8 @@ export function AppProvider({ region, children }) {
         if (!uid) return;
         setUserId(uid);
         loadUserSettings(uid).then(s => setUserSettings(s));
+        supabase.from("user_profiles").select("display_name").eq("id", uid).single()
+          .then(({ data }) => { if (data?.display_name) setDisplayName(data.display_name); });
       }).catch(err => {
         console.warn("[AppContext] userId getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
         if (!isRetry) setTimeout(() => fetchUser(true), 1500);
@@ -229,8 +381,18 @@ export function AppProvider({ region, children }) {
       startGps,
       stopGps,
       toggleGps,
+      navigatingRoute,
+      setNavigatingRoute,
+      currentWpIndex,
+      setCurrentWpIndex,
+      tripSharing,
+      setTripSharing,
+      startNavigation,
+      endNavigation,
+      smoothedSpeedKts,
+      displayName,
     }),
-    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings, gpsActive, boatPosition, boatTrack]
+    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings, gpsActive, boatPosition, boatTrack, navigatingRoute, currentWpIndex, tripSharing, displayName]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

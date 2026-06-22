@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useAppContext } from "@/context/AppContext";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { Crosshair, Move, Wind } from "lucide-react";
@@ -946,7 +947,24 @@ export default function SSTHeatmapLeaflet(props) {
     onOpenLeaderboard, onPostCommunityReport,
     onCommunityPosted,
     communityPinDrop, onCommunityPinDropped, onCancelPinDrop,
+    onStartNavFromMap, onEndNavFromMap,
   } = props;
+
+  // Local haversine for nav distance calc (same formula as TripPlanner)
+  function navHaversineNm(la1, lo1, la2, lo2) {
+    const R = 3440.065;
+    const dLa = (la2 - la1) * Math.PI / 180;
+    const dLo = (lo2 - lo1) * Math.PI / 180;
+    const a = Math.sin(dLa / 2) ** 2 +
+      Math.cos(la1 * Math.PI / 180) * Math.cos(la2 * Math.PI / 180) * Math.sin(dLo / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // Navigation state lives in AppContext (not props — avoids threading 6 new props)
+  const {
+    navigatingRoute, currentWpIndex, setCurrentWpIndex,
+    endNavigation, smoothedSpeedKts, tripSharing,
+  } = useAppContext();
 
   const { latSet, lonSet, grid } = data;
   const regionBounds = regionConfig.bounds;
@@ -1160,6 +1178,13 @@ export default function SSTHeatmapLeaflet(props) {
   }, [mapReady, communityLocations, showCommunityLayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [wpDeletePopup,    setWpDeletePopup]    = useState(null); // {id, label, px, py}
+  const [boatPopupOpen,    setBoatPopupOpen]    = useState(false); // boat-click nav popup
+  const [endTripConfirm,   setEndTripConfirm]   = useState(false); // near final WP prompt
+
+  // Community live dots — keyed by user_id
+  // Each entry: { user_id, display_name, lat, lon, heading, speed_kts, updated_at, trail: [[lat,lon],...] }
+  const [liveDots,         setLiveDots]         = useState({});
+  const liveDotsRef        = useRef({});   // mutable ref for stale-check interval
 
   // ── GPS boat marker ──────────────────────────────────────────────
   const boatMarkerRef = useRef(null);
@@ -1188,8 +1213,32 @@ export default function SSTHeatmapLeaflet(props) {
       boatMarkerRef.current.setIcon(icon);
     } else {
       boatMarkerRef.current = L.marker([boatPosition.lat, boatPosition.lon], { icon, zIndexOffset: 1500 }).addTo(map);
+      boatMarkerRef.current.on("click", () => setBoatPopupOpen(v => !v));
+    } else {
+      // Keep click handler in sync (re-add each update would duplicate)
     }
-  }, [gpsActive, boatPosition]);
+  }, [gpsActive, boatPosition]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Waypoint auto-advance + end-trip detection ──────────────────────────
+  const PROX_NM = 0.25; // threshold: advance when within 0.25 nm of target WP
+  useEffect(() => {
+    if (!navigatingRoute || !boatPosition || !waypoints?.length) return;
+    const targetWp = waypoints[currentWpIndex];
+    if (!targetWp) return;
+
+    const dist = navHaversineNm(boatPosition.lat, boatPosition.lon, targetWp.lat, targetWp.lng);
+
+    if (dist <= PROX_NM) {
+      const isLast = currentWpIndex >= waypoints.length - 1;
+      if (isLast) {
+        // Reached final waypoint — prompt to end trip
+        if (!endTripConfirm) setEndTripConfirm(true);
+      } else {
+        // Auto-advance to next waypoint
+        setCurrentWpIndex(i => i + 1);
+      }
+    }
+  }, [boatPosition, navigatingRoute, currentWpIndex, waypoints]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
@@ -1225,12 +1274,181 @@ export default function SSTHeatmapLeaflet(props) {
   // ── Trip mode ref sync ───────────────────────────────────────────────────────
   useEffect(() => { waypointsRef.current = waypoints || []; }, [waypoints]);
 
+  // ── Community live-dot Realtime subscription ──────────────────────────────
+  const { userId } = useAppContext();
+  useEffect(() => {
+    // Subscribe to live_locations table changes
+    const channel = supabase
+      .channel("live_locations_broadcast")
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "live_locations",
+      }, payload => {
+        const row = payload.new ?? payload.old;
+        if (!row) return;
+        const uid = row.user_id;
+
+        if (payload.eventType === "DELETE" || row.sharing_active === false) {
+          setLiveDots(prev => {
+            const next = { ...prev };
+            delete next[uid];
+            liveDotsRef.current = next;
+            return next;
+          });
+          return;
+        }
+
+        // Skip own position
+        if (uid === userId) return;
+
+        setLiveDots(prev => {
+          const existing = prev[uid];
+          const now = Date.now();
+          const TRAIL_MS = 5 * 60 * 1000; // 5-minute rolling window
+
+          // Append new point to trail, trim old points
+          const newPt = [row.lat, row.lon];
+          const prevTrail = existing?.trail ?? [];
+          const trail = [
+            ...prevTrail.filter(p => p[2] && now - p[2] < TRAIL_MS),
+            [row.lat, row.lon, now],
+          ];
+
+          const next = {
+            ...prev,
+            [uid]: {
+              user_id:      uid,
+              display_name: row.display_name || "Angler",
+              lat:          row.lat,
+              lon:          row.lon,
+              heading:      row.heading,
+              speed_kts:    row.speed_kts,
+              updated_at:   row.updated_at,
+              trail,
+            },
+          };
+          liveDotsRef.current = next;
+          return next;
+        });
+      })
+      .subscribe();
+
+    // Stale-dot cleanup: check every 30 seconds, hide after 5 min no update
+    const staleInterval = setInterval(() => {
+      const STALE_MS = 5 * 60 * 1000;
+      const now = Date.now();
+      setLiveDots(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(uid => {
+          const lastUpdate = new Date(next[uid].updated_at).getTime();
+          if (now - lastUpdate > STALE_MS) {
+            delete next[uid];
+            changed = true;
+          }
+        });
+        if (changed) { liveDotsRef.current = next; return next; }
+        return prev;
+      });
+    }, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(staleInterval);
+    };
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     tripModeRef.current = !!tripMode;
     const map = mapRef.current; if (!map) return;
     const c = map.getContainer();
     c.style.cursor = tripMode ? "crosshair" : "";
   }, [tripMode]);
+
+  // ── Community live-dot Leaflet layer ─────────────────────────────────────────
+  // Managed imperatively (L.marker + L.polyline) so dots follow map pan/zoom.
+  const liveDotMarkersRef = useRef({}); // uid → L.marker
+  const liveDotTrailsRef  = useRef({}); // uid → L.polyline
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const dots = liveDots;
+    const currentUids = new Set(Object.keys(dots));
+
+    // Remove markers/trails for users no longer in liveDots
+    Object.keys(liveDotMarkersRef.current).forEach(uid => {
+      if (!currentUids.has(uid)) {
+        liveDotMarkersRef.current[uid]?.remove();
+        liveDotTrailsRef.current[uid]?.remove();
+        delete liveDotMarkersRef.current[uid];
+        delete liveDotTrailsRef.current[uid];
+      }
+    });
+
+    // Add or update markers for each live dot
+    Object.values(dots).forEach(dot => {
+      const uid = dot.user_id;
+      const hdg = dot.heading ?? 0;
+      const label = `${dot.display_name}${dot.speed_kts != null ? " · " + dot.speed_kts + " kts" : ""}`;
+
+      const icon = L.divIcon({
+        className: "",
+        iconSize:   [28, 28],
+        iconAnchor: [14, 14],
+        html: `<div style="position:relative">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+            <g transform="rotate(${hdg},14,14)">
+              <polygon points="14,2 20,22 14,18 8,22" fill="#f59e0b" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+              <circle cx="14" cy="14" r="2" fill="white" opacity="0.9"/>
+            </g>
+          </svg>
+          <div style="position:absolute;left:18px;top:6px;background:rgba(15,23,42,0.82);color:#fcd34d;
+                      font:700 9px/1.3 ui-monospace,monospace;border-radius:4px;padding:2px 5px;
+                      white-space:nowrap;pointer-events:none">${label}</div>
+        </div>`,
+      });
+
+      if (liveDotMarkersRef.current[uid]) {
+        liveDotMarkersRef.current[uid].setLatLng([dot.lat, dot.lon]);
+        liveDotMarkersRef.current[uid].setIcon(icon);
+      } else {
+        liveDotMarkersRef.current[uid] = L.marker([dot.lat, dot.lon], {
+          icon, zIndexOffset: 1400,
+        }).addTo(map);
+      }
+
+      // Trail polyline (5-min rolling window — points have [lat, lon, timestamp])
+      const TRAIL_MS = 5 * 60 * 1000;
+      const now = Date.now();
+      const trailPts = (dot.trail ?? [])
+        .filter(p => p[2] && now - p[2] < TRAIL_MS)
+        .map(p => [p[0], p[1]]);
+
+      if (trailPts.length >= 2) {
+        if (liveDotTrailsRef.current[uid]) {
+          liveDotTrailsRef.current[uid].setLatLngs(trailPts);
+        } else {
+          liveDotTrailsRef.current[uid] = L.polyline(trailPts, {
+            color: "#f59e0b", weight: 2, opacity: 0.55, dashArray: "5 4",
+          }).addTo(map);
+        }
+      } else if (liveDotTrailsRef.current[uid]) {
+        liveDotTrailsRef.current[uid].remove();
+        delete liveDotTrailsRef.current[uid];
+      }
+    });
+  }, [liveDots, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clean up live dot markers/trails on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(liveDotMarkersRef.current).forEach(m => m?.remove());
+      Object.values(liveDotTrailsRef.current).forEach(t => t?.remove());
+    };
+  }, []);
 
   // ── Waypoint layer ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -3845,29 +4063,131 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* GPS HUD */}
-          {gpsActive && boatPosition && (
-            <div style={{ position: "absolute", bottom: 72, left: 8, zIndex: 800, pointerEvents: "none",
-                          background: "rgba(15,23,42,0.82)", color: "#e2e8f0", borderRadius: 10,
-                          padding: "7px 11px", fontSize: 11, fontFamily: "ui-monospace, monospace",
-                          backdropFilter: "blur(4px)", border: "1px solid rgba(6,182,212,0.35)" }}>
-              <div style={{ color: "#22d3ee", fontWeight: 700, marginBottom: 3, display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
-                               background: "#22d3ee", boxShadow: "0 0 6px #22d3ee" }}/>
-                GPS Active
+          {/* GPS HUD — enhanced with navigation info when active */}
+          {gpsActive && boatPosition && (() => {
+            // Compute nav ETA if navigating
+            let navLine1 = null, navLine2 = null;
+            if (navigatingRoute && waypoints?.length && currentWpIndex < waypoints.length) {
+              const targetWp = waypoints[currentWpIndex];
+              const distNm   = navHaversineNm(boatPosition.lat, boatPosition.lon, targetWp.lat, targetWp.lng);
+              const spd      = smoothedSpeedKts();
+              const etaLabel = (spd && spd > 0.5)
+                ? (() => {
+                    const eta = new Date(Date.now() + (distNm / spd) * 3600000);
+                    return eta.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  })()
+                : null;
+              navLine1 = `WP ${currentWpIndex} of ${waypoints.length - 1}  ${distNm.toFixed(1)} nm`;
+              navLine2 = etaLabel ? `ETA ${etaLabel}` : null;
+            }
+            const isNav = !!navigatingRoute;
+            return (
+              <div style={{ position: "absolute", bottom: 72, left: 8, zIndex: 800, pointerEvents: "auto",
+                            background: "rgba(15,23,42,0.82)", color: "#e2e8f0", borderRadius: 10,
+                            padding: "7px 11px", fontSize: 11, fontFamily: "ui-monospace, monospace",
+                            backdropFilter: "blur(4px)",
+                            border: `1px solid ${isNav ? "rgba(16,185,129,0.55)" : "rgba(6,182,212,0.35)"}`,
+                            cursor: "pointer" }}
+                   onClick={() => setBoatPopupOpen(v => !v)}>
+                <div style={{ color: isNav ? "#34d399" : "#22d3ee", fontWeight: 700, marginBottom: 3,
+                              display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+                                 background: isNav ? "#34d399" : "#22d3ee",
+                                 boxShadow: `0 0 6px ${isNav ? "#34d399" : "#22d3ee"}` }}/>
+                  {isNav ? "Navigating" : "GPS Active"}
+                  {tripSharing && <span style={{ fontSize: 9, color: "#f59e0b", marginLeft: 4,
+                                                background: "rgba(245,158,11,0.15)", borderRadius: 4,
+                                                padding: "1px 4px" }}>LIVE</span>}
+                </div>
+                <div style={{ color: "#94a3b8", fontSize: 10.5 }}>
+                  {boatPosition.lat.toFixed(5)}° N &nbsp; {Math.abs(boatPosition.lon).toFixed(5)}° W
+                </div>
+                {navLine1 && <div style={{ color: "#34d399", fontWeight: 600, marginTop: 2 }}>{navLine1}</div>}
+                {navLine2 && <div style={{ color: "#f0f9ff" }}>{navLine2}</div>}
+                {!navLine1 && boatPosition.speedKts != null && (
+                  <div>SPD <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{boatPosition.speedKts}</span> kts</div>
+                )}
+                {boatPosition.heading != null && (
+                  <div>HDG <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{Math.round(boatPosition.heading)}°</span></div>
+                )}
+                {boatPosition.accuracy != null && (
+                  <div style={{ color: "#64748b", fontSize: 10 }}>±{Math.round(boatPosition.accuracy)} m</div>
+                )}
               </div>
-              <div style={{ color: "#94a3b8", fontSize: 10.5 }}>
-                {boatPosition.lat.toFixed(5)}° N &nbsp; {Math.abs(boatPosition.lon).toFixed(5)}° W
+            );
+          })()}
+
+          {/* Boat-click popup: Start Navigation / Stop GPS */}
+          {boatPopupOpen && gpsActive && (
+            <div style={{ position: "absolute", bottom: 170, left: 8, zIndex: 900,
+                          background: "#1e293b", borderRadius: 10, padding: "8px 6px",
+                          boxShadow: "0 4px 20px rgba(0,0,0,0.4)", minWidth: 160,
+                          border: "1px solid rgba(255,255,255,0.08)" }}>
+              {/* Close */}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                <button onClick={() => setBoatPopupOpen(false)}
+                  style={{ color: "#64748b", background: "none", border: "none", cursor: "pointer",
+                           padding: "2px 4px", fontSize: 12 }}>✕</button>
               </div>
-              {boatPosition.speedKts != null && (
-                <div>SPD <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{boatPosition.speedKts}</span> kts</div>
+              {!navigatingRoute && waypoints?.length >= 2 && (
+                <button
+                  onClick={() => { setBoatPopupOpen(false); onStartNavFromMap?.(); }}
+                  style={{ display: "block", width: "100%", padding: "7px 10px", marginBottom: 4,
+                           background: "#059669", color: "#fff", border: "none", borderRadius: 7,
+                           fontSize: 11, fontWeight: 700, cursor: "pointer", textAlign: "left" }}>
+                  Start Navigation
+                </button>
               )}
-              {boatPosition.heading != null && (
-                <div>HDG <span style={{ color: "#f0f9ff", fontWeight: 600 }}>{Math.round(boatPosition.heading)}°</span></div>
+              {navigatingRoute && (
+                <button
+                  onClick={() => { setBoatPopupOpen(false); onEndNavFromMap?.(); }}
+                  style={{ display: "block", width: "100%", padding: "7px 10px", marginBottom: 4,
+                           background: "#dc2626", color: "#fff", border: "none", borderRadius: 7,
+                           fontSize: 11, fontWeight: 700, cursor: "pointer", textAlign: "left" }}>
+                  End Navigation
+                </button>
               )}
-              {boatPosition.accuracy != null && (
-                <div style={{ color: "#64748b", fontSize: 10 }}>±{Math.round(boatPosition.accuracy)} m</div>
-              )}
+              <button
+                onClick={() => { setBoatPopupOpen(false); onToggleGps(); }}
+                style={{ display: "block", width: "100%", padding: "7px 10px",
+                         background: "rgba(255,255,255,0.07)", color: "#94a3b8", border: "none",
+                         borderRadius: 7, fontSize: 11, cursor: "pointer", textAlign: "left" }}>
+                Stop GPS
+              </button>
+            </div>
+          )}
+
+          {/* End-trip confirmation (near final waypoint) */}
+          {endTripConfirm && navigatingRoute && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 9600, display: "flex",
+                          alignItems: "center", justifyContent: "center",
+                          background: "rgba(0,0,0,0.45)" }}>
+              <div style={{ background: "#fff", borderRadius: 16, padding: "22px 24px",
+                            maxWidth: 300, width: "90%", textAlign: "center",
+                            boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
+                  You've reached your destination
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 18 }}>
+                  End the navigation and see your trip summary?
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() => { setEndTripConfirm(false); onEndNavFromMap?.(); }}
+                    style={{ flex: 1, padding: "9px 0", background: "#0e7490", color: "#fff",
+                             border: "none", borderRadius: 9, fontWeight: 700, fontSize: 12,
+                             cursor: "pointer" }}>
+                    End Trip
+                  </button>
+                  <button
+                    onClick={() => setEndTripConfirm(false)}
+                    style={{ flex: 1, padding: "9px 0", background: "#f1f5f9", color: "#475569",
+                             border: "none", borderRadius: 9, fontWeight: 600, fontSize: 12,
+                             cursor: "pointer" }}>
+                    Keep Going
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

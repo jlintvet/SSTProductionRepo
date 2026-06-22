@@ -11,6 +11,7 @@ import ShareLocationDialog from "@/components/ShareLocationDialog";
 import { WindLegend } from "@/components/WindTimeSlider";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
 import TripPlanner from "@/components/TripPlanner";
+import TripSummaryModal from "@/components/TripSummaryModal";
 import CommunityReportForm from "@/components/CommunityReportForm";
 import LeaderboardModal from "@/components/LeaderboardModal";
 
@@ -274,6 +275,7 @@ function SSTPageBody() {
     // position AND start tracking directly, without the user needing to
     // also separately tap the GPS button on the map.
     gpsActive, boatPosition, boatTrack, toggleGps,
+    endNavigation, navigatingRoute, startNavigation,
   } = useAppContext();
   const { isPro } = useRegionAccess();
 
@@ -386,6 +388,7 @@ function SSTPageBody() {
   const [waypoints,      setWaypoints]      = useState([]);
   const [loadedRoute,    setLoadedRoute]    = useState(null);
   const [endTripPrompt,  setEndTripPrompt]  = useState(false);
+  const [tripSummaryData, setTripSummaryData] = useState(null);
   // GPS / Real-Time tracking (gpsActive/boatPosition/boatTrack/toggleGps
   // now all come from AppContext -- see destructuring above)
 
@@ -545,6 +548,20 @@ function SSTPageBody() {
       .catch(e=>console.error("[FISH] fetch failed:",e))
       .finally(()=>setHotspotLoading(false));
   },[showHotspots]);
+
+  function handleNavigationEnded(tripData) {
+    setTripSummaryData(tripData);
+  }
+
+  function handleStartNavFromMap() {
+    if (!navigatingRoute && waypoints.length >= 2) {
+      startNavigation({ name: "Current Route", waypoints }, false);
+    }
+  }
+
+  function handleEndNavFromMap() {
+    setTripSummaryData(endNavigation());
+  }
 
   function handleAddWaypoint(lat, lng, label) {
     setWaypoints(prev => [...prev, { id: crypto.randomUUID(), lat, lng, label: label || "" }]);
@@ -936,6 +953,8 @@ function SSTPageBody() {
                 if (userId !== null) checkCommunityAccess(userId, isPro);
                 setShowCommunityLayer(true);
               }}
+              onStartNavFromMap={handleStartNavFromMap}
+              onEndNavFromMap={handleEndNavFromMap}
             />
             </SSTErrorBoundary>
           </div>
@@ -951,6 +970,7 @@ function SSTPageBody() {
               sstMin={sstMin}
               sstMax={sstMax}
               sstRange={sstRange}
+              onNavigationEnded={handleNavigationEnded}
             />
           )}
 
@@ -977,6 +997,13 @@ function SSTPageBody() {
                 </div>
               </div>
             </div>
+          )}
+
+          {tripSummaryData && (
+            <TripSummaryModal
+              tripData={tripSummaryData}
+              onClose={() => setTripSummaryData(null)}
+            />
           )}
 
           {shareLocation && (
