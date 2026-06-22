@@ -574,6 +574,16 @@ function SSTPageBody() {
       setBoatTrack([]);
     } else {
       if (!navigator.geolocation) { alert("GPS not available on this device"); return; }
+      // Previously setGpsActive(true) ran unconditionally right after
+      // calling watchPosition(), regardless of whether it actually
+      // succeeds. If location permission is denied (its own separate
+      // prompt from notifications -- easy to miss or deny on a standalone
+      // iOS PWA), the only symptom was a console.warn nobody sees: the GPS
+      // button shows "on" forever, boatPosition never populates, and
+      // anything depending on it (live-position push notifications) just
+      // silently falls back to the departure-location anchor with zero
+      // indication anything is wrong. Now surfaces a real alert and
+      // un-toggles the button on permission failure specifically.
       gpsWatchRef.current = navigator.geolocation.watchPosition(
         pos => {
           const { latitude, longitude, heading, speed, accuracy } = pos.coords;
@@ -581,7 +591,15 @@ function SSTPageBody() {
           setBoatPosition({ lat: latitude, lon: longitude, heading, speedKts, accuracy });
           setBoatTrack(prev => [...prev.slice(-500), [latitude, longitude]]);
         },
-        err => console.warn("GPS error:", err.message),
+        err => {
+          console.warn("GPS error:", err.message);
+          if (err.code === err.PERMISSION_DENIED) {
+            alert("Location access was denied, so GPS tracking can't start. Enable Location for RipLoc in your browser/device settings, then try again.");
+            if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
+            gpsWatchRef.current = null;
+            setGpsActive(false);
+          }
+        },
         { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
       );
       setGpsActive(true);
