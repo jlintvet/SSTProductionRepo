@@ -655,6 +655,44 @@ function SSTPageBody() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isPro]);
 
+  // Community pins were previously only fetched once per session -- a new
+  // live pin from another angler never appeared until the whole app was
+  // closed and reopened (no polling, no realtime subscription). Refresh
+  // periodically while the tab is actually visible (skip while
+  // backgrounded, both to save battery on the water and because a
+  // backgrounded tab's timers get throttled/suspended anyway), and
+  // immediately on regaining foreground -- the most common real case is
+  // "I locked my phone, someone posted, I unlock and want it to show up
+  // now" rather than waiting out the interval.
+  useEffect(() => {
+    const REFRESH_MS = 45000;
+    let intervalId = null;
+    function startPolling() {
+      if (intervalId) return;
+      intervalId = setInterval(() => {
+        if (document.visibilityState === "visible") fetchCommunityLocations();
+      }, REFRESH_MS);
+    }
+    function stopPolling() {
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    }
+    function handleVisibility() {
+      if (document.visibilityState === "visible") {
+        fetchCommunityLocations();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    }
+    if (document.visibilityState === "visible") startPolling();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function fetchSavedLocations() { const { data, error } = await supabase.from("saved_locations").select("*").order("created_at",{ascending:false}).limit(100); if(!error&&data)setSavedLocations(data); }
   useEffect(()=>{const run=()=>fetchSavedLocations();if(typeof requestIdleCallback==="function"){const h=requestIdleCallback(run,{timeout:2000});return()=>cancelIdleCallback(h);}const t=setTimeout(run,500);return()=>clearTimeout(t);},[]);
 
