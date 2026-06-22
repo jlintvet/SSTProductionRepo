@@ -309,10 +309,13 @@ export default function MapControlPanel({
   pushSupported,
   pushEnabled,
   pushRadius,
+  pushUseGps,
+  pushGpsActive,
   pushBusy,
   pushError,
   onTogglePush,
   onChangePushRadius,
+  onTogglePushUseGps,
 }) {
   const [openSections, setOpenSections] = useState({
     layers:    true,
@@ -816,8 +819,24 @@ export default function MapControlPanel({
                     onChange={e => onChangePushRadius?.(Math.max(1, Math.min(250, parseInt(e.target.value) || 1)))}
                     className="w-14 text-[11px] text-center border border-slate-300 rounded-md py-0.5"
                   />
-                  <span className="text-[10px] text-slate-500">miles of your departure location</span>
+                  <span className="text-[10px] text-slate-500">
+                    miles of {pushUseGps ? "my live position" : "my departure location"}
+                  </span>
                 </div>
+              )}
+              {pushEnabled && (
+                <label className="flex items-center gap-1.5 mt-1.5 px-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!pushUseGps}
+                    onChange={e => onTogglePushUseGps?.(e.target.checked)}
+                    className="accent-emerald-600"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Use my live GPS position while tracking
+                    {!pushGpsActive && " (turn on GPS to use this)"}
+                  </span>
+                </label>
               )}
               {pushError && (
                 <div className="text-[10px] text-red-500 mt-1 px-1">{pushError}</div>

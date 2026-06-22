@@ -1,9 +1,15 @@
 // src/lib/pushNotifications.js
 // Web Push subscribe/unsubscribe helpers for the "notify me about nearby
-// live pins" feature. Anchored to a lat/lon the caller supplies (the user's
-// selected departure location, not live GPS — GPS isn't available when the
-// browser is closed, and push has to keep working then) plus a
-// user-configurable radius in miles.
+// live pins" feature. Anchored to a lat/lon the caller supplies plus a
+// user-configurable radius in miles. Two anchor modes, chosen by the
+// caller (SSTHeatmapLeaflet.jsx):
+//   - Departure location (default): static, works even when the
+//     browser/app is fully closed -- this is what makes the feature work
+//     at all while not on the water, since GPS isn't available then.
+//   - Live GPS (opt-in, "use_gps"): while the user has GPS tracking
+//     active and the app open, the caller periodically re-syncs lat/lon
+//     to the device's live position so "nearby" means nearby to where
+//     they're actually fishing right now, not their home port.
 import { supabase } from "@/lib/supabase";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
@@ -36,7 +42,7 @@ export async function getExistingSubscription() {
  * to push, and upserts the subscription (+ location/radius) into
  * push_subscriptions. Throws with a user-facing message on failure.
  */
-export async function enablePushNotifications({ userId, lat, lon, radiusMiles }) {
+export async function enablePushNotifications({ userId, lat, lon, radiusMiles, useGps = false }) {
   if (!isPushSupported()) {
     throw new Error("Push notifications aren't supported on this browser/device.");
   }
@@ -70,6 +76,7 @@ export async function enablePushNotifications({ userId, lat, lon, radiusMiles })
       lat,
       lon,
       radius_miles: radiusMiles,
+      use_gps: useGps,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "endpoint" }
@@ -79,13 +86,18 @@ export async function enablePushNotifications({ userId, lat, lon, radiusMiles })
   return sub;
 }
 
-/** Updates radius/location on an already-active subscription without re-prompting permission. */
-export async function updatePushPreferences({ lat, lon, radiusMiles }) {
+/** Updates radius/location/GPS-mode on an already-active subscription without re-prompting permission. */
+export async function updatePushPreferences({ lat, lon, radiusMiles, useGps }) {
   const sub = await getExistingSubscription();
   if (!sub) return false;
+  const patch = { updated_at: new Date().toISOString() };
+  if (lat != null) patch.lat = lat;
+  if (lon != null) patch.lon = lon;
+  if (radiusMiles != null) patch.radius_miles = radiusMiles;
+  if (useGps != null) patch.use_gps = useGps;
   const { error } = await supabase
     .from("push_subscriptions")
-    .update({ lat, lon, radius_miles: radiusMiles, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq("endpoint", sub.endpoint);
   if (error) throw error;
   return true;
