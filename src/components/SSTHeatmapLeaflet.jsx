@@ -1172,6 +1172,10 @@ export default function SSTHeatmapLeaflet(props) {
       const marker = L.marker([loc.lat, loc.lon], { icon, zIndexOffset: 950 });
       marker.on("click", e => {
         L.DomEvent.stopPropagation(e);
+        if (tripModeRef.current) {
+          onAddWaypoint?.(loc.lat, loc.lon, loc.display_name || "Community Pin");
+          return;
+        }
         const pt = map.latLngToContainerPoint([loc.lat, loc.lon]);
         setSelectedCommunityPin({ pin: loc, px: pt.x, py: pt.y });
       });

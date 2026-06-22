@@ -80,6 +80,13 @@ export function usePushNotifications({ userId, selectedLocation, gpsActive, boat
       setPushError("Set a departure location first.");
       return;
     }
+    // If the user has already explicitly blocked notifications, no prompt
+    // will appear and requestPermission() will silently return "denied" —
+    // skip the whole flow and give actionable guidance instead.
+    if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+      setPushError("Notifications are blocked in your browser. Go to Site Settings → Notifications and set this site to Allow, then try again.");
+      return;
+    }
     setPushBusy(true);
     try {
       // Defensive: userId can be stale/null if the caller's getUser() call
