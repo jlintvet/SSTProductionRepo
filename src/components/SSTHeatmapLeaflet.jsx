@@ -3001,11 +3001,14 @@ export default function SSTHeatmapLeaflet(props) {
               onClick={onToggleGps}
               title={gpsActive ? "GPS On — tap to stop" : "GPS"}
               className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
-              style={{ width:30, height:30, padding:0, borderColor:gpsActive?"#16a34a":undefined, background:gpsActive?"#16a34a":undefined }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={gpsActive?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-                <path d="M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
-              </svg>
+              style={{
+                width: 30, height: 30, padding: 0,
+                borderColor: gpsActive ? "#16a34a" : undefined,
+                background: gpsActive ? "#16a34a" : undefined,
+                color: gpsActive ? "white" : "#64748b",
+                fontSize: 8, fontWeight: 700, letterSpacing: "0.02em",
+              }}>
+              GPS
             </button>
           </div>
 

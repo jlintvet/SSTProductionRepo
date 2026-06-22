@@ -6,6 +6,13 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- iOS reads this for the Home Screen label in preference to the
+         manifest's name/short_name in some Safari versions -- belt and
+         suspenders so "Add to Home Screen" never shows stale branding
+         again (it previously showed "SST Map" from manifest.json). -->
+    <meta name="apple-mobile-web-app-title" content="RipLoc" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>RipLoc</title>
   </head>
   <body>

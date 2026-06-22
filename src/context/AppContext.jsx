@@ -5,10 +5,12 @@
 // State:
 //   selectedLocation : the user's chosen departure point (one of regionConfig.locations)
 //   weatherPanel     : 'expanded' | 'collapsed' | 'hidden'
-//   gpsActive/boatPosition : mirrored here (SSTLive.jsx owns the actual
-//     navigator.geolocation.watchPosition() call) so non-map components
-//     -- e.g. UserSettingsModal's "use live GPS" notification preference --
-//     can read live position without being nested under the map.
+//   gpsActive/boatPosition/boatTrack/startGps/stopGps/toggleGps : full GPS
+//     tracking ownership, moved here from SSTLive.jsx (2026-06-22) so
+//     non-map components -- e.g. UserSettingsModal's "use my live GPS
+//     position" notification preference -- can both read live position
+//     AND start tracking directly, without requiring the user to also
+//     separately tap the GPS button on the map.
 //
 // Default location precedence (first match wins):
 //   1. localStorage value from previous session, if it still exists in the region
@@ -111,6 +113,49 @@ export function AppProvider({ region, children }) {
   const [userId, setUserId]             = useState(null);
   const [gpsActive, setGpsActive]       = useState(false);
   const [boatPosition, setBoatPosition] = useState(null);
+  const [boatTrack, setBoatTrack]       = useState([]);
+  const gpsWatchRef = useRef(null);
+
+  function stopGps() {
+    if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
+    gpsWatchRef.current = null;
+    setGpsActive(false);
+    setBoatPosition(null);
+    setBoatTrack([]);
+  }
+
+  function startGps() {
+    if (gpsActive) return;
+    if (!navigator.geolocation) { alert("GPS not available on this device"); return; }
+    // setGpsActive(true) only runs once a position fix actually arrives --
+    // previously it ran unconditionally right after calling
+    // watchPosition(), so a denied location permission left the button
+    // showing "on" forever with no real tracking happening and zero
+    // visible error.
+    gpsWatchRef.current = navigator.geolocation.watchPosition(
+      pos => {
+        const { latitude, longitude, heading, speed, accuracy } = pos.coords;
+        const speedKts = speed != null ? +(speed * 1.94384).toFixed(1) : null;
+        setBoatPosition({ lat: latitude, lon: longitude, heading, speedKts, accuracy });
+        setBoatTrack(prev => [...prev.slice(-500), [latitude, longitude]]);
+        setGpsActive(true);
+      },
+      err => {
+        console.warn("GPS error:", err.message);
+        if (err.code === err.PERMISSION_DENIED) {
+          alert("Location access was denied, so GPS tracking can't start. Enable Location for RipLoc in your browser/device settings, then try again.");
+          if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
+          gpsWatchRef.current = null;
+          setGpsActive(false);
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+    );
+  }
+
+  function toggleGps() {
+    if (gpsActive) stopGps(); else startGps();
+  }
 
   useEffect(() => {
     if (userDefaultFetchedRef.current) return;
@@ -180,8 +225,12 @@ export function AppProvider({ region, children }) {
       setGpsActive,
       boatPosition,
       setBoatPosition,
+      boatTrack,
+      startGps,
+      stopGps,
+      toggleGps,
     }),
-    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings, gpsActive, boatPosition]
+    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings, gpsActive, boatPosition, boatTrack]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

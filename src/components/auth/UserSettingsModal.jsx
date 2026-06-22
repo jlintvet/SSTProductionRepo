@@ -97,8 +97,8 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   // gpsActive/boatPosition live in AppContext (not local map state) so this
   // modal -- a sibling of the map, not nested under it -- can read live
   // position for the "use my live GPS" notification preference.
-  const { selectedLocation, gpsActive, boatPosition } = useAppContext();
-  const push = usePushNotifications({ userId, selectedLocation, gpsActive, boatPosition });
+  const { selectedLocation, gpsActive, boatPosition, startGps } = useAppContext();
+  const push = usePushNotifications({ userId, selectedLocation, gpsActive, boatPosition, startGps });
   // Local text buffer for the radius input -- lets the user freely clear/
   // retype without the controlled value immediately snapping to a clamped
   // fallback on every keystroke. Only clamps + commits on blur.
@@ -366,7 +366,9 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                     />
                     <span className="text-[11px] text-slate-500">
                       Use my live GPS position while tracking
-                      {!gpsActive && " (turn on GPS to use this)"}
+                      {/* Checking this box starts GPS automatically -- no
+                          need to separately enable it on the map. */}
+                      {!gpsActive && " (this will turn on GPS)"}
                     </span>
                   </label>
                 </>

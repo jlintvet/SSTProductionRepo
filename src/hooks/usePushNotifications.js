@@ -22,7 +22,7 @@ function milesBetween(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-export function usePushNotifications({ userId, selectedLocation, gpsActive, boatPosition }) {
+export function usePushNotifications({ userId, selectedLocation, gpsActive, boatPosition, startGps }) {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushRadius,  setPushRadius]  = useState(25);   // miles
   const [pushUseGps,  setPushUseGps]  = useState(false); // anchor to live GPS while tracking, instead of departure location
@@ -117,6 +117,13 @@ export function usePushNotifications({ userId, selectedLocation, gpsActive, boat
 
   function handleTogglePushUseGps(checked) {
     setPushUseGps(checked); // picked up by the auto-sync effect below
+    // Checking this box IS the user's request to track live position --
+    // they shouldn't also have to separately find and tap the GPS button
+    // elsewhere in the app. Only start it, never stop it: unchecking just
+    // falls back to the departure-location anchor (handled by the
+    // auto-sync effect below) without killing GPS tracking the user may
+    // still want for the map itself.
+    if (checked && !gpsActive) startGps?.();
   }
 
   // Single source of truth for what the subscription's anchor should be,

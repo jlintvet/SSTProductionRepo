@@ -268,11 +268,12 @@ function SSTPageBody() {
   console.log("[SST:GATE] SSTPageBody mounted");
   const {
     regionConfig, selectedLocation,
-    // Lifted to AppContext so non-map components (UserSettingsModal's
-    // "use live GPS" notification preference) can read live position
-    // without being nested under the map. The actual
-    // navigator.geolocation.watchPosition() call still lives here.
-    gpsActive, setGpsActive, boatPosition, setBoatPosition,
+    // GPS tracking (state + start/stop/toggle) fully lives in AppContext
+    // now (2026-06-22) so non-map components -- UserSettingsModal's "use
+    // my live GPS position" notification preference -- can both read live
+    // position AND start tracking directly, without the user needing to
+    // also separately tap the GPS button on the map.
+    gpsActive, boatPosition, boatTrack, toggleGps,
   } = useAppContext();
   const { isPro } = useRegionAccess();
 
@@ -385,10 +386,8 @@ function SSTPageBody() {
   const [waypoints,      setWaypoints]      = useState([]);
   const [loadedRoute,    setLoadedRoute]    = useState(null);
   const [endTripPrompt,  setEndTripPrompt]  = useState(false);
-  // GPS / Real-Time tracking (gpsActive/boatPosition now come from
-  // AppContext -- see destructuring above)
-  const [boatTrack,      setBoatTrack]      = useState([]);
-  const gpsWatchRef = useRef(null);
+  // GPS / Real-Time tracking (gpsActive/boatPosition/boatTrack/toggleGps
+  // now all come from AppContext -- see destructuring above)
 
   // ── Community reports state ───────────────────────────────────────────────
   const [communityLocations,  setCommunityLocations]  = useState([]);
@@ -565,47 +564,6 @@ function SSTPageBody() {
     setWaypoints(firstWp);
     setTripMode(true);
   }
-  function toggleGps() {
-    if (gpsActive) {
-      if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
-      gpsWatchRef.current = null;
-      setGpsActive(false);
-      setBoatPosition(null);
-      setBoatTrack([]);
-    } else {
-      if (!navigator.geolocation) { alert("GPS not available on this device"); return; }
-      // Previously setGpsActive(true) ran unconditionally right after
-      // calling watchPosition(), regardless of whether it actually
-      // succeeds. If location permission is denied (its own separate
-      // prompt from notifications -- easy to miss or deny on a standalone
-      // iOS PWA), the only symptom was a console.warn nobody sees: the GPS
-      // button shows "on" forever, boatPosition never populates, and
-      // anything depending on it (live-position push notifications) just
-      // silently falls back to the departure-location anchor with zero
-      // indication anything is wrong. Now surfaces a real alert and
-      // un-toggles the button on permission failure specifically.
-      gpsWatchRef.current = navigator.geolocation.watchPosition(
-        pos => {
-          const { latitude, longitude, heading, speed, accuracy } = pos.coords;
-          const speedKts = speed != null ? +(speed * 1.94384).toFixed(1) : null;
-          setBoatPosition({ lat: latitude, lon: longitude, heading, speedKts, accuracy });
-          setBoatTrack(prev => [...prev.slice(-500), [latitude, longitude]]);
-        },
-        err => {
-          console.warn("GPS error:", err.message);
-          if (err.code === err.PERMISSION_DENIED) {
-            alert("Location access was denied, so GPS tracking can't start. Enable Location for RipLoc in your browser/device settings, then try again.");
-            if (gpsWatchRef.current != null) navigator.geolocation.clearWatch(gpsWatchRef.current);
-            gpsWatchRef.current = null;
-            setGpsActive(false);
-          }
-        },
-        { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
-      );
-      setGpsActive(true);
-    }
-  }
-
   function handleLoadRoute(route) {
     const wps = (route.waypoints || []).map(w => ({ ...w, id: w.id || crypto.randomUUID() }));
     setWaypoints(wps);
