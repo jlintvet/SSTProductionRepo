@@ -143,7 +143,7 @@ function SubSourceBtn({ active, onClick, children }) {
     <button
       onClick={onClick}
       className={`w-full text-left text-[10px] font-medium px-2 py-1 rounded-md border transition-colors ${
-        active ? "bg-violet-50 text-violet-700 border-violet-300 font-semibold" : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+        active ? "bg-cyan-50 text-cyan-700 border-cyan-300 font-semibold" : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
       }`}
     >
       {children}
@@ -203,12 +203,12 @@ function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitiv
       <div>
         <div className="flex justify-between items-center mb-0.5">
           <span className="text-[10px] text-slate-500">Sharpness</span>
-          <span className="text-[10px] font-semibold text-violet-600 tabular-nums">{sensitivity.toFixed(1)}°F</span>
+          <span className="text-[10px] font-semibold text-cyan-600 tabular-nums">{sensitivity.toFixed(1)}°F</span>
         </div>
         <input
           type="range" min={0.5} max={8} step={0.5}
           value={sensitivity} onChange={e => onSensitivity(parseFloat(e.target.value))}
-          className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-500"
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-cyan-500"
         />
         <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
           <span>← sharp only</span><span>all →</span>
@@ -222,10 +222,6 @@ function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitiv
 function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cyan" }) {
   const labelColors = {
     cyan:   "text-cyan-700 bg-cyan-50",
-    violet: "text-violet-700 bg-violet-50",
-    indigo: "text-indigo-700 bg-indigo-50",
-    green:  "text-green-700 bg-green-50",
-    teal:   "text-teal-700 bg-teal-50",
   };
   return (
     <div className="flex items-center gap-1 mt-1">
@@ -419,14 +415,14 @@ export default function MapControlPanel({
               {isComposite && compositeData && (
                 compositeDates?.length >= 1 ? (
                   <DateNav
-                    label={compositeDates[compositeDateIndex] ?? "—"} color="violet"
+                    label={compositeDates[compositeDateIndex] ?? "—"} color="cyan"
                     onPrev={() => setCompositeDateIndex(i => Math.max(0, i - 1))}
                     onNext={() => setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1))}
                     disablePrev={compositeDateIndex === 0}
                     disableNext={compositeDateIndex === compositeDates.length - 1}
                   />
                 ) : (
-                  <div className="text-[10px] text-violet-700 bg-violet-50 rounded px-2 py-1 text-center font-semibold mt-1">
+                  <div className="text-[10px] text-cyan-700 bg-cyan-50 rounded px-2 py-1 text-center font-semibold mt-1">
                     {compositeData.generated
                       ? new Date(compositeData.generated).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })
                       : "Latest composite"}
@@ -437,7 +433,7 @@ export default function MapControlPanel({
               {isSST && dataSource === "VIIRS" && viirsData?.days?.length >= 1 && (
                 <>
                   <DateNav
-                    label={activeViirsDay?.date ?? "—"} color="violet"
+                    label={activeViirsDay?.date ?? "—"} color="cyan"
                     onPrev={() => setViirsDateIndex(i => Math.max(0, i - 1))}
                     onNext={() => setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1))}
                     disablePrev={viirsDateIndex === 0}
@@ -454,7 +450,7 @@ export default function MapControlPanel({
                         return (
                           <button key={h} onClick={() => setViirsHour(h)}
                             className={`flex-1 text-[9px] font-semibold px-1 py-0.5 rounded border transition-colors ${
-                              viirsHour === h ? "bg-violet-600 text-white border-violet-500" : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                              viirsHour === h ? "bg-cyan-600 text-white border-cyan-500" : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
                             }`}>
                             {label}
                           </button>
@@ -475,7 +471,7 @@ export default function MapControlPanel({
               )}
               {isSST && dataSource === "GOESCOMP" && goesCompData?.days?.length >= 1 && (
                 <DateNav
-                  label={activeGoesCompDay?.date ?? "—"} color="indigo"
+                  label={activeGoesCompDay?.date ?? "—"} color="cyan"
                   onPrev={() => setGoesCompDateIndex(i => Math.max(0, i - 1))}
                   onNext={() => setGoesCompDateIndex(i => Math.min(goesCompData.days.length - 1, i + 1))}
                   disablePrev={goesCompDateIndex === 0}
@@ -487,7 +483,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isCHL} color="green" onClick={() => setActiveDataLayer("chlorophyll")}>
+              <LayerBtn active={isCHL} color="cyan" onClick={() => setActiveDataLayer("chlorophyll")}>
                 {chlLoading ? "Loading…" : "Chlorophyll"}
               </LayerBtn>
             </div>
@@ -499,7 +495,7 @@ export default function MapControlPanel({
               <SubSourceBtn active={chlSource === "composite"} onClick={() => setChlSource("composite")}>Composite</SubSourceBtn>
               {chlSource === "daily" && chlData?.days?.length > 1 && (
                 <DateNav
-                  label={chlData.days[chlDateIndex]?.date ?? "—"} color="green"
+                  label={chlData.days[chlDateIndex]?.date ?? "—"} color="cyan"
                   onPrev={() => setChlDateIndex(i => Math.max(0, i - 1))}
                   onNext={() => setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1))}
                   disablePrev={chlDateIndex === 0}
@@ -509,7 +505,7 @@ export default function MapControlPanel({
               {chlSource === "composite" && chlData?.days?.[0]?.isComposite && (
                 <DateNav
                   label={chlData.days[0].builtDate ?? chlData.days[0].date ?? "—"}
-                  color="green"
+                  color="cyan"
                   onPrev={() => setChlCompositeDateIndex(i => Math.max(0, i - 1))}
                   onNext={() => setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1))}
                   disablePrev={chlCompositeDateIndex === 0}
@@ -521,7 +517,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isSC} color="teal" onClick={() => setActiveDataLayer("seacolor")}>
+              <LayerBtn active={isSC} color="cyan" onClick={() => setActiveDataLayer("seacolor")}>
                 {seaColorLoading ? "Loading…" : "Sea color"}
               </LayerBtn>
             </div>
@@ -533,7 +529,7 @@ export default function MapControlPanel({
               <SubSourceBtn active={seaColorSource === "composite"} onClick={() => setSeaColorSource("composite")}>Composite</SubSourceBtn>
               {seaColorSource === "daily" && seaColorData?.days?.length > 1 && (
                 <DateNav
-                  label={seaColorData.days[seaColorDateIndex]?.date ?? "—"} color="teal"
+                  label={seaColorData.days[seaColorDateIndex]?.date ?? "—"} color="cyan"
                   onPrev={() => setSeaColorDateIndex(i => Math.max(0, i - 1))}
                   onNext={() => setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1))}
                   disablePrev={seaColorDateIndex === 0}
@@ -543,7 +539,7 @@ export default function MapControlPanel({
               {seaColorSource === "composite" && seaColorData?.days?.[0]?.isComposite && (
                 <DateNav
                   label={seaColorData.days[0].builtDate ?? seaColorData.days[0].date ?? "—"}
-                  color="teal"
+                  color="cyan"
                   onPrev={() => setSeaColorCompositeDateIndex(i => Math.max(0, i - 1))}
                   onNext={() => setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1))}
                   disablePrev={seaColorCompositeDateIndex === 0}
@@ -555,7 +551,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isAlt} color="violet" onClick={() => setActiveDataLayer("altimetry")}>
+              <LayerBtn active={isAlt} color="cyan" onClick={() => setActiveDataLayer("altimetry")}>
                 Altimetry
               </LayerBtn>
             </div>
@@ -564,7 +560,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isWindMap} color="sky" onClick={() => setActiveDataLayer("windmap")}>
+              <LayerBtn active={isWindMap} color="cyan" onClick={() => setActiveDataLayer("windmap")}>
                 {windLoading ? "Loading…" : "Wind"}
               </LayerBtn>
             </div>
@@ -577,6 +573,27 @@ export default function MapControlPanel({
       <Divider />
 
 
+
+      {/* ── Gain / Range ──────────────────────────────────────────── */}
+      {showGain && (
+        <>
+          <SectionHeader title={gainLabel} open={openSections.gain} onToggle={() => toggleSection("gain")} />
+          {openSections.gain && (
+            <div className="px-2 pb-2">
+              <SSTRangeControl
+                activeLayer={isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor"}
+                userId={userId}
+                range={sstRange}
+                onRangeChange={onSstRangeChange}
+                openRef={rangeControlOpenRef}
+                dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
+                dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
+              />
+            </div>
+          )}
+          <Divider />
+        </>
+      )}
 
       {/* ── Overlays ──────────────────────────────────────────────────── */}
       <SectionHeader title="Overlays" open={openSections.overlays} onToggle={() => toggleSection("overlays")} />
@@ -759,7 +776,7 @@ export default function MapControlPanel({
         <div className="flex flex-col gap-1.5 px-2 pb-2">
 
           {communityAccess?.hasAccess && (
-            <div className="text-[10px] text-emerald-600 font-medium px-1">Access active</div>
+            <div className="text-[10px] text-cyan-600 font-medium px-1">Access active</div>
           )}
           <button
             onClick={onDropLivePin}

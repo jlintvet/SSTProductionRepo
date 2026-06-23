@@ -147,7 +147,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setRouteName(loadedRoute.name || "");
     if (loadedRoute.cruise_speed_kts) setSpeedOverride(String(loadedRoute.cruise_speed_kts));
     setSavedRouteData(loadedRoute);
-    setLastSavedWpSig(null);
+    setLastSavedWpSig(JSON.stringify((loadedRoute.waypoints || []).map(w => [w.lat, w.lon])));
   }, [loadedRoute]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load routes on mount so prev/next arrows work immediately
@@ -179,7 +179,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setRouteName(r.name || "");
     if (r.cruise_speed_kts) setSpeedOverride(String(r.cruise_speed_kts));
     setSavedRouteData(r);
-    setLastSavedWpSig(null);
+    setLastSavedWpSig(JSON.stringify(wps.map(w => [w.lat, w.lon])));
     setShowRoutes(false);
   }
 
@@ -436,7 +436,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                         type="checkbox"
                         checked={shareThisTrip}
                         onChange={e => setShareThisTrip(e.target.checked)}
-                        className="accent-emerald-600"
+                        className="accent-cyan-500"
                       />
                       <span className="text-[10px] text-slate-600">Share</span>
                     </label>
@@ -446,7 +446,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                         startNavigation(routeObj, shareThisTrip);
                         setShowNavPrompt(false);
                       }}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
+                      className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-600 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
                     >
                       Start
                     </button>
@@ -497,7 +497,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
       {/* ── Navigation active banner ── */}
       {!collapsed && navigatingRoute && (
-        <div className="flex items-center gap-2 px-3 border-b border-emerald-200 bg-emerald-600 h-8 flex-shrink-0">
+        <div className="flex items-center gap-2 px-3 border-b border-cyan-200 bg-cyan-500 h-8 flex-shrink-0">
           <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%",
                          background: "#fff", boxShadow: "0 0 5px #fff" }}/>
           <span className="text-[11px] text-white font-semibold">Navigation active</span>
