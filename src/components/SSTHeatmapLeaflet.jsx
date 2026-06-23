@@ -3378,6 +3378,19 @@ export default function SSTHeatmapLeaflet(props) {
                       </div>
                     )}
 
+                    {/* Temp gain */}
+                    <MobileProGate isPro={isPro} label="Temp gain control is available on the Pro plan.">
+                      <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide mt-1">Temp gain</div>
+                      <SSTRangeControl
+                        activeLayer="sst"
+                        userId={userId}
+                        range={sstRange}
+                        onRangeChange={onSstRangeChange}
+                        onApply={onSstRangeChange}
+                        openRef={rangeControlOpenRef}
+                      />
+                    </MobileProGate>
+
                   </>
                 )}
 
