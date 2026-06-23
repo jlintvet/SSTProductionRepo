@@ -2013,22 +2013,25 @@ export default function SSTHeatmapLeaflet(props) {
       .bindTooltip("REF: Cape Hatteras Tip (35.23N, -75.53W)", { permanent: true, direction: "right", offset: [10, 0] });
     refPin.addTo(map);
     pins.push(refPin);
-    // Find nearest non-null grid cell within ±3 steps of snapped coordinates
-    const step = 0.02;
-    const snapLat = parseFloat((Math.round(refLat / step) * step).toFixed(4));
-    const snapLon = parseFloat((Math.round(refLon / step) * step).toFixed(4));
-    let nearest = null, bestDist = Infinity;
-    for (let dr = -3; dr <= 3; dr++) {
-      for (let dc = -3; dc <= 3; dc++) {
-        const lat = parseFloat((snapLat + dr * step).toFixed(4));
-        const lon = parseFloat((snapLon + dc * step).toFixed(4));
-        const v = grid[`${lat}_${lon}`];
-        if (v != null) {
-          const d = Math.abs(dr) + Math.abs(dc);
-          if (d < bestDist) { bestDist = d; nearest = { lat, lon, v }; }
-        }
-      }
+    // Find nearest data point by scanning grid keys directly.
+    // NOTE: lonSet starts at -78.89 (not a standard 0.02° multiple), so snap math
+    // like Math.round(lon/0.02)*0.02 produces keys that miss actual bundle keys.
+    // Direct key scan is correct regardless of grid origin.
+    let nearest = null, bestDistSq = 0.15 * 0.15; // search within ~10nm radius
+    for (const key of Object.keys(grid)) {
+      const sep = key.indexOf("_", 1);
+      const kLat = parseFloat(key.slice(0, sep));
+      const kLon = parseFloat(key.slice(sep + 1));
+      const dSq = (kLat - refLat) ** 2 + (kLon - refLon) ** 2;
+      if (dSq < bestDistSq) { bestDistSq = dSq; nearest = { lat: kLat, lon: kLon, v: grid[key] }; }
     }
+    // Compute lon range of the currently displayed grid for diagnosis
+    const allLons = lonSet.length > 0 ? lonSet : [];
+    const lonInfo = allLons.length > 0
+      ? `W: ${allLons[0].toFixed(2)} → E: ${allLons[allLons.length-1].toFixed(2)}  pts: ${Object.keys(grid).length}`
+      : "no lon data";
+    // Update the ref pin tooltip to show grid lon range
+    refPin.setTooltipContent(`REF: Cape Hatteras (35.23N,-75.53W) | ${lonInfo}`);
     if (nearest) {
       const dataPin = L.marker([nearest.lat, nearest.lon], { icon: mkIcon("#00aaff"), interactive: false, pane: "tooltipPane" })
         .bindTooltip(`DATA: (${nearest.lat}, ${nearest.lon}) = ${nearest.v.toFixed(1)}F`, { permanent: true, direction: "right", offset: [10, 0] });
