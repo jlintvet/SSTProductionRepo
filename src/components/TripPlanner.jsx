@@ -94,6 +94,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
   const [saving,        setSaving]        = useState(false);
   const [savedMsg,      setSavedMsg]      = useState("");
   const [savedRouteData,setSavedRouteData]= useState(null);
+  const [lastSavedWpSig, setLastSavedWpSig] = useState(null); // track saved waypoint fingerprint
   const [sharingRoute,  setSharingRoute]  = useState(null);
   const [collapsed,     setCollapsed]     = useState(false);
   const [showNavPrompt, setShowNavPrompt] = useState(false); // inline nav-start prompt
@@ -146,6 +147,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setRouteName(loadedRoute.name || "");
     if (loadedRoute.cruise_speed_kts) setSpeedOverride(String(loadedRoute.cruise_speed_kts));
     setSavedRouteData(loadedRoute);
+    setLastSavedWpSig(null);
   }, [loadedRoute]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load routes on mount so prev/next arrows work immediately
@@ -177,6 +179,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setRouteName(r.name || "");
     if (r.cruise_speed_kts) setSpeedOverride(String(r.cruise_speed_kts));
     setSavedRouteData(r);
+    setLastSavedWpSig(null);
     setShowRoutes(false);
   }
 
@@ -194,6 +197,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setSavedRoutes(prev => prev.filter(r => r.id !== route.id));
     setWaypoints([]);
     setSavedRouteData(null);
+    setLastSavedWpSig(null);
     setRouteIndex(-1);
   }
 
@@ -201,6 +205,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
     setWaypoints([]);
     setRouteName(`Route ${new Date().toLocaleDateString()}`);
     setSavedRouteData(null);
+    setLastSavedWpSig(null);
     setRouteIndex(-1);
   }
 
@@ -230,9 +235,9 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
       setSavedMsg("Save failed");
     } else {
       setSavedMsg("Saved ✓");
+      setLastSavedWpSig(JSON.stringify(waypoints.map(w => [w.lat, w.lon])));
       if (data) { setSavedRoutes(prev => [data, ...prev]); setSavedRouteData(data); }
     }
-    setTimeout(() => setSavedMsg(""), 3000);
   }
 
   return (
@@ -350,15 +355,22 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
           </button>
 
           {/* Save */}
-          {waypoints.length >= 2 && (
-            <button
-              onClick={saveRoute}
-              disabled={saving}
-              className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
-            >
-              {saving ? "Saving…" : savedMsg || "Save Route"}
-            </button>
-          )}
+          {waypoints.length >= 2 && (() => {
+            const isSaved = !!lastSavedWpSig && JSON.stringify(waypoints.map(w => [w.lat, w.lon])) === lastSavedWpSig;
+            return (
+              <button
+                onClick={isSaved ? undefined : saveRoute}
+                disabled={saving || isSaved}
+                className={`px-2.5 py-1 text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0 disabled:cursor-default ${
+                  isSaved
+                    ? "bg-slate-100 text-slate-400"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-40"
+                }`}
+              >
+                {saving ? "Saving…" : isSaved ? "Saved" : savedMsg === "Save failed" ? "Save failed" : "Save Route"}
+              </button>
+            );
+          })()}
 
           {/* Share */}
           {savedRouteData && isPro && (
@@ -371,30 +383,12 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
             </button>
           )}
 
-          {/* Start / Stop Navigation */}
-          {waypoints.length >= 2 && isPro && !navigatingRoute && (
-            <button
-              onClick={() => setShowNavPrompt(v => !v)}
-              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
-              title="Start navigating this route"
-            >
-              Navigate
-            </button>
-          )}
-          {navigatingRoute && (
-            <button
-              onClick={() => { const d = endNavigation(); onNavigationEnded?.(d); }}
-              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0 animate-pulse"
-              title="End navigation"
-            >
-              End Nav
-            </button>
-          )}
+
 
           {/* Clear */}
           {waypoints.length > 0 && !navigatingRoute && (
             <button
-              onClick={() => { setWaypoints([]); setSavedRouteData(null); }}
+              onClick={() => { setWaypoints([]); setSavedRouteData(null); setLastSavedWpSig(null); setSavedMsg(""); }}
               className="text-[10px] text-slate-400 hover:text-red-500 transition-colors px-1.5 py-1 shrink-0"
             >
               Clear
@@ -422,38 +416,60 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
               className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-14 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700"
             />
             <span className="text-[10px] text-slate-400">kts</span>
+
+            {/* Navigate / Start / End Nav — right of Depart/Speed on desktop */}
+            {waypoints.length >= 2 && isPro && (
+              <>
+                <div className="w-px h-4 bg-slate-200"/>
+                {navigatingRoute ? (
+                  <button
+                    onClick={() => { const d = endNavigation(); onNavigationEnded?.(d); }}
+                    className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0 animate-pulse"
+                    title="End navigation"
+                  >
+                    End Nav
+                  </button>
+                ) : showNavPrompt ? (
+                  <>
+                    <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={shareThisTrip}
+                        onChange={e => setShareThisTrip(e.target.checked)}
+                        className="accent-emerald-600"
+                      />
+                      <span className="text-[10px] text-slate-600">Share</span>
+                    </label>
+                    <button
+                      onClick={() => {
+                        const routeObj = savedRouteData || { name: routeName, waypoints, cruise_speed_kts: speed || null };
+                        startNavigation(routeObj, shareThisTrip);
+                        setShowNavPrompt(false);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
+                    >
+                      Start
+                    </button>
+                    <button onClick={() => setShowNavPrompt(false)} className="text-slate-400 hover:text-slate-600 p-0.5">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowNavPrompt(v => !v)}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-semibold rounded transition-colors whitespace-nowrap shrink-0"
+                    title="Start navigating this route"
+                  >
+                    Navigate
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── Nav start prompt (inline) ── */}
-      {!collapsed && showNavPrompt && !navigatingRoute && (
-        <div className="flex items-center gap-2 px-3 border-b border-emerald-100 bg-emerald-50 h-10 flex-shrink-0">
-          <span className="text-[10px] text-emerald-700 font-semibold whitespace-nowrap">Share live location?</span>
-          <label className="flex items-center gap-1 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={shareThisTrip}
-              onChange={e => setShareThisTrip(e.target.checked)}
-              className="accent-emerald-600"
-            />
-            <span className="text-[10px] text-emerald-800">Yes</span>
-          </label>
-          <button
-            onClick={() => {
-              const routeObj = savedRouteData || { name: routeName, waypoints, cruise_speed_kts: speed || null };
-              startNavigation(routeObj, shareThisTrip);
-              setShowNavPrompt(false);
-            }}
-            className="ml-auto px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold rounded transition-colors whitespace-nowrap"
-          >
-            Start
-          </button>
-          <button onClick={() => setShowNavPrompt(false)} className="text-emerald-400 hover:text-emerald-700 p-1">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-      )}
+
 
       {/* ── Header row 3: depart / speed — mobile only ── */}
       {!collapsed && (
