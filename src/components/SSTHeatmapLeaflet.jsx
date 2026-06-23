@@ -792,7 +792,7 @@ export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,r
     let lonCursor=0;
     for(let px=0;px<CANVAS_W;px++){const lon=lonWest+(px/(CANVAS_W-1))*lonRange;if(isOcean&&!isOcean(lat,lon))continue;// Advance lonCursor: lonSet ascending, find bracket lonSet[c]<=lon<=lonSet[c+1]
   while(lonCursor<lonSet.length-2&&lonSet[lonCursor+1]<=lon)lonCursor++;
-  const lonIdx0=Math.min(lonCursor,lonSet.length-2);const gridLon0=lonSet[lonIdx0],gridLon1=lonSet[lonIdx0+1];if(gridLon1-gridLon0>0.12)continue;if(lon<gridLon0||lon>gridLon1)continue;const lonFrac=gridLon0===gridLon1?0:Math.max(0,Math.min(1,(lon-gridLon0)/(gridLon1-gridLon0)));const vNW=grid[`${gridLat0}_${gridLon0}`];if(vNW==null||!Number.isFinite(vNW))continue;const val=vNW;// NEAREST-NEIGHBOR: interpolation temporarily disabled
+  const lonIdx0=Math.min(lonCursor,lonSet.length-2);const gridLon0=lonSet[lonIdx0],gridLon1=lonSet[lonIdx0+1];if(gridLon1-gridLon0>0.12)continue;if(lon<gridLon0||lon>gridLon1)continue;const lonFrac=gridLon0===gridLon1?0:Math.max(0,Math.min(1,(lon-gridLon0)/(gridLon1-gridLon0)));const vNW=grid[`${gridLat0}_${gridLon0}`],vNE=grid[`${gridLat0}_${gridLon1}`];const vSW=grid[`${gridLat1}_${gridLon0}`],vSE=grid[`${gridLat1}_${gridLon1}`];const wNW=(1-latFrac)*(1-lonFrac),wNE=(1-latFrac)*lonFrac,wSW=latFrac*(1-lonFrac),wSE=latFrac*lonFrac;let sum=0,wsum=0;if(vNW!=null&&Number.isFinite(vNW)){sum+=vNW*wNW;wsum+=wNW;}if(vNE!=null&&Number.isFinite(vNE)){sum+=vNE*wNE;wsum+=wNE;}if(vSW!=null&&Number.isFinite(vSW)){sum+=vSW*wSW;wsum+=wSW;}if(vSE!=null&&Number.isFinite(vSE)){sum+=vSE*wSE;wsum+=wSE;}if(wsum<0.25)continue;const val=sum/wsum;
       const rgb=colorFn?colorFn(val,valMin,valMax,rangeMin,rangeMax):sstColor(val,valMin,valMax,rangeMin,rangeMax);
       if(!rgb)continue;
       const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=220;}}
@@ -1975,8 +1975,10 @@ export default function SSTHeatmapLeaflet(props) {
     const rangeMin = sstRange?.min !== undefined ? sstRange.min : undefined;
     const rangeMax = sstRange?.max !== undefined ? sstRange.max : undefined;
     let cancelled = false;
-    const sstGrid = useGl ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
-    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, useGl ? null : mask, rangeMin, rangeMax)).then(async result => {
+    const isHourlyViirs = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP");
+    const sstGrid = (useGl && !isHourlyViirs) ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
+    const sstIsOcean = (useGl && !isHourlyViirs) ? null : mask;
+    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, sstIsOcean, rangeMin, rangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
