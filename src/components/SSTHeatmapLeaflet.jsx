@@ -795,7 +795,7 @@ export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,r
   const lonIdx0=Math.min(lonCursor,lonSet.length-2);const gridLon0=lonSet[lonIdx0],gridLon1=lonSet[lonIdx0+1];if(gridLon1-gridLon0>0.12)continue;if(lon<gridLon0||lon>gridLon1)continue;const lonFrac=gridLon0===gridLon1?0:Math.max(0,Math.min(1,(lon-gridLon0)/(gridLon1-gridLon0)));const vNW=grid[`${gridLat0}_${gridLon0}`],vNE=grid[`${gridLat0}_${gridLon1}`];const vSW=grid[`${gridLat1}_${gridLon0}`],vSE=grid[`${gridLat1}_${gridLon1}`];const wNW=(1-latFrac)*(1-lonFrac),wNE=(1-latFrac)*lonFrac,wSW=latFrac*(1-lonFrac),wSE=latFrac*lonFrac;let sum=0,wsum=0;if(vNW!=null&&Number.isFinite(vNW)){sum+=vNW*wNW;wsum+=wNW;}if(vNE!=null&&Number.isFinite(vNE)){sum+=vNE*wNE;wsum+=wNE;}if(vSW!=null&&Number.isFinite(vSW)){sum+=vSW*wSW;wsum+=wSW;}if(vSE!=null&&Number.isFinite(vSE)){sum+=vSE*wSE;wsum+=wSE;}if(wsum<0.25)continue;const val=sum/wsum;
       const rgb=colorFn?colorFn(val,valMin,valMax,rangeMin,rangeMax):sstColor(val,valMin,valMax,rangeMin,rangeMax);
       if(!rgb)continue;
-      const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=220;}}
+      const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=Math.round(220*Math.min(1,wsum));}}
   ctx.putImageData(img,0,0);
   return new Promise((resolve)=>{canvas.toBlob((blob)=>{if(!blob){resolve(null);return;}resolve({dataURL:URL.createObjectURL(blob),west:lonWest-HALF_CELL,east:lonEast+HALF_CELL,north:latNorth+HALF_CELL,south:latSouth-HALF_CELL});},"image/png");});
 }
@@ -1982,10 +1982,10 @@ export default function SSTHeatmapLeaflet(props) {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
-        const solid = await solidify(dataURL);
+        const imgUrl = isHourlyViirs ? dataURL : await solidify(dataURL);
         if (cancelled) return;
-        blobUrlsRef.current.push(solid);
-        upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+        blobUrlsRef.current.push(imgUrl);
+        upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
       } else {
         blobUrlsRef.current.push(dataURL);
         const opacity = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP" || dataSource === "GOESCOMP") ? 0.78 : 0.92;
