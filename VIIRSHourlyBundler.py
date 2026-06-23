@@ -220,7 +220,8 @@ def _pass_to_fixed_grid(vals_f: np.ndarray,
             if gj is None:
                 continue
             v = vals_f[ri, ci]
-            if math.isfinite(v):
+            # Physical range gate: 32-100 °F (0-38 °C) — rejects fill/bad values
+            if math.isfinite(v) and 32.0 <= v <= 100.0:
                 flat[gi * N_LONS + gj] = round(float(v), 2)
 
     return _fill_row_gaps(flat, N_LATS, N_LONS)
@@ -403,17 +404,36 @@ def _build_bundle(date: datetime.date,
             log.info("    %02d:00Z — no pixels landed on fixed grid, skipping", hour)
             continue
 
-        hours_dict[str(hour)] = {
-            "sst": flat,
-            "min": round(min(valid_vals), 1),
-            "max": round(max(valid_vals), 1),
-        }
-        available_hours.append(hour)
-        log.info(
-            "    %02d:00Z — %d/%d fixed grid cells filled  %.1f-%.1f F",
-            hour, len(valid_vals), N_LATS * N_LONS,
-            min(valid_vals), max(valid_vals),
-        )
+        if str(hour) not in hours_dict:
+            # First granule for this hour
+            hours_dict[str(hour)] = {
+                "sst": flat,
+                "min": round(min(valid_vals), 1),
+                "max": round(max(valid_vals), 1),
+            }
+            available_hours.append(hour)
+            log.info(
+                "    %02d:00Z — %d/%d fixed grid cells filled  %.1f-%.1f F",
+                hour, len(valid_vals), N_LATS * N_LONS,
+                min(valid_vals), max(valid_vals),
+            )
+        else:
+            # Additional granule for same UTC hour — gap-fill merge (first wins)
+            existing = hours_dict[str(hour)]["sst"]
+            merged = [
+                existing[i] if existing[i] is not None else flat[i]
+                for i in range(len(existing))
+            ]
+            merged_vals = [v for v in merged if v is not None]
+            hours_dict[str(hour)] = {
+                "sst": merged,
+                "min": round(min(merged_vals), 1),
+                "max": round(max(merged_vals), 1),
+            }
+            log.info(
+                "    %02d:00Z — merged additional granule: %d total cells filled",
+                hour, len(merged_vals),
+            )
 
     available_hours.sort()
 

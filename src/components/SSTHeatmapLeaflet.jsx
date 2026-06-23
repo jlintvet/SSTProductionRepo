@@ -777,16 +777,27 @@ export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,r
   const lonRange=lonEast-lonWest||1;
   const CANVAS_W=1280,CANVAS_H=1000;const canvas=document.createElement("canvas");canvas.width=CANVAS_W;canvas.height=CANVAS_H;
   const ctx=canvas.getContext("2d");const img=ctx.createImageData(CANVAS_W,CANVAS_H);const d=img.data;
-  const latStep=latSet.length>1?(latNorth-latSouth)/(latSet.length-1):0.05;const lonStep=lonSet.length>1?(lonEast-lonWest)/(lonSet.length-1):0.05;
+  // Cursor-based bracket finding: correct for non-uniform/sparse lonSet/latSet.
+  // The avg-step float-index approach (lonFloat=(lon-lonWest)/lonStep) only works
+  // for uniformly-spaced sets. VIIRS passes with coverage gaps have non-uniform
+  // sparse sets, causing data to render at wrong pixel positions (apparent geo shift).
+  const HALF_CELL=0.01; // half of canonical 0.02° grid step for overlay border
   const mercY=(lat)=>Math.log(Math.tan(Math.PI/4+(lat*Math.PI/180)/2));const invMercY=(y)=>(2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI;
   const mercYNorth=mercY(latNorth),mercYSouth=mercY(latSouth),mercYRange=mercYNorth-mercYSouth||1;
-  for(let py=0;py<CANVAS_H;py++){const mY=mercYNorth-(py/(CANVAS_H-1))*mercYRange;const lat=invMercY(mY);const latFloat=(latNorth-lat)/latStep;const latIdx0=Math.max(0,Math.min(latSet.length-2,Math.floor(latFloat)));const latFrac=Math.max(0,Math.min(1,latFloat-latIdx0));const gridLat0=latSet[latIdx0],gridLat1=latSet[latIdx0+1];
-    for(let px=0;px<CANVAS_W;px++){const lon=lonWest+(px/(CANVAS_W-1))*lonRange;if(isOcean&&!isOcean(lat,lon))continue;const lonFloat=(lon-lonWest)/lonStep;const lonIdx0=Math.max(0,Math.min(lonSet.length-2,Math.floor(lonFloat)));const lonFrac=Math.max(0,Math.min(1,lonFloat-lonIdx0));const gridLon0=lonSet[lonIdx0],gridLon1=lonSet[lonIdx0+1];const vNW=grid[`${gridLat0}_${gridLon0}`],vNE=grid[`${gridLat0}_${gridLon1}`];const vSW=grid[`${gridLat1}_${gridLon0}`],vSE=grid[`${gridLat1}_${gridLon1}`];const wNW=(1-latFrac)*(1-lonFrac),wNE=(1-latFrac)*lonFrac,wSW=latFrac*(1-lonFrac),wSE=latFrac*lonFrac;let sum=0,wsum=0;if(vNW!=null&&Number.isFinite(vNW)){sum+=vNW*wNW;wsum+=wNW;}if(vNE!=null&&Number.isFinite(vNE)){sum+=vNE*wNE;wsum+=wNE;}if(vSW!=null&&Number.isFinite(vSW)){sum+=vSW*wSW;wsum+=wSW;}if(vSE!=null&&Number.isFinite(vSE)){sum+=vSE*wSE;wsum+=wSE;}if(wsum<0.25)continue;const val=sum/wsum;
+  let latCursor=0;
+  for(let py=0;py<CANVAS_H;py++){const mY=mercYNorth-(py/(CANVAS_H-1))*mercYRange;const lat=invMercY(mY);// Advance latCursor: latSet descending, find bracket latSet[c]>=lat>=latSet[c+1]
+  while(latCursor<latSet.length-2&&latSet[latCursor+1]>lat)latCursor++;
+  const latIdx0=Math.min(latCursor,latSet.length-2);const gridLat0=latSet[latIdx0],gridLat1=latSet[latIdx0+1];if(gridLat0-gridLat1>0.12)continue;if(lat>gridLat0||lat<gridLat1)continue;
+  const latFrac=gridLat0===gridLat1?0:Math.max(0,Math.min(1,(gridLat0-lat)/(gridLat0-gridLat1)));
+    let lonCursor=0;
+    for(let px=0;px<CANVAS_W;px++){const lon=lonWest+(px/(CANVAS_W-1))*lonRange;if(isOcean&&!isOcean(lat,lon))continue;// Advance lonCursor: lonSet ascending, find bracket lonSet[c]<=lon<=lonSet[c+1]
+  while(lonCursor<lonSet.length-2&&lonSet[lonCursor+1]<=lon)lonCursor++;
+  const lonIdx0=Math.min(lonCursor,lonSet.length-2);const gridLon0=lonSet[lonIdx0],gridLon1=lonSet[lonIdx0+1];if(gridLon1-gridLon0>0.12)continue;if(lon<gridLon0||lon>gridLon1)continue;const lonFrac=gridLon0===gridLon1?0:Math.max(0,Math.min(1,(lon-gridLon0)/(gridLon1-gridLon0)));const vNW=grid[`${gridLat0}_${gridLon0}`],vNE=grid[`${gridLat0}_${gridLon1}`];const vSW=grid[`${gridLat1}_${gridLon0}`],vSE=grid[`${gridLat1}_${gridLon1}`];const wNW=(1-latFrac)*(1-lonFrac),wNE=(1-latFrac)*lonFrac,wSW=latFrac*(1-lonFrac),wSE=latFrac*lonFrac;let sum=0,wsum=0;if(vNW!=null&&Number.isFinite(vNW)){sum+=vNW*wNW;wsum+=wNW;}if(vNE!=null&&Number.isFinite(vNE)){sum+=vNE*wNE;wsum+=wNE;}if(vSW!=null&&Number.isFinite(vSW)){sum+=vSW*wSW;wsum+=wSW;}if(vSE!=null&&Number.isFinite(vSE)){sum+=vSE*wSE;wsum+=wSE;}if(wsum<0.25)continue;const val=sum/wsum;
       const rgb=colorFn?colorFn(val,valMin,valMax,rangeMin,rangeMax):sstColor(val,valMin,valMax,rangeMin,rangeMax);
       if(!rgb)continue;
-      const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=220;}}
+      const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=Math.round(220*Math.min(1,wsum));}}
   ctx.putImageData(img,0,0);
-  return new Promise((resolve)=>{canvas.toBlob((blob)=>{if(!blob){resolve(null);return;}resolve({dataURL:URL.createObjectURL(blob),west:lonWest-lonStep/2,east:lonEast+lonStep/2,north:latNorth,south:latSouth});},"image/png");});
+  return new Promise((resolve)=>{canvas.toBlob((blob)=>{if(!blob){resolve(null);return;}resolve({dataURL:URL.createObjectURL(blob),west:lonWest-HALF_CELL,east:lonEast+HALF_CELL,north:latNorth+HALF_CELL,south:latSouth-HALF_CELL});},"image/png");});
 }
 
 // ── IsothermControls (extracted to components/IsothermControls.jsx) ───────────
@@ -1964,15 +1975,17 @@ export default function SSTHeatmapLeaflet(props) {
     const rangeMin = sstRange?.min !== undefined ? sstRange.min : undefined;
     const rangeMax = sstRange?.max !== undefined ? sstRange.max : undefined;
     let cancelled = false;
-    const sstGrid = useGl ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
-    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, useGl ? null : mask, rangeMin, rangeMax)).then(async result => {
+    const isHourlyViirs = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP");
+    const sstGrid = (useGl && !isHourlyViirs) ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
+    const sstIsOcean = (useGl && !isHourlyViirs) ? null : mask;
+    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, sstIsOcean, rangeMin, rangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
-        const solid = await solidify(dataURL);
+        const imgUrl = isHourlyViirs ? dataURL : await solidify(dataURL);
         if (cancelled) return;
-        blobUrlsRef.current.push(solid);
-        upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+        blobUrlsRef.current.push(imgUrl);
+        upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
       } else {
         blobUrlsRef.current.push(dataURL);
         const opacity = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP" || dataSource === "GOESCOMP") ? 0.78 : 0.92;
@@ -1996,47 +2009,6 @@ export default function SSTHeatmapLeaflet(props) {
   }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, activeDataLayer, dataSource,
       waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max, sstRange?.maskOutside]);
 
-  // ── Cape Hatteras debug pin (VIIRS hourly coordinate validation) ──────────
-  // RED  = reference geographic pin at true tip of Cape Hatteras (35.23N, -75.53W)
-  // BLUE = nearest non-null data point from current hourly grid
-  // Remove this entire block once coordinate validation is complete.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!mapReady || !map || activeDataLayer !== "sst" || dataSource !== "VIIRS") return;
-    const pins = [];
-    const refLat = 35.23, refLon = -75.53;
-    const mkIcon = (color) => L.divIcon({
-      html: `<div style="width:14px;height:14px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 0 5px #000;pointer-events:none"></div>`,
-      iconSize: [14, 14], iconAnchor: [7, 7], className: "",
-    });
-    const refPin = L.marker([refLat, refLon], { icon: mkIcon("red"), interactive: false, pane: "tooltipPane" })
-      .bindTooltip("REF: Cape Hatteras Tip (35.23N, -75.53W)", { permanent: true, direction: "right", offset: [10, 0] });
-    refPin.addTo(map);
-    pins.push(refPin);
-    // Find nearest non-null grid cell within ±3 steps of snapped coordinates
-    const step = 0.02;
-    const snapLat = parseFloat((Math.round(refLat / step) * step).toFixed(4));
-    const snapLon = parseFloat((Math.round(refLon / step) * step).toFixed(4));
-    let nearest = null, bestDist = Infinity;
-    for (let dr = -3; dr <= 3; dr++) {
-      for (let dc = -3; dc <= 3; dc++) {
-        const lat = parseFloat((snapLat + dr * step).toFixed(4));
-        const lon = parseFloat((snapLon + dc * step).toFixed(4));
-        const v = grid[`${lat}_${lon}`];
-        if (v != null) {
-          const d = Math.abs(dr) + Math.abs(dc);
-          if (d < bestDist) { bestDist = d; nearest = { lat, lon, v }; }
-        }
-      }
-    }
-    if (nearest) {
-      const dataPin = L.marker([nearest.lat, nearest.lon], { icon: mkIcon("#00aaff"), interactive: false, pane: "tooltipPane" })
-        .bindTooltip(`DATA: (${nearest.lat}, ${nearest.lon}) = ${nearest.v.toFixed(1)}F`, { permanent: true, direction: "right", offset: [10, 0] });
-      dataPin.addTo(map);
-      pins.push(dataPin);
-    }
-    return () => { pins.forEach(m => { try { map?.removeLayer(m); } catch (_) {} }); };
-  }, [mapReady, activeDataLayer, dataSource, latSet, lonSet, grid]);
 
   function expandCoarseGrid(latSet2,lonSet2,overlayGrid,targetLatSet,targetLonSet){const expanded={};const MAX_GAP=1.0;for(const lat of targetLatSet){if(lat>latSet2[0]||lat<latSet2[latSet2.length-1])continue;let r0=0,latFound=false;for(let i=0;i<latSet2.length-1;i++){if(lat<=latSet2[i]&&lat>=latSet2[i+1]){r0=i;latFound=true;break;}}if(!latFound)continue;const r1=Math.min(r0+1,latSet2.length-1);if(latSet2[r0]-latSet2[r1]>MAX_GAP)continue;const latFrac=latSet2[r0]===latSet2[r1]?0:(latSet2[r0]-lat)/(latSet2[r0]-latSet2[r1]);for(const lon of targetLonSet){if(lon<lonSet2[0]||lon>lonSet2[lonSet2.length-1])continue;let c0=0,lonFound=false;for(let i=0;i<lonSet2.length-1;i++){if(lon>=lonSet2[i]&&lon<=lonSet2[i+1]){c0=i;lonFound=true;break;}}if(!lonFound)continue;const c1=Math.min(c0+1,lonSet2.length-1);if(lonSet2[c1]-lonSet2[c0]>MAX_GAP)continue;const lonFrac=lonSet2[c0]===lonSet2[c1]?0:(lon-lonSet2[c0])/(lonSet2[c1]-lonSet2[c0]);const vNW=overlayGrid[`${latSet2[r0]}_${lonSet2[c0]}`],vNE=overlayGrid[`${latSet2[r0]}_${lonSet2[c1]}`];const vSW=overlayGrid[`${latSet2[r1]}_${lonSet2[c0]}`],vSE=overlayGrid[`${latSet2[r1]}_${lonSet2[c1]}`];const wNW=(1-latFrac)*(1-lonFrac),wNE=(1-latFrac)*lonFrac,wSW=latFrac*(1-lonFrac),wSE=latFrac*lonFrac;let sum=0,wsum=0;if(vNW!=null&&Number.isFinite(vNW)){sum+=vNW*wNW;wsum+=wNW;}if(vNE!=null&&Number.isFinite(vNE)){sum+=vNE*wNE;wsum+=wNE;}if(vSW!=null&&Number.isFinite(vSW)){sum+=vSW*wSW;wsum+=wSW;}if(vSE!=null&&Number.isFinite(vSE)){sum+=vSE*wSE;wsum+=wSE;}if(wsum>=0.25)expanded[`${lat}_${lon}`]=sum/wsum;}}return expanded;}
 
