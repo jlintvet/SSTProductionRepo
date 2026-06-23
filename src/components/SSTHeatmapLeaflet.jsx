@@ -3442,7 +3442,19 @@ export default function SSTHeatmapLeaflet(props) {
                 {/* ── Sea Color panel ────────────────────────────────── */}
                 {mobilePanel === "seacolor" && (
                   <>
-                    {seaColorData?.days?.length > 1 && (
+                    <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Source</div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {[
+                        { label: "Daily",        active: seaColorSource === "daily",     fn: () => setSeaColorSource("daily") },
+                        { label: "HD Composite", active: seaColorSource === "composite", fn: () => setSeaColorSource("composite") },
+                      ].map(({ label, active, fn }) => (
+                        <button key={label} onClick={fn}
+                          className={`text-[10px] font-semibold py-1.5 rounded-lg border transition-colors ${active ? "bg-cyan-600 text-white border-cyan-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {seaColorSource === "daily" && seaColorData?.days?.length > 1 && (
                       <>
                         <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Date</div>
                         <div className="flex items-center gap-1">
@@ -3452,6 +3464,20 @@ export default function SSTHeatmapLeaflet(props) {
                             {seaColorData.days[seaColorDateIndex]?.date ?? "—"}
                           </span>
                           <button onClick={() => setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1))} disabled={seaColorDateIndex === seaColorData.days.length - 1}
+                            className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
+                        </div>
+                      </>
+                    )}
+                    {seaColorSource === "composite" && seaColorCompositeDates?.length > 0 && (
+                      <>
+                        <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Date</div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setSeaColorCompositeDateIndex(i => Math.max(0, i - 1))} disabled={seaColorCompositeDateIndex === 0}
+                            className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
+                          <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1 truncate">
+                            {seaColorCompositeDates[seaColorCompositeDateIndex] ?? "—"}
+                          </span>
+                          <button onClick={() => setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1))} disabled={seaColorCompositeDateIndex >= seaColorCompositeDates.length - 1}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                         </div>
                       </>
