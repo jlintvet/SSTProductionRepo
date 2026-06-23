@@ -1996,6 +1996,48 @@ export default function SSTHeatmapLeaflet(props) {
   }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, activeDataLayer, dataSource,
       waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max, sstRange?.maskOutside]);
 
+  // ── Cape Hatteras debug pin (VIIRS hourly coordinate validation) ──────────
+  // RED  = reference geographic pin at true tip of Cape Hatteras (35.23N, -75.53W)
+  // BLUE = nearest non-null data point from current hourly grid
+  // Remove this entire block once coordinate validation is complete.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || activeDataLayer !== "sst" || dataSource !== "VIIRS") return;
+    const pins = [];
+    const refLat = 35.23, refLon = -75.53;
+    const mkIcon = (color) => L.divIcon({
+      html: `<div style="width:14px;height:14px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 0 5px #000;pointer-events:none"></div>`,
+      iconSize: [14, 14], iconAnchor: [7, 7], className: "",
+    });
+    const refPin = L.marker([refLat, refLon], { icon: mkIcon("red"), interactive: false, pane: "tooltipPane" })
+      .bindTooltip("REF: Cape Hatteras Tip (35.23N, -75.53W)", { permanent: true, direction: "right", offset: [10, 0] });
+    refPin.addTo(map);
+    pins.push(refPin);
+    // Find nearest non-null grid cell within ±3 steps of snapped coordinates
+    const step = 0.02;
+    const snapLat = parseFloat((Math.round(refLat / step) * step).toFixed(4));
+    const snapLon = parseFloat((Math.round(refLon / step) * step).toFixed(4));
+    let nearest = null, bestDist = Infinity;
+    for (let dr = -3; dr <= 3; dr++) {
+      for (let dc = -3; dc <= 3; dc++) {
+        const lat = parseFloat((snapLat + dr * step).toFixed(4));
+        const lon = parseFloat((snapLon + dc * step).toFixed(4));
+        const v = grid[`${lat}_${lon}`];
+        if (v != null) {
+          const d = Math.abs(dr) + Math.abs(dc);
+          if (d < bestDist) { bestDist = d; nearest = { lat, lon, v }; }
+        }
+      }
+    }
+    if (nearest) {
+      const dataPin = L.marker([nearest.lat, nearest.lon], { icon: mkIcon("#00aaff"), interactive: false, pane: "tooltipPane" })
+        .bindTooltip(`DATA: (${nearest.lat}, ${nearest.lon}) = ${nearest.v.toFixed(1)}F`, { permanent: true, direction: "right", offset: [10, 0] });
+      dataPin.addTo(map);
+      pins.push(dataPin);
+    }
+    return () => { pins.forEach(m => { try { map?.removeLayer(m); } catch (_) {} }); };
+  }, [mapReady, activeDataLayer, dataSource, latSet, lonSet, grid]);
+
   function expandCoarseGrid(latSet2,lonSet2,overlayGrid,targetLatSet,targetLonSet){const expanded={};const MAX_GAP=1.0;for(const lat of targetLatSet){if(lat>latSet2[0]||lat<latSet2[latSet2.length-1])continue;let r0=0,latFound=false;for(let i=0;i<latSet2.length-1;i++){if(lat<=latSet2[i]&&lat>=latSet2[i+1]){r0=i;latFound=true;break;}}if(!latFound)continue;const r1=Math.min(r0+1,latSet2.length-1);if(latSet2[r0]-latSet2[r1]>MAX_GAP)continue;const latFrac=latSet2[r0]===latSet2[r1]?0:(latSet2[r0]-lat)/(latSet2[r0]-latSet2[r1]);for(const lon of targetLonSet){if(lon<lonSet2[0]||lon>lonSet2[lonSet2.length-1])continue;let c0=0,lonFound=false;for(let i=0;i<lonSet2.length-1;i++){if(lon>=lonSet2[i]&&lon<=lonSet2[i+1]){c0=i;lonFound=true;break;}}if(!lonFound)continue;const c1=Math.min(c0+1,lonSet2.length-1);if(lonSet2[c1]-lonSet2[c0]>MAX_GAP)continue;const lonFrac=lonSet2[c0]===lonSet2[c1]?0:(lon-lonSet2[c0])/(lonSet2[c1]-lonSet2[c0]);const vNW=overlayGrid[`${latSet2[r0]}_${lonSet2[c0]}`],vNE=overlayGrid[`${latSet2[r0]}_${lonSet2[c1]}`];const vSW=overlayGrid[`${latSet2[r1]}_${lonSet2[c0]}`],vSE=overlayGrid[`${latSet2[r1]}_${lonSet2[c1]}`];const wNW=(1-latFrac)*(1-lonFrac),wNE=(1-latFrac)*lonFrac,wSW=latFrac*(1-lonFrac),wSE=latFrac*lonFrac;let sum=0,wsum=0;if(vNW!=null&&Number.isFinite(vNW)){sum+=vNW*wNW;wsum+=wNW;}if(vNE!=null&&Number.isFinite(vNE)){sum+=vNE*wNE;wsum+=wNE;}if(vSW!=null&&Number.isFinite(vSW)){sum+=vSW*wSW;wsum+=wSW;}if(vSE!=null&&Number.isFinite(vSE)){sum+=vSE*wSE;wsum+=wSE;}if(wsum>=0.25)expanded[`${lat}_${lon}`]=sum/wsum;}}return expanded;}
 
   // ── Overlay layer (chl / composite / seacolor) ─────────────────────────────
