@@ -2038,6 +2038,18 @@ export default function SSTHeatmapLeaflet(props) {
       dataPin.addTo(map);
       pins.push(dataPin);
     }
+    // Fixed reference pins: hottest data point from 2am (red) and 3am (green) passes 6/21
+    // These show whether the Gulf Stream core is placed at the same map location in both hours.
+    const fixedPts = [
+      { lat: 34.48, lon: -75.63, color: "red",   label: "2am HOTTEST: 83.7F (34.48,-75.63)" },
+      { lat: 34.46, lon: -75.61, color: "#00cc44", label: "3am HOTTEST: 84.2F (34.46,-75.61)" },
+    ];
+    fixedPts.forEach(({ lat, lon, color, label }) => {
+      const pin = L.marker([lat, lon], { icon: mkIcon(color), interactive: false, pane: "tooltipPane" })
+        .bindTooltip(label, { permanent: true, direction: "right", offset: [10, 0] });
+      pin.addTo(map);
+      pins.push(pin);
+    });
     return () => { pins.forEach(m => { try { map?.removeLayer(m); } catch (_) {} }); };
   }, [mapReady, activeDataLayer, dataSource, latSet, lonSet, grid]);
 
