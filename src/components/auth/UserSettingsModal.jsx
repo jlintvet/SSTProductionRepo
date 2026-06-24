@@ -482,6 +482,15 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
           >
             Cancel
           </button>
+          <button
+            onClick={() => {
+              document.dispatchEvent(new CustomEvent("riploc:start-tour"));
+              onClose();
+            }}
+            className="px-4 py-2 text-sm text-cyan-600 hover:text-cyan-800 font-medium transition-colors"
+          >
+            App Tour
+          </button>
         </div>
       </div>
     </div>

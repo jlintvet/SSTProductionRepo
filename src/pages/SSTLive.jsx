@@ -13,6 +13,7 @@ import { useRegionAccess } from "@/hooks/useRegionAccess";
 import TripPlanner from "@/components/TripPlanner";
 import TripSummaryModal from "@/components/TripSummaryModal";
 import CommunityReportForm from "@/components/CommunityReportForm";
+import OnboardingCarousel from "@/components/OnboardingCarousel";
 import LeaderboardModal from "@/components/LeaderboardModal";
 
 // ── Deploy diagnostic ─────────────────────────────────────────────────────────
@@ -399,6 +400,43 @@ function SSTPageBody() {
   const [communityFormData,   setCommunityFormData]   = useState(null);
   const [showLeaderboard,     setShowLeaderboard]     = useState(false);
   const [communityPinDrop,    setCommunityPinDrop]    = useState(null); // "live" | "report" | null
+  const [showOnboarding,      setShowOnboarding]      = useState(false);
+
+  // Re-launch tour from HelpReportModal or UserSettingsModal via custom event
+  useEffect(() => {
+    function handleStartTour() { setShowOnboarding(true); }
+    document.addEventListener("riploc:start-tour", handleStartTour);
+    return () => document.removeEventListener("riploc:start-tour", handleStartTour);
+  }, []);
+
+  // Check has_seen_onboarding after map loads and userId is available
+  useEffect(() => {
+    if (loading || !userId) return;
+    supabase
+      .from("user_profiles")
+      .select("has_seen_onboarding")
+      .eq("id", userId)
+      .single()
+      .then(({ data }) => {
+        if (data && data.has_seen_onboarding === false) {
+          setShowOnboarding(true);
+        }
+      })
+      .catch(() => {}); // Silently ignore — don't block map on onboarding check failure
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, userId]);
+
+  async function handleOnboardingComplete() {
+    setShowOnboarding(false);
+    if (userId) {
+      supabase
+        .from("user_profiles")
+        .update({ has_seen_onboarding: true })
+        .eq("id", userId)
+        .then(() => {})
+        .catch(() => {});
+    }
+  }
 
   // Auto-load shared route passed via sessionStorage (from SharedRouteLanding "View on Map")
   useEffect(() => {
@@ -1031,6 +1069,7 @@ function SSTPageBody() {
           )}
 
           {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
+          {showOnboarding && <OnboardingCarousel onComplete={handleOnboardingComplete} />}
 
           <div className="hidden sm:block flex-shrink-0" style={{ overflow: "visible" }}>
             {isWindMap

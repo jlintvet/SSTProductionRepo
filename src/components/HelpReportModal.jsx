@@ -119,7 +119,16 @@ export default function HelpReportModal({ onClose }) {
               Thank you for taking the time to be an active member of this community. We value your
               feedback and support.
             </p>
-            <button onClick={onClose} className="mt-2 px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold">
+            <button
+              onClick={() => {
+                document.dispatchEvent(new CustomEvent("riploc:start-tour"));
+                onClose();
+              }}
+              className="mt-2 px-5 py-2 rounded-xl border border-cyan-300 text-cyan-700 hover:bg-cyan-50 text-sm font-semibold transition-colors"
+            >
+              Take the App Tour
+            </button>
+            <button onClick={onClose} className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold">
               Done
             </button>
           </div>
@@ -188,6 +197,17 @@ export default function HelpReportModal({ onClose }) {
               {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</> : "Submit"}
             </button>
             <p className="text-[10px] text-slate-400 text-center mt-2">Goes to the RipLoc team at jlintvet@riploc.com</p>
+            <div className="text-center mt-2">
+              <button
+                onClick={() => {
+                  document.dispatchEvent(new CustomEvent("riploc:start-tour"));
+                  onClose();
+                }}
+                className="text-[10px] text-cyan-600 hover:text-cyan-800 underline"
+              >
+                Take the App Tour
+              </button>
+            </div>
           </div>
         )}
       </div>
