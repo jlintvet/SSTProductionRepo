@@ -83,8 +83,6 @@ function bundleToDay(bundle) {
     grid:  lastHr != null ? (hours_cache[String(lastHr)]?.grid  ?? []) : [],
     stats: lastHr != null ? (hours_cache[String(lastHr)]?.stats ?? null) : null,
     hours_cache,
-    canonicalLatSet: bundle.latSet,
-    canonicalLonSet: bundle.lonSet,
   };
 }
 
@@ -854,20 +852,11 @@ function SSTPageBody() {
 
   const heatmapData = useMemo(() => {
     if (!activeGrid?.length) return { latSet: [], lonSet: [], grid: {} };
-    const grid={}; activeGrid.forEach(d=>{ grid[`${d.lat}_${d.lon}`]=d.sst; });
-    // For VIIRS hourly, pass the full canonical 266x335 grid so gapFillGrid works correctly.
-    // Sparse latSet/lonSet (only observed cells) cause gapFillGrid to BFS-flood the entire
-    // Cartesian product, producing solid-rectangle rendering artifacts.
-    if (dataSource === "VIIRS") {
-      const vDay = viirsData?.days?.[viirsDateIndex];
-      if (vDay?.canonicalLatSet?.length) {
-        return { latSet: vDay.canonicalLatSet, lonSet: vDay.canonicalLonSet, grid };
-      }
-    }
     const latSet=[...new Set(activeGrid.map(d=>d.lat))].sort((a,b)=>b-a);
     const lonSet=[...new Set(activeGrid.map(d=>d.lon))].sort((a,b)=>a-b);
+    const grid={}; activeGrid.forEach(d=>{ grid[`${d.lat}_${d.lon}`]=d.sst; });
     return { latSet, lonSet, grid };
-  }, [activeGrid, dataSource, viirsData, viirsDateIndex]);
+  }, [activeGrid]);
 
   const gridHealth = useMemo(() => {
     if (!activeGrid?.length) return null;
