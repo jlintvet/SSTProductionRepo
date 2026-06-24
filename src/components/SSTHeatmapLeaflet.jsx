@@ -1994,9 +1994,9 @@ export default function SSTHeatmapLeaflet(props) {
     const rangeMax = sstRange?.max !== undefined ? sstRange.max : undefined;
     let cancelled = false;
     const isHourlyViirs = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP");
-    // VIIRS latSet is now the full canonical 266x335 descending grid (SSTLive heatmapData),
-    // so gapFillGrid works correctly for all sources.
-    const sstGrid = useGl ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
+    // Hourly VIIRS: gapFillGrid floods sounds/bays (inshore() check treats them as inshore).
+    // Skip gap-fill for hourly; canonical latSet still ensures correct Mercator bounds.
+    const sstGrid = (useGl && !isHourlyViirs) ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
     const sstIsOcean = useGl ? null : mask;
     Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, sstIsOcean, rangeMin, rangeMax)).then(async result => {
       if (cancelled || !result) return;
