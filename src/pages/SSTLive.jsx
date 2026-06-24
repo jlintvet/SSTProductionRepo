@@ -854,7 +854,7 @@ function SSTPageBody() {
 
   const heatmapData = useMemo(() => {
     if (!activeGrid?.length) return { latSet: [], lonSet: [], grid: {} };
-    const grid={}; activeGrid.forEach(d=>{ grid[\`\${d.lat}_\${d.lon}\`]=d.sst; });
+    const grid={}; activeGrid.forEach(d=>{ grid[`${d.lat}_${d.lon}`]=d.sst; });
     // For VIIRS hourly, pass the full canonical 266x335 grid so gapFillGrid works correctly.
     // Sparse latSet/lonSet (only observed cells) cause gapFillGrid to BFS-flood the entire
     // Cartesian product, producing solid-rectangle rendering artifacts.
