@@ -2115,10 +2115,14 @@ export default function SSTHeatmapLeaflet(props) {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
-        const solid = await solidify(dataURL);
+        // CHL and Sea Color: skip solidify so wsum-based alpha produces soft 4km-block
+        // edges instead of hard opaque staircase walls. Composite keeps solidify since
+        // it has full-region coverage and needs crisp land-edge clipping.
+        const isSoftOverlay = activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor";
+        const imgUrl = isSoftOverlay ? dataURL : await solidify(dataURL);
         if (cancelled) return;
-        blobUrlsRef.current.push(solid);
-        upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+        blobUrlsRef.current.push(imgUrl);
+        upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
       } else {
         blobUrlsRef.current.push(dataURL);
         const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false, pane: "sstDataPane" });
