@@ -261,7 +261,7 @@ import SSTRangeControl from "@/components/SSTRangeControl";
 import WindTimeSlider, { WindLegend } from "@/components/WindTimeSlider";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
+import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, blurOverlay, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
 
 // ── Community pulse animation (injected once) ─────────────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("community-pulse-style")) {
@@ -2115,11 +2115,11 @@ export default function SSTHeatmapLeaflet(props) {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
-        // CHL and Sea Color: skip solidify so wsum-based alpha produces soft 4km-block
-        // edges instead of hard opaque staircase walls. Composite keeps solidify since
-        // it has full-region coverage and needs crisp land-edge clipping.
+        // CHL and Sea Color: blur to feather 4km block edges; no solidify so partial-alpha
+        // wsum pixels stay soft (solidify would negate the blur's edge fade).
+        // Composite keeps solidify — full-region coverage, needs crisp land-edge clipping.
         const isSoftOverlay = activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor";
-        const imgUrl = isSoftOverlay ? dataURL : await solidify(dataURL);
+        const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 4) : await solidify(dataURL);
         if (cancelled) return;
         blobUrlsRef.current.push(imgUrl);
         upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
