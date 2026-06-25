@@ -45,6 +45,19 @@ export async function solidify(blobUrl) {
   return new Promise((resolve) => c.toBlob((b) => resolve(URL.createObjectURL(b)), "image/png"));
 }
 
+// Blur an overlay blob URL to feather coarse-grid (4km CHL/SeaColor) block edges.
+// Does NOT solidify — partial-alpha wsum pixels stay soft so the blur fades naturally.
+export async function blurOverlay(blobUrl, radius = 3) {
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = blobUrl; });
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext("2d");
+  ctx.filter = `blur(${radius}px)`;
+  ctx.drawImage(img, 0, 0);
+  return new Promise((resolve) => c.toBlob((b) => resolve(URL.createObjectURL(b)), "image/png"));
+}
+
 // Inshore gap fill (display-only). Fills ONLY (a) inshore water -- a no-data
 // cell with land on OPPOSITE sides within AXIS_D cells (sounds, bays, creeks
 // behind the barrier islands), and (b) a K-cell shoreline connector. Open ocean

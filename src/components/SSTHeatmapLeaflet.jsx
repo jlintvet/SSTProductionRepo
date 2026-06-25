@@ -261,7 +261,7 @@ import SSTRangeControl from "@/components/SSTRangeControl";
 import WindTimeSlider, { WindLegend } from "@/components/WindTimeSlider";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
+import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, blurOverlay, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
 
 // ── Community pulse animation (injected once) ─────────────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("community-pulse-style")) {
@@ -1994,8 +1994,10 @@ export default function SSTHeatmapLeaflet(props) {
     const rangeMax = sstRange?.max !== undefined ? sstRange.max : undefined;
     let cancelled = false;
     const isHourlyViirs = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP");
+    // Hourly VIIRS: gapFillGrid floods sounds/bays (inshore() check treats them as inshore).
+    // Skip gap-fill for hourly; canonical latSet still ensures correct Mercator bounds.
     const sstGrid = (useGl && !isHourlyViirs) ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
-    const sstIsOcean = (useGl && !isHourlyViirs) ? null : mask;
+    const sstIsOcean = useGl ? null : mask;
     Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, sstIsOcean, rangeMin, rangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
@@ -2113,10 +2115,14 @@ export default function SSTHeatmapLeaflet(props) {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
-        const solid = await solidify(dataURL);
+        // CHL and Sea Color: blur to feather 4km block edges; no solidify so partial-alpha
+        // wsum pixels stay soft (solidify would negate the blur's edge fade).
+        // Composite keeps solidify — full-region coverage, needs crisp land-edge clipping.
+        const isSoftOverlay = activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor";
+        const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 4) : await solidify(dataURL);
         if (cancelled) return;
-        blobUrlsRef.current.push(solid);
-        upsertSstImage(glLayerRef.current, solid, west, east, north, south);
+        blobUrlsRef.current.push(imgUrl);
+        upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
       } else {
         blobUrlsRef.current.push(dataURL);
         const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false, pane: "sstDataPane" });
