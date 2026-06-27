@@ -892,7 +892,7 @@ function SSTPageBody() {
         if (loading && !hasAnyData) return (
           <div className="flex-1 flex items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-slate-200 border-t-cyan-500 rounded-full animate-spin"/><p className="text-sm text-slate-500 font-medium">Loading SST data...</p></div></div>
         );
-        const currentLayerHasData = !!(activeGrid?.length) || (activeDataLayer==="composite"&&!!compositeData) || (activeDataLayer==="chlorophyll"&&!!activeChlData?.days?.length) || (activeDataLayer==="seacolor"&&!!activeSeaColorData?.days?.length) || activeDataLayer==="altimetry" || activeDataLayer==="windmap";
+        const currentLayerHasData = !!(activeGrid?.length) || (activeDataLayer==="sst"&&dataSource==="VIIRS"&&!!viirsData?.days?.length) || (activeDataLayer==="composite"&&!!compositeData) || (activeDataLayer==="chlorophyll"&&!!activeChlData?.days?.length) || (activeDataLayer==="seacolor"&&!!activeSeaColorData?.days?.length) || activeDataLayer==="altimetry" || activeDataLayer==="windmap";
         const isStillLoading = loading || chlLoading || seaColorLoading || (activeDataLayer === "composite" && !compositeData);
         if (!currentLayerHasData && !isStillLoading) return (
           <div className="flex-1 flex items-center justify-center">

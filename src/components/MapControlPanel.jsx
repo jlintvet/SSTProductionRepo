@@ -502,9 +502,9 @@ export default function MapControlPanel({
                   disableNext={chlDateIndex === chlData.days.length - 1}
                 />
               )}
-              {chlSource === "composite" && chlData?.days?.[0]?.isComposite && (
+              {chlSource === "composite" && chlCompositeDates?.length > 0 && (
                 <DateNav
-                  label={chlData.days[0].builtDate ?? chlData.days[0].date ?? "—"}
+                  label={chlCompositeDates[chlCompositeDateIndex] ?? "—"}
                   color="cyan"
                   onPrev={() => setChlCompositeDateIndex(i => Math.max(0, i - 1))}
                   onNext={() => setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1))}
@@ -536,9 +536,9 @@ export default function MapControlPanel({
                   disableNext={seaColorDateIndex === seaColorData.days.length - 1}
                 />
               )}
-              {seaColorSource === "composite" && seaColorData?.days?.[0]?.isComposite && (
+              {seaColorSource === "composite" && seaColorCompositeDates?.length > 0 && (
                 <DateNav
-                  label={seaColorData.days[0].builtDate ?? seaColorData.days[0].date ?? "—"}
+                  label={seaColorCompositeDates[seaColorCompositeDateIndex] ?? "—"}
                   color="cyan"
                   onPrev={() => setSeaColorCompositeDateIndex(i => Math.max(0, i - 1))}
                   onNext={() => setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1))}

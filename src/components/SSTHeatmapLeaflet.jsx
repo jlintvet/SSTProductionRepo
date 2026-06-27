@@ -1987,7 +1987,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map || !latSet.length) return;
     const mask = waterMaskRef.current; if (!mask) return;
     if (sstOverlayRef.current) { map.removeLayer(sstOverlayRef.current); sstOverlayRef.current = null; }
-    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
+    const useGl = !!(glLayerRef.current && MAPBOX_TOKEN) && activeDataLayer !== "altimetry";
     if (activeDataLayer !== "sst") return;
     if (!showSSTLayer) { if (useGl) removeSstImage(glLayerRef.current); return; }
     const rangeMin = sstRange?.min !== undefined ? sstRange.min : undefined;
@@ -2093,7 +2093,7 @@ export default function SSTHeatmapLeaflet(props) {
         onSlaRange?.({ min: -autoRange, max: autoRange });
         min2 = -autoRange; max2 = autoRange;
       } else { min2 = -0.3; max2 = 0.3; }
-      colorFn = (val, mn, mx) => sstColor(val, mn, mx);
+      colorFn = (val, mn, mx) => slaColor(val, mn, mx);
     } else { return; }
     if (!latSet2.length) return;
     let cancelled = false;
@@ -3181,7 +3181,7 @@ export default function SSTHeatmapLeaflet(props) {
               <span style={{ fontSize:9, fontWeight:700, color: mobilePanel==="seacolor" ? "#fff" : "#64748b", lineHeight:1 }}>SC</span>
             </button>
             {/* Altimetry */}
-            <button onClick={() => setMobilePanel(p => p === "altimetry" ? null : "altimetry")} title="Altimetry"
+            <button onClick={() => { setMobilePanel(p => p === "altimetry" ? null : "altimetry"); setActiveDataLayer("altimetry"); }} title="Altimetry"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
                 background: activeDataLayer==="altimetry" ? "#7c3aed" : "rgba(255,255,255,0.9)",
@@ -3457,6 +3457,20 @@ export default function SSTHeatmapLeaflet(props) {
                             {chlData.days[chlDateIndex]?.date ?? "—"}
                           </span>
                           <button onClick={() => setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1))} disabled={chlDateIndex === chlData.days.length - 1}
+                            className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
+                        </div>
+                      </>
+                    )}
+                    {chlSource === "composite" && chlCompositeDates?.length > 0 && (
+                      <>
+                        <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Date</div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setChlCompositeDateIndex(i => Math.max(0, i - 1))} disabled={chlCompositeDateIndex === 0}
+                            className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
+                          <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1 truncate">
+                            {chlCompositeDates[chlCompositeDateIndex] ?? "—"}
+                          </span>
+                          <button onClick={() => setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1))} disabled={chlCompositeDateIndex >= chlCompositeDates.length - 1}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                         </div>
                       </>
