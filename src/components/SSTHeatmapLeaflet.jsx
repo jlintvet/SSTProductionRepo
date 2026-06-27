@@ -2107,6 +2107,8 @@ export default function SSTHeatmapLeaflet(props) {
     const finalRangeMin = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.min != null ? sstRange.min : undefined;
     const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN) && activeDataLayer !== "altimetry";
+    // Altimetry uses Leaflet imageOverlay (not GL); clear stale GL raster so it does not bleed through.
+    if (activeDataLayer === "altimetry" && glLayerRef.current) removeSstImage(glLayerRef.current);
     const ovGrid = (useGl && (activeDataLayer === "composite" || activeDataLayer === "chlorophyll")) ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
     const ocMask = activeDataLayer === "altimetry"
       ? altimetryDeepMask
