@@ -633,10 +633,25 @@ function SSTPageBody() {
 
   // Always-current advance functions — updated every render to avoid stale closures
   sstAdvanceFn.current = () => {
-    if (dataSource==="VIIRS") { const l=viirsData?.days?.length??0; if(l>1) setViirsDateIndex(i=>i>=l-1?0:i+1); }
-    else if (dataSource==="MUR") { const l=murData?.days?.length??0; if(l>1) setMurDateIndex(i=>i>=l-1?0:i+1); }
-    else if (dataSource==="GOESCOMP") { const l=goesCompData?.days?.length??0; if(l>1) setGoesCompDateIndex(i=>i>=l-1?0:i+1); }
-    else if (dataSource==="composite") { const l=compositeDates?.length??0; if(l>1) setCompositeDateIndex(i=>i>=l-1?0:i+1); }
+    if (activeDataLayer === "composite") {
+      const l = compositeDates?.length ?? 0; if (l > 1) setCompositeDateIndex(i => i >= l-1 ? 0 : i+1);
+    } else if (dataSource === "VIIRS") {
+      // Advance hours-first within a day, then wrap to next day
+      const days = viirsData?.days ?? [];
+      if (!days.length) return;
+      const day = days[viirsDateIndex];
+      const hours = day?.available_hours ?? [];
+      const hIdx = hours.indexOf(viirsHour);
+      if (hIdx >= 0 && hIdx < hours.length - 1) {
+        setViirsHour(hours[hIdx + 1]);
+      } else {
+        const nextDay = viirsDateIndex >= days.length - 1 ? 0 : viirsDateIndex + 1;
+        setViirsDateIndex(nextDay);
+        const nextHours = days[nextDay]?.available_hours ?? [];
+        if (nextHours.length) setViirsHour(nextHours[0]);
+      }
+    } else if (dataSource === "MUR") { const l=murData?.days?.length??0; if(l>1) setMurDateIndex(i=>i>=l-1?0:i+1); }
+    else if (dataSource === "GOESCOMP") { const l=goesCompData?.days?.length??0; if(l>1) setGoesCompDateIndex(i=>i>=l-1?0:i+1); }
   };
   chlAdvanceFn.current = () => {
     if (chlSource==="daily") { const l=chlData?.days?.length??0; if(l>1) setChlDateIndex(i=>i>=l-1?0:i+1); }

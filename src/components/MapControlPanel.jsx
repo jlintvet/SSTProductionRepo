@@ -342,6 +342,16 @@ export default function MapControlPanel({
   const isComposite = activeDataLayer === "composite";
   const isSSTGroup  = isSST || isComposite;
   const isCHL       = activeDataLayer === "chlorophyll";
+  // Format any date string (ISO "2026-06-22" or YYYYMMDD "20260622") → "Jun 22"
+  const fmtDate = s => {
+    if (!s) return "—";
+    if (/^\d{8}$/.test(s)) {
+      const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`;
+    }
+    try { return new Date(s.includes("T") ? s : s+"T12:00:00Z").toLocaleString("en-US",{month:"short",day:"numeric",timeZone:"America/New_York"}); }
+    catch { return s; }
+  };
   const isSC        = activeDataLayer === "seacolor";
   const isAlt       = activeDataLayer === "altimetry";
   const showGain    = !isWindMap && !isAlt;
@@ -444,7 +454,7 @@ export default function MapControlPanel({
               {isSST && dataSource === "VIIRS" && viirsData?.days?.length >= 1 && (
                 <>
                   <DateNav
-                    label={activeViirsDay?.date ?? "—"} color="cyan"
+                    label={fmtDate(activeViirsDay?.date)} color="cyan"
                     onPrev={() => { setSstPlaying(false); setViirsDateIndex(i => Math.max(0, i - 1)); }}
                     onNext={() => { setSstPlaying(false); setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1)); }}
                     disablePrev={viirsDateIndex === 0}
@@ -474,7 +484,7 @@ export default function MapControlPanel({
               )}
               {isSST && dataSource === "MUR" && murData?.days?.length >= 1 && (
                 <DateNav
-                  label={date ?? "—"} color="cyan"
+                  label={fmtDate(date)} color="cyan"
                   onPrev={() => { setSstPlaying(false); setMurDateIndex(i => Math.max(0, i - 1)); }}
                   onNext={() => { setSstPlaying(false); setMurDateIndex(i => Math.min(murData.days.length - 1, i + 1)); }}
                   disablePrev={murDateIndex === 0}
@@ -484,7 +494,7 @@ export default function MapControlPanel({
               )}
               {isSST && dataSource === "GOESCOMP" && goesCompData?.days?.length >= 1 && (
                 <DateNav
-                  label={activeGoesCompDay?.date ?? "—"} color="cyan"
+                  label={fmtDate(activeGoesCompDay?.date)} color="cyan"
                   onPrev={() => { setSstPlaying(false); setGoesCompDateIndex(i => Math.max(0, i - 1)); }}
                   onNext={() => { setSstPlaying(false); setGoesCompDateIndex(i => Math.min(goesCompData.days.length - 1, i + 1)); }}
                   disablePrev={goesCompDateIndex === 0}
@@ -509,7 +519,7 @@ export default function MapControlPanel({
               <SubSourceBtn active={chlSource === "composite"} onClick={() => setChlSource("composite")}>HD Composite</SubSourceBtn>
               {chlSource === "daily" && chlData?.days?.length > 1 && (
                 <DateNav
-                  label={chlData.days[chlDateIndex]?.date ?? "—"} color="cyan"
+                  label={fmtDate(chlData.days[chlDateIndex]?.date)} color="cyan"
                   onPrev={() => { setChlPlaying(false); setChlDateIndex(i => Math.max(0, i - 1)); }}
                   onNext={() => { setChlPlaying(false); setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1)); }}
                   disablePrev={chlDateIndex === 0}
@@ -519,7 +529,7 @@ export default function MapControlPanel({
               )}
               {chlSource === "composite" && chlCompositeDates?.length > 0 && (
                 <DateNav
-                  label={chlCompositeDates[chlCompositeDateIndex] ?? "—"}
+                  label={fmtDate(chlCompositeDates[chlCompositeDateIndex])}
                   color="cyan"
                   onPrev={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.max(0, i - 1)); }}
                   onNext={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1)); }}
@@ -545,7 +555,7 @@ export default function MapControlPanel({
               <SubSourceBtn active={seaColorSource === "composite"} onClick={() => setSeaColorSource("composite")}>HD Composite</SubSourceBtn>
               {seaColorSource === "daily" && seaColorData?.days?.length > 1 && (
                 <DateNav
-                  label={seaColorData.days[seaColorDateIndex]?.date ?? "—"} color="cyan"
+                  label={fmtDate(seaColorData.days[seaColorDateIndex]?.date)} color="cyan"
                   onPrev={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.max(0, i - 1)); }}
                   onNext={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1)); }}
                   disablePrev={seaColorDateIndex === 0}
@@ -555,7 +565,7 @@ export default function MapControlPanel({
               )}
               {seaColorSource === "composite" && seaColorCompositeDates?.length > 0 && (
                 <DateNav
-                  label={seaColorCompositeDates[seaColorCompositeDateIndex] ?? "—"}
+                  label={fmtDate(seaColorCompositeDates[seaColorCompositeDateIndex])}
                   color="cyan"
                   onPrev={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.max(0, i - 1)); }}
                   onNext={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1)); }}
@@ -578,7 +588,7 @@ export default function MapControlPanel({
           {isAlt && altimetryDates?.length > 1 && (
             <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
               <DateNav
-                label={(() => { const s=altimetryDates[altimetryDateIndex]; if(!s||s.length<8)return s??"—"; const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`; })()}
+                label={fmtDate(altimetryDates[altimetryDateIndex])}
                 color="cyan"
                 onPrev={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i-1)); }}
                 onNext={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.min(altimetryDates.length-1, i+1)); }}
