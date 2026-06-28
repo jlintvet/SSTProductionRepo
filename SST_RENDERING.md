@@ -113,8 +113,6 @@ Since CHL at ~0.011° is close to the SST grid at 0.01°, `expandCoarseGrid` pro
 
 Leaflet image overlays sit above the tile layer automatically. SST is rendered first, then the CHL/SeaColor/Composite overlay on top. No z-index tricks needed.
 
-**Bathymetry stacking (explicit panes).** Two custom panes pin the order so the bathy contours read clearly over the data raster but never cover the overlays/markers: `sstDataPane` (z-index 350) holds the non-GL SST and CHL/SeaColor/Composite/Altimetry image overlays; `bathyPane` (z-index 375) holds the bathy contours + depth labels. Result, bottom→top: tilePane 200 (GL basemap + SST in GL mode) < sstDataPane 350 < bathyPane 375 < overlayPane 400 (wind/currents/isotherm/SLA) < markerPane 600 (locations, wrecks, buoys, place labels, tools). Wreck pins are `L.marker` divIcons (markerPane), matched in size to the saved-location pins.
-
 SST must still be **ocean-only by the time it hits the canvas**. The basemap's land areas show through transparent pixels — so land-filtered SST is correct. The `waterMaskRef` ocean mask function is passed to `gridToDataURL` as `isOcean` to skip land pixels.
 
 ---
@@ -165,17 +163,42 @@ SST and overlay effects both depend on `waterMaskVersion` and defer rendering if
 
 ---
 
-## CHL data pipeline (Python → frontend)
+## CHL and SeaColor data pipeline (Python → frontend)
 
-**Backend:** `DailyChlorophyllandSeaColorRetrieval.py` runs via GitHub Actions. Fetches CMEMS `cmems_obs-oc_glo_bgc-plankton_nrt_l3-olci-300m_P1D` (Sentinel-3 OLCI, 300m) with `CMEMS_STRIDE = 4` (effective ~1.2km). Returns ~71,939 rows per day (all grid cells including cloud-covered nulls). Lon normalization: `lon - 360 if lon > 180 else lon` ensures lons are negative (-78.89 to -72.21). Coord range logged as: `lat 33.7028–38.9972  lon -78.8861–-72.2139`.
+### Retrieval
 
-**Frontend loading:** `getChlorophyllData` Base44 function fetches CHL JSON and returns `{ days: [{ date, grid: [{lat, lon, chlorophyll}], stats: {min, max} }] }`. `normalizeSSTResponse` passes this through as-is (since `data.days` already has a valid grid). The `stats` field is required by the overlay `useEffect` for `min2/max2`.
+`DailyChlorophyllandSeaColorRetrieval.py` runs via GitHub Actions (`ChlorophyllandSeaColor.yml`). Fetches CMEMS `cmems_obs-oc_glo_bgc-plankton_nrt_l3-olci-300m_P1D` (Sentinel-3 OLCI, 300m) with `CMEMS_STRIDE = 4` (effective ~1.2km). Returns ~71,939 rows per day (all grid cells including cloud-covered nulls). Lon normalization: `lon - 360 if lon > 180 else lon` ensures lons are negative (-78.89 to -72.21). Coord range: `lat 33.7028–38.9972  lon -78.8861–-72.2139`.
 
-**Key variables in overlay `useEffect`:**
-- `day.grid` → array of `{lat, lon, chlorophyll}` objects
-- `latSet2/lonSet2` → unique sorted lat/lon arrays from `day.grid` (the native CMEMS grid)
-- `overlayGrid` → `{ "${lat}_${lon}": chlorophyll_value }` (includes null values for cloud)
-- `renderGrid` → result of `expandCoarseGrid(latSet2, lonSet2, overlayGrid, latSet, lonSet)` (on SST grid)
+**Quality gate (cloud-edge contamination):** After fetching, if `coverage_pct < 5.0 AND blue_water_fraction < 0.01`, the day is skipped and no file is written. This prevents writing files containing only cloud-edge noise with no real ocean signal.
+
+### Bundler (`CHLSeaColorBundler.py`)
+
+Runs after retrieval in the same workflow. Converts large sparse-row JSON files to compact flat-array bundles on the 0.02° fixed canonical grid (266 lats × 335 lons = 89,110 cells). Output in `SSTv2/Chlorophyll/Bundled/` and `SSTv2/SeaColor/Bundled/`.
+
+**CHL native resolution:** ~0.011° (~71,939 rows, ~5MB raw). Bundle: ~450KB flat array (10× smaller).
+
+**SeaColor native resolution:** ~0.1667° (~1,280 rows, ~87KB raw). Bundle: ~440KB flat array. **Do NOT flood-fill SC rows when binning** — `_bin_sc_rows` snaps each native row to the nearest 0.02° cell only. `expandCoarseGrid` in the frontend handles visual gap-filling for the coarse native grid. Prior flood-fill (±4 cells) was removed because it produced large-square rendering artifacts in the composite view.
+
+**Composite:** `build_chl_composite()` / `build_sc_composite()` — newest-pixel-wins across `WINDOW_DAYS = 5` daily bundles. Writes both a canonical `chl_composite.json` and a dated snapshot `chl_composite_YYYY-MM-DD.json` each run. Dated snapshots kept for `COMPOSITE_KEEP_DAYS = 7` days then purged (canonical latest never deleted).
+
+**Index files:** `chl_bundle_index.json` and `seacolor_bundle_index.json` include:
+- `dates`: sorted list of available daily bundle dates
+- `composite_dates`: sorted list of available dated composite snapshots
+- `has_composite`, `composite_coverage_pct`
+
+### Frontend loading
+
+`fetchCHLBundle()` / `fetchSeaColorBundle()` (in `dataFetchers.js`): fetch the bundle index, then all daily bundle files in parallel. Falls back to legacy `fetchChlorophyll()` / `fetchSeaColor()` if the bundle index is unavailable. Propagates `composite_dates[]` from the index to SSTLive for the composite date navigator.
+
+`fetchCHLComposite(dateStr?)` / `fetchSeaColorComposite(dateStr?)`: fetch `chl_composite_${dateStr}.json` if a dateStr is provided, else fall back to `chl_composite.json`. Returns `{ source, days: [day], is_composite: true }` where `day.builtDate` = `composite.generated` sliced to YYYY-MM-DD.
+
+**Key variables in overlay `useEffect` (bundle path):**
+- `day.grid` → array of `{lat, lon, chlorophyll}` or `{lat, lon, kd490}` objects (converted from flat array)
+- `latSet2/lonSet2` → unique sorted lat/lon arrays from `day.grid` (the 0.02° canonical grid)
+- `overlayGrid` → `{ "${lat}_${lon}": value }` keyed object
+- `renderGrid` → result of `expandCoarseGrid(latSet2, lonSet2, overlayGrid, latSet, lonSet)` (on SST reference grid)
+
+The rendering path through `expandCoarseGrid` → `gridToDataURL` is **identical** for both the legacy sparse-row format and the new flat-array bundle format. No changes to the rendering pipeline were needed.
 
 ---
 
@@ -204,19 +227,120 @@ EAST  = -72.21
 
 ---
 
-### 6. Altimetry (SLA) contour lines
+### 6. VIIRS hourly SST appears shifted ~50 miles west (non-uniform lonSet bug)
 
-**Layer:** `activeDataLayer === "altimetry"` renders SLA (sea level anomaly) as contour polylines, not a raster.
+**Symptom:** VIIRS hourly SST overlay shows the Gulf Stream ~50 miles west of its actual location. Cloud Free (MUR) and HD Composite are correct. The shift appears on some hours but not others.
 
-**Data source:** `altimetry_latest_grid.json` from SSTv2 `DailySST/Altimetry/`. Shape: `{lats, lons, sla}` where `sla[i][j]` is the SLA value at `(lats[i], lons[j])`.
+**Root cause:** `gridToDataURL` computed a canvas-wide average step:
+```js
+const lonStep = (lonEast - lonWest) / (lonSet.length - 1);
+const lonFloat = (lon - lonWest) / lonStep;  // WRONG for non-uniform lonSet
+const lonIdx0 = Math.floor(lonFloat);
+```
+This only works when `lonSet` is uniformly spaced. `heatmapData` in `SSTLive.jsx` builds `lonSet` as the distinct sorted longitudes with data (sparse, non-uniform). A VIIRS pass with coverage gaps (dense near coast → gap → dense offshore) has a non-uniform lonSet. The average step maps offshore lons to coastal bracket indices, rendering offshore data at the wrong (western) pixel positions. The canvas is then placed at the correct geographic bounds, so the net effect is a ~50 mile westward shift.
 
-**Rendering approach:** `marchingSquares` + `buildField` (same functions used for SST isotherms). Contours at 0.05m intervals from 5th–95th percentile of actual data.
+**Why some hours look correct:** Hours with dense uniform coverage have nearly-uniform lonSets, so average-step indexing is approximately right. Hours with a coast-gap-offshore structure (sparse, non-uniform) show the shift.
 
-**Color scheme:** Negative SLA → blue (`#0018b0` to `#5090f0`), zero ± 0.025m → dark gray with white glow, positive SLA → red (`#e87040` to `#a00000`).
+**Fix:** Replace average-step float-index with a cursor that walks `lonSet` in order as `px` increases:
+```js
+let lonCursor = 0;
+for (let px = 0; px < CANVAS_W; px++) {
+  const lon = lonWest + (px / (CANVAS_W - 1)) * lonRange;
+  while (lonCursor < lonSet.length - 2 && lonSet[lonCursor + 1] <= lon) lonCursor++;
+  const lonIdx0 = lonCursor;
+  // gridLon0/gridLon1 are the actual bracket, guaranteed correct regardless of uniformity
+}
+```
+Cursor advances monotonically (since lon increases left→right), O(n) per row, no average-step assumption. Same approach applied to `latCursor` for the lat dimension.
 
-**No raster for altimetry:** The overlay `useEffect` altimetry branch computes the legend range (`onSlaRange` callback) and returns early — no `gridToDataURL` call. The `slaContourLayerRef` useEffect draws all contour polylines.
+**Do not regress to average-step indexing.** The cursor approach is in commit `829d550`. Branch: `viirs-hourly-coord-investigation`.
 
-**No `expandCoarseGrid` needed:** Altimetry is rendered as vector contours directly from the native CMEMS 0.125° grid — not as a raster image overlay.
+---
+
+### 7. VIIRS hourly solid-rectangle rendering artifacts (gapFillGrid on sparse grid)
+
+**Symptom:** After the cursor fix (problem 6), large solid-color rectangles appear in the hourly overlay — orange/teal blocks in the sounds, over land, or over the shelf. These are NOT real data. Turning off bilinear interpolation does not change them.
+
+**Root cause:** `gapFillGrid` (in `glSandwich.js`) is designed for the full canonical 266×335 uniform grid used by Cloud Free (MUR) and Composite. For hourly VIIRS it was being called with the sparse non-uniform `latSet`/`lonSet` from `heatmapData`. `gapFillGrid` builds a Cartesian product of those sparse arrays — e.g. 100 unique lats × 20 coastal lons = 2,000 cells. It BFS-floods from real data outward through the entire product grid. With `MAX_FILL_DIST=8` and `AXIS_D=22`, nearly the entire sparse Cartesian product qualifies as "inshore" or "within fill distance" and gets flood-filled with nearest-neighbor SST values. The result is a fully-filled rectangular grid at those sparse coordinates, which renders as solid-color blocks.
+
+The GL rendering path calls `gapFillGrid` unconditionally for all SST sources when `useGl=true`:
+```js
+// WRONG — called for hourly VIIRS with sparse non-uniform latSet/lonSet:
+const sstGrid = useGl ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
+```
+
+**Secondary fix (still valid):** The lat cursor in `gridToDataURL` also had an overshoot bug — descending latSet could advance past a gap and land on the next dense cluster, with `latFrac` clamped to 0 filling the gap region with the wrong bracket's data. The bracket-bounds check guards against this:
+```js
+if (lat > gridLat0 || lat < gridLat1) continue;  // overshoot guard
+if (lon < gridLon0 || lon > gridLon1) continue;  // safety
+```
+Commit `cd6be6f`. This is correct to keep, but it was not the primary cause of the rectangles.
+
+**Primary fix:** Skip `gapFillGrid` for hourly VIIRS. Pass the water mask directly to `gridToDataURL` instead:
+```js
+const isHourlyViirs = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP");
+const sstGrid = (useGl && !isHourlyViirs) ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
+const sstIsOcean = (useGl && !isHourlyViirs) ? null : mask;
+Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, ..., sstIsOcean, ...))
+```
+`gapFillGrid` continues to run for MUR (Cloud Free) and Composite, which use the full canonical grid. Commit `24503aa`.
+
+**Attempted canonical grid approach (do not retry):** To restore inshore gap-fill for hourly, `bundleToDay` in `SSTLive.jsx` was modified to store `canonicalLatSet: [...bundle.latSet].reverse()` and `canonicalLonSet` (the full 266×335 fixed grid, north-first), and `heatmapData` was modified to return the canonical arrays for `dataSource === "VIIRS"`. The `!isHourlyViirs` guard was removed. Result: the full grid makes BFS correct (no more sparse Cartesian product), but `gapFillGrid`'s `inshore()` check treats Albemarle Sound and Pamlico Sound as enclosed water bodies (land on both sides within 22 cells) and floods them entirely from nearby ocean observations. Entire sounds rendered with ocean SST values — misleading and visually wrong. The canonical latSet/lonSet is kept in `bundleToDay` for potential future use, but the `!isHourlyViirs` guard on `gapFillGrid` is permanently retained.
+
+---
+
+### 8. CHL and Sea Color overlay edges are hard staircase walls
+
+**Symptom:** At zoom levels 8–10, CHL and Sea Color overlays show very obvious rectangular block boundaries — hard opaque edges where the 4km satellite grid cells meet cloud/no-data areas. SST hourly looks much smoother by comparison.
+
+**Root cause (resolution):** CHL and Sea Color (Kd490) are 4km L3 daily products — native grid spacing ~0.04°. VIIRS hourly SST is 0.75km stored at 0.02°. The 4km cells are simply larger and more visually obvious at higher zoom.
+
+**Root cause (rendering):** The overlay `useEffect` was calling `solidify(dataURL)` unconditionally for all overlay types (CHL, Sea Color, Composite). `solidify` converts every pixel with alpha > 0 to alpha = 255 — it eliminates the partial-alpha wsum-based fade that `gridToDataURL` produces at data boundaries. This created a hard opaque staircase at every 4km cell edge rather than a natural gradient.
+
+**Fix:** Replace `solidify` with `blurOverlay` for CHL and Sea Color:
+```js
+const isSoftOverlay = activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor";
+const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 4) : await solidify(dataURL);
+```
+`blurOverlay(blobUrl, radius)` is exported from `glSandwich.js`. It draws the image with `ctx.filter = 'blur(Npx)'` before `toBlob`. The underlying wsum-based alpha at cell boundaries stays soft (not solidified), and the blur feathers those boundaries visually.
+
+Composite overlay keeps `solidify` — it has full-region coverage and needs crisp land-edge clipping where `gapFillGrid` fills land-adjacent cells.
+
+**Source data note:** We verified the data is NOT being artificially downsampled. ERDDAP sources are fetched with `STRIDE=1` (native grid). CMEMS CHL is fetched at 300m with `CMEMS_STRIDE=4` (~1.2km effective). Kd490 (Sea Color) has no higher-resolution source for the Mid-Atlantic Bight — 4km multi-sensor is the best available. The 4km block size at high zoom is inherent to the satellite product.
+
+---
+
+### 9. Altimetry (SLA) — contour lines + raster color overlay
+
+**Layer:** `activeDataLayer === "altimetry"` renders SLA (sea level anomaly) as both a raster color overlay **and** contour polylines on top.
+
+**Data source:** `altimetry_latest_grid.json` from SSTv2 `DailySST/Altimetry/`. Shape: `{lats, lons, sla}` where `sla[i][j]` is the SLA value at `(lats[i], lons[j])`. Grid is CMEMS 0.125° resolution, 42 lat points (33.8125–38.9375°N), native grid centroids (not bbox edges).
+
+**Raster rendering:** The overlay `useEffect` altimetry branch calls `gridToDataURL` with `colorFn = slaColor` and `ocMask = altimetryDeepMask` (clipped to open-ocean areas from `/openocean_mask.json`). Result is placed as a Leaflet `imageOverlay` (not GL). The `onSlaRange` callback is called with the auto-scaled p5/p95 percentile range to drive the legend.
+
+**Raster color scheme (`SLA_STOPS`):** Rainbow ramp — deep blue → cyan → green → yellow → orange → deep red:
+```js
+[0.0,  [  0,   0, 200]]  // strong negative — deep blue
+[0.2,  [  0, 190, 255]]  // moderate negative — cyan
+[0.4,  [  0, 210, 120]]  // slight negative — cyan-green
+[0.5,  [ 40, 200,  40]]  // zero anomaly — green
+[0.6,  [230, 230,   0]]  // slight positive — yellow
+[0.8,  [255, 110,   0]]  // moderate positive — orange
+[1.0,  [200,   0,   0]]  // strong positive — deep red
+```
+`SLA_GRADIENT` in `SSTLive.jsx` must always use the same stops as `SLA_STOPS` so the legend bar matches the map.
+
+**Contour lines:** `marchingSquares` + `buildField` draws contour polylines on top of the raster at 0.05m intervals. Contour color scheme: negative → blue (`#0018b0` to `#5090f0`), zero ± 0.025m → dark gray with white glow, positive → red (`#e87040` to `#a00000`).
+
+**GL path exclusion:** `useGl` in the overlay effect is forced `false` for altimetry (`activeDataLayer !== "altimetry"`). Altimetry must always use the Leaflet `imageOverlay` path — never the GL raster source — because `solidify` and the GL sandwich ordering don't apply to the diverging SLA palette.
+
+**GL bleed-through prevention:** When switching to altimetry, `removeSstImage(glLayerRef.current)` is called immediately after computing `useGl`. This clears any image previously placed in the `sst-img` GL raster source (from SST, CHL, or composite) so it doesn't show through beneath the altimetry `imageOverlay`.
+
+**`gridToDataURL` gap threshold:** The lat/lon bracket gap check uses `> 0.2` (not the original `> 0.12`). The CMEMS altimetry grid step is exactly 0.125° — with the old `> 0.12` threshold every adjacent bracket pair exceeded the limit and the entire canvas remained transparent. The `> 0.2` threshold clears the 0.125° step while still catching VIIRS inter-cluster gaps (≥ 0.3°).
+
+**No `expandCoarseGrid` needed:** Altimetry is passed to `gridToDataURL` directly on its native CMEMS grid — the 0.125° resolution is coarser than SST but uniform, so bilinear interpolation handles it correctly without pre-expansion.
+
+**Mobile ALT icon:** `onClick` must call both `setMobilePanel("altimetry")` and `setActiveDataLayer("altimetry")`. Setting only `mobilePanel` leaves the active data layer unchanged and no data renders.
 
 **leaflet-velocity currents:** `_build_velocity_json` in `fetch_ocean_dynamics.py` must include `"parameterCategory": 2` in both U and V headers, or leaflet-velocity won't recognize the components and will show "no data."
 
@@ -229,27 +353,109 @@ EAST  = -72.21
 3. **SST or any layer shifts north/south** → check Mercator math is still in `gridToDataURL` (problem 2).
 4. **CHL overlay blank / no data** → check `day.stats` exists; `min2=day.stats.min` will throw if stats is missing. Also check `expandCoarseGrid` result isn't empty (all nulls from full cloud cover).
 5. **Mask not applying** → check `waterMaskRef.current` is not null before calling `gridToDataURL`.
-6. **Users get localhost error on email confirmation** → fix Supabase Site URL.
-7. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
+6. **SeaColor composite shows large squares** → `_bin_sc_rows` in `CHLSeaColorBundler.py` must NOT flood-fill. Each native row bins to its nearest 0.02° cell only. If flood-fill (SPREAD loop) is re-added, double-expansion with `expandCoarseGrid` produces large-square artifacts. Regenerate bundle files after fixing the bundler.
+7. **Hourly VIIRS shows solid-color rectangles** → check that `gapFillGrid` is NOT being called for `dataSource === "VIIRS"` or `"VIIRSSNPP"`. `gapFillGrid` requires the full canonical 266×335 grid; calling it on the sparse hourly lonSet×latSet floods the entire Cartesian product (problem 7). Also confirm bracket bounds check (`lat > gridLat0 || lat < gridLat1`) is present in `gridToDataURL` cursor loop. **Do not remove the `!isHourlyViirs` guard even if passing canonical latSet/lonSet** — `gapFillGrid`'s `inshore()` check floods Albemarle/Pamlico Sounds from nearby ocean data.
+8. **Hourly VIIRS SST shifted west** → check that `gridToDataURL` uses cursor-based bracket finding (not average-step `lonFloat = (lon - lonWest) / lonStep`). See problem 6. Do not revert to average-step indexing.
+9. **CHL or Sea Color overlay has hard staircase edges** → confirm overlay `useEffect` is calling `blurOverlay(dataURL, 4)` for CHL/SeaColor (not `solidify`). See problem 8. If `solidify` is restored for these layers, the wsum edge fade is negated and hard rectangular block walls return.
+10. **Altimetry raster is all transparent (blank canvas)** → the `gridToDataURL` lat/lon bracket gap check threshold is too tight. CMEMS altimetry grid step is exactly 0.125°. The threshold must be `> 0.2` — if it is `> 0.12` (the original default), every adjacent bracket pair exceeds the limit and the entire canvas stays transparent. Do not lower the threshold below 0.2.
+11. **Previous layer bleeds through beneath altimetry overlay** → confirm `removeSstImage(glLayerRef.current)` is called in the overlay effect immediately after computing `useGl` when `activeDataLayer === "altimetry"`. If missing, SST/CHL/composite data in the `sst-img` GL raster source remains visible underneath the Leaflet imageOverlay.
+12. **Altimetry legend bar colors don't match the map** → `SLA_GRADIENT` in `SSTLive.jsx` and `SLA_STOPS` in `SSTHeatmapLeaflet.jsx` must use the same color stops. Update both together whenever the color scheme changes.
+13. **Users get localhost error on email confirmation** → fix Supabase Site URL.
+14. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
 
 ---
 
-## GL Vector Basemap + Land Mask (branch `map-upgrade-test` → production rollout)
+## Mobile vs Desktop display architecture
 
-The map was upgraded from the flat CartoDB raster basemap with `L.imageOverlay` data layers to a **Windy-style** stack: a Mapbox **GL vector basemap** (labels, roads, bathymetry on top) with the SST raster sandwiched **under the labels**, gap-filled inshore, and clipped to the basemap's own coastline. All of this lives in **`src/lib/glSandwich.js`** (kept in its own module to avoid huge edits / Dropbox truncation in `SSTHeatmapLeaflet.jsx`).
+### Desktop (`sm:` breakpoint and above)
 
-### Architecture
-- **Basemap:** `createGlBasemap(map)` adds a `L.mapboxGL` (mapbox-gl-leaflet) layer using `import.meta.env.VITE_MAPBOX_TOKEN` and style `mapbox/light-v11`. If the token is missing it returns `null` and the code falls back to the old CartoDB + `L.imageOverlay` path (app never breaks).
-- **SST/composite render:** the data grid is gap-filled, rendered to a PNG via the existing `gridToDataURL` (no per-pixel ocean-mask clip — `isOcean` passed as `null`), `solidify()`'d to full opacity, and inserted as a single GL **image source `sst-img`** placed just after the `water` fill layer (so labels/roads draw on top). One shared `sst-img` slot is reused across SST and the composite/chl/seacolor/altimetry overlay effect.
-- **Coastline clip = basemap-water land mask:** `updateLandMask()` rasterizes the basemap's OWN water polygons (`glMap.queryRenderedFeatures({layers:['water']})`) onto a 2048² canvas in Mercator-Y, fills land color + `destination-out` the water, and draws it as a raster layer `land-mask` directly above `sst-img`. Exact coastline alignment by construction (same geometry as the tiles). Pad = **10%** of the viewport (matching the validated test page; 25% made thin barrier islands blurry).
-- **Gap fill (`gapFillGrid`, display-only):** fills no-data WATER cells that are (a) within **K cells of land** (the shoreline connector; production **K=1 ≈ 2 km**) OR (b) "inshore" — land on opposite sides within 22 cells (sounds, bays, creeks). Value = nearest valid SST (BFS over water), capped to 8 cells from real data; then a 2-cell landward dilation so SST reaches under the basemap coastline. Open-ocean cloud holes are never filled. Settings rolled to prod: light style, land mask on, **no fade**, gap fill K=1.
+- **Map** fills the full viewport. `SSTLive.jsx` renders `<SSTHeatmapLeaflet>` with `className="flex-1"`.
+- **Control panel** — `MapControlPanel.jsx` — is an absolutely-positioned overlay at top-right of the map (`right:8, top:8, width:160px, zIndex:500`). Desktop-only: hidden with `hidden sm:flex` on the panel div.
+- **Map header** (top-left strip) contains the layer legend, mode badges, and collapse button for the control panel.
+- All buttons in MapControlPanel are `LayerBtn` or `ToolBtn` components (11px font, rounded-lg, border, padding). Each button is wrapped in a `flex gap-1 items-stretch` div that also contains a `?` help button.
 
-### Problems that took a long time to solve — do not revisit
-- **Mask only recompiled on data-change, not on zoom (mask blurry/gone after zooming).** Root cause: the zoom refresh was attached to the **GL map** (`glMap.on('moveend')`), but the GL map isn't created yet at map-init, and `L.mapboxGL`'s `load` event doesn't reliably fire — so the handler never attached. **Fix:** in `installLandMaskRefresh`, attach to the **Leaflet map** (`map.on('zoomend'/'moveend')`, always ready) and resolve the GL map lazily inside the handler, with a ~180 ms delay so mapbox-gl-leaflet finishes syncing the GL camera before recompute. `scheduleMaskRefresh` then polls `areTilesLoaded` (the GL `idle` event is starved in the busy production map) before recomputing.
-- **Stale/partial mask:** recompute must happen AFTER basemap water tiles finish loading (poll `areTilesLoaded`), else `queryRenderedFeatures` returns few/simplified water polygons and the mask over-punches the coast.
-- **The crisp coastline needs the basemap-water mask, NOT the prebaked `ocean_mask.json`.** The 2 km `ocean_mask` is too coarse for sub-2 km barrier islands (blocky). `ocean_mask.json` is still used elsewhere (LORAN grid, SLA contours, isotherm point-in-water tests) — keep it.
-- **Vercel branch alias serves stale bundles.** When testing a branch, use the per-deploy immutable URL (`production-<hash>-...vercel.app`), not the branch alias. See CLAUDE.md.
+### Mobile (below `sm:` breakpoint)
 
-### Not yet migrated (still on old `L.imageOverlay`, follow-up work)
-- **Wind-speed map** (renders on top, not under labels).
-- **Chlorophyll / Sea color / Altimetry** go through the GL sandwich for the basemap+mask, but only the **composite** layer currently gets gap-filled (gap fill is tuned for SST temperature data).
+- **Map** fills the full viewport minus a fixed bottom toolbar.
+- **Bottom toolbar** is a horizontal strip of icon buttons at the bottom of the screen. Tapping a button opens its sub-panel (slides up from the bottom inside `SSTHeatmapLeaflet.jsx`).
+- Mobile sub-panels (`mobilePanel` state) handle: SST source/date selection, Chlorophyll dates, Loran grid, Bottom Features, GPS, Wind Overlay, Currents, Plan Trip, Altimetry, etc.
+- Mobile VIIRS DateNav uses `activeViirsDay` — computed locally inside `SSTHeatmapLeaflet.jsx` as `viirsData?.days?.[viirsDateIndex] ?? null`. Do NOT rely on a prop named `activeViirsDay` — it is not threaded from `SSTLive.jsx`.
+- **Loran help popup** on mobile uses `ReactDOM.createPortal` into `document.body` (centered modal), same pattern as desktop unified help modal.
+
+### Mobile map shows grey bar at top on initial load (north overflow)
+
+**Symptom:** On iOS Safari, initial page load shows the map panned too far north — a grey strip with no SST data is visible above the data boundary (~39°N). As soon as the user switches to a different SST source, the view corrects itself.
+
+**Root cause:** `applyFillZoom` fires ~33ms after map creation (double `requestAnimationFrame`). At that moment the CSS layout may not have settled yet — `map.getSize().y` can return `0`. The `vpH` fallback (visual viewport height) is larger than the actual map container height, so `calcFillZoom` computes a slightly low zoom. The while-loop bounds guard corrects for the region bounds `± 0.05°` but this tolerance is too loose to catch the rendered overflow on a real device.
+
+**Why switching sources "fixes" it:** The SST overlay `.then()` callback calls `map.setMaxBounds(...)` and `map.setMinZoom(newFillZoom)`. Leaflet's `setMaxBounds` internally calls `_panInsideMaxBounds()` immediately when the map is already loaded, snapping the view inside bounds. `setMinZoom` calls `setZoom(getZoom())` internally when `newZoom > currentZoom`, forcing a re-render. Both run on every source switch — so the view always corrects after loading.
+
+**Fix:** A one-time `useEffect([sstReady, mapReady])` fires 150ms after the first layer renders (`sstReady` becomes `true`). **`sstReady` must be set by ALL layer paths** — both the SST imageOverlay `.then()` and the overlay layer `.then()` (composite / CHL / seacolor / altimetry). If only the SST path sets it, users with composite saved in localStorage will never trigger the refit. By that point the DOM layout is fully settled. It performs a full refit: `invalidateSize()` → `calcFillZoom` with correct container height → `setView(mercCenter, fz)` → while-loop bounds guard (tolerance 0.02°) → `setMinZoom` → `setMaxBounds`. Guarded by `userInteractedRef.current` so it never resets a panned user.
+
+```js
+useEffect(() => {
+  const map = mapRef.current;
+  if (!sstReady || !mapReady || !map || userInteractedRef.current) return;
+  const t = setTimeout(() => {
+    if (userInteractedRef.current) return;
+    try {
+      map.invalidateSize();
+      const sz = map.getSize();
+      const vpH = window.visualViewport?.height || window.innerHeight || 0;
+      const _cw = sz.x || 800, _ch = sz.y || vpH || 500;
+      // ... calcFillZoom, setView(mercCenter, fz), while-loop guard, setMinZoom, setMaxBounds
+    } catch(_) {}
+  }, 150);
+  return () => clearTimeout(t);
+}, [sstReady, mapReady]);
+```
+
+**Critical detail — `mercCenter` vs geographic center:** The fill-zoom calculation uses Mercator extent. Centering on the geographic midpoint (36.35°N for bounds 33.7–39.5°N) overshoots the northern boundary. Use the Mercator midpoint ≈ 36.27°N (`mercCenter`) — computed as:
+```js
+const mN = Math.log(Math.tan(Math.PI/4 + regionBounds.north*Math.PI/360));
+const mS = Math.log(Math.tan(Math.PI/4 + regionBounds.south*Math.PI/360));
+const mercLat = (2*Math.atan(Math.exp((mN+mS)/2)) - Math.PI/2) * 180/Math.PI;
+```
+
+**`userInteractedRef` must be wired:** `userInteractedRef` (`useRef(false)`) was declared but never written to. The `markInteracted` callback must set `userInteractedRef.current = true` or the guard never activates and the refit will fire even after the user has panned.
+
+---
+
+### Critical mobile crash: "Set map center and zoom first"
+
+`L.map()` is created without a center/zoom (to allow `fitBounds` to set initial view). If `setMapReady(true)` fires before `applyFillZoom` runs in `requestAnimationFrame`, all `mapReady`-dependent `useEffect`s call `map.getBounds()` / `map.project()` on an uninitialized map — crashing with Leaflet's `_checkIfLoaded` error.
+
+**Fix:** Call `map.setView(llBounds.getCenter(), 5, { animate: false })` synchronously immediately after `L.tileLayer(...).addTo(map)` in the map init `useEffect`, before `setMapReady(true)`. The double-rAF `applyFillZoom` still runs to correct the zoom/bounds; the `setView` just ensures the map is in a valid state if any effect fires first.
+
+```js
+try { map.setView(llBounds.getCenter(), 5, { animate: false }); } catch(_) {}
+```
+
+---
+
+## Wind velocity layer (L.velocityLayer)
+
+- Added when `isWindMap` or `showWindOverlay` is active and `windData` is available.
+- Renders a canvas on top of the map's overlay pane via `L.velocityLayer` (leaflet-velocity plugin).
+- **Pointer events problem:** The velocity canvas sits above Leaflet's own canvas. With `preferCanvas: true`, wreck/bottom feature markers are drawn on Leaflet's canvas below the velocity canvas — click events are intercepted before reaching markers.
+- **Fix:** After `velocityLayer.addTo(map)`, disable pointer events on the velocity canvas:
+  ```js
+  const vc = velocityLayer._canvasLayer?._canvas ?? velocityLayer._canvas ?? null;
+  if (vc) vc.style.pointerEvents = 'none';
+  ```
+- The velocity field requires `"parameterCategory": 2` in both U and V JSON headers — see `_build_velocity_json` in `fetch_ocean_dynamics.py`.
+
+---
+
+## Control panel — ProGate and help popup system
+
+### ProGate
+
+`ProGate` (`src/components/ProGate.jsx`) wraps any child in a visual dimming overlay + PRO badge. For non-Pro users it intercepts all clicks and shows an upgrade prompt. `isPro` comes from `AppContext` → `useRegionAccess` → `user_subscriptions.tier`.
+
+### Help popup system (? buttons)
+
+Every main button in `MapControlPanel.jsx` has a `?` button alongside it. Implementation:
+
+- Single state: `const [helpOpen, setHelpOpen] = useState(null)` — holds the key of the currently open help modal, or `null`.
+- `hbtn(id)` inline helper renders the `?` button: cl
