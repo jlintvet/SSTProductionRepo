@@ -389,6 +389,15 @@ function SSTPageBody() {
   const [altimetryPlaying,   setAltimetryPlaying]   = useState(false);
   const _altimetryCache  = useRef(new Map());
   const altimetryPlayRef = useRef(null);
+  const sstPlayRef   = useRef(null);
+  const [sstPlaying, setSstPlaying] = useState(false);
+  const sstAdvanceFn = useRef(null);
+  const chlPlayRef   = useRef(null);
+  const [chlPlaying, setChlPlaying] = useState(false);
+  const chlAdvanceFn = useRef(null);
+  const scPlayRef    = useRef(null);
+  const [seaColorPlaying, setSeaColorPlaying] = useState(false);
+  const scAdvanceFn  = useRef(null);
   const [hotspotData,    setHotspotData]    = useState(null);
   const [hotspotLoading, setHotspotLoading] = useState(false);
   const [selectedFishSpecies,setSelectedFishSpecies] = useState("yellowfin");
@@ -621,6 +630,40 @@ function SSTPageBody() {
     }, 1500);
     return () => { if (altimetryPlayRef.current) { clearInterval(altimetryPlayRef.current); altimetryPlayRef.current = null; } };
   }, [altimetryPlaying, altimetryDates.length]);
+
+  // Always-current advance functions — updated every render to avoid stale closures
+  sstAdvanceFn.current = () => {
+    if (dataSource==="VIIRS") { const l=viirsData?.days?.length??0; if(l>1) setViirsDateIndex(i=>i>=l-1?0:i+1); }
+    else if (dataSource==="MUR") { const l=murData?.days?.length??0; if(l>1) setMurDateIndex(i=>i>=l-1?0:i+1); }
+    else if (dataSource==="GOESCOMP") { const l=goesCompData?.days?.length??0; if(l>1) setGoesCompDateIndex(i=>i>=l-1?0:i+1); }
+    else if (dataSource==="composite") { const l=compositeDates?.length??0; if(l>1) setCompositeDateIndex(i=>i>=l-1?0:i+1); }
+  };
+  chlAdvanceFn.current = () => {
+    if (chlSource==="daily") { const l=chlData?.days?.length??0; if(l>1) setChlDateIndex(i=>i>=l-1?0:i+1); }
+    else { const l=chlCompositeDates?.length??0; if(l>1) setChlCompositeDateIndex(i=>i>=l-1?0:i+1); }
+  };
+  scAdvanceFn.current = () => {
+    if (seaColorSource==="daily") { const l=seaColorData?.days?.length??0; if(l>1) setSeaColorDateIndex(i=>i>=l-1?0:i+1); }
+    else { const l=seaColorCompositeDates?.length??0; if(l>1) setSeaColorCompositeDateIndex(i=>i>=l-1?0:i+1); }
+  };
+  useEffect(() => {
+    if (!sstPlaying) { clearInterval(sstPlayRef.current); return; }
+    sstPlayRef.current = setInterval(() => sstAdvanceFn.current?.(), 1500);
+    return () => clearInterval(sstPlayRef.current);
+  }, [sstPlaying]);
+  useEffect(() => { setSstPlaying(false); }, [dataSource]);
+  useEffect(() => {
+    if (!chlPlaying) { clearInterval(chlPlayRef.current); return; }
+    chlPlayRef.current = setInterval(() => chlAdvanceFn.current?.(), 1500);
+    return () => clearInterval(chlPlayRef.current);
+  }, [chlPlaying]);
+  useEffect(() => { setChlPlaying(false); }, [chlSource]);
+  useEffect(() => {
+    if (!seaColorPlaying) { clearInterval(scPlayRef.current); return; }
+    scPlayRef.current = setInterval(() => scAdvanceFn.current?.(), 1500);
+    return () => clearInterval(scPlayRef.current);
+  }, [seaColorPlaying]);
+  useEffect(() => { setSeaColorPlaying(false); }, [seaColorSource]);
 
 
   useEffect(()=>{
@@ -998,6 +1041,9 @@ function SSTPageBody() {
               altimetryData={altimetryData} onSlaRange={setSlaRange}
               altimetryDates={altimetryDates} altimetryDateIndex={altimetryDateIndex} setAltimetryDateIndex={setAltimetryDateIndex}
               altimetryPlaying={altimetryPlaying} setAltimetryPlaying={setAltimetryPlaying}
+              sstPlaying={sstPlaying} setSstPlaying={setSstPlaying}
+              chlPlaying={chlPlaying} setChlPlaying={setChlPlaying}
+              seaColorPlaying={seaColorPlaying} setSeaColorPlaying={setSeaColorPlaying}
               sstRange={sstRange} onSstRangeChange={setSstRange} userId={userId}
               wreckRemovedKeys={wreckRemovedKeys}
               hotspotData={hotspotData} hotspotLoading={hotspotLoading}
