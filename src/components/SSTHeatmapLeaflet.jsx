@@ -522,13 +522,13 @@ function windSpeedColor(val, min, max) {
 }
 // SLA colorscale: blue (negative) → white (zero) → red (positive)
 const SLA_STOPS = [
-  [0.0,  [  0,  20, 160]], // strong negative — deep blue
-  [0.25, [ 40, 100, 230]], // moderate negative
-  [0.43, [140, 190, 255]], // slight negative — light blue
-  [0.5,  [248, 248, 248]], // zero anomaly — near-white
-  [0.57, [255, 190, 140]], // slight positive — light orange
-  [0.75, [255,  80,  30]], // moderate positive — orange-red
-  [1.0,  [160,   0,   0]], // strong positive — deep red
+  [0.0,  [  0,   0, 200]], // strong negative — deep blue
+  [0.2,  [  0, 190, 255]], // moderate negative — cyan
+  [0.4,  [  0, 210, 120]], // slight negative — cyan-green
+  [0.5,  [ 40, 200,  40]], // zero anomaly — green
+  [0.6,  [230, 230,   0]], // slight positive — yellow
+  [0.8,  [255, 110,   0]], // moderate positive — orange
+  [1.0,  [200,   0,   0]], // strong positive — deep red
 ];
 function slaColor(val, valMin, valMax) {
   // val in meters; range is auto-scaled from data percentiles via valMin/valMax
