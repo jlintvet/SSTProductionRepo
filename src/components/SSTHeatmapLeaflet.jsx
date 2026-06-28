@@ -976,6 +976,7 @@ export default function SSTHeatmapLeaflet(props) {
     isPro,
     currentsData, currentsLoading, showCurrents, setShowCurrents,
     altimetryData, onSlaRange,
+  altimetryDates, altimetryDateIndex, setAltimetryDateIndex, altimetryPlaying, setAltimetryPlaying,
     tripMode, waypoints, onAddWaypoint, onMoveWaypoint, onRemoveWaypoint, onToggleTripMode, onEndTripAtDeparture, onLoadRoute,
     gpsActive, onToggleGps, boatPosition, boatTrack,
     // community
@@ -3111,6 +3112,8 @@ export default function SSTHeatmapLeaflet(props) {
             showWindOverlay={showWindOverlay} setShowWindOverlay={setShowWindOverlay}
             currentsLoading={currentsLoading} showCurrents={showCurrents} setShowCurrents={setShowCurrents}
             showAltimetryOverlay={showAltimetryOverlay} setShowAltimetryOverlay={setShowAltimetryOverlay}
+            altimetryDates={altimetryDates} altimetryDateIndex={altimetryDateIndex} setAltimetryDateIndex={setAltimetryDateIndex}
+            altimetryPlaying={altimetryPlaying} setAltimetryPlaying={setAltimetryPlaying}
             showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
             showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
@@ -3650,6 +3653,25 @@ export default function SSTHeatmapLeaflet(props) {
                           </button>
                         </MobileProGate>
                       </div>
+                      {altimetryDates?.length > 1 && (() => {
+                        const fmtD = s => { if (!s||s.length<8) return s??"—"; const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`; };
+                        return (
+                          <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4 }}>
+                            <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i-1)); }}
+                              disabled={altimetryDateIndex === 0}
+                              style={{ padding:"4px 7px", borderRadius:4, border:"1px solid #cbd5e1", background:"#fff", fontSize:11, fontWeight:700, color:"#475569", opacity: altimetryDateIndex===0?0.3:1 }}>&#8249;</button>
+                            <span style={{ flex:1, textAlign:"center", fontSize:10, fontWeight:600, background:"#ecfeff", color:"#0e7490", borderRadius:4, padding:"3px 4px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {fmtD(altimetryDates[altimetryDateIndex])}
+                            </span>
+                            <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.min(altimetryDates.length-1, i+1)); }}
+                              disabled={altimetryDateIndex >= altimetryDates.length-1}
+                              style={{ padding:"4px 7px", borderRadius:4, border:"1px solid #cbd5e1", background:"#fff", fontSize:11, fontWeight:700, color:"#475569", opacity: altimetryDateIndex>=altimetryDates.length-1?0.3:1 }}>&#8250;</button>
+                            <button onClick={() => setAltimetryPlaying(v => !v)}
+                              style={{ padding:"4px 7px", borderRadius:4, border:"1px solid #cbd5e1", background:"#fff", fontSize:11, fontWeight:700, color:"#475569" }}
+                              title={altimetryPlaying ? "Pause" : "Play"}>{altimetryPlaying ? "||" : "▶"}</button>
+                          </div>
+                        );
+                      })()}
                   </div>
                 )}
 

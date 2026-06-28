@@ -273,6 +273,7 @@ export default function MapControlPanel({
   showWindOverlay, setShowWindOverlay,
   currentsLoading, showCurrents, setShowCurrents,
   showAltimetryOverlay, setShowAltimetryOverlay,
+  altimetryDates, altimetryDateIndex, setAltimetryDateIndex, altimetryPlaying, setAltimetryPlaying,
   // overlays
   showBathyLayer, setShowBathyLayer,
   jsonContoursLoading,
@@ -557,6 +558,27 @@ export default function MapControlPanel({
             </div>
             {hbtn("altimetry")}
           </div>
+          {isAlt && altimetryDates?.length > 1 && (() => {
+            const fmtAltDate = s => { if (!s||s.length<8) return s??"—"; const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`; };
+            return (
+              <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
+                <div className="flex items-center gap-1 mt-1">
+                  <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i-1)); }}
+                    disabled={altimetryDateIndex === 0}
+                    className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">&#8249;</button>
+                  <span className="flex-1 text-center text-[10px] font-semibold rounded py-1 truncate text-cyan-700 bg-cyan-50">
+                    {fmtAltDate(altimetryDates[altimetryDateIndex])}
+                  </span>
+                  <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.min(altimetryDates.length-1, i+1)); }}
+                    disabled={altimetryDateIndex >= altimetryDates.length-1}
+                    className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">&#8250;</button>
+                  <button onClick={() => setAltimetryPlaying(v => !v)}
+                    className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold"
+                    title={altimetryPlaying ? "Pause" : "Play"}>{altimetryPlaying ? "||" : "▶"}</button>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">

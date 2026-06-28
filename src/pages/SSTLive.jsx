@@ -58,7 +58,7 @@ const VIIRS_CDN_BASE     = "https://raw.githubusercontent.com/jlintvet/SSTv2/mai
 const VIIRS_COMPOSITE_URL= `${VIIRS_CDN_BASE}/viirs_composite.json`;
 const WIND_DATA_URL      = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/WindData/wind_latest.json";
 const CURRENTS_URL       = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Currents/currents_latest.json";
-const ALTIMETRY_URL      = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Altimetry/altimetry_latest_grid.json";
+const ALTIMETRY_BASE     = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Altimetry";
 const _viirsCache = new Map();
 
 // ── VIIRS bundle parsing ───────────────────────────────────────────────────────
@@ -384,6 +384,11 @@ function SSTPageBody() {
   const [altimetryData,  setAltimetryData]  = useState(null);
   const [slaRange,       setSlaRange]       = useState({ min: -0.2, max: 0.2 });
   const [altimetryLoading,setAltimetryLoading]=useState(false);
+  const [altimetryDates,     setAltimetryDates]     = useState([]);
+  const [altimetryDateIndex, setAltimetryDateIndex] = useState(0);
+  const [altimetryPlaying,   setAltimetryPlaying]   = useState(false);
+  const _altimetryCache  = useRef(new Map());
+  const altimetryPlayRef = useRef(null);
   const [hotspotData,    setHotspotData]    = useState(null);
   const [hotspotLoading, setHotspotLoading] = useState(false);
   const [selectedFishSpecies,setSelectedFishSpecies] = useState("yellowfin");
@@ -558,17 +563,64 @@ function SSTPageBody() {
   }, [currentsActive]);
 
   const altimetryActive = activeDataLayer === "altimetry";
-  // Fetch on mount — needed for both the altimetry layer AND the altimetry overlay
-  // (overlay can be enabled while SST is active, so can't gate on altimetryActive)
+
+  // ── Altimetry: discover available dated files (last 8 days), then load latest ──
   useEffect(() => {
-    if (altimetryData || altimetryLoading) return;
+    if (altimetryLoading || altimetryDates.length > 0) return;
     setAltimetryLoading(true);
-    fetch(ALTIMETRY_URL)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then(d => setAltimetryData(d))
-      .catch(e => console.error("[ALTIMETRY] fetch failed:", e))
+    const now = new Date();
+    const candidates = Array.from({ length: 8 }, (_, i) => {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - i * 864e5);
+      return `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,"0")}${String(d.getUTCDate()).padStart(2,"0")}`;
+    });
+    Promise.all(candidates.map(async dateStr => {
+      try {
+        const r = await fetch(`${ALTIMETRY_BASE}/altimetry_${dateStr}_grid.json`);
+        if (!r.ok) return null;
+        const data = await r.json();
+        _altimetryCache.current.set(dateStr, data);
+        return dateStr;
+      } catch { return null; }
+    })).then(results => {
+      const available = results.filter(Boolean).sort(); // oldest → newest
+      if (available.length === 0) {
+        return fetch(`${ALTIMETRY_BASE}/altimetry_latest_grid.json`)
+          .then(r => r.json()).then(d => setAltimetryData(d));
+      }
+      setAltimetryDates(available);
+      setAltimetryDateIndex(available.length - 1);
+      setAltimetryData(_altimetryCache.current.get(available[available.length - 1]));
+    }).catch(e => console.error("[ALTIMETRY] discovery failed:", e))
       .finally(() => setAltimetryLoading(false));
   }, []);
+
+  // Switch data when user changes date
+  useEffect(() => {
+    if (!altimetryDates.length) return;
+    const dateStr = altimetryDates[altimetryDateIndex];
+    if (!dateStr) return;
+    if (_altimetryCache.current.has(dateStr)) {
+      setAltimetryData(_altimetryCache.current.get(dateStr)); return;
+    }
+    setAltimetryLoading(true);
+    fetch(`${ALTIMETRY_BASE}/altimetry_${dateStr}_grid.json`)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(d => { _altimetryCache.current.set(dateStr, d); setAltimetryData(d); })
+      .catch(e => console.error("[ALTIMETRY] fetch failed:", e))
+      .finally(() => setAltimetryLoading(false));
+  }, [altimetryDateIndex, altimetryDates]);
+
+  // Play loop
+  useEffect(() => {
+    if (!altimetryPlaying || altimetryDates.length < 2) {
+      if (altimetryPlayRef.current) { clearInterval(altimetryPlayRef.current); altimetryPlayRef.current = null; }
+      return;
+    }
+    altimetryPlayRef.current = setInterval(() => {
+      setAltimetryDateIndex(i => i >= altimetryDates.length - 1 ? 0 : i + 1);
+    }, 1500);
+    return () => { if (altimetryPlayRef.current) { clearInterval(altimetryPlayRef.current); altimetryPlayRef.current = null; } };
+  }, [altimetryPlaying, altimetryDates.length]);
 
 
   useEffect(()=>{
@@ -944,6 +996,8 @@ function SSTPageBody() {
               currentsData={currentsData} currentsLoading={currentsLoading}
               showCurrents={showCurrents} setShowCurrents={setShowCurrents}
               altimetryData={altimetryData} onSlaRange={setSlaRange}
+              altimetryDates={altimetryDates} altimetryDateIndex={altimetryDateIndex} setAltimetryDateIndex={setAltimetryDateIndex}
+              altimetryPlaying={altimetryPlaying} setAltimetryPlaying={setAltimetryPlaying}
               sstRange={sstRange} onSstRangeChange={setSstRange} userId={userId}
               wreckRemovedKeys={wreckRemovedKeys}
               hotspotData={hotspotData} hotspotLoading={hotspotLoading}
