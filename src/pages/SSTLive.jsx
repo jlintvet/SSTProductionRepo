@@ -183,7 +183,7 @@ function GradientLegend({ gradient, label, unit, dataMin, dataMax, rangeMin, ran
 }
 const CHL_GRADIENT  = "linear-gradient(to right, rgb(10,40,130), rgb(0,100,180), rgb(0,170,100), rgb(120,200,0), rgb(200,160,0))";
 const KD_GRADIENT   = "linear-gradient(to right, rgb(10,60,160), rgb(0,140,170), rgb(0,160,80), rgb(100,150,20), rgb(150,100,0))";
-const SLA_GRADIENT  = "linear-gradient(to right, rgb(0,20,160), rgb(40,100,230), rgb(140,190,255), rgb(248,248,248), rgb(255,190,140), rgb(255,80,30), rgb(160,0,0))";
+const SLA_GRADIENT  = "linear-gradient(to right, rgb(0,0,200), rgb(0,190,255), rgb(0,210,120), rgb(40,200,40), rgb(230,230,0), rgb(255,110,0), rgb(200,0,0))";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // InlineLogin — self-contained, zero external deps, shown when no session
