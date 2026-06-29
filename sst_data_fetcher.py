@@ -41,12 +41,29 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
-BBOX = {
-    "lon_min": -78.89,
-    "lon_max": -72.21,
-    "lat_min": 33.70,
-    "lat_max": 39.00,
+# ── Region configuration ─────────────────────────────────────────────────────
+# Set REGION env var to select which ocean region to generate data for.
+#   REGION=mid_atlantic  (default — backward-compatible, no path changes)
+#   REGION=ga_sc         (Georgia & South Carolina)
+# Each region writes to OUTPUT_DIR / subdir so files stay separated in the repo.
+_REGION_CONFIGS = {
+    "mid_atlantic": {
+        "bbox":   {"lon_min": -78.89, "lon_max": -72.21, "lat_min": 33.70, "lat_max": 39.00},
+        "subdir": "",          # root of OUTPUT_DIR — backward-compatible
+    },
+    "ga_sc": {
+        "bbox":   {"lon_min": -82.00, "lon_max": -75.20, "lat_min": 29.80, "lat_max": 35.20},
+        "subdir": "ga_sc",     # files land in OUTPUT_DIR/ga_sc/
+    },
 }
+REGION      = os.environ.get("REGION", "mid_atlantic").strip()
+if REGION not in _REGION_CONFIGS:
+    print(f"[WARNING] Unknown REGION={REGION!r} — falling back to mid_atlantic")
+    REGION = "mid_atlantic"
+_region_cfg = _REGION_CONFIGS[REGION]
+BBOX        = _region_cfg["bbox"]
+OUTPUT_SUBDIR = _region_cfg["subdir"]
+
 # Defaults to yesterday — best data availability across all sources
 _date_override = os.environ.get("TARGET_DATE_OVERRIDE", "").strip()
 TARGET_DATE = (
@@ -62,7 +79,8 @@ SOURCES_OVERRIDE = os.environ.get("SOURCES_OVERRIDE", "all").strip()
 # For VIIRS: all hourly passes across up to MAX_DATASETS days.
 # For daily sources (MUR, CMEMS): up to MAX_DATASETS days.
 MAX_DATASETS = 5
-OUTPUT_DIR = Path("SSTv2") / "DailySST"
+_OUTPUT_ROOT = Path("SSTv2") / "DailySST"
+OUTPUT_DIR   = _OUTPUT_ROOT / OUTPUT_SUBDIR if OUTPUT_SUBDIR else _OUTPUT_ROOT
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # Output formats
 EXPORT = {
@@ -765,6 +783,7 @@ def main():
     print("=" * 60)
     print("  High-Fidelity SST Data Fetcher")
     print(f"  Date      : {TARGET_DATE}")
+    print(f"  Region    : {REGION}")
     print(f"  BBOX      : {BBOX}")
     print(f"  Output    : {OUTPUT_DIR.resolve()}")
     print(f"  Sources   : {SOURCES_OVERRIDE}")
