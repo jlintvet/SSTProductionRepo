@@ -62,6 +62,14 @@ const NOAA_SOURCES = {
     forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/oceancitynoaa.json",
     tideStation:     "8570283",   // Ocean City, MD
   },
+  "Horn Harbor, VA": {
+    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hornharbornoaa.json",
+    tideStation:     "8637689",   // Gloucester Point, VA
+  },
+  "Cape Charles, VA": {
+    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capecharlesnoaa.json",
+    tideStation:     "8632200",   // Cape Charles, VA
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
