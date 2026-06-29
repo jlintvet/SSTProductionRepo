@@ -1009,6 +1009,10 @@ export default function SSTHeatmapLeaflet(props) {
 
   const { latSet, lonSet, grid } = data;
   const regionBounds = regionConfig.bounds;
+  // Region-aware VIIRS bundled path (GA/SC files live under a subdir).
+  const _vSuffix    = regionConfig?.dataPathSuffix ?? "";
+  const _vSubdir    = _vSuffix ? `${_vSuffix}/` : "";
+  const VIIRS_CDN_BASE_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/${_vSubdir}`.replace(/\/+$/, "");
   const llBounds = L.latLngBounds(
     [regionBounds.south, regionBounds.west],
     [regionBounds.north, regionBounds.east]
@@ -1086,7 +1090,7 @@ export default function SSTHeatmapLeaflet(props) {
   // Fetch compositeDate locally so it's colocated with the hotspot consumer
   const [compositeDate, setCompositeDateLocal] = useState(null);
   useEffect(() => {
-    fetch(`${VIIRS_CDN_BASE_LOCAL}/viirs_index.json`)
+    fetch(`${VIIRS_CDN_BASE_R}/viirs_index.json`)
       .then(r => r.json())
       .then(d => {
         const dates = d.dates;

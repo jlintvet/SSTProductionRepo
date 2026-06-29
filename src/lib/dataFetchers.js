@@ -2,7 +2,12 @@
 // Direct browser fetch replacements for the Base44 serverless functions.
 // All data lives in raw.githubusercontent.com/jlintvet/SSTv2.
 
-const NORTH = 39.00, SOUTH = 33.70, WEST = -78.89, EAST = -72.21;
+// Mid-Atlantic fallback bounds (used when no regionBounds arg is passed).
+const MA_BOUNDS = { north: 39.00, south: 33.70, west: -78.89, east: -72.21 };
+
+function resolveBounds(regionBounds) {
+  return regionBounds ?? MA_BOUNDS;
+}
 
 function cToF(c) { return parseFloat((c * 9 / 5 + 32).toFixed(4)); }
 
@@ -17,13 +22,14 @@ function recentDates(n = 14) {
   return dates;
 }
 
-function parseSSVCSV(text) {
+function parseSSVCSV(text, bounds) {
+  const { north, south, east, west } = bounds;
   const lines = text.trim().split('\n');
   const grid = [];
   for (let i = 1; i < lines.length; i++) {
     const [lat, lon, sst] = lines[i].split(',').map(Number);
     if (!isNaN(lat) && !isNaN(lon) && !isNaN(sst) &&
-        lat >= SOUTH && lat <= NORTH && lon >= WEST && lon <= EAST) {
+        lat >= south && lat <= north && lon >= west && lon <= east) {
       grid.push({ lat: parseFloat(lat.toFixed(4)), lon: parseFloat(lon.toFixed(4)), sst: cToF(sst) });
     }
   }
@@ -40,8 +46,10 @@ function statsFromVals(vals) {
 }
 
 // ── VIIRS Daily SST ───────────────────────────────────────────────────────────
-export async function fetchVIIRSSST() {
-  const BASE_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/";
+export async function fetchVIIRSSST(regionBounds = null, dataPathSuffix = "") {
+  const { north, south, east, west } = resolveBounds(regionBounds);
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const BASE_URL = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/${subdir}`;
   const compactDates = recentDates(14);
 
   const headResults = await Promise.all(
@@ -60,7 +68,7 @@ export async function fetchVIIRSSST() {
       try {
         const res = await fetch(`${BASE_URL}viirs_${compact}.csv`);
         if (!res.ok) return null;
-        const grid = parseSSVCSV(await res.text());
+        const grid = parseSSVCSV(await res.text(), { north, south, east, west });
         if (!grid.length) return null;
         const date = `${compact.slice(0,4)}-${compact.slice(4,6)}-${compact.slice(6,8)}`;
         return { date, grid, stats: statsFromVals(grid.map(p => p.sst)) };
@@ -71,8 +79,10 @@ export async function fetchVIIRSSST() {
 }
 
 // ── GOES Composite SST ────────────────────────────────────────────────────────
-export async function fetchGOESComposite() {
-  const BASE_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/GOES/Composite/";
+export async function fetchGOESComposite(regionBounds = null, dataPathSuffix = "") {
+  const { north, south, east, west } = resolveBounds(regionBounds);
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const BASE_URL = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/GOES/Composite/${subdir}`;
   const compactDates = recentDates(14);
 
   const headResults = await Promise.all(
@@ -91,7 +101,7 @@ export async function fetchGOESComposite() {
       try {
         const res = await fetch(`${BASE_URL}goes_composite_${compact}.csv`);
         if (!res.ok) return null;
-        const grid = parseSSVCSV(await res.text());
+        const grid = parseSSVCSV(await res.text(), { north, south, east, west });
         if (!grid.length) return null;
         const date = `${compact.slice(0,4)}-${compact.slice(4,6)}-${compact.slice(6,8)}`;
         return { date, grid, stats: statsFromVals(grid.map(p => p.sst)) };
@@ -102,8 +112,10 @@ export async function fetchGOESComposite() {
 }
 
 // ── MUR SST ───────────────────────────────────────────────────────────────────
-export async function fetchMURSST() {
-  const BASE_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/MUR/";
+export async function fetchMURSST(regionBounds = null, dataPathSuffix = "") {
+  const { north, south, east, west } = resolveBounds(regionBounds);
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const BASE_URL = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/MUR/${subdir}`;
   const compactDates = recentDates(14);
 
   const headResults = await Promise.all(
@@ -122,7 +134,7 @@ export async function fetchMURSST() {
       try {
         const res = await fetch(`${BASE_URL}mur_${compact}.csv`);
         if (!res.ok) return null;
-        const grid = parseSSVCSV(await res.text());
+        const grid = parseSSVCSV(await res.text(), { north, south, east, west });
         if (!grid.length) return null;
         const date = `${compact.slice(0,4)}-${compact.slice(4,6)}-${compact.slice(6,8)}`;
         return { date, grid, stats: statsFromVals(grid.map(p => p.sst)) };
@@ -133,9 +145,11 @@ export async function fetchMURSST() {
 }
 
 // ── Chlorophyll ───────────────────────────────────────────────────────────────
-export async function fetchChlorophyll() {
-  const MANIFEST_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/chl_manifest.json";
-  const BASE_URL     = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/";
+export async function fetchChlorophyll(regionBounds = null, dataPathSuffix = "") {
+  const { north, south, east, west } = resolveBounds(regionBounds);
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const MANIFEST_URL = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/${subdir}chl_manifest.json`;
+  const BASE_URL     = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/${subdir}`;
 
   const manifestRes = await fetch(MANIFEST_URL);
   if (!manifestRes.ok) throw new Error(`Manifest not found (${manifestRes.status})`);
@@ -194,9 +208,11 @@ export async function fetchChlorophyll() {
 }
 
 // ── Sea Color (Kd490) ─────────────────────────────────────────────────────────
-export async function fetchSeaColor() {
-  const MANIFEST_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/seacolor_manifest.json";
-  const BASE_URL     = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/";
+export async function fetchSeaColor(regionBounds = null, dataPathSuffix = "") {
+  const { north, south, east, west } = resolveBounds(regionBounds);
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const MANIFEST_URL = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/${subdir}seacolor_manifest.json`;
+  const BASE_URL     = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/${subdir}`;
 
   const manifestRes = await fetch(MANIFEST_URL);
   if (!manifestRes.ok) throw new Error(`Manifest not found (${manifestRes.status})`);
@@ -280,6 +296,7 @@ export async function fetchVIIRSHourly() {
   }
 
   function parsePassCSV(text) {
+    const { north: pN, south: pS, east: pE, west: pW } = MA_BOUNDS; // hourly always mid-atlantic
     const lines = text.trim().split('\n');
     const grid = [];
     for (let i = 1; i < lines.length; i++) {
@@ -287,7 +304,7 @@ export async function fetchVIIRSHourly() {
       if (parts.length < 3) continue;
       const lat = parseFloat(parts[0]), lon = parseFloat(parts[1]), sst = parseFloat(parts[2]);
       if (isNaN(lat) || isNaN(lon) || isNaN(sst)) continue;
-      if (lat < SOUTH || lat > NORTH || lon < WEST || lon > EAST) continue;
+      if (lat < pS || lat > pN || lon < pW || lon > pE) continue;
       grid.push({ lat: parseFloat(lat.toFixed(4)), lon: parseFloat(lon.toFixed(4)), sst: cToF(sst) });
     }
     return grid;
@@ -414,16 +431,18 @@ function _bundleDayToSCGrid(bundle) {
   };
 }
 
-export async function fetchCHLBundle() {
+export async function fetchCHLBundle(regionBounds = null, dataPathSuffix = "") {
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/Bundled/${subdir}`;
   try {
-    const idxRes = await fetch(`${CHL_BUNDLE_BASE}chl_bundle_index.json`);
+    const idxRes = await fetch(`${base}chl_bundle_index.json`);
     if (!idxRes.ok) throw new Error(`Index HTTP ${idxRes.status}`);
     const idx = await idxRes.json();
     if (!idx.dates?.length) throw new Error('Empty bundle index');
     const days = await Promise.all(
       [...idx.dates].sort().map(async (date) => {
         try {
-          const res = await fetch(`${CHL_BUNDLE_BASE}chl_bundle_${date}.json`);
+          const res = await fetch(`${base}chl_bundle_${date}.json`);
           if (!res.ok) return null;
           return _bundleDayToCHLGrid(await res.json());
         } catch { return null; }
@@ -434,15 +453,17 @@ export async function fetchCHLBundle() {
     return { source: 'CHLOROPHYLL', days: validDays, has_composite: idx.has_composite ?? false, composite_dates: idx.composite_dates ?? [] };
   } catch (err) {
     console.warn('[fetchCHLBundle] falling back to legacy fetch:', err.message);
-    return fetchChlorophyll();
+    return fetchChlorophyll(regionBounds, dataPathSuffix);
   }
 }
 
-export async function fetchCHLComposite(dateStr) {
+export async function fetchCHLComposite(dateStr, regionBounds = null, dataPathSuffix = "") {
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/Bundled/${subdir}`;
   // If dateStr provided fetch that dated snapshot, else fall back to canonical latest
   const url = dateStr
-    ? `${CHL_BUNDLE_BASE}chl_composite_${dateStr}.json`
-    : `${CHL_BUNDLE_BASE}chl_composite.json`;
+    ? `${base}chl_composite_${dateStr}.json`
+    : `${base}chl_composite.json`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`CHL composite HTTP ${res.status}`);
   const composite = await res.json();
@@ -453,16 +474,18 @@ export async function fetchCHLComposite(dateStr) {
   return { source: 'CHLOROPHYLL', days: [day], is_composite: true };
 }
 
-export async function fetchSeaColorBundle() {
+export async function fetchSeaColorBundle(regionBounds = null, dataPathSuffix = "") {
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/Bundled/${subdir}`;
   try {
-    const idxRes = await fetch(`${SC_BUNDLE_BASE}seacolor_bundle_index.json`);
+    const idxRes = await fetch(`${base}seacolor_bundle_index.json`);
     if (!idxRes.ok) throw new Error(`Index HTTP ${idxRes.status}`);
     const idx = await idxRes.json();
     if (!idx.dates?.length) throw new Error('Empty bundle index');
     const days = await Promise.all(
       [...idx.dates].sort().map(async (date) => {
         try {
-          const res = await fetch(`${SC_BUNDLE_BASE}seacolor_bundle_${date}.json`);
+          const res = await fetch(`${base}seacolor_bundle_${date}.json`);
           if (!res.ok) return null;
           return _bundleDayToSCGrid(await res.json());
         } catch { return null; }
@@ -473,14 +496,16 @@ export async function fetchSeaColorBundle() {
     return { source: 'SEACOLOR', days: validDays, has_composite: idx.has_composite ?? false, composite_dates: idx.composite_dates ?? [] };
   } catch (err) {
     console.warn('[fetchSeaColorBundle] falling back to legacy fetch:', err.message);
-    return fetchSeaColor();
+    return fetchSeaColor(regionBounds, dataPathSuffix);
   }
 }
 
-export async function fetchSeaColorComposite(dateStr) {
+export async function fetchSeaColorComposite(dateStr, regionBounds = null, dataPathSuffix = "") {
+  const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/Bundled/${subdir}`;
   const url = dateStr
-    ? `${SC_BUNDLE_BASE}seacolor_composite_${dateStr}.json`
-    : `${SC_BUNDLE_BASE}seacolor_composite.json`;
+    ? `${base}seacolor_composite_${dateStr}.json`
+    : `${base}seacolor_composite.json`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`SeaColor composite HTTP ${res.status}`);
   const composite = await res.json();

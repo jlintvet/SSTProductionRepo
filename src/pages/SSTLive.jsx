@@ -55,7 +55,7 @@ const BATHY_CONTOURS_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/mai
 const WRECKS_URL         = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/wrecks.json";
 const HOTSPOTS_BASE      = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST";
 const VIIRS_CDN_BASE     = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled";
-const VIIRS_COMPOSITE_URL= `${VIIRS_CDN_BASE}/viirs_composite.json`;
+const VIIRS_COMPOSITE_URL= `${VIIRS_CDN_BASE}/viirs_composite.json`; // mid-atlantic fallback only
 const WIND_DATA_URL      = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/WindData/wind_latest.json";
 const CURRENTS_URL       = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Currents/currents_latest.json";
 const ALTIMETRY_BASE     = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Altimetry";
@@ -188,14 +188,20 @@ const SLA_GRADIENT  = "linear-gradient(to right, rgb(0,0,200), rgb(0,190,255), r
 // ─────────────────────────────────────────────────────────────────────────────
 // InlineLogin — self-contained, zero external deps, shown when no session
 // ─────────────────────────────────────────────────────────────────────────────
+const REGION_OPTIONS = [
+  { value: "mid_atlantic", label: "Mid-Atlantic (MD / VA / NC)" },
+  { value: "ga_sc",        label: "Georgia & South Carolina" },
+];
+
 function InlineLogin() {
-  const [mode, setMode]         = useState("login");
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm]   = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState(null);
-  const [sent, setSent]         = useState(false);
+  const [mode, setMode]                     = useState("login");
+  const [email, setEmail]                   = useState("");
+  const [password, setPassword]             = useState("");
+  const [confirm, setConfirm]               = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("mid_atlantic");
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState(null);
+  const [sent, setSent]                     = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault(); setError(null); setLoading(true);
@@ -210,9 +216,23 @@ function InlineLogin() {
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8)  { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
-    const { error: err } = await supabase.auth.signUp({ email, password });
+    const { data: signUpData, error: err } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { region: selectedRegion } },
+    });
     setLoading(false);
-    if (err) setError(err.message); else setSent(true);
+    if (err) { setError(err.message); return; }
+    // Pre-create user_profiles row with chosen region.
+    if (signUpData?.user?.id) {
+      await supabase.from("user_profiles").upsert(
+        { id: signUpData.user.id, region: selectedRegion },
+        { onConflict: "id", ignoreDuplicates: false }
+      ).then(({ error: pe }) => {
+        if (pe) console.warn("[signup] profile upsert:", pe.message);
+      });
+    }
+    setSent(true);
   }
 
   const inputStyle = { width: "100%", height: 36, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 12px", fontSize: 14, color: "#1e293b", outline: "none", boxSizing: "border-box" };
@@ -248,10 +268,28 @@ function InlineLogin() {
               <input style={inputStyle} type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} required />
             </div>
             {mode === "register" && (
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#475569", display: "block", marginBottom: 4 }}>Confirm password</label>
-                <input style={inputStyle} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" required />
-              </div>
+              <>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#475569", display: "block", marginBottom: 4 }}>Confirm password</label>
+                  <input style={inputStyle} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#475569", display: "block", marginBottom: 4 }}>Your region</label>
+                  <select
+                    value={selectedRegion}
+                    onChange={e => setSelectedRegion(e.target.value)}
+                    style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}
+                    required
+                  >
+                    {REGION_OPTIONS.map(r => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 10, color: "#94a3b8", margin: "4px 0 0" }}>
+                    Determines which ocean region SST data is loaded for.
+                  </p>
+                </div>
+              </>
             )}
             {error && <div style={{ fontSize: 12, color: "#dc2626", background: "#fef2f2", borderRadius: 8, padding: "8px 12px" }}>{error}</div>}
             <button type="submit" style={btnStyle} disabled={loading}>
@@ -283,6 +321,16 @@ function SSTPageBody() {
     endNavigation, navigatingRoute, startNavigation,
   } = useAppContext();
   const { isPro } = useRegionAccess();
+
+  // Region-aware data paths — backend writes GA/SC files under a subdir.
+  const _suffix      = regionConfig?.dataPathSuffix ?? "";
+  const _subdir      = _suffix ? `${_suffix}/` : "";
+  const VIIRS_CDN_BASE_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/${_subdir}`.replace(/\/+$/, "");
+  const HOTSPOTS_BASE_R  = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/${_subdir}`.replace(/\/+$/, "");
+  const CURRENTS_URL_R   = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Currents/${_subdir}currents_latest.json`;
+  const ALTIMETRY_BASE_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Altimetry/${_subdir}`.replace(/\/+$/, "");
+  const _bounds      = regionConfig?.bounds ?? null;
+  const _pathSuffix  = _suffix;
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
@@ -493,7 +541,7 @@ function SSTPageBody() {
     async function loadComposite() {
       try {
         // Check viirs_index.json for dated composite snapshots
-        const idxRes = await fetch(`${VIIRS_CDN_BASE}/viirs_index.json`);
+        const idxRes = await fetch(`${VIIRS_CDN_BASE_R}/viirs_index.json`);
         const idx = idxRes.ok ? await idxRes.json() : {};
         const cDates = [...(idx.composite_dates ?? [])].sort();
         if (cDates.length > 0) {
@@ -502,7 +550,7 @@ function SSTPageBody() {
           const latestDate = cDates[cDates.length - 1];
           setCompositeDateIndex(cDates.length - 1);
           compositeLoadedDateRef.current = latestDate;
-          const cRes = await fetch(`${VIIRS_CDN_BASE}/viirs_composite_${latestDate}.json`);
+          const cRes = await fetch(`${VIIRS_CDN_BASE_R}/viirs_composite_${latestDate}.json`);
           if (cRes.ok) {
             const d = await cRes.json();
             setCompositeData(d);
@@ -512,7 +560,7 @@ function SSTPageBody() {
           }
         }
         // Fallback: load viirs_composite.json directly (no date nav)
-        const cRes = await fetch(VIIRS_COMPOSITE_URL);
+        const cRes = await fetch(`${VIIRS_CDN_BASE_R}/viirs_composite.json`);
         if (!cRes.ok) throw new Error(`HTTP ${cRes.status}`);
         const d = await cRes.json();
         setCompositeData(d);
@@ -531,7 +579,7 @@ function SSTPageBody() {
     const dateStr = compositeIndexDates[compositeDateIndex];
     if (!dateStr || dateStr === compositeLoadedDateRef.current) return;
     compositeLoadedDateRef.current = dateStr;
-    fetch(`${VIIRS_CDN_BASE}/viirs_composite_${dateStr}.json`)
+    fetch(`${VIIRS_CDN_BASE_R}/viirs_composite_${dateStr}.json`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d) return;
@@ -564,7 +612,7 @@ function SSTPageBody() {
   useEffect(() => {
     if (!currentsActive || currentsData || currentsLoading) return;
     setCurrentsLoading(true);
-    fetch(CURRENTS_URL)
+    fetch(CURRENTS_URL_R)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => setCurrentsData(d))
       .catch(e => console.error("[CURRENTS] fetch failed:", e))
@@ -584,7 +632,7 @@ function SSTPageBody() {
     });
     Promise.all(candidates.map(async dateStr => {
       try {
-        const r = await fetch(`${ALTIMETRY_BASE}/altimetry_${dateStr}_grid.json`);
+        const r = await fetch(`${ALTIMETRY_BASE_R}/altimetry_${dateStr}_grid.json`);
         if (!r.ok) return null;
         const data = await r.json();
         _altimetryCache.current.set(dateStr, data);
@@ -593,7 +641,7 @@ function SSTPageBody() {
     })).then(results => {
       const available = results.filter(Boolean).sort(); // oldest → newest
       if (available.length === 0) {
-        return fetch(`${ALTIMETRY_BASE}/altimetry_latest_grid.json`)
+        return fetch(`${ALTIMETRY_BASE_R}/altimetry_latest_grid.json`)
           .then(r => r.json()).then(d => setAltimetryData(d));
       }
       setAltimetryDates(available);
@@ -612,7 +660,7 @@ function SSTPageBody() {
       setAltimetryData(_altimetryCache.current.get(dateStr)); return;
     }
     setAltimetryLoading(true);
-    fetch(`${ALTIMETRY_BASE}/altimetry_${dateStr}_grid.json`)
+    fetch(`${ALTIMETRY_BASE_R}/altimetry_${dateStr}_grid.json`)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => { _altimetryCache.current.set(dateStr, d); setAltimetryData(d); })
       .catch(e => console.error("[ALTIMETRY] fetch failed:", e))
@@ -693,7 +741,7 @@ function SSTPageBody() {
       fmtDate(new Date(Date.now()-864e5)),
       `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
     ])];
-    const tryFetch = date => fetch(`${HOTSPOTS_BASE}/fishing_hotspots_${date}.json`).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();});
+    const tryFetch = date => fetch(`${HOTSPOTS_BASE_R}/fishing_hotspots_${date}.json`).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();});
     const tryAll = dates => dates.reduce((p,d) => p.catch(()=>tryFetch(d)), Promise.reject());
     tryAll(candidates)
       .then(d=>{setHotspotData(d);})
@@ -854,11 +902,11 @@ function SSTPageBody() {
 
   function applyResult(sourceName, result, setState) { setSourceStatus(s=>({...s,[sourceName]:result.status}));if(result.ok){setState({data:result.data,dateIndex:Math.max(0,(result.data.days?.length??1)-1)});}else{setState({data:result.data,dateIndex:0});} }
 
-  async function fetchMUR(){setLoading(true);setError(null);try{const res=await fetchMURSST();const result=normalizeSSTResponse(res,"MUR","sst");applyResult("MUR",result,setMurState);}catch(e){console.error("[SST:MUR] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,MUR:"error"}));}setLoading(false);}
+  async function fetchMUR(){setLoading(true);setError(null);try{const res=await fetchMURSST(_bounds, _pathSuffix);const result=normalizeSSTResponse(res,"MUR","sst");applyResult("MUR",result,setMurState);}catch(e){console.error("[SST:MUR] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,MUR:"error"}));}setLoading(false);}
   async function fetchVIIRS() {
     setLoading(true); setError(null);
     try {
-      const idxRes = await fetch(`${VIIRS_CDN_BASE}/viirs_index.json`);
+      const idxRes = await fetch(`${VIIRS_CDN_BASE_R}/viirs_index.json`);
       if (!idxRes.ok) throw new Error(`VIIRS index HTTP ${idxRes.status}`);
       const idx = await idxRes.json();
       const dates = [...(idx.dates ?? [])].sort();
@@ -866,7 +914,7 @@ function SSTPageBody() {
       const latestDate = dates[dates.length - 1];
       let latestDay;
       if (_viirsCache.has(latestDate)) { latestDay = _viirsCache.get(latestDate); }
-      else { const bRes=await fetch(`${VIIRS_CDN_BASE}/viirs_${latestDate}.json`); if(!bRes.ok)throw new Error(`VIIRS bundle HTTP ${bRes.status}`); latestDay=bundleToDay(await bRes.json()); _viirsCache.set(latestDate,latestDay); }
+      else { const bRes=await fetch(`${VIIRS_CDN_BASE_R}/viirs_${latestDate}.json`); if(!bRes.ok)throw new Error(`VIIRS bundle HTTP ${bRes.status}`); latestDay=bundleToDay(await bRes.json()); _viirsCache.set(latestDate,latestDay); }
       const days = dates.map(d => d===latestDate ? latestDay : {date:d,available_hours:[],grid:[],stats:null,hours_cache:null});
       const latestHour = latestDay.available_hours[latestDay.available_hours.length-1] ?? null;
       setSourceStatus(s=>({...s,VIIRS:latestDay.grid.length?"ok":"empty"}));
@@ -874,8 +922,8 @@ function SSTPageBody() {
     } catch(e) { console.error("[SST:VIIRS] fetch failed:",e); setError(e.message); setSourceStatus(s=>({...s,VIIRS:"error"})); }
     setLoading(false);
   }
-  async function fetchVIIRSNpp(){setLoading(true);setError(null);try{const res=await fetchVIIRSSST();const result=normalizeSSTResponse(res,"VIIRSSNPP","sst");applyResult("VIIRSSNPP",result,setViirsNppState);}catch(e){console.error("[SST:VIIRSSNPP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,VIIRSSNPP:"error"}));}setLoading(false);}
-  async function fetchGOESComp(){setLoading(true);setError(null);try{const res=await fetchGOESComposite();const result=normalizeSSTResponse(res,"GOESCOMP","sst");applyResult("GOESCOMP",result,setGoesCompState);}catch(e){console.error("[SST:GOESCOMP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,GOESCOMP:"error"}));}setLoading(false);}
+  async function fetchVIIRSNpp(){setLoading(true);setError(null);try{const res=await fetchVIIRSSST(_bounds, _pathSuffix);const result=normalizeSSTResponse(res,"VIIRSSNPP","sst");applyResult("VIIRSSNPP",result,setViirsNppState);}catch(e){console.error("[SST:VIIRSSNPP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,VIIRSSNPP:"error"}));}setLoading(false);}
+  async function fetchGOESComp(){setLoading(true);setError(null);try{const res=await fetchGOESComposite(_bounds, _pathSuffix);const result=normalizeSSTResponse(res,"GOESCOMP","sst");applyResult("GOESCOMP",result,setGoesCompState);}catch(e){console.error("[SST:GOESCOMP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,GOESCOMP:"error"}));}setLoading(false);}
   useEffect(()=>{if(dataSource==="MUR")fetchMUR();else if(dataSource==="VIIRS")fetchVIIRS();else if(dataSource==="VIIRSSNPP")fetchVIIRSNpp();else if(dataSource==="GOESCOMP")fetchGOESComposite();},[dataSource]);
   // Persist chosen SST source across sessions
   useEffect(()=>{ localStorage.setItem("sst_source", dataSource); },[dataSource]);
@@ -890,7 +938,7 @@ function SSTPageBody() {
     (async () => {
       let dayObj;
       if (_viirsCache.has(dateStr)) { dayObj = _viirsCache.get(dateStr); }
-      else { try { const r=await fetch(`${VIIRS_CDN_BASE}/viirs_${dateStr}.json`); if(!r.ok){console.warn("[SST:VIIRS] No bundle for",dateStr);return;} dayObj=bundleToDay(await r.json()); _viirsCache.set(dateStr,dayObj); } catch(e){console.error("[SST:VIIRS] lazy-load failed:",dateStr,e);return;} }
+      else { try { const r=await fetch(`${VIIRS_CDN_BASE_R}/viirs_${dateStr}.json`); if(!r.ok){console.warn("[SST:VIIRS] No bundle for",dateStr);return;} dayObj=bundleToDay(await r.json()); _viirsCache.set(dateStr,dayObj); } catch(e){console.error("[SST:VIIRS] lazy-load failed:",dateStr,e);return;} }
       const lastHour = dayObj.available_hours[dayObj.available_hours.length-1] ?? null;
       setViirsState(s => !s.data ? s : {...s,hour:lastHour,data:{...s.data,days:s.data.days.map(d=>d.date===dateStr?dayObj:d)}});
     })();
@@ -900,7 +948,7 @@ function SSTPageBody() {
   useEffect(()=>{
     if(activeDataLayer!=="chlorophyll"||chlSource!=="daily"||chlData)return;
     setChlLoading(true);
-    fetchCHLBundle().then(res=>{
+    fetchCHLBundle(_bounds, _pathSuffix).then(res=>{
       if(res.composite_dates?.length) setChlCompositeDates(res.composite_dates);
       const result=normalizeSSTResponse(res,"CHL","chlorophyll");
       if(result.ok){setChlData(result.data);setChlDateIndex(Math.max(0,(result.data.days?.length??1)-1));}
@@ -914,14 +962,14 @@ function SSTPageBody() {
     const dateStr = chlCompositeDates.length ? chlCompositeDates[chlCompositeDateIndex] : undefined;
     setChlCompositeLoading(true);
     setChlCompositeData(null);
-    fetchCHLComposite(dateStr).then(res=>{setChlCompositeData(res);setChlCompositeLoading(false);})
+    fetchCHLComposite(dateStr, _bounds, _pathSuffix).then(res=>{setChlCompositeData(res);setChlCompositeLoading(false);})
       .catch(e=>{console.error("[SST:CHL COMP] fetch failed:",e);setChlCompositeLoading(false);});
   },[activeDataLayer,chlSource,chlCompositeDateIndex,chlCompositeDates]);
   // SeaColor daily (bundle format with legacy fallback)
   useEffect(()=>{
     if(activeDataLayer!=="seacolor"||seaColorSource!=="daily"||seaColorData)return;
     setSeaColorLoading(true);
-    fetchSeaColorBundle().then(res=>{
+    fetchSeaColorBundle(_bounds, _pathSuffix).then(res=>{
       if(res.composite_dates?.length) setSeaColorCompositeDates(res.composite_dates);
       const result=normalizeSSTResponse(res,"SEACOLOR","kd490");
       if(result.ok){setSeaColorData(result.data);if(result.data?.days?.length)setSeaColorDateIndex(result.data.days.length-1);}
@@ -935,7 +983,7 @@ function SSTPageBody() {
     const dateStr = seaColorCompositeDates.length ? seaColorCompositeDates[seaColorCompositeDateIndex] : undefined;
     setSeaColorCompositeLoading(true);
     setSeaColorCompositeData(null);
-    fetchSeaColorComposite(dateStr).then(res=>{setSeaColorCompositeData(res);setSeaColorCompositeLoading(false);})
+    fetchSeaColorComposite(dateStr, _bounds, _pathSuffix).then(res=>{setSeaColorCompositeData(res);setSeaColorCompositeLoading(false);})
       .catch(e=>{console.error("[SST:SC COMP] fetch failed:",e);setSeaColorCompositeLoading(false);});
   },[activeDataLayer,seaColorSource,seaColorCompositeDateIndex,seaColorCompositeDates]);
 
@@ -1258,7 +1306,7 @@ class SSTErrorBoundary extends Component {
 
 // SSTLiveGate — mounts only after auth confirmed; blocks expired trial users
 function SSTLiveGate() {
-  const { isExpired, loading: accessLoading } = useRegionAccess();
+  const { isExpired, loading: accessLoading, region: userRegion } = useRegionAccess();
 
   if (accessLoading) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center",
@@ -1273,7 +1321,7 @@ function SSTLiveGate() {
   if (isExpired) return <TrialExpiredWall />;
 
   return (
-    <AppShell region="mid_atlantic" onUpgrade={() => window.location.href = "/upgrade"}>
+    <AppShell region={userRegion} onUpgrade={() => window.location.href = "/upgrade"}>
       <SSTPageBody />
     </AppShell>
   );

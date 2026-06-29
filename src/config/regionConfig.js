@@ -14,6 +14,7 @@ export const REGION_CONFIGS = {
     defaultCenter: { lat: 35.7792, lon: -75.532 },
     defaultZoom:   7.5,
     defaultLocation: "Oregon Inlet, NC",
+    dataPathSuffix: "",
     locations: [
       { label: "Bay Bridge Tunnel, VA", lat: 36.9082,            lon: -76.0918,           wreckRegion: "ChesapeakeMD", noaaCoverage: true  },
       { label: "Beaufort Inlet, NC",    lat: 34.6937,            lon: -76.6663,           wreckRegion: "MoreheadNC",   noaaCoverage: true  },
@@ -24,6 +25,39 @@ export const REGION_CONFIGS = {
       { label: "Oregon Inlet, NC",      lat: 35.7792,            lon: -75.532,            wreckRegion: "HatterasNC",   noaaCoverage: true  },
       { label: "Poquoson, VA",          lat: 37.1788,            lon: -76.373,             wreckRegion: "ChesapeakeMD", noaaCoverage: true  },
       { label: "Virginia Beach, VA",    lat: 36.8516,            lon: -75.9792,           wreckRegion: "ChesapeakeMD", noaaCoverage: true  },
+    ],
+  },
+
+  ga_sc: {
+    label: "Georgia & South Carolina",
+    bounds: {
+      north:  35.20,  // northern limit: New Bern, NC
+      south:  29.80,  // southern limit: St. Augustine, FL
+      west:  -82.00,  // western limit:  Callahan, FL
+      east:  -75.20,  // eastern limit:  ~65 nm east of Cape Lookout
+    },
+    minZoom:         6,
+    maxZoom:         11,
+    defaultCenter:   { lat: 32.50, lon: -78.60 },
+    defaultZoom:     7,
+    defaultLocation: "Charleston, SC",
+    // Sub-path under SSTv2 repo where backend writes GA/SC data files.
+    // e.g. DailySSTData/MUR/ga_sc/mur_YYYYMMDD.csv
+    // Leave "" for mid_atlantic (uses root paths for backward compat).
+    dataPathSuffix:  "ga_sc",
+    locations: [
+      { label: "Wrightsville Beach, NC", lat: 34.2115, lon: -77.7963, wreckRegion: "WilmingtonNC",   noaaCoverage: false },
+      { label: "Southport, NC",          lat: 33.9196, lon: -78.0144, wreckRegion: "WilmingtonNC",   noaaCoverage: false },
+      { label: "Little River Inlet, SC", lat: 33.8645, lon: -78.5558, wreckRegion: "MyrtleBeachSC",  noaaCoverage: false },
+      { label: "Georgetown, SC",         lat: 33.3657, lon: -79.2842, wreckRegion: "GeorgetownSC",   noaaCoverage: false },
+      { label: "Charleston, SC",         lat: 32.7765, lon: -79.9311, wreckRegion: "CharlestonSC",   noaaCoverage: false },
+      { label: "Beaufort, SC",           lat: 32.4316, lon: -80.6698, wreckRegion: "BeaufortSC",     noaaCoverage: false },
+      { label: "Hilton Head, SC",        lat: 32.1801, lon: -80.7482, wreckRegion: "HiltonHeadSC",   noaaCoverage: false },
+      { label: "Tybee Island, GA",       lat: 31.9988, lon: -80.8443, wreckRegion: "SavannahGA",     noaaCoverage: false },
+      { label: "St. Simons Island, GA",  lat: 31.1271, lon: -81.3912, wreckRegion: "BrunswickGA",    noaaCoverage: false },
+      { label: "Fernandina Beach, FL",   lat: 30.6724, lon: -81.4628, wreckRegion: "FernandinaFL",   noaaCoverage: false },
+      { label: "Mayport, FL",            lat: 30.3966, lon: -81.4280, wreckRegion: "JacksonvilleFL", noaaCoverage: false },
+      { label: "St. Augustine, FL",      lat: 29.8943, lon: -81.3126, wreckRegion: "StAugustineFL",  noaaCoverage: false },
     ],
   },
 
