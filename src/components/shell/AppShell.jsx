@@ -1,5 +1,5 @@
 // src/components/shell/AppShell.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import TopBar from "@/components/shell/TopBar";
 import WeatherDrawer from "@/components/weather/WeatherDrawer";
