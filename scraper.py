@@ -72,10 +72,7 @@ def parse_marine_forecast(text):
         data['wind_gusts'] = gust_match.group(1)
 
     # --- 4. WAVE HEIGHT ---
-    seas_match = re.search(
-        r'(?:Seas|Waves|Chop)\s+(?:around|up\s+to|less\s+than)?\s*'
-        r'(\d+\s*(?:to|-)\s*\d+\s+(?:ft|foot)|\d+\s+(?:ft|foot)(?:\s+or\s+less)?)',
-        text, re.IGNORECASE)
+    seas_match = re.search(r'(?:Seas|Waves)\s+(?:around|up\s+to)?\s*(\d+\s+to\s+\d+\s+ft|\d+\s+ft)', text, re.IGNORECASE)
     if seas_match:
         data['wave_height'] = seas_match.group(1)
 
@@ -193,6 +190,16 @@ def main():
     scrape_and_save(
         "https://forecast.weather.gov/MapClick.php?zoneid=ANZ485",
         'oceancitynoaa.json'
+    )
+    # 8. Horn Harbor, VA — ANZ631 Chesapeake Bay Sandy Point to Windmill Point
+    scrape_and_save(
+        "https://forecast.weather.gov/MapClick.php?zoneid=ANZ631",
+        'hornharbornoaa.json'
+    )
+    # 9. Cape Charles, VA — ANZ631 Chesapeake Bay Sandy Point to Windmill Point
+    scrape_and_save(
+        "https://forecast.weather.gov/MapClick.php?zoneid=ANZ631",
+        'capecharlesnoaa.json'
     )
 
 
