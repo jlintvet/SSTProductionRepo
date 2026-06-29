@@ -1,11 +1,9 @@
 // src/components/shell/AppShell.jsx
-import React, { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import React from "react";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import TopBar from "@/components/shell/TopBar";
 import WeatherDrawer from "@/components/weather/WeatherDrawer";
 import WeatherBottomSheet from "@/components/weather/WeatherBottomSheet";
-import LandingPage from "@/pages/LandingPage";
 import { CloudSun } from "lucide-react";
 
 const Z_SHOW_PILL = 950;
@@ -70,45 +68,12 @@ function InlineLogin() {
 }
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
+// Auth is already guaranteed by SSTLive + SSTLiveGate before AppShell mounts.
+// key={region} forces AppProvider to fully remount when region changes so
+// selectedLocation and all other region-derived state reinitialise correctly.
 export default function AppShell({ region, children, onUpgrade }) {
-  // Auth gate — start false, only flip true after server confirms a real user
-  const [authed, setAuthed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    supabase.auth.getUser()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        const ok = !error && !!data?.user?.email;
-        console.log("[AppShell:AUTH] getUser →", { email: data?.user?.email ?? null, ok });
-        if (ok) setAuthed(true);
-      })
-      .catch(err => {
-        console.log("[AppShell:AUTH] threw →", err?.message);
-      });
-
-    let sub;
-    try {
-      const r = supabase.auth.onAuthStateChange((event, session) => {
-        if (cancelled) return;
-        const ok = !!session?.user?.email;
-        console.log("[AppShell:AUTH] change →", event, session?.user?.email ?? null, ok);
-        setAuthed(ok);
-      });
-      sub = r?.data?.subscription ?? r;
-    } catch (_) {}
-
-    return () => {
-      cancelled = true;
-      try { sub?.unsubscribe?.(); } catch (_) {}
-    };
-  }, []);
-
-  if (!authed) return <LandingPage onAuthSuccess={() => {}} />;
-
   return (
-    <AppProvider region={region}>
+    <AppProvider key={region} region={region}>
       <Layout onUpgrade={onUpgrade}>{children}</Layout>
     </AppProvider>
   );
