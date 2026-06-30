@@ -2034,12 +2034,13 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
       if (dataSource === "MUR") { try { map.setMaxBounds([[south, west], [north, east]]); } catch(_) {} }
       else if (dataSource === "VIIRS") {
-        try { map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]); } catch(_) {}
+        // Use actual data bounds (region-agnostic — works for mid_atlantic AND ga_sc)
+        try { map.setMaxBounds([[south, west], [north, east]]); } catch(_) {}
         try {
           const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
-          const mN = Math.log(Math.tan(Math.PI/4 + 39.00 * Math.PI/360));
-          const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
-          const mH = mN - mS, lR = -72.21 - (-78.89);
+          const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
+          const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
+          const mH = mN - mS, lR = east - west;
           map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
         } catch(_) {}
       } else { try { map.setMaxBounds(llBounds); } catch(_) {} }
@@ -2162,11 +2163,12 @@ export default function SSTHeatmapLeaflet(props) {
       // edge-to-edge with no top/bottom clip (matches main's proven behavior).
       if (activeDataLayer !== 'altimetry') {
         try {
-          map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]);
+          // Use actual data bounds (region-agnostic)
+          map.setMaxBounds([[south, west], [north, east]]);
           const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
-          const mN = Math.log(Math.tan(Math.PI/4 + 39.00 * Math.PI/360));
-          const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
-          const mH = mN - mS, lR = -72.21 - (-78.89);
+          const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
+          const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
+          const mH = mN - mS, lR = east - west;
           map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
         } catch(_) {}
       } else {
@@ -2216,14 +2218,13 @@ export default function SSTHeatmapLeaflet(props) {
       particleAge: 40, particleMultiplier: 0.0008, lineWidth: isOverlay ? 1.8 : 2.0,
     });
     velocityLayer.addTo(map); velocityLayerRef.current = velocityLayer;
-    // Wind map shares the same 39.00°N data boundary — apply tight bounds so the
-    // post-sstReady refit doesn't zoom past the data edge on initial load.
+    // Wind map: use region bounds (region-agnostic — no gridToDataURL result here).
     try {
-      map.setMaxBounds([[33.70, -78.89], [39.00, -72.21]]);
+      map.setMaxBounds(llBounds);
       const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
-      const mN = Math.log(Math.tan(Math.PI/4 + 39.00 * Math.PI/360));
-      const mS = Math.log(Math.tan(Math.PI/4 + 33.70 * Math.PI/360));
-      const mH = mN - mS, lR = -72.21 - (-78.89);
+      const mN = Math.log(Math.tan(Math.PI/4 + regionBounds.north * Math.PI/360));
+      const mS = Math.log(Math.tan(Math.PI/4 + regionBounds.south * Math.PI/360));
+      const mH = mN - mS, lR = regionBounds.east - regionBounds.west;
       map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
     } catch(_) {}
     sstReadyRef.current = true; setSstReady(true);
