@@ -7,6 +7,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_REGION } from "@/config/regionConfig";
 
+// Allow the Vercel preview branch to force a specific region without
+// changing the user's Supabase profile. Set VITE_FORCE_REGION=ga_sc
+// in Vercel -> Project Settings -> Environment Variables (Preview only).
+const _FORCE_REGION = import.meta.env.VITE_FORCE_REGION ?? "";
+
 export function useRegionAccess() {
   const [permittedRegions, setPermittedRegions] = useState([]);
   const [region,           setRegion]           = useState(DEFAULT_REGION);
@@ -53,7 +58,7 @@ export function useRegionAccess() {
 
         const permitted = profile.region ? [profile.region] : [DEFAULT_REGION];
         setPermittedRegions(permitted);
-        setRegion(permitted[0]);
+        setRegion(_FORCE_REGION || permitted[0]);
 
         // Use the actual tier column: "trial" | "standard" | "pro"
         const profileTier = profile.tier ?? "standard";
