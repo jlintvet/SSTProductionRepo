@@ -1031,23 +1031,24 @@ function SSTPageBody() {
         );
         const currentLayerHasData = !!(activeGrid?.length) || (activeDataLayer==="sst"&&dataSource==="VIIRS"&&!!viirsData?.days?.length) || (activeDataLayer==="composite"&&!!compositeData) || (activeDataLayer==="chlorophyll"&&!!activeChlData?.days?.length) || (activeDataLayer==="seacolor"&&!!activeSeaColorData?.days?.length) || activeDataLayer==="altimetry" || activeDataLayer==="windmap";
         const isStillLoading = loading || chlLoading || seaColorLoading || (activeDataLayer === "composite" && !compositeData);
-        if (!currentLayerHasData && !isStillLoading) return (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-slate-400 text-sm max-w-md px-4">
-              <div className="text-2xl mb-2">🌊</div>
-              {currentSourceStatus==="empty"?(
-                <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} returned no data</div><div className="text-xs text-slate-400">The backend function ran successfully but produced no data points. Try a different SST source above.</div></>
-              ):currentSourceStatus==="malformed"?(
-                <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} response not recognized</div><div className="text-xs text-slate-400">Check the Base44 function output. See browser console for response details.</div></>
-              ):(
-                <><div>No data available for this source yet.</div><div className="text-xs mt-1 text-slate-300">Try switching to a different SST source.</div></>
-              )}
-            </div>
-          </div>
-        );
+
         return (
         <>
           <div className="flex-1 overflow-hidden relative">
+            {!currentLayerHasData && !isStillLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-50/90" style={{zIndex:500}}>
+                <div className="text-center text-slate-400 text-sm max-w-md px-4">
+                  <div className="text-2xl mb-2">🌊</div>
+                  {currentSourceStatus==="empty"?(
+                    <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} returned no data</div><div className="text-xs text-slate-400">The backend function ran successfully but produced no data points. Use the control panel to switch to a different SST source.</div></>
+                  ):currentSourceStatus==="malformed"?(
+                    <><div className="text-slate-600 font-medium mb-1">{sourceLabel(dataSource)} response not recognized</div><div className="text-xs text-slate-400">Check the Base44 function output. See browser console for response details.</div></>
+                  ):(
+                    <><div>No data available for this source yet.</div><div className="text-xs mt-1 text-slate-300">Use the control panel to switch to a different SST source.</div></>
+                  )}
+                </div>
+              </div>
+            )}
             {loading && hasAnyData && (
               <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2 pointer-events-none" style={{zIndex:600}}>
                 <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
