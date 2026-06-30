@@ -989,7 +989,11 @@ function SSTPageBody() {
     if ((dataSource==="VIIRS"||dataSource==="VIIRSSNPP")&&activeGrid?.length) {
       const vals=activeGrid.map(d=>d.sst).filter(v=>v!=null).sort((a,b)=>a-b);
       if(vals.length<10)return{sstMin:activeStats?.min??32,sstMax:activeStats?.max??85};
-      return{sstMin:vals[Math.floor(vals.length*0.02)],sstMax:vals[Math.floor(vals.length*0.98)]};
+      // Use 5th/95th percentile (vs 2nd/98th) for outlier robustness.
+      // Floor sstMin at 45°F: colder values are physically impossible for
+      // our coverage area and indicate data artifacts that would otherwise
+      // collapse the color scale (e.g. 30°F → 85°F span in summer).
+      return{sstMin:Math.max(45,vals[Math.floor(vals.length*0.05)]),sstMax:vals[Math.floor(vals.length*0.95)]};
     }
     return{sstMin:activeStats?.min??32,sstMax:activeStats?.max??85};
   }, [activeGrid, activeStats, dataSource]);
