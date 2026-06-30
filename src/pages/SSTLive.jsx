@@ -311,7 +311,7 @@ function InlineLogin() {
 function SSTPageBody() {
   console.log("[SST:GATE] SSTPageBody mounted");
   const {
-    regionConfig, selectedLocation,
+    regionConfig, regionKey, selectedLocation,
     // GPS tracking (state + start/stop/toggle) fully lives in AppContext
     // now (2026-06-22) so non-map components -- UserSettingsModal's "use
     // my live GPS position" notification preference -- can both read live
@@ -319,8 +319,8 @@ function SSTPageBody() {
     // also separately tap the GPS button on the map.
     gpsActive, boatPosition, boatTrack, toggleGps,
     endNavigation, navigatingRoute, startNavigation,
+    isPro, userId,
   } = useAppContext();
-  const { isPro } = useRegionAccess();
 
   // Region-aware data paths — backend writes GA/SC files under a subdir.
   const _suffix      = regionConfig?.dataPathSuffix ?? "";
@@ -334,28 +334,7 @@ function SSTPageBody() {
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
-  const [userId, setUserId] = useState(null);
-  useEffect(() => {
-    // getUser() can transiently reject (seen in the wild: "Lock broken by
-    // another request with the 'steal' option" from supabase-js's auth
-    // lock under multi-tab/rapid-reload contention). Previously this had no
-    // .catch(), so a single failed call left userId stuck at null for the
-    // rest of the session with no retry -- silently breaking every
-    // userId-gated feature (saved locations, community posts, push
-    // notifications) without any visible error. Retry once after a short
-    // delay before giving up.
-    let cancelled = false;
-    function fetchUser(isRetry) {
-      supabase.auth.getUser().then(({ data }) => {
-        if (!cancelled && data?.user) setUserId(data.user.id);
-      }).catch(err => {
-        console.warn("[SST:AUTH] getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
-        if (!isRetry && !cancelled) setTimeout(() => fetchUser(true), 1500);
-      });
-    }
-    fetchUser(false);
-    return () => { cancelled = true; };
-  }, []);
+
 
   // sstRange is a single shared gain/range across layers. The {55,78} default is the
   // SST (degF) range; for chl/seacolor it must fall back to each layer's own data range.
@@ -913,8 +892,8 @@ function SSTPageBody() {
       if (!dates.length) { setSourceStatus(s=>({...s,VIIRS:"empty"})); setViirsState({data:{days:[]},dateIndex:0,hour:null}); setLoading(false); return; }
       const latestDate = dates[dates.length - 1];
       let latestDay;
-      if (_viirsCache.has(latestDate)) { latestDay = _viirsCache.get(latestDate); }
-      else { const bRes=await fetch(`${VIIRS_CDN_BASE_R}/viirs_${latestDate}.json`); if(!bRes.ok)throw new Error(`VIIRS bundle HTTP ${bRes.status}`); latestDay=bundleToDay(await bRes.json()); _viirsCache.set(latestDate,latestDay); }
+      const _ck0=`${VIIRS_CDN_BASE_R}:${latestDate}`; if (_viirsCache.has(_ck0)) { latestDay = _viirsCache.get(_ck0); }
+      else { const bRes=await fetch(`${VIIRS_CDN_BASE_R}/viirs_${latestDate}.json`); if(!bRes.ok)throw new Error(`VIIRS bundle HTTP ${bRes.status}`); latestDay=bundleToDay(await bRes.json()); _viirsCache.set(_ck0,latestDay); }
       const days = dates.map(d => d===latestDate ? latestDay : {date:d,available_hours:[],grid:[],stats:null,hours_cache:null});
       const latestHour = latestDay.available_hours[latestDay.available_hours.length-1] ?? null;
       setSourceStatus(s=>({...s,VIIRS:latestDay.grid.length?"ok":"empty"}));
@@ -937,8 +916,8 @@ function SSTPageBody() {
     const dateStr = day.date;
     (async () => {
       let dayObj;
-      if (_viirsCache.has(dateStr)) { dayObj = _viirsCache.get(dateStr); }
-      else { try { const r=await fetch(`${VIIRS_CDN_BASE_R}/viirs_${dateStr}.json`); if(!r.ok){console.warn("[SST:VIIRS] No bundle for",dateStr);return;} dayObj=bundleToDay(await r.json()); _viirsCache.set(dateStr,dayObj); } catch(e){console.error("[SST:VIIRS] lazy-load failed:",dateStr,e);return;} }
+      const _ck1=`${VIIRS_CDN_BASE_R}:${dateStr}`; if (_viirsCache.has(_ck1)) { dayObj = _viirsCache.get(_ck1); }
+      else { try { const r=await fetch(`${VIIRS_CDN_BASE_R}/viirs_${dateStr}.json`); if(!r.ok){console.warn("[SST:VIIRS] No bundle for",dateStr);return;} dayObj=bundleToDay(await r.json()); _viirsCache.set(_ck1,dayObj); } catch(e){console.error("[SST:VIIRS] lazy-load failed:",dateStr,e);return;} }
       const lastHour = dayObj.available_hours[dayObj.available_hours.length-1] ?? null;
       setViirsState(s => !s.data ? s : {...s,hour:lastHour,data:{...s.data,days:s.data.days.map(d=>d.date===dateStr?dayObj:d)}});
     })();

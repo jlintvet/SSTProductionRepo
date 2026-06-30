@@ -26,36 +26,7 @@ import { supabase } from "@/lib/supabase";
 import { getRegionConfig, DEFAULT_REGION } from "@/config/regionConfig";
 import { loadUserSettings, DEFAULT_SETTINGS } from "@/components/auth/UserSettingsModal";
 
-function useSupabaseTrial() {
-  const [daysLeft, setDaysLeft] = useState(undefined);
-  useEffect(() => {
-    // getUser() can transiently reject ("Lock broken by another request,
-    // steal option" -- supabase-js's auth lock under multi-tab/rapid-reload
-    // contention). No .catch() here previously meant a single failed call
-    // left daysLeft stuck at undefined forever. Retry once before giving up.
-    let cancelled = false;
-    function run(isRetry) {
-      supabase.auth.getUser().then(({ data }) => {
-        if (cancelled) return;
-        if (!data?.user) { setDaysLeft(null); return; }
-        supabase.from("user_profiles").select("trial_end, subscription_status").eq("id", data.user.id).single()
-          .then(({ data: profile, error }) => {
-            if (cancelled) return;
-            if (error || !profile) { setDaysLeft(null); return; }
-            if (profile.subscription_status === "active") { setDaysLeft(null); return; }
-            const msLeft = new Date(profile.trial_end) - new Date();
-            setDaysLeft(Math.max(0, Math.ceil(msLeft / 86400000)));
-          });
-      }).catch(err => {
-        console.warn("[AppContext] trial getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
-        if (!isRetry && !cancelled) setTimeout(() => run(true), 1500);
-      });
-    }
-    run(false);
-    return () => { cancelled = true; };
-  }, []);
-  return daysLeft;
-}
+
 
 const AppContext = createContext(null);
 
@@ -105,12 +76,13 @@ function pickInitialLocation(regionConfig, regionKey, userDefault) {
 export function AppProvider({ region, children }) {
   const regionKey    = region ?? DEFAULT_REGION;
   const regionConfig = useMemo(() => getRegionConfig(regionKey), [regionKey]);
-  const daysLeft     = useSupabaseTrial();
+  const [daysLeft, setDaysLeft] = useState(null);
 
   const [userDefault, setUserDefault]   = useState(null);
   const userDefaultFetchedRef           = useRef(false);
   const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS);
   const [userId, setUserId]             = useState(null);
+  const [isPro,  setIsPro]              = useState(false);
   const [gpsActive, setGpsActive]       = useState(false);
   const [boatPosition, setBoatPosition] = useState(null);
   const [boatTrack, setBoatTrack]       = useState([]);
@@ -317,8 +289,31 @@ export function AppProvider({ region, children }) {
         if (!uid) return;
         setUserId(uid);
         loadUserSettings(uid).then(s => setUserSettings(s));
-        supabase.from("user_profiles").select("display_name").eq("id", uid).single()
-          .then(({ data }) => { if (data?.display_name) setDisplayName(data.display_name); });
+        supabase.from("user_profiles")
+          .select("display_name, tier, trial_end, referral_end, subscription_status")
+          .eq("id", uid).single()
+          .then(({ data: profile }) => {
+            if (!profile) return;
+            if (profile.display_name) setDisplayName(profile.display_name);
+            // Compute daysLeft (trial countdown) and isPro
+            const profileTier = profile.tier ?? "standard";
+            let pro = (profileTier === "pro" || profileTier === "trial" ||
+                       profileTier === "ambassador" || profileTier === "referral");
+            if (profileTier === "trial" && profile.trial_end) {
+              const msLeft = new Date(profile.trial_end) - new Date();
+              const days = Math.max(0, Math.ceil(msLeft / 86400000));
+              setDaysLeft(days);
+              if (days === 0) pro = false;
+            } else if (profileTier === "referral" && profile.referral_end) {
+              const msLeft = new Date(profile.referral_end) - new Date();
+              const days = Math.max(0, Math.ceil(msLeft / 86400000));
+              setDaysLeft(days);
+              if (days === 0) pro = false;
+            } else if (profile.subscription_status === "cancelled") {
+              pro = false;
+            }
+            setIsPro(pro);
+          });
       }).catch(err => {
         console.warn("[AppContext] userId getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
         if (!isRetry) setTimeout(() => fetchUser(true), 1500);
@@ -370,6 +365,7 @@ export function AppProvider({ region, children }) {
       setWeatherPanel,
       userDefault,
       daysLeft,
+      isPro,
       userId,
       userSettings,
       setUserSettings,
@@ -392,7 +388,7 @@ export function AppProvider({ region, children }) {
       smoothedSpeedKts,
       displayName,
     }),
-    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, userId, userSettings, gpsActive, boatPosition, boatTrack, navigatingRoute, currentWpIndex, tripSharing, displayName]
+    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, isPro, userId, userSettings, gpsActive, boatPosition, boatTrack, navigatingRoute, currentWpIndex, tripSharing, displayName]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
