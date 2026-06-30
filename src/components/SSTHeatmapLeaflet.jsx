@@ -1132,7 +1132,7 @@ export default function SSTHeatmapLeaflet(props) {
       openOceanRef.current = (lat, lon) => {
         const ri = Math.round((bounds.n - lat) / step);
         const ci = Math.round((lon - bounds.w) / step);
-        if (ri < 0 || ri >= rows || ci < 0 || ci >= cols) return false;
+        if (ri < 0 || ri >= rows || ci < 0 || ci >= cols) return true; // outside mask bounds = open ocean (other regions)
         const idx = ri * cols + ci;
         return (bits[idx >> 3] & (0x80 >> (idx & 7))) !== 0;
       };

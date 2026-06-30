@@ -376,8 +376,9 @@ export async function fetchVIIRSHourly() {
 }
 
 // ── CHL Bundle (flat-array format, pre-binned server-side) ────────────────────
-const CHL_BUNDLE_BASE = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/Bundled/";
-const SC_BUNDLE_BASE  = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/Bundled/";
+// NOTE: Bundle files are at SSTv2/Chlorophyll/{region}/Bundled/ — subdir goes BEFORE Bundled/
+const CHL_BUNDLE_BASE = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/";
+const SC_BUNDLE_BASE  = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/";
 
 function _bundleDayToCHLGrid(bundle) {
   const { date, latSet, lonSet, chl, min, max, coverage_pct } = bundle;
@@ -433,7 +434,7 @@ function _bundleDayToSCGrid(bundle) {
 
 export async function fetchCHLBundle(regionBounds = null, dataPathSuffix = "") {
   const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
-  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/Bundled/${subdir}`;
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/${subdir}Bundled/`;
   try {
     const idxRes = await fetch(`${base}chl_bundle_index.json`);
     if (!idxRes.ok) throw new Error(`Index HTTP ${idxRes.status}`);
@@ -459,7 +460,7 @@ export async function fetchCHLBundle(regionBounds = null, dataPathSuffix = "") {
 
 export async function fetchCHLComposite(dateStr, regionBounds = null, dataPathSuffix = "") {
   const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
-  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/Bundled/${subdir}`;
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/Chlorophyll/${subdir}Bundled/`;
   // If dateStr provided fetch that dated snapshot, else fall back to canonical latest
   const url = dateStr
     ? `${base}chl_composite_${dateStr}.json`
@@ -476,7 +477,7 @@ export async function fetchCHLComposite(dateStr, regionBounds = null, dataPathSu
 
 export async function fetchSeaColorBundle(regionBounds = null, dataPathSuffix = "") {
   const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
-  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/Bundled/${subdir}`;
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/${subdir}Bundled/`;
   try {
     const idxRes = await fetch(`${base}seacolor_bundle_index.json`);
     if (!idxRes.ok) throw new Error(`Index HTTP ${idxRes.status}`);
@@ -502,7 +503,7 @@ export async function fetchSeaColorBundle(regionBounds = null, dataPathSuffix = 
 
 export async function fetchSeaColorComposite(dateStr, regionBounds = null, dataPathSuffix = "") {
   const subdir = dataPathSuffix ? `${dataPathSuffix}/` : "";
-  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/Bundled/${subdir}`;
+  const base = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/SSTv2/SeaColor/${subdir}Bundled/`;
   const url = dateStr
     ? `${base}seacolor_composite_${dateStr}.json`
     : `${base}seacolor_composite.json`;
