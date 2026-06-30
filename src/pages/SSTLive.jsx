@@ -985,18 +985,10 @@ function SSTPageBody() {
   const activeStats = dataSource==="VIIRS"?activeViirsStats:dataSource==="VIIRSSNPP"?activeViirsNppDay?.stats??null:dataSource==="GOESCOMP"?activeGoesCompDay?.stats??null:activeMurDay?.stats??null;
   const selectedDate= dataSource==="VIIRS"?activeViirsDay?.date??null:dataSource==="VIIRSSNPP"?activeViirsNppDay?.date??null:dataSource==="GOESCOMP"?activeGoesCompDay?.date??null:activeMurDay?.date??null;
 
-  const {sstMin, sstMax} = useMemo(() => {
-    if ((dataSource==="VIIRS"||dataSource==="VIIRSSNPP")&&activeGrid?.length) {
-      const vals=activeGrid.map(d=>d.sst).filter(v=>v!=null).sort((a,b)=>a-b);
-      if(vals.length<10)return{sstMin:activeStats?.min??32,sstMax:activeStats?.max??85};
-      // Use 5th/95th percentile (vs 2nd/98th) for outlier robustness.
-      // Floor sstMin at 45°F: colder values are physically impossible for
-      // our coverage area and indicate data artifacts that would otherwise
-      // collapse the color scale (e.g. 30°F → 85°F span in summer).
-      return{sstMin:Math.max(45,vals[Math.floor(vals.length*0.05)]),sstMax:vals[Math.floor(vals.length*0.95)]};
-    }
-    return{sstMin:activeStats?.min??32,sstMax:activeStats?.max??85};
-  }, [activeGrid, activeStats, dataSource]);
+  // Fixed reference scale — 50–90°F covers US East Coast year-round.
+  // Same temperature = same color in every region, data source, and season.
+  // User sstRange override continues to work as a zoom into this reference range.
+  const sstMin = 50, sstMax = 90;
 
   const heatmapData = useMemo(() => {
     if (!activeGrid?.length) return { latSet: [], lonSet: [], grid: {} };

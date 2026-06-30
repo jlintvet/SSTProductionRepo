@@ -2072,7 +2072,7 @@ export default function SSTHeatmapLeaflet(props) {
       latSet2=[...new Set(day.grid.map(d=>d.lat))].sort((a,b)=>b-a);
       lonSet2=[...new Set(day.grid.map(d=>d.lon))].sort((a,b)=>a-b);
       overlayGrid={};day.grid.forEach(d=>{overlayGrid[`${d.lat}_${d.lon}`]=d.chlorophyll;});
-      min2=day.stats.min;max2=day.stats.max;colorFn=chlColor;
+      min2=0.05;max2=5.0;colorFn=chlColor; // fixed ref: 0.05–5.0 mg/m³
     } else if (activeDataLayer==="composite"&&compositeData?.sst?.length) {
       const { latSet: cLatSet, lonSet: cLonSet, sst: cSst } = compositeData;
       const nLons = cLonSet.length;
@@ -2084,12 +2084,7 @@ export default function SSTHeatmapLeaflet(props) {
       });
       latSet2 = [...cLatSet].sort((a,b) => b - a);
       lonSet2 = [...cLonSet].sort((a,b) => a - b);
-      // Composite has its own (warmer) value distribution; use ITS OWN 2-98 percentile
-      // range. Do NOT borrow sstMin/sstMax — those track the active SST source (MUR) and
-      // are not in this effect's deps, so on cold-start they're stale -> over-saturation.
-      const cvals = Object.values(overlayGrid).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
-      if (cvals.length > 10) { min2 = cvals[Math.floor(cvals.length*0.02)]; max2 = cvals[Math.floor(cvals.length*0.98)]; }
-      else { min2 = sstMin; max2 = sstMax; }
+      min2 = 50; max2 = 90; // fixed SST reference — consistent with all other SST sources
       colorFn = null;
     } else if (activeDataLayer==="seacolor"&&seaColorData?.days?.length) {
       const day=seaColorData.days[seaColorDateIndex]||seaColorData.days[seaColorData.days.length-1];
@@ -2097,7 +2092,7 @@ export default function SSTHeatmapLeaflet(props) {
       latSet2=[...new Set(day.grid.map(d=>d.lat))].sort((a,b)=>b-a);
       lonSet2=[...new Set(day.grid.map(d=>d.lon))].sort((a,b)=>a-b);
       overlayGrid={};day.grid.forEach(d=>{overlayGrid[`${d.lat}_${d.lon}`]=d.kd490;});
-      min2=day.stats.min;max2=day.stats.max;colorFn=kd490Color;
+      min2=0.02;max2=0.50;colorFn=kd490Color; // fixed ref: 0.02–0.50 m⁻¹
     } else if (activeDataLayer==="altimetry"&&altimetryData?.lats?.length) {
       // Render SLA color raster; contours drawn by separate useEffect.
       const { lats, lons, sla } = altimetryData;
