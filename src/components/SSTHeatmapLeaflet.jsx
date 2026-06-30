@@ -972,7 +972,7 @@ export default function SSTHeatmapLeaflet(props) {
     onShare,
     legendHoverSst, openControlPanelRef, rangeControlOpenRef,
     onNotesUpdated,
-    BATHY_CONTOURS_URL, WRECKS_URL,
+    BATHY_CONTOURS_URL, WRECKS_URL, BATHY_URL,
     isPro,
     currentsData, currentsLoading, showCurrents, setShowCurrents,
     altimetryData, onSlaRange,
@@ -2032,10 +2032,19 @@ export default function SSTHeatmapLeaflet(props) {
         overlay.addTo(map); sstOverlayRef.current = overlay;
       }
       sstReadyRef.current = true; setSstReady(true);
-      if (dataSource === "MUR") { try { map.setMaxBounds([[south, west], [north, east]]); } catch(_) {} }
+      if (dataSource === "MUR") {
+        try { map.setMaxBounds(llBounds); } catch(_) {}
+        try {
+          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
+          const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
+          const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
+          const mH = mN - mS, lR = east - west;
+          map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
+        } catch(_) {}
+      }
       else if (dataSource === "VIIRS") {
-        // Use actual data bounds (region-agnostic — works for mid_atlantic AND ga_sc)
-        try { map.setMaxBounds([[south, west], [north, east]]); } catch(_) {}
+        // Use region bounds for maxBounds (user can pan to full coastline); data bounds for minZoom
+        try { map.setMaxBounds(llBounds); } catch(_) {}
         try {
           const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
           const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
@@ -2163,8 +2172,8 @@ export default function SSTHeatmapLeaflet(props) {
       // edge-to-edge with no top/bottom clip (matches main's proven behavior).
       if (activeDataLayer !== 'altimetry') {
         try {
-          // Use actual data bounds (region-agnostic)
-          map.setMaxBounds([[south, west], [north, east]]);
+          // Region bounds for maxBounds (pan to full coastline); data bounds for minZoom
+          map.setMaxBounds(llBounds);
           const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
           const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
           const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
@@ -2978,8 +2987,8 @@ export default function SSTHeatmapLeaflet(props) {
 
   useEffect(() => {
     if (!sstReady) return;
-    const BATHY_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry.json";
-    fetch(BATHY_URL).then(r=>r.json()).then(d=>{ setBathyData(d); bathyDataRef.current = d; }).catch(()=>{});
+    const _bathyUrl = BATHY_URL || "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry.json";
+    fetch(_bathyUrl).then(r=>r.json()).then(d=>{ setBathyData(d); bathyDataRef.current = d; }).catch(()=>{});
   }, [sstReady]);
 
   // One-time refit after SST overlay first renders — by this point the layout is

@@ -331,6 +331,9 @@ function SSTPageBody() {
   const ALTIMETRY_BASE_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/Altimetry/${_subdir}`.replace(/\/+$/, "");
   const _bounds      = regionConfig?.bounds ?? null;
   const _pathSuffix  = _suffix;
+  const _BATHY_SUFFIX = _suffix ? `_${_suffix}` : "";
+  const BATHY_CONTOURS_URL_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours${_BATHY_SUFFIX}.json`;
+  const BATHY_URL_R          = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry${_BATHY_SUFFIX}.json`;
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
@@ -1101,7 +1104,8 @@ function SSTPageBody() {
               legendHoverSst={legendHoverSst} isWindMap={isWindMap}
               openControlPanelRef={openControlPanelRef}
               rangeControlOpenRef={rangeControlOpenRef}
-              BATHY_CONTOURS_URL={BATHY_CONTOURS_URL}
+              BATHY_CONTOURS_URL={BATHY_CONTOURS_URL_R}
+              BATHY_URL={BATHY_URL_R}
               WRECKS_URL={WRECKS_URL}
               isPro={isPro}
               onNotesUpdated={(id, newNotes) => {
