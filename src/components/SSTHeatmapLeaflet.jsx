@@ -2611,7 +2611,15 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     if (!mapReady || !showBathyLayer || jsonContours) return;
     setJsonContoursLoading(true);
-    fetch(BATHY_CONTOURS_URL).then(r=>r.json()).then(d=>{setJsonContours(d);setJsonContoursLoading(false);}).catch(()=>setJsonContoursLoading(false));
+    const _MA_BATHY_CONTOURS = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json";
+    fetch(BATHY_CONTOURS_URL)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(d => { setJsonContours(d); setJsonContoursLoading(false); })
+      .catch(() => {
+        if (BATHY_CONTOURS_URL !== _MA_BATHY_CONTOURS) {
+          fetch(_MA_BATHY_CONTOURS).then(r=>r.json()).then(d=>{setJsonContours(d);setJsonContoursLoading(false);}).catch(()=>setJsonContoursLoading(false));
+        } else { setJsonContoursLoading(false); }
+      });
   }, [mapReady, showBathyLayer]);
 
   useEffect(() => {
@@ -2988,7 +2996,15 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     if (!sstReady) return;
     const _bathyUrl = BATHY_URL || "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry.json";
-    fetch(_bathyUrl).then(r=>r.json()).then(d=>{ setBathyData(d); bathyDataRef.current = d; }).catch(()=>{});
+    const _MA_BATHY_URL = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry.json";
+    fetch(_bathyUrl)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(d => { setBathyData(d); bathyDataRef.current = d; })
+      .catch(() => {
+        if (_bathyUrl !== _MA_BATHY_URL) {
+          fetch(_MA_BATHY_URL).then(r=>r.json()).then(d=>{ setBathyData(d); bathyDataRef.current = d; }).catch(()=>{});
+        }
+      });
   }, [sstReady]);
 
   // One-time refit after SST overlay first renders — by this point the layout is
