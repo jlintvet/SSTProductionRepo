@@ -393,4 +393,4 @@ This table documents the NOAA marine zone assignments for every departure locati
 
 > **FL note:** Fernandina Beach, Mayport, and St. Augustine use inshore (<20nm) JAX zones. The Gulf Stream runs closer to shore here so the inner zone is more relevant for day-trip anglers.
 >
-> **OPC zones (AMZ270–276, AMZ370–372) and AMZ374:** These zones return 400 from `marine.weather.gov/MapClick.php`. Use `scrape_and_save_api("AMZxxx", filename)` in scraper.py instead — it hits `api.weather.gov/zones/forecast/AMZxxx/forecast` and parses the JSON periods with the same `parse_marine_forecast()` logic. JAX zones (AMZ47x, AMZ45x) work normally via MapClick.php.
+> **OPC zones (AMZ270–276, AMZ370–374):** These zones return 400 from `marine.weather.gov/MapClick.php?zoneid=AMZxxx` and 404 from `api.weather.gov/zones/forecast/`. Use `scrape_and_save_latlon(lat, lon, filename)` instead — pass an offshore coordinate ~30nm from the port (inside the zone) and `marine.weather.gov` auto-detects the correct zone. JAX zones (AMZ47x, AMZ45x) work normally via zone ID.
