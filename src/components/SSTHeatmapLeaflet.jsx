@@ -2016,7 +2016,7 @@ export default function SSTHeatmapLeaflet(props) {
     // Hourly VIIRS: gapFillGrid floods sounds/bays (inshore() check treats them as inshore).
     // Skip gap-fill for hourly; canonical latSet still ensures correct Mercator bounds.
     const sstGrid = (useGl && !isHourlyViirs) ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
-    const sstIsOcean = mask; // always apply water mask, even for WebGL (solidify preserves alpha=0 land pixels)
+    const sstIsOcean = useGl ? null : mask;
     Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, sstIsOcean, rangeMin, rangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
@@ -2136,7 +2136,7 @@ export default function SSTHeatmapLeaflet(props) {
     const ovGrid = (useGl && (activeDataLayer === "composite" || activeDataLayer === "chlorophyll")) ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
     const ocMask = activeDataLayer === "altimetry"
       ? altimetryDeepMask
-      : waterMaskRef.current; // always apply water mask (solidify preserves alpha=0 land pixels)
+      : (useGl ? null : waterMaskRef.current);
     Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,ocMask,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
       const { dataURL, west, east, north, south } = result;
