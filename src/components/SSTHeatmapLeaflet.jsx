@@ -2158,8 +2158,11 @@ export default function SSTHeatmapLeaflet(props) {
         blobUrlsRef.current.push(imgUrl);
         upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
       } else {
-        blobUrlsRef.current.push(dataURL);
-        const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity: 0.92, interactive: false, pane: "sstDataPane" });
+        // Altimetry: blur to feather the offshore data boundary (0.125deg grid has hard edges)
+        const altBlurred = await blurOverlay(dataURL, 4);
+        if (cancelled) return;
+        blobUrlsRef.current.push(altBlurred);
+        const overlay = L.imageOverlay(altBlurred, [[south, west], [north, east]], { opacity: 0.92, interactive: false, pane: "sstDataPane" });
         overlay.addTo(map); overlayLayerRef.current = overlay;
       }
       // CHL/seacolor/composite data stops at 39.00°N — set tight minZoom+maxBounds so
@@ -2199,7 +2202,7 @@ export default function SSTHeatmapLeaflet(props) {
           );
           map.setView(altMercCenter, fzAlt, { animate: false });
           map.setMinZoom(fzAlt);
-          map.setMaxBounds([[south, west], [north, east]]);
+          map.setMaxBounds(llBounds); // use region bounds so coast is pannable
         } catch(_) {}
         userInteractedRef.current = true;
       }
