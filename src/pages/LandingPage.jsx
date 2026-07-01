@@ -172,10 +172,10 @@ const GLOBAL_CSS = `
 
   /* VIDEO */
   .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;}
-  .rl-video-frame{max-width:900px;margin:3rem auto 0;border-radius:20px;overflow:hidden;
-    background:#000;
+  .rl-video-frame{margin:3rem auto 0;border-radius:20px;overflow:hidden;
+    width:fit-content;background:#000;
     box-shadow:0 24px 80px rgba(0,0,0,.5);}
-  .rl-video-frame video{width:100%;height:auto;display:block;}
+  .rl-video-frame video{display:block;max-width:min(900px,100%);max-height:70vh;width:auto;height:auto;}
   .rl-play{width:80px;height:80px;border-radius:50%;background:rgba(12,196,160,.14);
     border:2px solid #00c8e8;display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:background .2s,transform .15s;}
