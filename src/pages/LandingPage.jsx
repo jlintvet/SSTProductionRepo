@@ -173,10 +173,9 @@ const GLOBAL_CSS = `
   /* VIDEO */
   .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;}
   .rl-video-frame{max-width:900px;margin:3rem auto 0;border-radius:20px;overflow:hidden;
-    position:relative;aspect-ratio:16/9;
     background:#000;
     box-shadow:0 24px 80px rgba(0,0,0,.5);}
-  .rl-video-frame video{width:100%;height:100%;object-fit:cover;display:block;}
+  .rl-video-frame video{width:100%;height:auto;display:block;}
   .rl-play{width:80px;height:80px;border-radius:50%;background:rgba(12,196,160,.14);
     border:2px solid #00c8e8;display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:background .2s,transform .15s;}
