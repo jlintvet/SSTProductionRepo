@@ -2135,7 +2135,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (activeDataLayer === "altimetry" && glLayerRef.current) removeSstImage(glLayerRef.current);
     const ovGrid = (useGl && (activeDataLayer === "composite" || activeDataLayer === "chlorophyll")) ? gapFillGrid(renderLatSet, renderLonSet, renderGrid, waterMaskRef.current, 1) : renderGrid;
     const ocMask = activeDataLayer === "altimetry"
-      ? altimetryDeepMask
+      ? ((la,lo) => (waterMaskRef.current ? waterMaskRef.current(la,lo) : true) && altimetryDeepMask(la,lo))
       : (useGl ? null : waterMaskRef.current);
     Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,ocMask,finalRangeMin,finalRangeMax)).then(async result => {
       if (cancelled || !result) return;
