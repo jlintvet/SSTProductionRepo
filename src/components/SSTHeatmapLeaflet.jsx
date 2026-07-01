@@ -1126,7 +1126,7 @@ export default function SSTHeatmapLeaflet(props) {
     let cancelled = false;
     const suffix = regionConfig?.dataPathSuffix ?? "";
     const tryUrls = suffix
-      ? [\`/openocean_mask_\${suffix}.json\`, "/openocean_mask.json"]
+      ? [`/openocean_mask_${suffix}.json`, "/openocean_mask.json"]
       : ["/openocean_mask.json"];
     (async () => {
       let obj = null;
