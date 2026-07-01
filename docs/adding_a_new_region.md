@@ -360,3 +360,37 @@ src/lib/dataFetchers.js              ← already parameterized, no changes neede
 src/components/SSTHeatmapLeaflet.jsx ← already generalized, no changes needed
 src/context/AppContext.jsx           ← already generalized, no changes needed
 ```
+
+---
+
+## GA/SC Region — NOAA Forecast Zone Reference
+
+This table documents the NOAA marine zone assignments for every departure location in the `ga_sc` region. Use it for cross-checking and when adding new scraper entries.
+
+**Zone source offices:**
+- ILM = NWS Wilmington NC  |  CHS = NWS Charleston SC  |  JAX = NWS Jacksonville FL
+- OPC = Ocean Prediction Center (manages ILM outer and most CHS outer zones via AMZ2xx/AMZ37x)
+
+| Departure Location | NOAA Zone | Zone Description | Offshore Range | Tide Station | JSON File |
+|---|---|---|---|---|---|
+| Wrightsville Beach, NC | AMZ270 | Surf City to Cape Fear (ILM/OPC) | 20–40nm | 8658163 | wrightsvillebeachnc_noaa.json |
+| Carolina Beach, NC | AMZ270 | Surf City to Cape Fear (ILM/OPC) | 20–40nm | 8658120 | carolinabeachnc_noaa.json |
+| Southport, NC | AMZ272 | Cape Fear to Little River Inlet (ILM/OPC) | 20–40nm | 8659084 | southportnc_noaa.json |
+| Little River Inlet, SC | AMZ274 | Little River Inlet to Murrells Inlet (ILM/OPC) | 20–40nm | 8661070 | littleriversc_noaa.json |
+| Myrtle Beach, SC | AMZ274 | Little River Inlet to Murrells Inlet (ILM/OPC) | 20–40nm | 8661070 | myrtlebeachsc_noaa.json |
+| Murrells Inlet, SC | AMZ276 | Murrells Inlet to South Santee River (ILM/OPC) | 20–40nm | 8661070 | murrellsinletsc_noaa.json |
+| Georgetown, SC | AMZ276 | Murrells Inlet to South Santee River (ILM/OPC) | 20–40nm | 8665530 | georgetownsc_noaa.json |
+| Charleston, SC | AMZ370 | South Santee River to Edisto Beach (CHS/OPC) | 20–40nm | 8665530 | charlestonsc_noaa.json |
+| Beaufort, SC | AMZ372 | Edisto Beach to Savannah (CHS/OPC) | 20–40nm | 8670659 | beaufortsc_noaa.json |
+| Hilton Head, SC | AMZ372 | Edisto Beach to Savannah (CHS/OPC) | 20–40nm | 8670659 | hiltonheadsc_noaa.json |
+| Tybee Island, GA | AMZ374 | Savannah to Altamaha Sound (CHS-managed) | 20–60nm | 8670870 | tybeega_noaa.json |
+| Darien, GA | AMZ374 | Savannah to Altamaha Sound (CHS-managed) | 20–60nm | 8670870 | darienga_noaa.json |
+| St. Simons Island, GA | AMZ470 | Altamaha Sound to Fernandina Beach (JAX) | 20–60nm | 8679511 | stsimonsgaga_noaa.json |
+| Jekyll Island, GA | AMZ470 | Altamaha Sound to Fernandina Beach (JAX) | 20–60nm | 8679511 | jekyllga_noaa.json |
+| Fernandina Beach, FL | AMZ452 | Fernandina Beach to St. Augustine (JAX inner) | Out 20nm | 8720197 | fernandinafl_noaa.json |
+| Mayport, FL | AMZ452 | Fernandina Beach to St. Augustine (JAX inner) | Out 20nm | 8720218 | mayportfl_noaa.json |
+| St. Augustine, FL | AMZ454 | St. Augustine to Flagler Beach (JAX inner) | Out 20nm | 8720587 | staugustinefl_noaa.json |
+
+> **FL note:** Fernandina Beach, Mayport, and St. Augustine use inshore (<20nm) JAX zones. The Gulf Stream runs closer to shore here so the inner zone is more relevant for day-trip anglers.
+>
+> **OPC zones (AMZ270–276, AMZ370–372):** Managed by NOAA's Ocean Prediction Center but scrapeable identically via `marine.weather.gov/MapClick.php?zoneid=AMZxxx`. The UI redirects to ANZ835 when clicked, but the scraper URL works correctly.
