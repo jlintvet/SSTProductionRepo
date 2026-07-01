@@ -174,10 +174,9 @@ const GLOBAL_CSS = `
   .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;}
   .rl-video-frame{max-width:900px;margin:3rem auto 0;border-radius:20px;overflow:hidden;
     position:relative;aspect-ratio:16/9;
-    background:linear-gradient(135deg,#04090f 0%,#0a1e2c 100%);
-    border:1.5px dashed rgba(30,111,168,.38);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;
+    background:#000;
     box-shadow:0 24px 80px rgba(0,0,0,.5);}
+  .rl-video-frame video{width:100%;height:100%;object-fit:cover;display:block;}
   .rl-play{width:80px;height:80px;border-radius:50%;background:rgba(12,196,160,.14);
     border:2px solid #00c8e8;display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:background .2s,transform .15s;}
@@ -991,11 +990,15 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
           </p>
         </div>
         <div className="rl-video-frame">
-          <div className="rl-play"><PlayIcon /></div>
-          <div className="rl-vid-note">
-            VIDEO PLACEHOLDER: 90-second product story<br/>
-            Map walkthrough · Live pin drop · Route share · Community tip
-          </div>
+          <video
+            controls
+            preload="metadata"
+            playsInline
+            poster=""
+          >
+            <source src="https://riploc-storage.s3.us-east-2.amazonaws.com/Riploc+Intro+480p.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
         </div>
       </section>
 
