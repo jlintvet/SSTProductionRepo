@@ -1124,7 +1124,15 @@ export default function SSTHeatmapLeaflet(props) {
   }
   useEffect(() => {
     let cancelled = false;
-    fetch("/openocean_mask.json").then(r => r.ok ? r.json() : null).then(obj => {
+    const suffix = regionConfig?.dataPathSuffix ?? "";
+    const tryUrls = suffix
+      ? [\`/openocean_mask_\${suffix}.json\`, "/openocean_mask.json"]
+      : ["/openocean_mask.json"];
+    (async () => {
+      let obj = null;
+      for (const url of tryUrls) {
+        try { const r = await fetch(url); if (r.ok) { obj = await r.json(); break; } } catch(e) {}
+      }
       if (cancelled || !obj) return;
       const { bounds, step, rows, cols, packed } = obj;
       const bin = atob(packed); const bits = new Uint8Array(bin.length);
@@ -1137,9 +1145,9 @@ export default function SSTHeatmapLeaflet(props) {
         return (bits[idx >> 3] & (0x80 >> (idx & 7))) !== 0;
       };
       setOpenOceanVersion(v => v + 1);
-    }).catch(() => {});
+    })();
     return () => { cancelled = true; };
-  }, []);
+  }, [regionConfig?.dataPathSuffix]);
   const [jsonContours,     setJsonContours]     = useState(null);
   const [jsonContoursLoading, setJsonContoursLoading] = useState(false);
   const [wrecksData,       setWrecksData]       = useState(null);
