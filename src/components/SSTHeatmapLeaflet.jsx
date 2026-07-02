@@ -2137,8 +2137,9 @@ export default function SSTHeatmapLeaflet(props) {
     const finalColorFn = activeDataLayer === "composite" ? null : colorFn;
     const finalMin = min2;   // composite now carries its own range in min2/max2
     const finalMax = max2;
-    const finalRangeMin = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.min != null ? sstRange.min : undefined;
-    const finalRangeMax = (activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && sstRange?.max != null ? sstRange.max : undefined;
+    // Only apply sstRange to composite SST; CHL/SeaColor have their own fixed reference ranges.
+    const finalRangeMin = activeDataLayer === "composite" && sstRange?.min != null ? sstRange.min : undefined;
+    const finalRangeMax = activeDataLayer === "composite" && sstRange?.max != null ? sstRange.max : undefined;
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN) && activeDataLayer !== "altimetry";
     // Altimetry uses Leaflet imageOverlay (not GL); clear stale GL raster so it does not bleed through.
     if (activeDataLayer === "altimetry" && glLayerRef.current) removeSstImage(glLayerRef.current);
@@ -4427,15 +4428,15 @@ export default function SSTHeatmapLeaflet(props) {
               : activeDataLayer === "chlorophyll"
               ? <MobileGradientBar
                   gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
-                  lo={sstRange?.min ?? (chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01)}
-                  hi={sstRange?.max ?? (chlData?.days?.[chlDateIndex]?.stats?.max ?? 10)}
+                  lo={chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01}
+                  hi={chlData?.days?.[chlDateIndex]?.stats?.max ?? 10}
                   hoverVal={hoverInfo?.chl}
                   onBarClick={() => rangeControlOpenRef?.current?.()}/>
               : activeDataLayer === "seacolor"
               ? <MobileGradientBar
                   gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
-                  lo={sstRange?.min ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01)}
-                  hi={sstRange?.max ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50)}
+                  lo={seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01}
+                  hi={seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50}
                   onBarClick={() => rangeControlOpenRef?.current?.()}/>
               : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max}/>
             }
