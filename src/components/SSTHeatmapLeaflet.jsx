@@ -3811,6 +3811,7 @@ export default function SSTHeatmapLeaflet(props) {
                         )}
                       </MobileProGate>
                     )}
+                    {/* HOTSPOT UI HIDDEN — needs work
                     <MobileProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
                       <button onClick={() => setShowHotspots(h => !h)}
                         className={`w-full text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${showHotspots ? "bg-amber-700 text-white border-amber-700" : "bg-white text-slate-600 border-slate-300"}`}>
@@ -3828,6 +3829,7 @@ export default function SSTHeatmapLeaflet(props) {
                         </div>
                       )}
                     </MobileProGate>
+                    */}
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <button onClick={() => setShowBathyLayer(b => !b)}
                         className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBathyLayer ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300"}`}>

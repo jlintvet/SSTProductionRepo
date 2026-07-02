@@ -754,6 +754,7 @@ export default function MapControlPanel({
             </div>
           )}
 
+          {/* HOTSPOT UI HIDDEN — needs work
           <div className="flex gap-1 items-start">
             <div className="flex-1">
               <ProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
@@ -775,6 +776,7 @@ export default function MapControlPanel({
             </div>
             {hbtn("hotspots")}
           </div>
+          */}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
