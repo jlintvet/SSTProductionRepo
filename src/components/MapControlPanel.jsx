@@ -268,6 +268,7 @@ export default function MapControlPanel({
   date,
   // gain / range
   sstRange, onSstRangeChange, userId, rangeControlOpenRef, chlDataMin, chlDataMax, seaColorDataMin, seaColorDataMax,
+  seasonalSstDefault,
   // tools
   showIsotherm, setShowIsotherm,
   isothermalTargetTemp, setIsothermalTargetTemp,
@@ -629,6 +630,7 @@ export default function MapControlPanel({
                 openRef={rangeControlOpenRef}
                 dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
                 dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
+                seasonalDefault={isSSTGroup ? seasonalSstDefault : undefined}
               />
             </div>
           )}

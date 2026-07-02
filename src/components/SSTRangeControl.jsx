@@ -62,7 +62,7 @@ const HATCH = "repeating-linear-gradient(45deg,rgba(0,0,0,0.45) 0,rgba(0,0,0,0.4
 const LAYER_CONFIG = {
   sst: {
     label: "SST", unit: "°F",
-    absMin: 45, absMax: 90, defaultMin: 55, defaultMax: 78, step: 0.5,
+    absMin: 42, absMax: 95, defaultMin: 55, defaultMax: 82, step: 0.5,
     ramp: SST_RAMP,
   },
   chlorophyll: {
@@ -507,14 +507,18 @@ export default function SSTRangeControl({
   onApply,
   style = {},
   openRef,
-  dataMin,  // live data minimum — overrides cfg.absMin when provided
-  dataMax,  // live data maximum — overrides cfg.absMax when provided
+  dataMin,        // live data bounds (CHL/SeaColor day stats)
+  dataMax,
+  seasonalDefault, // { min, max } from getSeasonalSstDefault() — SST only.
+                   // Overrides cfg.defaultMin/defaultMax so isNarrowed and Reset
+                   // target the seasonal values.
 }) {
   const baseCfg = LAYER_CONFIG[activeLayer] || LAYER_CONFIG.sst;
-  // When live data bounds are provided (e.g. CHL day stats), use them so the
-  // slider spans the full data range and clipping is impossible.
+  // Priority: live data bounds > seasonal default > config defaults
   const cfg = (dataMin != null && dataMax != null)
     ? { ...baseCfg, absMin: dataMin, absMax: dataMax, defaultMin: dataMin, defaultMax: dataMax }
+    : (activeLayer === "sst" && seasonalDefault)
+    ? { ...baseCfg, defaultMin: seasonalDefault.min, defaultMax: seasonalDefault.max }
     : baseCfg;
 
   // Internal range mirrors external; external wins when parent resets it
@@ -534,16 +538,17 @@ export default function SSTRangeControl({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset to layer defaults when activeLayer changes
+  // Reset when activeLayer changes.
+  // SST: restore seasonal default (keeps colors temperature-absolute).
+  // CHL/SeaColor: clear to null so overlay uses its own day stats.
   const prevActiveLayer = useRef(activeLayer);
   useEffect(() => {
     if (prevActiveLayer.current === activeLayer) return;
     prevActiveLayer.current = activeLayer;
-    // Reset internal slider to layer defaults, but clear parent range so
-    // the overlay falls back to day stats (no user override yet)
-    _setRange({ min: cfg.defaultMin, max: cfg.defaultMax, maskOutside: false });
-    onRangeChange?.(null);
-  }, [activeLayer]);
+    const defaultRange = { min: cfg.defaultMin, max: cfg.defaultMax, maskOutside: false };
+    _setRange(defaultRange);
+    onRangeChange?.(activeLayer === "sst" ? defaultRange : null);
+  }, [activeLayer, cfg.defaultMin, cfg.defaultMax]);
 
   // Sync when parent resets (e.g. source switch)
   const prevExternal = useRef(externalRange);
@@ -605,9 +610,11 @@ export default function SSTRangeControl({
 
   function handleReset() {
     const r = { min: cfg.defaultMin, max: cfg.defaultMax, maskOutside: false };
-    _setRange(r);          // reset slider display to defaults
-    onRangeChange?.(null); // clear parent range — overlay falls back to day stats
-    onApply?.(null);
+    _setRange(r);
+    // SST: apply seasonal default so the map stays on a fixed scale.
+    // CHL/SeaColor: clear to null so day stats take over.
+    onRangeChange?.(activeLayer === "sst" ? r : null);
+    onApply?.(activeLayer === "sst" ? r : null);
   }
 
   return (

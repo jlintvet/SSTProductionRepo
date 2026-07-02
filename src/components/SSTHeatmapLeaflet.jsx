@@ -969,6 +969,7 @@ export default function SSTHeatmapLeaflet(props) {
     showWindOverlay, setShowWindOverlay,
     windPlaying, setWindPlaying,
     sstRange, onSstRangeChange, userId,
+    seasonalSstDefault,
     onShare,
     legendHoverSst, openControlPanelRef, rangeControlOpenRef,
     onNotesUpdated,
@@ -3149,6 +3150,7 @@ export default function SSTHeatmapLeaflet(props) {
             seaColorCompositeDates={seaColorCompositeDates} seaColorCompositeDateIndex={seaColorCompositeDateIndex} setSeaColorCompositeDateIndex={setSeaColorCompositeDateIndex}
             windLoading={windLoading}
             sstRange={sstRange} onSstRangeChange={onSstRangeChange} userId={userId} rangeControlOpenRef={rangeControlOpenRef}
+            seasonalSstDefault={seasonalSstDefault}
             chlDataMin={chlData?.days?.[chlDateIndex]?.stats?.min ?? chlData?.days?.[chlData.days.length-1]?.stats?.min}
             chlDataMax={chlData?.days?.[chlDateIndex]?.stats?.max ?? chlData?.days?.[chlData.days.length-1]?.stats?.max}
             seaColorDataMin={seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? seaColorData?.days?.[seaColorData.days.length-1]?.stats?.min}
@@ -3508,6 +3510,7 @@ export default function SSTHeatmapLeaflet(props) {
                         onRangeChange={onSstRangeChange}
                         onApply={onSstRangeChange}
                         openRef={rangeControlOpenRef}
+                        seasonalDefault={seasonalSstDefault}
                       />
                     </MobileProGate>
 

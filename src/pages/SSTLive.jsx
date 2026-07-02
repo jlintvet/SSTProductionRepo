@@ -10,6 +10,7 @@ import SSTLegend from "@/components/SSTLegend";
 import ShareLocationDialog from "@/components/ShareLocationDialog";
 import { WindLegend } from "@/components/WindTimeSlider";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
+import { getSeasonalSstDefault, DEFAULT_REGION } from "@/config/regionConfig";
 import TripPlanner from "@/components/TripPlanner";
 import TripSummaryModal from "@/components/TripSummaryModal";
 import CommunityReportForm from "@/components/CommunityReportForm";
@@ -339,17 +340,17 @@ function SSTPageBody() {
 
 
 
-  // sstRange is a single shared gain/range across layers. The {55,78} default is the
-  // SST (degF) range; for chl/seacolor it must fall back to each layer's own data range.
-  // On a layer SWITCH, SSTRangeControl clears this to null so overlays use day stats.
-  // But on COLD START the layer never changes, so seed null when the initial layer is
-  // not SST -> chl/seacolor render with their own range instead of the SST 55-78 default
-  // (which on chl's log scale would blank the map).
-  // Default gain = null for EVERY layer -> each renders on its own data range (auto),
-  // which is the correct/expected look. The fixed 55-78 degF default over-saturated warm
-  // summer SST/composite on cold-start (everything clamped red). Users can still set a
-  // custom gain via the Temp Gain control (which sets sstRange).
-  const [sstRange, setSstRange] = useState(null);
+  // sstRange is the SST color window applied to all SST-family layers.
+  // Initialized to the seasonal default so colors are temperature-absolute
+  // (78 degF always the same hue regardless of daily data range).
+  // SSTRangeControl restores the seasonal default on layer switch or region change.
+  // CHL/SeaColor layers clear this to null on switch so they use their own data range.
+  const [sstRange, setSstRange] = useState(() => getSeasonalSstDefault(DEFAULT_REGION));
+
+  // When region changes, reset SST range to that region's seasonal default.
+  useEffect(() => {
+    setSstRange(getSeasonalSstDefault(regionKey));
+  }, [regionKey]);
 
   const [murState,      setMurState]      = useState({ data: null, dateIndex: 0 });
   const [viirsState,    setViirsState]    = useState({ data: null, dateIndex: 0, hour: null });
@@ -1087,6 +1088,7 @@ function SSTPageBody() {
               chlPlaying={chlPlaying} setChlPlaying={setChlPlaying}
               seaColorPlaying={seaColorPlaying} setSeaColorPlaying={setSeaColorPlaying}
               sstRange={sstRange} onSstRangeChange={setSstRange} userId={userId}
+              seasonalSstDefault={getSeasonalSstDefault(regionKey)}
               wreckRemovedKeys={wreckRemovedKeys}
               hotspotData={hotspotData} hotspotLoading={hotspotLoading}
               selectedFishSpecies={selectedFishSpecies} setSelectedFishSpecies={setSelectedFishSpecies}

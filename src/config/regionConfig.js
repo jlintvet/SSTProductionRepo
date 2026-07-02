@@ -15,6 +15,14 @@ export const REGION_CONFIGS = {
     defaultZoom:   7.5,
     defaultLocation: "Oregon Inlet, NC",
     dataPathSuffix: "",
+    // Seasonal SST color range defaults (degrees F). Anchors the color ramp so
+    // the same temperature always maps to the same hue regardless of daily data range.
+    sstSeasonalDefaults: {
+      summer: { min: 55, max: 82 }, // Jun-Sep: Gulf Stream 78-82, inshore 60-70
+      fall:   { min: 52, max: 76 }, // Oct-Nov: cooling, offshore still warm
+      winter: { min: 44, max: 65 }, // Dec-Feb: cold inshore, warmer offshore
+      spring: { min: 50, max: 74 }, // Mar-May: gradual warming
+    },
     locations: [
       { label: "Bay Bridge Tunnel, VA", lat: 36.9082,            lon: -76.0918,           wreckRegion: "ChesapeakeMD", noaaCoverage: true  },
       { label: "Beaufort Inlet, NC",    lat: 34.6937,            lon: -76.6663,           wreckRegion: "MoreheadNC",   noaaCoverage: true  },
@@ -45,6 +53,13 @@ export const REGION_CONFIGS = {
     // e.g. DailySSTData/MUR/ga_sc/mur_YYYYMMDD.csv
     // Leave "" for mid_atlantic (uses root paths for backward compat).
     dataPathSuffix:  "ga_sc",
+    // GA/SC runs 6-9 degF warmer than mid-Atlantic; Gulf Stream year-round.
+    sstSeasonalDefaults: {
+      summer: { min: 64, max: 88 }, // Jun-Sep: nearshore 78-84, Gulf Stream 84-88
+      fall:   { min: 60, max: 82 }, // Oct-Nov: still warm offshore
+      winter: { min: 52, max: 74 }, // Dec-Feb: mild winters, offshore 70+
+      spring: { min: 58, max: 80 }, // Mar-May: Gulf Stream ~78
+    },
     locations: [
       // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
       { label: "Beaufort, SC",           lat: 32.4316, lon: -80.6698, wreckRegion: "BeaufortSC",     noaaCoverage: true,  noaaZone: "AMZ372" },
@@ -73,6 +88,20 @@ export const DEFAULT_REGION = "mid_atlantic";
 
 export function getRegionConfig(regionKey) {
   return REGION_CONFIGS[regionKey] ?? REGION_CONFIGS[DEFAULT_REGION];
+}
+
+function getSeason(month) {
+  if (month >= 6 && month <= 9)   return "summer";
+  if (month >= 10 && month <= 11) return "fall";
+  if (month === 12 || month <= 2) return "winter";
+  return "spring";
+}
+
+/** Returns the seasonal SST color default for a region. Always {min,max} — never null. */
+export function getSeasonalSstDefault(regionKey) {
+  const cfg    = getRegionConfig(regionKey);
+  const season = getSeason(new Date().getMonth() + 1);
+  return cfg.sstSeasonalDefaults?.[season] ?? { min: 55, max: 82 };
 }
 
 export function getRegionBounds(regionConfig) {
