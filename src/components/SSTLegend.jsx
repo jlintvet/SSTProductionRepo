@@ -31,9 +31,14 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
   const [localHoverTemp, setLocalHoverTemp] = useState(null);
   const [bubblePos, setBubblePos] = useState(null); // { x, y } in viewport coords
 
+  // When a user range is applied, show that range as the legend endpoints so
+  // the displayed min/max match the colors actually rendered on the map.
+  const displayMin = rangeMin ?? sstMin;
+  const displayMax = rangeMax ?? sstMax;
+
   const activeTemp = localHoverTemp ?? hoverSst;
   const activeT = activeTemp != null
-    ? Math.max(0, Math.min(1, (activeTemp - sstMin) / (sstMax - sstMin)))
+    ? Math.max(0, Math.min(1, (activeTemp - displayMin) / (displayMax - displayMin)))
     : null;
 
   // Recompute bubble screen position whenever activeT changes
@@ -49,7 +54,7 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
     const rect = barRef.current?.getBoundingClientRect();
     if (!rect) return;
     const t = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setLocalHoverTemp(sstMin + t * (sstMax - sstMin));
+    setLocalHoverTemp(displayMin + t * (displayMax - displayMin));
   }
 
   function onBarMouseLeave() {
@@ -58,7 +63,7 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
 
   return (
     <div className="mt-2 flex items-center gap-3" onClick={onClick} style={{ ...(onClick ? { cursor: "pointer" } : {}) }}>
-      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{sstMin != null ? sstMin.toFixed(1) : "—"}°F</span>
+      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{displayMin != null ? displayMin.toFixed(1) : "—"}°F</span>
 
       <div className="relative flex-1 flex items-center" style={{ height: 20 }}>
         {/* Gradient bar */}
@@ -80,7 +85,7 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
         )}
       </div>
 
-      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{sstMax != null ? sstMax.toFixed(1) : "—"}°F</span>
+      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{displayMax != null ? displayMax.toFixed(1) : "—"}°F</span>
       {onClick && <span className="text-[10px] text-slate-400 whitespace-nowrap ml-1" title="Click to adjust range">⚙</span>}
 
       {/* Bubble rendered via portal so no ancestor can clip it */}
@@ -93,7 +98,7 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
             transform: "translateX(-50%)",
             zIndex: 99999,
             pointerEvents: "none",
-            background: sstColor(activeTemp, sstMin, sstMax),
+            background: sstColor(activeTemp, displayMin, displayMax),
             color: "#fff",
             fontSize: 11,
             fontWeight: 700,
