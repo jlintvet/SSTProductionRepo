@@ -185,6 +185,7 @@ export default function WeatherBottomSheet() {
                 sunData={data.sun}
                 locationLabel={selectedLocation?.label}
                 forecastHourlyUrl={data.forecastHourlyUrl}
+                noaaZone={data.noaaZone}
               />
             </div>
             {snap === "full" && (
@@ -195,6 +196,7 @@ export default function WeatherBottomSheet() {
                 sunData={data.sun}
                 locationLabel={selectedLocation?.label}
                 forecastHourlyUrl={data.forecastHourlyUrl}
+                noaaZone={data.noaaZone}
               />
             )}
             {data.forecast?.timestamp && snap === "full" && (

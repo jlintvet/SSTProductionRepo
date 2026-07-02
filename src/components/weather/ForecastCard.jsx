@@ -184,6 +184,7 @@ export default function ForecastCard({
   sunData,
   locationLabel,
   forecastHourlyUrl,   // from data.forecastHourlyUrl via useMarineForecast
+  noaaZone,            // { id, description } from NOAA_SOURCES — shown as footnote
 }) {
   const [showNarrative, setShowNarrative] = useState(false);
   const [showHourly,    setShowHourly]    = useState(false);
@@ -349,6 +350,11 @@ export default function ForecastCard({
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
               <p className="text-xs text-slate-500 italic">{forecast.raw_text}</p>
+              {noaaZone && (
+                <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                  {noaaZone.id} — {noaaZone.description}
+                </p>
+              )}
             </CollapsibleContent>
           </Collapsible>
         </CardContent>

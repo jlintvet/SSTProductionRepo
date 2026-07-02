@@ -12,7 +12,7 @@ import { ChevronDown, HelpCircle, X } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import ForecastCard from "@/components/weather/ForecastCard";
 
-export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sunData, locationLabel, forecastTimestamp, forecastHourlyUrl }) {
+export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sunData, locationLabel, forecastTimestamp, forecastHourlyUrl, noaaZone }) {
   if (!forecasts?.length) return null;
 
   const cards = forecasts.slice(0, 3);
@@ -43,6 +43,7 @@ export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sun
               sunData={sunData}
               locationLabel={locationLabel}
               forecastHourlyUrl={forecastHourlyUrl}
+              noaaZone={noaaZone}
             />
           ))}
         </div>

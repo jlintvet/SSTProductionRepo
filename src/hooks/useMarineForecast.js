@@ -71,23 +71,23 @@ const NOAA_SOURCES = {
     tideStation:     "8632200",   // Cape Charles, VA
   },
     // ── GA/SC Region ───────────────────────────────────────────────────────────
-  "Beaufort, SC":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa.json",         tideStation: "8670659" },  // Beaufort, SC — AMZ372 20-40nm
-  "Carolina Beach, NC":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/carolinabeachnc_noaa.json",     tideStation: "8658120" },  // Carolina Beach, NC — AMZ270 20-40nm
-  "Charleston, SC":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/charlestonsc_noaa.json",        tideStation: "8665530" },  // Charleston, SC — AMZ370 20-40nm
-  "Darien, GA":             { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/darienga_noaa.json",            tideStation: "8670870" },  // Darien, GA — AMZ374 20-60nm
-  "Fernandina Beach, FL":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fernandinafl_noaa.json",        tideStation: "8720197" },  // Fernandina Beach, FL — AMZ452 out 20nm
-  "Georgetown, SC":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/georgetownsc_noaa.json",        tideStation: "8665530" },  // Georgetown, SC — AMZ276 20-40nm
-  "Hilton Head, SC":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hiltonheadsc_noaa.json",        tideStation: "8670659" },  // Hilton Head, SC — AMZ372 20-40nm
-  "Jekyll Island, GA":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/jekyllga_noaa.json",            tideStation: "8679511" },  // Jekyll Island, GA — AMZ470 20-60nm
-  "Little River Inlet, SC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/littleriversc_noaa.json",       tideStation: "8661070" },  // Little River Inlet, SC — AMZ274 20-40nm
-  "Mayport, FL":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/mayportfl_noaa.json",           tideStation: "8720218" },  // Mayport, FL — AMZ452 out 20nm
-  "Murrells Inlet, SC":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/murrellsinletsc_noaa.json",     tideStation: "8661070" },  // Murrells Inlet, SC — AMZ276 20-40nm
-  "Myrtle Beach, SC":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/myrtlebeachsc_noaa.json",       tideStation: "8661070" },  // Myrtle Beach, SC — AMZ274 20-40nm
-  "Southport, NC":          { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/southportnc_noaa.json",         tideStation: "8659084" },  // Southport, NC — AMZ272 20-40nm
-  "St. Augustine, FL":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/staugustinefl_noaa.json",       tideStation: "8720587" },  // St. Augustine, FL — AMZ454 out 20nm
-  "St. Simons Island, GA":  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stsimonsgaga_noaa.json",        tideStation: "8679511" },  // St. Simons Island, GA — AMZ470 20-60nm
-  "Tybee Island, GA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/tybeega_noaa.json",             tideStation: "8670870" },  // Tybee Island, GA — AMZ374 20-60nm
-  "Wrightsville Beach, NC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wrightsvillebeachnc_noaa.json", tideStation: "8658163" },  // Wrightsville Beach, NC — AMZ270 20-40nm
+  "Beaufort, SC":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa.json",         tideStation: "8670659",  noaaZone: { id: "AMZ362", description: "Edisto Beach SC to Savannah GA, 0-20nm" } },
+  "Carolina Beach, NC":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/carolinabeachnc_noaa.json",     tideStation: "8658120",  noaaZone: { id: "AMZ250", description: "Surf City to Cape Fear NC, 0-20nm" } },
+  "Charleston, SC":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/charlestonsc_noaa.json",        tideStation: "8665530",  noaaZone: { id: "AMZ360", description: "S. Santee River to Edisto Beach SC, 0-20nm" } },
+  "Darien, GA":             { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/darienga_noaa.json",            tideStation: "8670870",  noaaZone: { id: "AMZ364", description: "Savannah GA to Altamaha Sound GA, 0-20nm" } },
+  "Fernandina Beach, FL":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fernandinafl_noaa.json",        tideStation: "8720197",  noaaZone: { id: "AMZ452", description: "St. Marys River to Ponte Vedra FL, out 20nm" } },
+  "Georgetown, SC":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/georgetownsc_noaa.json",        tideStation: "8665530",  noaaZone: { id: "AMZ256", description: "Murrells Inlet to S. Santee River SC, 0-20nm" } },
+  "Hilton Head, SC":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hiltonheadsc_noaa.json",        tideStation: "8670659",  noaaZone: { id: "AMZ362", description: "Edisto Beach SC to Savannah GA, 0-20nm" } },
+  "Jekyll Island, GA":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/jekyllga_noaa.json",            tideStation: "8679511",  noaaZone: { id: "AMZ470", description: "Jacksonville FL to Altamaha Sound GA, 20-60nm" } },
+  "Little River Inlet, SC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/littleriversc_noaa.json",       tideStation: "8661070",  noaaZone: { id: "AMZ254", description: "Little River Inlet to Murrells Inlet SC, 0-20nm" } },
+  "Mayport, FL":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/mayportfl_noaa.json",           tideStation: "8720218",  noaaZone: { id: "AMZ452", description: "St. Marys River to Ponte Vedra FL, out 20nm" } },
+  "Murrells Inlet, SC":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/murrellsinletsc_noaa.json",     tideStation: "8661070",  noaaZone: { id: "AMZ256", description: "Murrells Inlet to S. Santee River SC, 0-20nm" } },
+  "Myrtle Beach, SC":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/myrtlebeachsc_noaa.json",       tideStation: "8661070",  noaaZone: { id: "AMZ254", description: "Little River Inlet to Murrells Inlet SC, 0-20nm" } },
+  "Southport, NC":          { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/southportnc_noaa.json",         tideStation: "8659084",  noaaZone: { id: "AMZ252", description: "Cape Fear to Little River Inlet SC, 0-20nm" } },
+  "St. Augustine, FL":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/staugustinefl_noaa.json",       tideStation: "8720587",  noaaZone: { id: "AMZ454", description: "Ponte Vedra to Flagler Beach FL, out 20nm" } },
+  "St. Simons Island, GA":  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stsimonsgaga_noaa.json",        tideStation: "8679511",  noaaZone: { id: "AMZ470", description: "Jacksonville FL to Altamaha Sound GA, 20-60nm" } },
+  "Tybee Island, GA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/tybeega_noaa.json",             tideStation: "8670870",  noaaZone: { id: "AMZ364", description: "Savannah GA to Altamaha Sound GA, 0-20nm" } },
+  "Wrightsville Beach, NC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wrightsvillebeachnc_noaa.json", tideStation: "8658163",  noaaZone: { id: "AMZ250", description: "Surf City to Cape Fear NC, 0-20nm" } }
 
 };
 
@@ -270,6 +270,7 @@ async function fetchAll(location) {
     tides:              tidesResult.status === "fulfilled" ? tidesResult.value : {},
     nws:                nwsValue.map,
     forecastHourlyUrl:  nwsValue.forecastHourlyUrl,
+    noaaZone:           source.noaaZone ?? null,
     sun,
   };
 }

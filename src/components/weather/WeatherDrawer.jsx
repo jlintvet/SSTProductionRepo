@@ -116,6 +116,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, onCollapse,
               sunData={data.sun}
               locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
+              noaaZone={data.noaaZone}
             />
             <ExtendedOutlook
               forecasts={data.forecast?.forecasts}
@@ -124,6 +125,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, onCollapse,
               sunData={data.sun}
               locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
+              noaaZone={data.noaaZone}
             />
             {data.forecast?.timestamp && (
               <p className="text-[10px] text-slate-400 text-center pt-2 border-t border-slate-100">
