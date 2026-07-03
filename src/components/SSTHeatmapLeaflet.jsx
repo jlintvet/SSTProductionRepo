@@ -2040,28 +2040,18 @@ export default function SSTHeatmapLeaflet(props) {
         const overlay = L.imageOverlay(dataURL, [[south, west], [north, east]], { opacity, interactive: false, pane: "sstDataPane" });
         overlay.addTo(map); sstOverlayRef.current = overlay;
       }
+      // Set data-bounds constraints BEFORE setSstReady so the post-refit's
+      // setView(mercCenter, fill_from_region) is clamped by Leaflet to minZoom,
+      // preventing the viewport from showing basemap above the SST data north edge.
+      try {
+        const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
+        const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
+        const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
+        const mH = mN - mS, lR = east - west;
+        map.setMaxBounds([[south, west], [north, east]]);
+        map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
+      } catch(_) {}
       sstReadyRef.current = true; setSstReady(true);
-      if (dataSource === "MUR") {
-        try { map.setMaxBounds(llBounds); } catch(_) {}
-        try {
-          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
-          const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
-          const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
-          const mH = mN - mS, lR = east - west;
-          map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
-        } catch(_) {}
-      }
-      else if (dataSource === "VIIRS") {
-        // Use region bounds for maxBounds (user can pan to full coastline); data bounds for minZoom
-        try { map.setMaxBounds(llBounds); } catch(_) {}
-        try {
-          const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
-          const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
-          const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
-          const mH = mN - mS, lR = east - west;
-          map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
-        } catch(_) {}
-      } else { try { map.setMaxBounds(llBounds); } catch(_) {} }
     });
     return () => { cancelled = true; };
   }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, activeDataLayer, dataSource,
