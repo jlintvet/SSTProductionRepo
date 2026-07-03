@@ -2636,23 +2636,11 @@ export default function SSTHeatmapLeaflet(props) {
       if (d >= 60)   return { color: "rgba(35,50,80,0.70)", weight: bathyWeight(d), opacity: 0.70 };
       return              { color: "rgba(40,55,88,0.62)", weight: bathyWeight(d), opacity: 0.62 };
     };
-    // Filter spike artifacts: GEBCO single-column anomalies produce contour segments
-    // that are very narrow in one axis (< 0.033 deg) but long in the other (> 0.1 deg).
-    const _isSpikeArtifact = f => {
-      const coords = f.geometry?.coordinates || [];
-      const lons = coords.map(c => c[0]), lats = coords.map(c => c[1]);
-      if (!lons.length) return false;
-      const lonSpan = Math.max(...lons) - Math.min(...lons);
-      const latSpan = Math.max(...lats) - Math.min(...lats);
-      const minSpan = Math.min(lonSpan, latSpan), maxSpan = Math.max(lonSpan, latSpan);
-      return minSpan < 0.033 && maxSpan > 0.1;
-    };
-    const filteredContours = { ...jsonContours, features: (jsonContours.features || []).filter(f => !_isSpikeArtifact(f)) };
-    const casing = L.geoJSON(filteredContours, {
+    const casing = L.geoJSON(jsonContours, {
       interactive: false, pane: "bathyPane",
       style: f => ({ color: "rgba(255,255,255,0.55)", weight: bathyWeight(f.properties.depth_ft) + 1.8, opacity: 0.45 }),
     });
-    const mainLines = L.geoJSON(filteredContours, {
+    const mainLines = L.geoJSON(jsonContours, {
       interactive: false, pane: "bathyPane",
       style: f => bathyMain(f.properties.depth_ft),
     });
