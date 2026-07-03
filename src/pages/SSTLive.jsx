@@ -1237,12 +1237,14 @@ function SSTPageBody() {
               ? <GradientLegend gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
                   dataMin={activeChlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01}
                   dataMax={activeChlData?.days?.[chlDateIndex]?.stats?.max ?? 10}
+                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
                   hoverVal={legendHoverSst}
                   onClick={() => rangeControlOpenRef.current?.()}/>
               : activeDataLayer === "seacolor"
               ? <GradientLegend gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
                   dataMin={activeSeaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01}
                   dataMax={activeSeaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50}
+                  rangeMin={sstRange?.min} rangeMax={sstRange?.max}
                   hoverVal={legendHoverSst}
                   onClick={() => rangeControlOpenRef.current?.()}/>
               : activeDataLayer === "altimetry"
