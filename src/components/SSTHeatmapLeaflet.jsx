@@ -4427,7 +4427,7 @@ export default function SSTHeatmapLeaflet(props) {
                   lo={sstRange?.min ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01)}
                   hi={sstRange?.max ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50)}
                   onBarClick={() => rangeControlOpenRef?.current?.()}/>
-              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max}/>
+              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min ?? seasonalSstDefault?.min} rangeMax={sstRange?.max ?? seasonalSstDefault?.max}/>
             }
           </div>
           )}

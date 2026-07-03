@@ -18,7 +18,7 @@ export const REGION_CONFIGS = {
     // Seasonal SST color range defaults (degrees F). Anchors the color ramp so
     // the same temperature always maps to the same hue regardless of daily data range.
     sstSeasonalDefaults: {
-      summer: { min: 55, max: 82 }, // Jun-Sep: Gulf Stream 78-82, inshore 60-70
+      summer: { min: 55, max: 85 }, // Jun-Sep: Gulf Stream 78-82, inshore 60-70
       fall:   { min: 52, max: 76 }, // Oct-Nov: cooling, offshore still warm
       winter: { min: 44, max: 65 }, // Dec-Feb: cold inshore, warmer offshore
       spring: { min: 50, max: 74 }, // Mar-May: gradual warming
@@ -101,7 +101,7 @@ function getSeason(month) {
 export function getSeasonalSstDefault(regionKey) {
   const cfg    = getRegionConfig(regionKey);
   const season = getSeason(new Date().getMonth() + 1);
-  return cfg.sstSeasonalDefaults?.[season] ?? { min: 55, max: 82 };
+  return cfg.sstSeasonalDefaults?.[season] ?? { min: 55, max: 85 };
 }
 
 export function getRegionBounds(regionConfig) {

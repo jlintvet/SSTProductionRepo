@@ -62,7 +62,7 @@ const HATCH = "repeating-linear-gradient(45deg,rgba(0,0,0,0.45) 0,rgba(0,0,0,0.4
 const LAYER_CONFIG = {
   sst: {
     label: "SST", unit: "°F",
-    absMin: 42, absMax: 95, defaultMin: 55, defaultMax: 82, step: 0.5,
+    absMin: 42, absMax: 95, defaultMin: 55, defaultMax: 85, step: 0.5,
     ramp: SST_RAMP,
   },
   chlorophyll: {

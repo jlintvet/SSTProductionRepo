@@ -1251,7 +1251,7 @@ function SSTPageBody() {
               ? <GradientLegend gradient={SLA_GRADIENT} label="Sea level" unit=" m"
                   dataMin={slaRange.min} dataMax={slaRange.max}
                   hoverVal={legendHoverSst}/>
-              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min} rangeMax={sstRange?.max} onClick={() => rangeControlOpenRef.current?.()}/>
+              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min ?? getSeasonalSstDefault(regionKey).min} rangeMax={sstRange?.max ?? getSeasonalSstDefault(regionKey).max} onClick={() => rangeControlOpenRef.current?.()}/>
             }
           </div>
         </>
