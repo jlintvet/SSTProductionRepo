@@ -333,7 +333,8 @@ function SSTPageBody() {
   const _bounds      = regionConfig?.bounds ?? null;
   const _pathSuffix  = _suffix;
   const _BATHY_SUFFIX = _suffix ? `_${_suffix}` : "";
-  const BATHY_CONTOURS_URL_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours${_BATHY_SUFFIX}.json`;
+  const _bathyCacheBust = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const BATHY_CONTOURS_URL_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours${_BATHY_SUFFIX}.json?v=${_bathyCacheBust}`;
   const BATHY_URL_R          = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry${_BATHY_SUFFIX}.json`;
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.

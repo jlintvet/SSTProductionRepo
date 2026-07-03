@@ -2608,8 +2608,9 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     if (!mapReady || !showBathyLayer || jsonContours) return;
     setJsonContoursLoading(true);
-    const _MA_BATHY_CONTOURS = "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json";
-    fetch(BATHY_CONTOURS_URL)
+    const _bust = new Date().toISOString().slice(0,10).replace(/-/g,"");
+    const _MA_BATHY_CONTOURS = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json?v=${_bust}`;
+    fetch(BATHY_CONTOURS_URL.includes("?") ? BATHY_CONTOURS_URL : BATHY_CONTOURS_URL + `?v=${_bust}`)
       .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(d => { setJsonContours(d); setJsonContoursLoading(false); })
       .catch(() => {
