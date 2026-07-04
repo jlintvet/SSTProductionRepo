@@ -372,9 +372,9 @@ const GLOBAL_CSS = `
 
   /* MODAL */
   .rl-modal-ov{position:fixed;inset:0;z-index:1000;background:rgba(4,9,16,.9);
-    backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+    backdrop-filter:blur(8px);display:flex;align-items:flex-start;justify-content:center;padding:1.5rem;overflow-y:auto;}
   .rl-modal{background:#fff;border-radius:20px;padding:2.5rem;width:100%;max-width:420px;
-    box-shadow:0 24px 80px rgba(0,0,0,.5);position:relative;}
+    box-shadow:0 24px 80px rgba(0,0,0,.5);position:relative;margin:auto;}
   .rl-modal-x{position:absolute;top:1rem;right:1rem;background:none;border:none;cursor:pointer;
     color:#94a3b8;font-size:20px;line-height:1;padding:.25rem;border-radius:4px;transition:color .2s;}
   .rl-modal-x:hover{color:#0f172a;}
