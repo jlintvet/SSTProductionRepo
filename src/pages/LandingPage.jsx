@@ -521,6 +521,8 @@ function AuthForm({ onSuccess, initialMode }) {
   const [error, setError]       = useState(null);
   const [sent, setSent]         = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [regionStep, setRegionStep]         = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState("mid_atlantic");
 
   async function handleLogin(e) {
     e.preventDefault(); setError(null); setLoading(true);
@@ -539,7 +541,7 @@ function AuthForm({ onSuccess, initialMode }) {
     const { error: err } = await supabase.auth.signUp({ email, password });
     setLoading(false);
     if (err) { setError(err.message); return; }
-    setSent(true);
+    setRegionStep(true);
     // Note: the Stripe trial subscription is NOT created here — signUp() returns
     // no session until the user confirms their email, so there's no access token
     // yet. It's created in App.jsx's onAuthStateChange handler on first SIGNED_IN,
@@ -553,6 +555,71 @@ function AuthForm({ onSuccess, initialMode }) {
       redirectTo: window.location.origin + "/reset-password",
     });
     setLoading(false); setResetSent(true);
+  }
+
+  if (regionStep) {
+    const tok = import.meta.env.VITE_MAPBOX_TOKEN;
+    const REGIONS = [
+      {
+        key: "mid_atlantic",
+        label: "Mid-Atlantic",
+        mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-78.84,33.7,-72.21,39.5]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
+        desc: "Maryland, Virginia & North Carolina offshore — Chesapeake Bay, Outer Banks, Gulf Stream access",
+        bounds: "N 39.5°  ·  S 33.7°  ·  W 78.8°  ·  E 72.2°",
+        ports: ["Bay Bridge Tunnel","Beaufort Inlet","Cape Charles","Hatteras Inlet","Horn Harbor","Ocean City Inlet","Oregon Inlet","Poquoson","Virginia Beach"],
+      },
+      {
+        key: "ga_sc",
+        label: "Georgia & South Carolina",
+        mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-82.0,29.8,-75.2,35.2]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
+        desc: "Southern NC, SC, Georgia & NE Florida offshore — year-round Gulf Stream, sea islands, deep inlets",
+        bounds: "N 35.2°  ·  S 29.8°  ·  W 82.0°  ·  E 75.2°",
+        ports: ["Beaufort SC","Carolina Beach","Charleston","Darien","Fernandina Beach","Georgetown SC","Hilton Head","Jekyll Island","Little River Inlet","Mayport","Murrells Inlet","Myrtle Beach","Southport","St. Augustine","St. Simons Island","Tybee Island","Wrightsville Beach"],
+      },
+    ];
+    function handleRegionContinue() {
+      sessionStorage.setItem("pendingRegion", selectedRegion);
+      setRegionStep(false);
+      setSent(true);
+    }
+    return (
+      <div>
+        <h3 style={{ margin: "0 0 6px", fontSize: 17, color: "#0f172a" }}>Choose your fishing region</h3>
+        <p style={{ margin: "0 0 16px", fontSize: 13, color: "#475569" }}>You can change this any time in Settings.</p>
+        {REGIONS.map(r => (
+          <div key={r.key}
+            onClick={() => setSelectedRegion(r.key)}
+            style={{
+              border: `2px solid ${selectedRegion === r.key ? "#1a5fd8" : "#e2e8f0"}`,
+              borderRadius: 10, overflow: "hidden", cursor: "pointer",
+              marginBottom: 10, transition: "border-color .15s",
+            }}>
+            <img src={r.mapUrl} alt={r.label}
+              style={{ width: "100%", height: 130, display: "block", objectFit: "cover" }} />
+            <div style={{ padding: "10px 12px 12px", background: "#fff" }}>
+              {selectedRegion === r.key && (
+                <span style={{
+                  display: "inline-block", background: "#1a5fd8", color: "#fff",
+                  fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 10, marginBottom: 5,
+                }}>Selected</span>
+              )}
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", marginBottom: 3 }}>{r.label}</div>
+              <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.5, marginBottom: 6 }}>{r.desc}</div>
+              <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 6 }}>{r.bounds}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4, paddingTop: 6, borderTop: "1px solid #f1f5f9" }}>
+                Departure ports
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1px 4px", fontSize: 10, color: "#64748b" }}>
+                {r.ports.map(p => <span key={p}>{p}</span>)}
+              </div>
+            </div>
+          </div>
+        ))}
+        <button className="rl-fmbtn" style={{ marginTop: 6 }} onClick={handleRegionContinue}>
+          Continue
+        </button>
+      </div>
+    );
   }
 
   if (sent) return (

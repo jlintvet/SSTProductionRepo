@@ -120,13 +120,16 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   const [referral, setReferral] = useState({ tier: null, referred_by: null, referral_end: null });
   const [referralInput, setReferralInput] = useState("");
   const [referralStatus, setReferralStatus] = useState(null); // null | "redeeming" | "ok" | error message
+  const [currentRegion, setCurrentRegion]   = useState("mid_atlantic");
+  const [showRegionPicker, setShowRegionPicker] = useState(false);
+  const [regionSaving, setRegionSaving]     = useState(false);
   const overlayRef            = useRef(null);
 
   useEffect(() => {
     if (!userId) return;
     Promise.all([
       loadUserSettings(userId),
-      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle, tier, referred_by, referral_end").eq("id", userId).single(),
+      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle, tier, referred_by, referral_end, region").eq("id", userId).single(),
     ]).then(([s, { data: prof }]) => {
       setForm(s);
       setProfile({
@@ -134,6 +137,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
         venmo_handle:   prof?.venmo_handle   ?? "",
         cashapp_handle: prof?.cashapp_handle ?? "",
       });
+      setCurrentRegion(prof?.region ?? "mid_atlantic");
       setReferral({
         tier:         prof?.tier ?? null,
         referred_by:  prof?.referred_by ?? null,
@@ -213,6 +217,43 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
         </div>
 
         <div className="px-5 py-4 space-y-6">
+
+          {/* ── Fishing Region ── */}
+          <Section title="Fishing Region">
+            {!showRegionPicker ? (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-600 w-24 flex-shrink-0">Region</span>
+                <div className="flex-1 flex items-center justify-between">
+                  <span className="text-xs text-slate-800 font-medium">
+                    {currentRegion === "mid_atlantic" ? "Mid-Atlantic" : "Georgia & South Carolina"}
+                  </span>
+                  <button
+                    onClick={() => setShowRegionPicker(true)}
+                    className="text-xs text-cyan-600 font-semibold hover:text-cyan-700"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <RegionPickerInline
+                selected={currentRegion}
+                onSave={async (region) => {
+                  setRegionSaving(true);
+                  const { error } = await supabase.from("user_profiles")
+                    .upsert({ id: userId, region }, { onConflict: "id" });
+                  setRegionSaving(false);
+                  if (!error) {
+                    setCurrentRegion(region);
+                    setShowRegionPicker(false);
+                    window.location.reload();
+                  }
+                }}
+                onCancel={() => setShowRegionPicker(false)}
+                saving={regionSaving}
+              />
+            )}
+          </Section>
 
           {/* ── Display Units ── */}
           <Section title="Display Units">
@@ -560,6 +601,82 @@ function NumInput({ value, placeholder, unit, onChange }) {
         className="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-400 text-slate-800 placeholder-slate-300"
       />
       <span className="text-[11px] text-slate-400 flex-shrink-0 w-10">{unit}</span>
+    </div>
+  );
+}
+
+const REGION_PICKER_DATA = [
+  {
+    key: "mid_atlantic",
+    label: "Mid-Atlantic",
+    desc: "Maryland, Virginia & North Carolina offshore — Chesapeake Bay, Outer Banks, Gulf Stream access",
+    bounds: "N 39.5°  ·  S 33.7°  ·  W 78.8°  ·  E 72.2°",
+    bbox: "[-78.84,33.7,-72.21,39.5]",
+    ports: ["Bay Bridge Tunnel","Beaufort Inlet","Cape Charles","Hatteras Inlet","Horn Harbor","Ocean City Inlet","Oregon Inlet","Poquoson","Virginia Beach"],
+  },
+  {
+    key: "ga_sc",
+    label: "Georgia & South Carolina",
+    desc: "Southern NC, SC, Georgia & NE Florida offshore — year-round Gulf Stream, sea islands, deep inlets",
+    bounds: "N 35.2°  ·  S 29.8°  ·  W 82.0°  ·  E 75.2°",
+    bbox: "[-82.0,29.8,-75.2,35.2]",
+    ports: ["Beaufort SC","Carolina Beach","Charleston","Darien","Fernandina Beach","Georgetown SC","Hilton Head","Jekyll Island","Little River Inlet","Mayport","Murrells Inlet","Myrtle Beach","Southport","St. Augustine","St. Simons Island","Tybee Island","Wrightsville Beach"],
+  },
+];
+
+function RegionPickerInline({ selected: initialSelected, onSave, onCancel, saving }) {
+  const [selected, setSelected] = React.useState(initialSelected);
+  const tok = import.meta.env.VITE_MAPBOX_TOKEN;
+  return (
+    <div>
+      {REGION_PICKER_DATA.map(r => {
+        const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${r.bbox}/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`;
+        const isSelected = selected === r.key;
+        return (
+          <div key={r.key}
+            onClick={() => setSelected(r.key)}
+            style={{
+              border: `2px solid ${isSelected ? "#06b6d4" : "#e2e8f0"}`,
+              borderRadius: 8, overflow: "hidden", cursor: "pointer",
+              marginBottom: 8, transition: "border-color .15s",
+            }}>
+            <img src={mapUrl} alt={r.label}
+              style={{ width: "100%", height: 110, display: "block", objectFit: "cover" }} />
+            <div style={{ padding: "8px 10px 10px", background: "#fff" }}>
+              {isSelected && (
+                <span style={{
+                  display: "inline-block", background: "#06b6d4", color: "#fff",
+                  fontSize: 9, fontWeight: 600, padding: "1px 7px", borderRadius: 10, marginBottom: 4,
+                }}>Selected</span>
+              )}
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#0f172a", marginBottom: 2 }}>{r.label}</div>
+              <div style={{ fontSize: 10, color: "#475569", lineHeight: 1.5, marginBottom: 4 }}>{r.desc}</div>
+              <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 4 }}>{r.bounds}</div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 3, paddingTop: 5, borderTop: "1px solid #f1f5f9" }}>
+                Departure ports
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1px 4px", fontSize: 9, color: "#64748b" }}>
+                {r.ports.map(p => <span key={p}>{p}</span>)}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <div className="flex gap-2 mt-1">
+        <button
+          onClick={() => onSave(selected)}
+          disabled={saving}
+          className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 transition-colors"
+        >
+          {saving ? "Saving…" : "Save region"}
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

@@ -90,6 +90,17 @@ function AppRoot() {
               else console.log("[REFERRAL] code redeemed:", pendingCode);
             });
         }
+
+        const pendingRegion = sessionStorage.getItem("pendingRegion");
+        if (pendingRegion) {
+          sessionStorage.removeItem("pendingRegion");
+          supabase.from("user_profiles")
+            .upsert({ id: session.user.id, region: pendingRegion }, { onConflict: "id" })
+            .then(({ error: regErr }) => {
+              if (regErr) console.warn("[REGION] set failed:", regErr.message);
+              else console.log("[REGION] set on signup:", pendingRegion);
+            });
+        }
       }
     });
 
