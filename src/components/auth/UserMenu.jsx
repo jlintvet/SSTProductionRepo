@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
 import { useAppContext } from "@/context/AppContext";
+import { REGION_CONFIGS } from "@/config/regionConfig";
 import UserSettingsModal from "@/components/auth/UserSettingsModal";
 
 // Privacy: obscure the email address shown in the account dropdown so it
@@ -12,6 +13,10 @@ import UserSettingsModal from "@/components/auth/UserSettingsModal";
 // length avoids leaking the real local-part length); domain is left
 // intact since it's low-sensitivity and useful for the user to confirm
 // which account they're signed into.
+function regionLabel(key) {
+  return REGION_CONFIGS[key]?.label ?? key;
+}
+
 function maskEmail(email) {
   if (!email) return "";
   const at = email.indexOf("@");
@@ -108,7 +113,7 @@ export default function UserMenu({ onUpgrade }) {
             </p>
             {permittedRegions.length > 0 && (
               <p className="text-slate-400 mt-0.5">
-                Region: {permittedRegions.join(", ")}
+                Region: {permittedRegions.map(regionLabel).join(", ")}
               </p>
             )}
           </div>
