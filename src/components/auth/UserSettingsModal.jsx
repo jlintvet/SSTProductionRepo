@@ -120,9 +120,17 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   const [referral, setReferral] = useState({ tier: null, referred_by: null, referral_end: null });
   const [referralInput, setReferralInput] = useState("");
   const [referralStatus, setReferralStatus] = useState(null); // null | "redeeming" | "ok" | error message
-  const [currentRegion, setCurrentRegion]   = useState("mid_atlantic");
+  // Region is part of the same unsaved-changes flow as everything else in
+  // this modal -- picking a region just updates local state here; it's
+  // written to user_profiles (alongside display_name etc.) when "Save
+  // Settings" is clicked, same as every other field. initialRegionRef
+  // remembers the region loaded from the DB so we know whether to reload
+  // the page after saving -- region drives which region config/data
+  // pipeline the whole app uses, so a change needs a fresh load; other
+  // settings don't.
+  const [region, setRegion]   = useState("mid_atlantic");
   const [showRegionPicker, setShowRegionPicker] = useState(false);
-  const [regionSaving, setRegionSaving]     = useState(false);
+  const initialRegionRef      = useRef("mid_atlantic");
   const overlayRef            = useRef(null);
 
   useEffect(() => {
@@ -137,7 +145,9 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
         venmo_handle:   prof?.venmo_handle   ?? "",
         cashapp_handle: prof?.cashapp_handle ?? "",
       });
-      setCurrentRegion(prof?.region ?? "mid_atlantic");
+      const loadedRegion = prof?.region ?? "mid_atlantic";
+      setRegion(loadedRegion);
+      initialRegionRef.current = loadedRegion;
       setReferral({
         tier:         prof?.tier ?? null,
         referred_by:  prof?.referred_by ?? null,
@@ -159,12 +169,14 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
 
   async function handleSave() {
     setSaving(true);
+    const regionChanged = region !== initialRegionRef.current;
     const [ok, { error: profError }] = await Promise.all([
       saveUserSettings(userId, form),
       supabase.from("user_profiles").update({
         display_name:   profile.display_name.trim()   || null,
         venmo_handle:   profile.venmo_handle.trim()   || null,
         cashapp_handle: profile.cashapp_handle.trim() || null,
+        region,
       }).eq("id", userId).select(),
     ]);
     if (profError) console.error("profile upsert error:", profError);
@@ -172,6 +184,13 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     if (ok && !profError) {
       setSaved(true);
       onSaved?.(form);
+      if (regionChanged) {
+        // Region drives which region config/data pipeline the whole app
+        // uses -- reload so everything downstream picks up the new region
+        // instead of trying to hot-swap it across the app.
+        window.location.reload();
+        return;
+      }
       setTimeout(() => setSaved(false), 2000);
     }
   }
@@ -225,7 +244,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 <span className="text-xs text-slate-600 w-24 flex-shrink-0">Region</span>
                 <div className="flex-1 flex items-center justify-between">
                   <span className="text-xs text-slate-800 font-medium">
-                    {currentRegion === "mid_atlantic" ? "Mid-Atlantic" : "Georgia & South Carolina"}
+                    {region === "mid_atlantic" ? "Mid-Atlantic" : "Georgia & South Carolina"}
                   </span>
                   <button
                     onClick={() => setShowRegionPicker(true)}
@@ -237,20 +256,13 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
               </div>
             ) : (
               <RegionPickerInline
-                selected={currentRegion}
-                onSave={async (region) => {
-                  setRegionSaving(true);
-                  const { error } = await supabase.from("user_profiles")
-                    .upsert({ id: userId, region }, { onConflict: "id" });
-                  setRegionSaving(false);
-                  if (!error) {
-                    setCurrentRegion(region);
-                    setShowRegionPicker(false);
-                    window.location.reload();
-                  }
+                selected={region}
+                onSelect={(key) => {
+                  setRegion(key);
+                  setSaved(false);
+                  setShowRegionPicker(false);
                 }}
                 onCancel={() => setShowRegionPicker(false)}
-                saving={regionSaving}
               />
             )}
           </Section>
@@ -624,8 +636,7 @@ const REGION_PICKER_DATA = [
   },
 ];
 
-function RegionPickerInline({ selected: initialSelected, onSave, onCancel, saving }) {
-  const [selected, setSelected] = React.useState(initialSelected);
+function RegionPickerInline({ selected, onSelect, onCancel }) {
   const tok = import.meta.env.VITE_MAPBOX_TOKEN;
   return (
     <div>
@@ -634,7 +645,7 @@ function RegionPickerInline({ selected: initialSelected, onSave, onCancel, savin
         const isSelected = selected === r.key;
         return (
           <div key={r.key}
-            onClick={() => setSelected(r.key)}
+            onClick={() => onSelect(r.key)}
             style={{
               border: `2px solid ${isSelected ? "#06b6d4" : "#e2e8f0"}`,
               borderRadius: 8, overflow: "hidden", cursor: "pointer",
@@ -662,14 +673,7 @@ function RegionPickerInline({ selected: initialSelected, onSave, onCancel, savin
           </div>
         );
       })}
-      <div className="flex gap-2 mt-1">
-        <button
-          onClick={() => onSave(selected)}
-          disabled={saving}
-          className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50 transition-colors"
-        >
-          {saving ? "Saving…" : "Save region"}
-        </button>
+      <div className="flex justify-end mt-1">
         <button
           onClick={onCancel}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
