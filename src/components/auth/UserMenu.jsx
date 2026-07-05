@@ -6,6 +6,22 @@ import { useRegionAccess } from "@/hooks/useRegionAccess";
 import { useAppContext } from "@/context/AppContext";
 import UserSettingsModal from "@/components/auth/UserSettingsModal";
 
+// Privacy: obscure the email address shown in the account dropdown so it
+// isn't plainly readable in screenshots/screen-shares. Keeps first + last
+// character of the local part and a fixed-length mask in between (fixed
+// length avoids leaking the real local-part length); domain is left
+// intact since it's low-sensitivity and useful for the user to confirm
+// which account they're signed into.
+function maskEmail(email) {
+  if (!email) return "";
+  const at = email.indexOf("@");
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  return `${local[0]}***${local[local.length - 1]}@${domain}`;
+}
+
 export default function UserMenu({ onUpgrade }) {
   const { user } = useAuth();
   const { tier, daysLeft, permittedRegions } = useRegionAccess();
@@ -86,7 +102,7 @@ export default function UserMenu({ onUpgrade }) {
         <div className="absolute right-0 top-full mt-1.5 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-2 text-xs">
           <div className="px-3 py-2 border-b border-slate-100">
             <p className="text-slate-800 font-medium truncate">{shortName}</p>
-            <p className="text-slate-400 text-[10px] truncate">{user.email}</p>
+            <p className="text-slate-400 text-[10px] truncate">{maskEmail(user.email)}</p>
             <p style={{ color: getTierColor() }} className="mt-0.5 font-semibold">
               {getTierLabel()}
             </p>
