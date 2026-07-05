@@ -336,6 +336,8 @@ function SSTPageBody() {
   const _bathyCacheBust = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const BATHY_CONTOURS_URL_R = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours${_BATHY_SUFFIX}.json?v=${_bathyCacheBust}`;
   const BATHY_URL_R          = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry${_BATHY_SUFFIX}.json`;
+  const BATHY_TILE_REGION    = _suffix || "mid_atlantic";
+  const BATHY_TILE_URL_R     = `https://d3qy1jhzqojgwx.cloudfront.net/bathy/${BATHY_TILE_REGION}/{z}/{x}/{y}.png`;
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
@@ -1105,6 +1107,7 @@ function SSTPageBody() {
               rangeControlOpenRef={rangeControlOpenRef}
               BATHY_CONTOURS_URL={BATHY_CONTOURS_URL_R}
               BATHY_URL={BATHY_URL_R}
+              BATHY_TILE_URL={BATHY_TILE_URL_R}
               WRECKS_URL={WRECKS_URL}
               isPro={isPro}
               onNotesUpdated={(id, newNotes) => {

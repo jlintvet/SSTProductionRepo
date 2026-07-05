@@ -973,7 +973,7 @@ export default function SSTHeatmapLeaflet(props) {
     onShare,
     legendHoverSst, openControlPanelRef, rangeControlOpenRef,
     onNotesUpdated,
-    BATHY_CONTOURS_URL, WRECKS_URL, BATHY_URL,
+    BATHY_CONTOURS_URL, WRECKS_URL, BATHY_URL, BATHY_TILE_URL,
     isPro,
     currentsData, currentsLoading, showCurrents, setShowCurrents,
     altimetryData, onSlaRange,
@@ -1048,6 +1048,7 @@ export default function SSTHeatmapLeaflet(props) {
   const breakLayerRef    = useRef(null);
   const breakGlowRef     = useRef(null);
   const bathyLayerRef    = useRef(null);
+  const bathyTileRef     = useRef(null);
   const bathyLabelRef    = useRef(null);
   const wreckLayerRef    = useRef(null);
   const buoyLayerRef     = useRef(null);
@@ -1610,6 +1611,7 @@ export default function SSTHeatmapLeaflet(props) {
     //   raster) < bathyPane 375 < overlayPane 400 (wind/currents/contours) <
     //   markerPane 600 (locations/wrecks/buoys/labels/tools).
     map.createPane("sstDataPane"); map.getPane("sstDataPane").style.zIndex = "350"; map.getPane("sstDataPane").style.pointerEvents = "none";
+    map.createPane("bathyTilePane"); map.getPane("bathyTilePane").style.zIndex = "362"; map.getPane("bathyTilePane").style.pointerEvents = "none";
     map.createPane("bathyPane");   map.getPane("bathyPane").style.zIndex   = "375"; map.getPane("bathyPane").style.pointerEvents   = "none";
 
     // Prevent Leaflet from intercepting spacebar when the user is typing in an input/textarea
@@ -2603,6 +2605,26 @@ export default function SSTHeatmapLeaflet(props) {
     }, 60);
     return () => clearTimeout(tid);
   }, [mapReady, showIsotherm, latSet, lonSet, grid, effectiveTargetTemp, isothermalSensitivity, activeDataLayer, compositeData, waterMaskVersion, repaintTrigger]);
+
+  // ── Bathy tile layer (CloudFront raster PNG) ────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current; if (!mapReady || !map) return;
+    if (bathyTileRef.current) { try { map.removeLayer(bathyTileRef.current); } catch(_){} bathyTileRef.current = null; }
+    if (!showBathyLayer || !BATHY_TILE_URL) return;
+    const lyr = L.tileLayer(BATHY_TILE_URL, {
+      pane: 'bathyTilePane',
+      minZoom: 5,
+      maxZoom: 12,
+      opacity: 0.85,
+      attribution: '',
+      interactive: false,
+    });
+    lyr.addTo(map);
+    bathyTileRef.current = lyr;
+    return () => {
+      if (bathyTileRef.current) { try { map.removeLayer(bathyTileRef.current); } catch(_){} bathyTileRef.current = null; }
+    };
+  }, [mapReady, showBathyLayer, BATHY_TILE_URL]);
 
   // ── Bathymetry ─────────────────────────────────────────────────────────────
   useEffect(() => {
