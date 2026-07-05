@@ -8,7 +8,7 @@
 
 import React, { useState } from "react";
 import { LifeBuoy } from "lucide-react";
-import riplocIcon from "@/public/brand/riploc-app-icon.png";
+import riplocIcon from "@/public/Branding/riplocB text w icon.png";
 import LocationPicker from "@/components/shell/LocationPicker";
 import UserMenu from "@/components/auth/UserMenu";
 import HelpReportModal from "@/components/HelpReportModal";
@@ -46,7 +46,7 @@ export default function TopBar({ onUpgrade }) {
     >
       <div className="flex items-center gap-3 min-w-0">
         {/* Brand mark */}
-        <img src={riplocIcon} alt="RipLoc" style={{height:32,width:"auto",display:"block"}} />
+        <img src={riplocIcon} alt="RipLoc" style={{height:28,width:"auto",objectFit:"contain",display:"block"}} />
 
         <div className="h-5 w-px bg-slate-200 hidden sm:block" />
 

@@ -384,11 +384,13 @@ const GLOBAL_CSS = `
   .rl-modal-sub{font-size:14px;color:#475569;margin-bottom:1.5rem;}
 
   /* AUTH FORM */
-  .rl-tabs{display:flex;gap:8px;margin-bottom:20px;}
-  .rl-tab{flex:1;padding:.55rem;border-radius:8px;font-size:14px;font-weight:600;
-    cursor:pointer;font-family:inherit;transition:all .15s;border:2px solid;}
-  .rl-tab.on{background:#1a5fd8;color:#fff;border-color:#1a5fd8;}
-  .rl-tab.off{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;}
+  .rl-tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1.5px solid #e2e8f0;}
+  .rl-tab{flex:1;padding:.65rem 0;background:none;border:none;border-bottom:2px solid transparent;
+    margin-bottom:-1.5px;font-size:14px;font-weight:600;
+    cursor:pointer;font-family:inherit;transition:all .15s;}
+  .rl-tab.on{color:#1a5fd8;border-bottom-color:#1a5fd8;}
+  .rl-tab.off{color:#94a3b8;}
+  .rl-tab.off:hover{color:#475569;}
   .rl-inp{width:100%;padding:.65rem .9rem;border:1.5px solid #e2e8f0;border-radius:8px;
     font-size:15px;margin-bottom:12px;box-sizing:border-box;outline:none;
     font-family:inherit;transition:border-color .2s;}
@@ -399,9 +401,9 @@ const GLOBAL_CSS = `
     background:none;border:none;cursor:pointer;color:#94a3b8;padding:2px;display:flex;align-items:center;}
   .rl-trial{font-size:13px;color:#1a5fd8;background:#f0f9ff;border-radius:8px;
     padding:8px 12px;margin:0 0 14px;text-align:center;}
-  .rl-fmbtn{width:100%;padding:.8rem;background:#1a5fd8;color:#fff;border:none;border-radius:8px;
+  .rl-fmbtn{width:100%;padding:.8rem;background:#16a34a;color:#fff;border:none;border-radius:8px;
     font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:background .2s;}
-  .rl-fmbtn:hover{background:#1a5f94;}
+  .rl-fmbtn:hover{background:#15803d;}
   .rl-fmbtn:disabled{opacity:.65;cursor:not-allowed;}
   .rl-err{color:#dc2626;font-size:13px;padding:8px 12px;background:#fef2f2;border-radius:6px;margin-bottom:10px;}
   .rl-lnk{background:none;border:none;color:#1a5fd8;cursor:pointer;font-size:14px;
@@ -626,7 +628,6 @@ function AuthForm({ onSuccess, initialMode }) {
 
   if (sent) return (
     <div style={{ textAlign: "center", padding: "1rem 0" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
       <h3 style={{ margin: "0 0 8px", color: "#0f172a" }}>Check your email</h3>
       <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>
         Confirmation link sent to <strong>{email}</strong>.<br/>
@@ -638,7 +639,6 @@ function AuthForm({ onSuccess, initialMode }) {
   );
   if (resetSent) return (
     <div style={{ textAlign: "center", padding: "1rem 0" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
       <h3 style={{ margin: "0 0 8px", color: "#0f172a" }}>Reset link sent</h3>
       <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>
         If <strong>{resetEmail}</strong> is registered, a reset link is on its way.
