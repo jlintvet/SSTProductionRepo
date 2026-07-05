@@ -220,9 +220,9 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
       onClick={handleOverlayClick}
       className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/40 px-4 pt-4 overflow-y-auto"
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
           <h2 className="text-sm font-bold text-slate-800">Settings</h2>
           <button
             onClick={onClose}
@@ -235,7 +235,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-6">
+        <div className="px-5 py-4 space-y-6 overflow-y-auto flex-1">
 
           {/* ── Fishing Region ── */}
           <Section title="Fishing Region">
@@ -521,7 +521,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-slate-100 flex items-center gap-3">
+        <div className="px-5 py-4 border-t border-slate-100 flex items-center gap-3 flex-shrink-0">
           <button
             onClick={handleSave}
             disabled={saving}
