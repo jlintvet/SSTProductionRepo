@@ -174,9 +174,9 @@ const GLOBAL_CSS = `
   .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;}
   .rl-video-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;}
   .rl-video-frame{margin:0;border-radius:20px;overflow:hidden;
-    width:100%;background:#000;
+    width:fit-content;max-width:100%;justify-self:center;background:#000;
     box-shadow:0 24px 80px rgba(0,0,0,.5);}
-  .rl-video-frame video{display:block;width:100%;height:auto;max-height:70vh;}
+  .rl-video-frame video{display:block;width:auto;height:auto;max-width:100%;max-height:min(70vh,620px);}
   .rl-play{width:80px;height:80px;border-radius:50%;background:rgba(12,196,160,.14);
     border:2px solid #00c8e8;display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:background .2s,transform .15s;}
