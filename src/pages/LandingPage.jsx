@@ -172,10 +172,11 @@ const GLOBAL_CSS = `
 
   /* VIDEO */
   .rl-video-sec{background:#0d1a2e;padding:6rem 2.5rem;}
-  .rl-video-frame{margin:3rem auto 0;border-radius:20px;overflow:hidden;
-    width:fit-content;background:#000;
+  .rl-video-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;}
+  .rl-video-frame{margin:0;border-radius:20px;overflow:hidden;
+    width:100%;background:#000;
     box-shadow:0 24px 80px rgba(0,0,0,.5);}
-  .rl-video-frame video{display:block;max-width:min(900px,100%);max-height:70vh;width:auto;height:auto;}
+  .rl-video-frame video{display:block;width:100%;height:auto;max-height:70vh;}
   .rl-play{width:80px;height:80px;border-radius:50%;background:rgba(12,196,160,.14);
     border:2px solid #00c8e8;display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:background .2s,transform .15s;}
@@ -410,6 +411,7 @@ const GLOBAL_CSS = `
   /* RESPONSIVE */
   @media(max-width:900px){
     .rl-nav-links{display:none;}
+    .rl-video-grid{grid-template-columns:1fr;gap:2.5rem;}
     .rl-feat-grid{grid-template-columns:1fr;gap:2.5rem;}
     .rl-flip{direction:ltr;}
     .rl-comm-inner{grid-template-columns:1fr;gap:3rem;}
@@ -1047,24 +1049,28 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
       {/* VIDEO */}
       <section className="rl-video-sec" id="video">
         <div className="rl-inner">
-          <div className="rl-lbl">See It In Action</div>
-          <h2 className="rl-h2" style={{ color: "#fff" }}>
-            From dock to drop shot<br/>in under 10 minutes.
-          </h2>
-          <p style={{ color: "#7a9ab5", fontSize: 17, maxWidth: 580, lineHeight: 1.7 }}>
-            Watch how RipLoc anglers read the water, plan their run, and share intel with the community.
-          </p>
-        </div>
-        <div className="rl-video-frame">
-          <video
-            controls
-            preload="metadata"
-            playsInline
-            poster=""
-          >
-            <source src="https://riploc-storage.s3.us-east-2.amazonaws.com/Riploc+Intro+480p.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+          <div className="rl-video-grid">
+            <div>
+              <div className="rl-lbl">See It In Action</div>
+              <h2 className="rl-h2" style={{ color: "#fff" }}>
+                From dock to drop shot<br/>in under 10 minutes.
+              </h2>
+              <p style={{ color: "#7a9ab5", fontSize: 17, maxWidth: 480, lineHeight: 1.7 }}>
+                Learn what makes RipLoc different from other SST and weather apps. Hear from our founder on why the community is the real edge, and how contributions unlock the most valuable intel on the water.
+              </p>
+            </div>
+            <div className="rl-video-frame">
+              <video
+                controls
+                preload="metadata"
+                playsInline
+                poster=""
+              >
+                <source src="https://riploc-storage.s3.us-east-2.amazonaws.com/Riploc+Intro+480p.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </div>
         </div>
       </section>
 
