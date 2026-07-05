@@ -346,6 +346,79 @@ Composite overlay keeps `solidify` — it has full-region coverage and needs cri
 
 ---
 
+## Bathymetry / Static Layers (`StaticLayersRetrieval.py`)
+
+### Data source
+Depth contours come from the **NCEI Coastal Relief Model 2023 (CRM)** via OPeNDAP/netCDF4 at ~450m effective resolution (`_CRM_STRIDE = 15` arc-seconds). CRM is a 1 arc-second NOAA hydrographic survey dataset. It replaced the previous GEBCO/ERDDAP source in July 2026 — GEBCO produced a hairpin spike artifact in the 200-fathom contour near Cape Hatteras that CRM does not.
+
+The previous source was GEBCO via NCEI ERDDAP with a `BATHY_SOURCES` fallback chain (GEBCO_2023 → GEBCO_2020 → ETOPO). Do not reintroduce ERDDAP/GEBCO for bathymetry.
+
+**Key constants in `StaticLayersRetrieval.py`:**
+```python
+_CRM_BASE    = "https://www.ngdc.noaa.gov/thredds/dodsC/crm/cudem/"
+_CRM_STRIDE  = 15   # 1 arc-sec × 15 = ~450 m effective resolution
+_CRM_VOLUMES = [
+    ("crm_vol1_2023.nc", 39.0, 46.0, -77.0, -65.0),  # NE Atlantic
+    ("crm_vol2_2023.nc", 32.0, 39.0, -83.0, -68.0),  # SE Atlantic
+    ("crm_vol3_2023.nc", 24.0, 32.0, -84.0, -76.0),  # FL / E Gulf
+]
+CONTOUR_DEPTHS_FT = [60, 120, 180, 300, 600, 1200, 1800, 3000, 6000]
+SHELF_BREAK_FT    = 1200   # 200 fathoms — used for UI shelf break styling
+```
+
+**Controlling depth level detail:** `CONTOUR_DEPTHS_FT` is the complete list of contour depths generated. Add or remove values to change which contour lines appear on the map. Finer spacing at shallow depths (e.g. adding 30 ft, 90 ft) increases nearshore detail at the cost of more contour segments. After changing this list, delete the committed `bathymetry_contours*.json` files from the repo to force regeneration on the next workflow run.
+
+**`SHELF_BREAK_FT`:** Marks the 200-fathom (1,200 ft) contour as the shelf break. The frontend uses this value for special styling (thicker or differently colored line) to highlight the shelf break edge.
+
+### Workflow (`Static layers.yml`) — key requirements
+
+- **`fetch-depth: 0`** (not `fetch-depth: 1`). A shallow clone causes "add/add" merge conflicts when the bot tries to push back because git cannot find the common ancestor. This was the root cause of the first failed CRM workflow run.
+- **Cache-clear step:** `rm -f DailySST/bathymetry*.json DailySST/bathymetry_contours*.json DailySST/bathymetry_grid*.json` before running the script. Without this, the cached JSON files committed to the repo will always hit the `os.path.exists()` cache check and the script exits without fetching new data.
+- **`git push origin HEAD`** (not `git pull --rebase`). The bot is the only committer on this branch; no rebase is needed.
+- **Timeout: 120 minutes** — CRM OPeNDAP fetches can be slow over the public THREDDS server.
+- **Two regions:** `python StaticLayersRetrieval.py` (mid_atlantic, default) and `REGION=ga_sc python StaticLayersRetrieval.py`.
+
+### Branch status (as of July 2026)
+
+`main` in `jlintvet/SSTv2` uses NCEI CRM 2023 via OPeNDAP (`StaticLayersRetrieval.py`). Hatteras contours confirmed clean. The `bathy-crm` and `Display-Test` branches have been deleted.
+
+### Output files
+- `bathymetry_contours.json` — GeoJSON LineStrings with `depth_ft` + `depth_fathoms` properties, Chaikin-smoothed
+- `bathymetry_grid.json` — raw 2D depth grid for feature detection algorithms
+
+### `_build_grid` — elevation-sign land mask + morphological opening
+
+`_build_grid` uses two masking steps before gap-fill, both derived from the CRM data itself (no external polygon downloads). CRM uses the same sign convention as GEBCO: negative elevation = ocean depth, positive = above sea level (land).
+
+**Step 1 — Elevation-sign land mask (`land[]` array)**
+
+CRM rows with `depth_ft = None` (elevation ≥ 0) are land. A `land[i] = True` boolean array is built directly from the rows. These cells are permanently NaN and never touched by gap-fill. This replaces the previous NE 10m ocean polygon approach, which timed out (45+ min) because the Atlantic Ocean polygon has ~50K vertices and the PiP test is O(n_cells × n_vertices).
+
+**Step 2 — Morphological opening (`_morphological_open_ocean`)**
+
+GEBCO assigns real negative elevation to enclosed coastal water bodies (Bogue Sound, White Oak River, Pamlico Sound, etc.), so the GEBCO-sign mask alone passes them as ocean and `contourpy` draws contours there.
+
+`_morphological_open_ocean` erodes the ocean mask by `radius=6` cells (~2.7 km at 450m resolution), then dilates back by the same amount. Any water body narrower than ~5.4 km is removed in the erode phase and not restored by dilation. The open ocean (large connected region) is fully restored. Uses BFS: O(n_cells), completes in < 1 second.
+
+**Correct `_build_grid` order (enforced in code):**
+1. Load GEBCO depths — land cells are NaN, sounds/bays also have depth values
+2. Build `land[]` from GEBCO sign — pins land cells permanently
+3. Run `_morphological_open_ocean(land, radius=6)` — identifies open ocean, excludes sounds/bays
+4. Pin all non-open-ocean cells to NaN (land + enclosed waters)
+5. 6-iteration gap-fill — only fills open-ocean data voids
+6. `contourpy` traces contours — sees only confirmed open-ocean cells
+
+**Do not revert this order.** The symptom of wrong order: depth contour lines over peninsulas, barrier islands, or mainland (Cedar Point NC, Emerald Isle), or contours inside sounds (Bogue Sound, White Oak River). The source data is correct — the bug is purely in masking order.
+
+### Why the old NE 10m polygon approach was abandoned
+1. **Performance:** The Atlantic Ocean NE polygon has ~50K vertices. `_point_in_ring` is O(n_vertices) per cell. 2M grid cells × 50K = ~100B comparisons in pure Python — 45+ minute hang.
+2. **Bbox intersection bug:** The Atlantic polygon contains the entire region bbox but has no vertices inside the bbox. `_ring_intersects_bbox` (vertex-in-bbox check) returned False for it, so `ne_ocean.json` cached 0 rings and masking was silently skipped.
+3. **Sounds not excluded:** NE ocean polygons include Bogue Sound and Pamlico Sound as ocean, so they passed the mask and still got contours.
+
+The elevation-sign + morphological opening approach solves all three problems without external data. It works identically with CRM and with the previous GEBCO source — both use the same sign convention for land vs. ocean.
+
+---
+
 ## If rendering breaks, check in this order
 
 1. **CHL shifted west** → check that `expandCoarseGrid` is called for the chlorophyll branch and result passed with `latSet/lonSet` to `gridToDataURL` (problem 5). Both CHL and SeaColor should use this pattern.
@@ -360,8 +433,11 @@ Composite overlay keeps `solidify` — it has full-region coverage and needs cri
 10. **Altimetry raster is all transparent (blank canvas)** → the `gridToDataURL` lat/lon bracket gap check threshold is too tight. CMEMS altimetry grid step is exactly 0.125°. The threshold must be `> 0.2` — if it is `> 0.12` (the original default), every adjacent bracket pair exceeds the limit and the entire canvas stays transparent. Do not lower the threshold below 0.2.
 11. **Previous layer bleeds through beneath altimetry overlay** → confirm `removeSstImage(glLayerRef.current)` is called in the overlay effect immediately after computing `useGl` when `activeDataLayer === "altimetry"`. If missing, SST/CHL/composite data in the `sst-img` GL raster source remains visible underneath the Leaflet imageOverlay.
 12. **Altimetry legend bar colors don't match the map** → `SLA_GRADIENT` in `SSTLive.jsx` and `SLA_STOPS` in `SSTHeatmapLeaflet.jsx` must use the same color stops. Update both together whenever the color scheme changes.
-13. **Users get localhost error on email confirmation** → fix Supabase Site URL.
-14. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
+13. **Depth contours appear over land / peninsulas** → the elevation-sign land mask or morphological opening in `_build_grid` has been removed or reordered. Both must run before gap-fill. See Bathymetry section above. Delete `bathymetry_contours.json` and `bathymetry_contours_ga_sc.json` from the repo to force regeneration on next workflow run.
+16. **Depth contours appear inside sounds / bays (Bogue Sound, White Oak River, etc.)** → `_morphological_open_ocean` has been removed or the radius reduced below ~4. CRM (like GEBCO) assigns real depth to enclosed water bodies, so the elevation-sign land mask alone is insufficient — morphological opening is required to exclude narrow water bodies. Radius=6 (~2.7 km) is the tuned value; lowering it below 4 may let sounds through, raising it above 8 may clip the nearshore 10-fathom contour.
+17. **200-fathom contour has a hairpin spike near Cape Hatteras** → this was the root cause of the GEBCO → CRM migration. Do not revert to the GEBCO/ERDDAP source. If the spike reappears on CRM data, it is likely a CRM data artifact in that volume — try increasing `_CRM_STRIDE` slightly (e.g. 20) to smooth past the anomalous cell.
+14. **Users get localhost error on email confirmation** → fix Supabase Site URL.
+15. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
 
 ---
 
@@ -458,4 +534,111 @@ try { map.setView(llBounds.getCenter(), 5, { animate: false }); } catch(_) {}
 Every main button in `MapControlPanel.jsx` has a `?` button alongside it. Implementation:
 
 - Single state: `const [helpOpen, setHelpOpen] = useState(null)` — holds the key of the currently open help modal, or `null`.
-- `hbtn(id)` inline helper renders the `?` button: cl
+- `hbtn(id)` inline helper renders the `?` button: clicking toggles `helpOpen` between `id` and `null`.
+- `HELP_CONFIG` object maps button keys (e.g. `"sst"`, `"loran"`, `"windmap"`) to `{ title, image, text }`.
+- Single `ReactDOM.createPortal` at the bottom of the JSX renders the modal into `document.body`, escaping the scrollable panel container so it centers on screen.
+- **Images:** drop PNG files into `src/public/help/` named by key (e.g. `help/sst.png`). Files that 404 are hidden by the `onError` handler.
+- **Loran text** is rendered as an inline JSX fragment rather than from `HELP_CONFIG.loran.text` (since it contains HTML entities and `<br/>`).
+
+### Button layout pattern
+
+```jsx
+<div className="flex gap-1 items-stretch">
+  <div className="flex-1"><LayerBtn ... /></div>
+  {hbtn("key")}
+</div>
+```
+
+For ProGate-wrapped buttons, the ProGate sits inside `flex-1` so the `?` is outside ProGate and accessible to all users:
+
+```jsx
+<div className="flex gap-1 items-start">
+  <div className="flex-1">
+    <ProGate isPro={isPro} label="...">
+      <ToolBtn ... />
+      {showSubControl && <SubControl />}
+    </ProGate>
+  </div>
+  {hbtn("key")}
+</div>
+```
+
+---
+
+## Ocean currents overlay
+
+- Rendered as a grid of arrowhead markers (SVG `divIcon` via `L.marker`) — one per grid point.
+- Arrow color: **white** (`#ffffff`) with opacity scaled by current speed (`0.35 + 0.65 * norm`).
+- Arrow rotates to match current direction (`dir_deg`).
+- Grid is decimated by zoom level: `step = zoom >= 9 ? 1 : zoom >= 7 ? 2 : 3` (fewer arrows at low zoom).
+- Data source: `fetch_ocean_dynamics.py` → `currents_latest.json` → `hours[0].grid[].{lat, lon, speed_ms, dir_deg}`.
+
+---
+
+## Composite SST (36h)
+
+- Single JSON file: `VIIRS_COMPOSITE_URL`. Shape: `{ sst, latSet, lonSet, generated, date, pass_dates[] }`.
+- `pass_dates` is the array of contributing VIIRS pass dates (typically 2–3 entries for a 36h window).
+- Desktop DateNav appears when `compositeDates.length >= 1` (shows pass dates user can cycle through).
+- Mobile DateNav same condition. Both prev/next arrows disabled if only 1 pass date.
+- `compositeDateIndex` is initialized to `dates.length - 1` (most recent pass) on load.
+- The composite renders directly via its own `latSet/lonSet` — no `expandCoarseGrid` needed.
+
+---
+
+## Play loop — date animation for all date-nav layers
+
+All layers with a `DateNav` component support a play/pause animation loop. Added 2026-06-28. Covers: SST HD Composite, SST Hourly (VIIRS), SST Cloud Free (MUR), SST GOES Composite, CHL Daily, CHL HD Composite, Sea Color Daily, Sea Color HD Composite, and Altimetry.
+
+### Play button
+
+`DateNav` in `MapControlPanel.jsx` accepts two optional props: `onPlay` (callback) and `playing` (boolean). When `onPlay` is provided, a button renders to the right of the date arrows using plain ASCII — `>` when stopped, `||` when playing. No Unicode symbols, no emoji (CLAUDE.md design rules). Identical button on mobile in `SSTHeatmapLeaflet.jsx` mobile panels.
+
+### Play state and interval
+
+Three play states in `SSTLive.jsx`: `sstPlaying`, `chlPlaying`, `seaColorPlaying`. Each has a corresponding interval ref (`sstPlayRef`, `chlPlayRef`, `scPlayRef`). Interval fires every **1500ms**.
+
+### Always-current ref pattern (stale-closure-safe)
+
+SST has multiple sub-sources sharing one `sstPlaying` state — without care the `setInterval` callback captures stale state. Solution: assign an "always-current" ref on every render, call it from the interval:
+
+```js
+sstAdvanceFn.current = () => { /* reads current state */ };
+sstPlayRef.current = setInterval(() => sstAdvanceFn.current(), 1500);
+```
+
+`chlAdvanceFn` and `scAdvanceFn` use the same pattern.
+
+### Layer-specific advance logic
+
+- **SST HD Composite:** check `activeDataLayer === "composite"` (NOT `dataSource`) — HD Composite sets `activeDataLayer` while `dataSource` stays as the SST sub-source. Wrap `compositeDateIndex` at end.
+- **SST Hourly (VIIRS):** advance through `available_hours` on the current day first; roll to next day only when at the last hour. On day roll, set `viirsHour` to the first hour of the new day. Wraps back to day 0.
+- **SST MUR / GOESCOMP / CHL / SC layers:** advance their respective date index, wrapping at end.
+
+### Stop-on-source-change effects
+
+Each play loop has a `useEffect` that stops playback when the relevant source changes — `sstPlaying` stops when `dataSource` or `activeDataLayer` changes; `chlPlaying` stops when `activeChlSource` changes; `seaColorPlaying` when `activeScSource` changes.
+
+### `fmtDate` helper
+
+Both `MapControlPanel.jsx` and `SSTHeatmapLeaflet.jsx` define an identical `fmtDate(s)` helper that converts ISO `"2026-06-22"` or YYYYMMDD `"20260622"` → `"Jun 22"`. Raw date strings must never appear as `DateNav` labels.
+
+---
+
+## Dropbox truncation bug — CRITICAL
+
+Dropbox syncs files written by the Edit tool and silently truncates large JSX files mid-write. This has caused deploy failures before.
+
+**Mandatory workflow for every JSX/config edit:**
+1. Apply changes via Python string-replace (NOT the Edit tool directly on large files).
+2. Immediately verify: `wc -l <file>` and `tail -5 <file>` — confirm file is complete.
+3. If truncated: `git show <good_sha>:<path>` to restore, then re-apply.
+4. `git add -u && git commit && git push`.
+5. Poll Vercel until state is READY (not just "pushed").
+
+**Key file sizes (lines) — if shorter, file is truncated:**
+- `src/components/SSTHeatmapLeaflet.jsx` — ~4335 lines
+- `src/pages/SSTLive.jsx` — ~1213 lines
+- `src/lib/glSandwich.js` — ~337 lines
+- `src/components/MapControlPanel.jsx` — ~829 lines
+- `src/lib/dataFetchers.js` — ~492 lines
