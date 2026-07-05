@@ -102,7 +102,7 @@ export default function LeaderboardModal({ onClose }) {
               Leaderboard
             </div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>
-              June Giveaway: Nomad Tackle – DTX 220 Heavy Duty Sinking 9" Trolling Minnow
+              This Month's Giveaway: Nomad Tackle – DTX 220 Heavy Duty Sinking 9" Trolling Minnow
             </div>
           </div>
         </div>

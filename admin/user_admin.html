@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>RipLoc — User Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:#0f172a; color:#e2e8f0; }
+#authScreen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0f172a; z-index:9999; }
+.auth-box { background:#1e293b; border:1px solid #334155; border-radius:14px; padding:28px; width:340px; }
+.auth-box h2 { margin:0 0 4px; font-size:18px; }
+.auth-box p { margin:0 0 16px; font-size:12px; color:#94a3b8; }
+.auth-err { color:#f87171; font-size:12px; min-height:16px; margin-top:8px; text-align:center; }
+#app { display:none; flex-direction:column; height:100vh; }
+#topbar { display:flex; align-items:center; gap:8px; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155; flex-wrap:wrap; flex-shrink:0; }
+#topbar h1 { font-size:14px; font-weight:700; margin:0 8px 0 0; }
+.pill { background:#334155; border-radius:999px; padding:4px 11px; font-size:11px; font-weight:600; color:#cbd5e1; }
+.pill.cyan { background:#155e75; color:#cffafe; } .pill.green { background:#14532d; color:#bbf7d0; } .pill.amber { background:#78350f; color:#fde68a; }
+#toolbar { display:flex; gap:8px; align-items:center; padding:8px 14px; background:#0f172a; border-bottom:1px solid #1e293b; flex-wrap:wrap; flex-shrink:0; }
+#main { flex:1; display:flex; overflow:hidden; }
+#listWrap { flex:1; overflow:auto; }
+#editWrap { width:320px; flex-shrink:0; background:#1e293b; border-left:1px solid #334155; overflow-y:auto; padding:14px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th,td { text-align:left; padding:7px 10px; border-bottom:1px solid #1e293b; white-space:nowrap; }
+th { position:sticky; top:0; background:#0f172a; color:#94a3b8; font-size:11px; cursor:pointer; user-select:none; z-index:1; }
+tbody tr { cursor:pointer; } tbody tr:hover { background:#1e293b; } tbody tr.sel { background:#243049; }
+.tier { padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; color:#fff; }
+.finput, .finput-sm, select { background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px; padding:7px 9px; width:100%; }
+.finput-sm { width:auto; padding:5px 7px; font-size:12px; }
+.flabel { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; margin-top:10px; }
+.btn { border:none; border-radius:8px; padding:6px 13px; font-size:12px; font-weight:600; cursor:pointer; }
+.btn:disabled { opacity:.35; cursor:not-allowed; }
+.btn-sm { padding:4px 9px; font-size:11px; }
+.btn-blue { background:#2563eb; color:#fff; } .btn-green { background:#16a34a; color:#fff; }
+.btn-slate { background:#334155; color:#e2e8f0; } .btn-slate:hover { background:#475569; }
+.btn-purple { background:#7c3aed; color:#fff; }
+.note { font-size:10px; color:#64748b; line-height:1.5; }
+input::-webkit-calendar-picker-indicator { filter:invert(1); }
+</style>
+</head>
+<body>
+<div id="authScreen">
+  <div class="auth-box">
+    <h2>RipLoc User Admin</h2>
+    <p>Sign in with your admin account.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div><div class="flabel" style="margin-top:0">Email</div><input id="authEmail" class="finput" type="email" autocomplete="email"/></div>
+      <div><div class="flabel" style="margin-top:0">Password</div><input id="authPass" class="finput" type="password" autocomplete="current-password"/></div>
+      <button class="btn btn-blue" onclick="doLogin()" style="margin-top:8px">Sign In</button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <h1>User Admin</h1>
+    <div class="pill">Total <span id="cTotal">—</span></div>
+    <div class="pill cyan">Today <span id="cToday">—</span></div>
+    <div class="pill green">Last 30d <span id="c30">—</span></div>
+    <div class="pill amber">In range <span id="cRange">—</span></div>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input id="rangeFrom" type="date" class="finput-sm"/><span style="color:#64748b">→</span><input id="rangeTo" type="date" class="finput-sm"/>
+      <button class="btn btn-slate btn-sm" onclick="render()">Apply range</button>
+      <button class="btn btn-slate btn-sm" onclick="loadUsers()">Refresh</button>
+      <button class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+  <div id="toolbar">
+    <input id="q" class="finput-sm" placeholder="Search email or name…" oninput="render()" style="min-width:220px"/>
+    <select id="fTier" class="finput-sm" onchange="render()">
+      <option value="">All tiers</option><option>trial</option><option>standard</option><option>pro</option><option>ambassador</option>
+    </select>
+    <select id="fStatus" class="finput-sm" onchange="render()">
+      <option value="">All statuses</option><option>trialing</option><option>active</option><option>cancelled</option>
+    </select>
+    <select id="fRegion" class="finput-sm" onchange="render()">
+      <option value="">All regions</option><option value="mid_atlantic">Mid-Atlantic</option><option value="ga_sc">GA &amp; SC</option>
+    </select>
+    <span id="shownCount" class="note"></span>
+  </div>
+  <div id="main">
+    <div id="listWrap">
+      <table>
+        <thead><tr>
+          <th onclick="sortBy('email')">Email</th>
+          <th onclick="sortBy('display_name')">Name</th>
+          <th onclick="sortBy('tier')">Tier</th>
+          <th onclick="sortBy('subscription_status')">Status</th>
+          <th onclick="sortBy('trial_end')">Trial end</th>
+          <th onclick="sortBy('region')">Region</th>
+          <th onclick="sortBy('created_at')">Signed up</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div id="editWrap">
+      <div id="editEmpty" class="note">Select a user to manage.</div>
+      <div id="editForm" style="display:none">
+        <div style="font-size:13px;font-weight:700" id="eEmail"></div>
+        <div class="note" id="eMeta"></div>
+
+        <div class="flabel">Display name</div>
+        <input id="eName" class="finput"/>
+
+        <div class="flabel">Tier</div>
+        <select id="eTier" class="finput">
+          <option>trial</option><option>standard</option><option>pro</option><option>ambassador</option>
+        </select>
+        <div id="stripeWarn" class="note" style="color:#fbbf24;display:none;margin-top:4px"></div>
+
+        <div class="flabel">Region</div>
+        <select id="eRegion" class="finput">
+          <option value="mid_atlantic">Mid-Atlantic</option>
+          <option value="ga_sc">Georgia &amp; South Carolina</option>
+        </select>
+
+        <div class="flabel">Trial end</div>
+        <input id="eTrial" type="datetime-local" class="finput"/>
+        <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">
+          <button class="btn btn-slate btn-sm" onclick="bumpTrial(7)">+7d</button>
+          <button class="btn btn-slate btn-sm" onclick="bumpTrial(30)">+30d</button>
+          <button class="btn btn-slate btn-sm" onclick="bumpTrial(90)">+90d</button>
+          <button class="btn btn-slate btn-sm" onclick="document.getElementById('eTrial').value=''">Clear</button>
+        </div>
+
+        <div id="ambassadorSection" style="display:none">
+          <div class="flabel">Referral code</div>
+          <div style="display:flex;gap:6px">
+            <input id="eRefCode" class="finput" placeholder="e.g. captainjoethankyou"/>
+            <button class="btn btn-slate btn-sm" onclick="genRefCode()" title="Suggest a code from name/email">Suggest</button>
+          </div>
+
+          <div class="flabel">Ambassador status</div>
+          <select id="eAmbStatus" class="finput">
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <div class="note" style="margin-top:3px">Separate from Tier above — this only controls whether their referral code still works, not their subscription access.</div>
+          <div class="note" id="ambStatsNote" style="margin-top:6px"></div>
+
+          <div class="flabel" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Referred users (<span id="ambReferredCount">0</span>)</span>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:400;text-transform:none;font-size:11px;color:#94a3b8">
+              <input type="checkbox" id="ambSelectAll" onchange="toggleSelectAllReferred(this.checked)"/> All
+            </label>
+          </div>
+          <div id="ambReferredList" style="max-height:180px;overflow-y:auto;border:1px solid #334155;border-radius:8px;padding:4px"></div>
+          <button class="btn btn-blue btn-sm" style="margin-top:8px;width:100%" onclick="openComposeModal()" id="ambEmailBtn" disabled>Email selected</button>
+          <div class="note" id="ambEmailHint" style="margin-top:3px;text-align:center"></div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-purple btn-sm" id="setAmbBtn" onclick="document.getElementById('eTier').value='ambassador';onTierChange()">Set Ambassador</button>
+          <button class="btn btn-green" onclick="saveUser()" style="margin-left:auto">Save</button>
+        </div>
+        <div id="saveStatus" class="note" style="text-align:center;min-height:14px;margin-top:6px"></div>
+
+        <div class="flabel">Recent changes</div>
+        <div id="auditLog" class="note"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="composeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:14px;padding:20px;width:420px;max-width:90vw">
+    <div style="font-size:14px;font-weight:700;margin-bottom:10px">Email <span id="composeCount"></span> user(s)</div>
+    <div class="flabel" style="margin-top:0">Subject</div>
+    <input id="composeSubject" class="finput"/>
+    <div class="flabel">Message</div>
+    <textarea id="composeBody" class="finput" rows="8" style="resize:vertical;font-family:inherit"></textarea>
+    <div id="composeStatus" class="note" style="min-height:14px;margin:6px 0"></div>
+    <div style="display:flex;gap:6px;justify-content:flex-end">
+      <button class="btn btn-slate btn-sm" onclick="closeComposeModal()">Cancel</button>
+      <button class="btn btn-blue btn-sm" onclick="sendComposeEmail()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL  = 'https://upxerlzdgdbjkbjpuktn.supabase.co';
+const SB_ANON = 'sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
+const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
+const sb = supabase.createClient(SB_URL, SB_ANON);
+const TIER_COLORS = { trial:'#d97706', standard:'#64748b', pro:'#16a34a', ambassador:'#7c3aed' };
+
+let me = null, allUsers = [], selectedId = null, sortKey = 'created_at', sortAsc = false;
+let ambRow = null, ambReferred = [], selectedReferredIds = new Set();
+
+// ── Auth ──
+async function doLogin() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPass').value;
+  const err   = document.getElementById('authErr'); err.textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { err.textContent = error.message; return; }
+  if (!ADMIN_EMAILS.includes(data.user.email)) { await sb.auth.signOut(); err.textContent = 'Not an admin account.'; return; }
+  showApp();
+}
+async function doSignOut() { await sb.auth.signOut(); location.reload(); }
+async function checkExistingSession() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (user && ADMIN_EMAILS.includes(user.email)) showApp();
+}
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  sb.auth.getUser().then(({data}) => { me = data.user; });
+  loadUsers();
+}
+
+// ── Load + counts ──
+async function loadUsers() {
+  const { data, error } = await sb.from('user_profiles')
+    .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code')
+    .order('created_at', { ascending:false });
+  if (error) { document.getElementById('shownCount').textContent = 'Error: ' + error.message; return; }
+  allUsers = data || [];
+  render();
+}
+function counts() {
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const ago30 = now.getTime() - 30*24*3600*1000;
+  let total=0, today=0, last30=0, inRange=0;
+  const from = document.getElementById('rangeFrom').value ? new Date(document.getElementById('rangeFrom').value).getTime() : null;
+  const toRaw = document.getElementById('rangeTo').value ? new Date(document.getElementById('rangeTo').value).getTime() + 24*3600*1000 : null;
+  allUsers.forEach(u => {
+    const t = u.created_at ? new Date(u.created_at).getTime() : 0;
+    total++;
+    if (t >= startToday) today++;
+    if (t >= ago30) last30++;
+    if (from !== null && toRaw !== null && t >= from && t < toRaw) inRange++;
+  });
+  document.getElementById('cTotal').textContent = total;
+  document.getElementById('cToday').textContent = today;
+  document.getElementById('c30').textContent = last30;
+  document.getElementById('cRange').textContent = (from!==null && toRaw!==null) ? inRange : '—';
+}
+function sortBy(k) { if (sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=true; } render(); }
+
+function render() {
+  counts();
+  const q = document.getElementById('q').value.toLowerCase();
+  const ft = document.getElementById('fTier').value, fs = document.getElementById('fStatus').value;
+  let rows = allUsers.filter(u =>
+    (!q || (u.email||'').toLowerCase().includes(q) || (u.display_name||'').toLowerCase().includes(q)) &&
+    (!ft || u.tier===ft) && (!fs || u.subscription_status===fs) &&
+    (!document.getElementById('fRegion').value || u.region===document.getElementById('fRegion').value));
+  rows.sort((a,b) => {
+    let x=a[sortKey], y=b[sortKey];
+    if (sortKey==='created_at'||sortKey==='trial_end') { x=x?new Date(x).getTime():0; y=y?new Date(y).getTime():0; }
+    else { x=(x||'').toString().toLowerCase(); y=(y||'').toString().toLowerCase(); }
+    return (x<y?-1:x>y?1:0) * (sortAsc?1:-1);
+  });
+  document.getElementById('shownCount').textContent = rows.length + ' of ' + allUsers.length + ' shown';
+  const fmt = d => d ? new Date(d).toLocaleDateString() : '—';
+  document.getElementById('tbody').innerHTML = rows.map(u => `
+    <tr class="${u.id===selectedId?'sel':''}" onclick="selectUser('${u.id}')">
+      <td>${u.email||'—'}</td><td>${u.display_name||'—'}</td>
+      <td><span class="tier" style="background:${TIER_COLORS[u.tier]||'#475569'}">${u.tier||'—'}</span></td>
+      <td>${u.subscription_status||'—'}</td><td>${fmt(u.trial_end)}</td>
+      <td>${u.region||'—'}</td><td>${fmt(u.created_at)}</td>
+    </tr>`).join('');
+}
+
+// ── Edit ──
+function toLocal(iso){ if(!iso)return''; const d=new Date(iso); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+function selectUser(id) {
+  selectedId = id; const u = allUsers.find(x=>x.id===id); if(!u) return;
+  document.getElementById('editEmpty').style.display='none';
+  document.getElementById('editForm').style.display='block';
+  document.getElementById('eEmail').textContent = u.email || u.id;
+  document.getElementById('eMeta').textContent = `Signed up ${u.created_at?new Date(u.created_at).toLocaleString():'—'} · region ${u.region||'—'}`;
+  document.getElementById('eName').value = u.display_name || '';
+  document.getElementById('eTier').value = u.tier || 'standard';
+  document.getElementById('eRegion').value = u.region || 'mid_atlantic';
+  document.getElementById('eTrial').value = toLocal(u.trial_end);
+  onTierChange();
+  render(); loadAudit(u);
+}
+function onTierChange() {
+  const u = allUsers.find(x=>x.id===selectedId); if(!u) return;
+  const w = document.getElementById('stripeWarn');
+  const stripeManaged = !!u.stripe_customer_id || u.subscription_status==='active';
+  if (stripeManaged) { w.style.display='block'; w.textContent='Heads up: this user has a Stripe subscription. Stripe is the source of truth — a manual tier change here may be overwritten by Stripe and does not change their billing.'; }
+  else w.style.display='none';
+  const ambSec = document.getElementById('ambassadorSection');
+  const isAmb = document.getElementById('eTier').value === 'ambassador';
+  // "Set Ambassador" is just a shortcut to flip Tier to ambassador — hide it
+  // once that's already the case so it's not confused with the Ambassador
+  // Status field below (Tier = billing/access, Status = referral-code on/off).
+  document.getElementById('setAmbBtn').style.display = isAmb ? 'none' : 'inline-block';
+  if (isAmb) {
+    ambSec.style.display = 'block';
+    loadAmbassadorData(u);
+  } else {
+    ambSec.style.display = 'none';
+  }
+}
+
+// ── Ambassador management ──
+async function loadAmbassadorData(u) {
+  document.getElementById('eRefCode').value = u.referral_code || '';
+  const { data: amb } = await sb.from('ambassadors').select('*').eq('user_id', u.id).maybeSingle();
+  ambRow = amb || null;
+  document.getElementById('eAmbStatus').value = amb?.status || 'active';
+  document.getElementById('ambStatsNote').textContent = amb
+    ? `${amb.total_referrals||0} referrals · ${amb.converted_referrals||0} converted · $${((amb.total_commission_cents||0)/100).toFixed(2)} commission`
+    : 'No ambassador record yet — Save will create one.';
+
+  // Two schemas exist in this repo for "who does this ambassador's code
+  // belong to" (see ambassador-schema.sql vs UserSettingsModal.jsx), so
+  // check both the link table and a direct match on referred_by rather
+  // than assuming one is authoritative.
+  const ids = new Set();
+  const { data: refRows } = await sb.from('ambassador_referrals').select('referred_user_id').eq('ambassador_user_id', u.id);
+  (refRows||[]).forEach(r => ids.add(r.referred_user_id));
+  const code = u.referral_code || amb?.referral_code || '';
+  const orParts = [`referred_by.eq.${u.id}`];
+  if (code) orParts.push(`referred_by.eq.${code}`);
+  const { data: byField } = await sb.from('user_profiles').select('id').or(orParts.join(','));
+  (byField||[]).forEach(r => ids.add(r.id));
+  ids.delete(u.id); // never list an ambassador as their own referral
+
+  selectedReferredIds = new Set();
+  if (!ids.size) { ambReferred = []; renderAmbReferred(); return; }
+  const { data: profiles } = await sb.from('user_profiles')
+    .select('id,email,display_name,tier,subscription_status,created_at').in('id', Array.from(ids));
+  ambReferred = profiles || [];
+  renderAmbReferred();
+}
+
+function renderAmbReferred() {
+  document.getElementById('ambReferredCount').textContent = ambReferred.length;
+  document.getElementById('ambSelectAll').checked = false;
+  document.getElementById('ambReferredList').innerHTML = ambReferred.length ? ambReferred.map(p => `
+    <label style="display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:11px;border-bottom:1px solid #1e293b">
+      <input type="checkbox" class="ambChk" value="${p.id}" onchange="onReferredCheck()"/>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis">${p.email||'—'}</span>
+      <span style="color:#64748b">${p.tier||'—'}</span>
+    </label>`).join('') : '<div class="note" style="padding:6px">No referred users found.</div>';
+  document.getElementById('ambEmailBtn').disabled = true;
+  document.getElementById('ambEmailHint').textContent = ambReferred.length ? 'Select users above to enable.' : '';
+}
+function onReferredCheck() {
+  selectedReferredIds = new Set(Array.from(document.querySelectorAll('.ambChk:checked')).map(el=>el.value));
+  document.getElementById('ambEmailBtn').disabled = selectedReferredIds.size === 0;
+  document.getElementById('ambSelectAll').checked = ambReferred.length>0 && selectedReferredIds.size === ambReferred.length;
+}
+function toggleSelectAllReferred(checked) {
+  document.querySelectorAll('.ambChk').forEach(el => el.checked = checked);
+  onReferredCheck();
+}
+function genRefCode() {
+  const u = allUsers.find(x=>x.id===selectedId); if(!u) return;
+  const base = (document.getElementById('eName').value || (u.email||'').split('@')[0] || 'ambassador')
+    .toLowerCase().replace(/[^a-z0-9]/g,'');
+  document.getElementById('eRefCode').value = base + 'thankyou';
+}
+
+// ── Compose / send email ──
+function openComposeModal() {
+  if (!selectedReferredIds.size) return;
+  document.getElementById('composeCount').textContent = selectedReferredIds.size;
+  document.getElementById('composeSubject').value = '';
+  document.getElementById('composeBody').value = '';
+  document.getElementById('composeStatus').textContent = '';
+  document.getElementById('composeModal').style.display = 'flex';
+}
+function closeComposeModal() { document.getElementById('composeModal').style.display = 'none'; }
+async function sendComposeEmail() {
+  const subject = document.getElementById('composeSubject').value.trim();
+  const bodyText = document.getElementById('composeBody').value.trim();
+  const st = document.getElementById('composeStatus');
+  if (!subject || !bodyText) { st.style.color='#f87171'; st.textContent='Subject and message are required.'; return; }
+  const bodyHtml = bodyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  const recipients = ambReferred.filter(p => selectedReferredIds.has(p.id)).map(p=>p.email).filter(Boolean);
+  st.style.color = '#67e8f9'; st.textContent = 'Sending…';
+  const { data, error } = await sb.functions.invoke('admin-send-email', { body: { recipients, subject, bodyHtml } });
+  if (error) { st.style.color='#f87171'; st.textContent = 'Error: ' + error.message; return; }
+  if (data?.failed?.length) { st.style.color='#fbbf24'; st.textContent = `Sent ${data.sent}, failed ${data.failed.length}.`; return; }
+  st.style.color = '#86efac'; st.textContent = `Sent to ${data?.sent ?? recipients.length} user(s).`;
+  setTimeout(closeComposeModal, 1200);
+}
+document.addEventListener('change', e => { if (e.target && e.target.id==='eTier') onTierChange(); });
+function bumpTrial(days) {
+  const inp=document.getElementById('eTrial');
+  const base = inp.value ? new Date(inp.value) : new Date();
+  base.setDate(base.getDate()+days);
+  inp.value = toLocal(base.toISOString());
+}
+async function saveUser() {
+  const u = allUsers.find(x=>x.id===selectedId); if(!u) return;
+  const st = document.getElementById('saveStatus'); st.style.color='#67e8f9'; st.textContent='Saving…';
+  const newName   = document.getElementById('eName').value.trim() || null;
+  const newTier   = document.getElementById('eTier').value;
+  const newRegion = document.getElementById('eRegion').value;
+  const trialVal  = document.getElementById('eTrial').value;
+  const newTrial  = trialVal ? new Date(trialVal).toISOString() : null;
+  const isAmbassador = newTier === 'ambassador';
+  const newRefCode = isAmbassador ? (document.getElementById('eRefCode').value.trim() || null) : (u.referral_code || null);
+  const newAmbStatus = document.getElementById('eAmbStatus').value;
+  const updates = {}, audits = [];
+  const cmp = (field, oldV, newV) => { if ((oldV??null) !== (newV??null)) { updates[field]=newV; audits.push({field, old:oldV, new:newV}); } };
+  cmp('display_name', u.display_name||null, newName);
+  cmp('tier', u.tier||null, newTier);
+  cmp('region', u.region||null, newRegion);
+  cmp('trial_end', u.trial_end?new Date(u.trial_end).toISOString():null, newTrial);
+  if (isAmbassador) cmp('referral_code', u.referral_code||null, newRefCode);
+  if (!audits.length && !isAmbassador) { st.style.color='#94a3b8'; st.textContent='No changes.'; return; }
+  const { error } = await sb.from('user_profiles').update(updates).eq('id', u.id);
+  if (error) { st.style.color='#f87171'; st.textContent='Error: '+error.message; return; }
+  // Read back to confirm — Supabase UPDATE with RLS mismatch returns no error but affects 0 rows
+  const { data: confirmed, error: readErr } = await sb.from('user_profiles')
+    .select('display_name,tier,region,trial_end,referral_code').eq('id', u.id).single();
+  if (readErr) { st.style.color='#fbbf24'; st.textContent='Saved (read-back failed: ' + readErr.message + ')'; }
+  else {
+    const mismatches = audits.filter(a => String(confirmed[a.field]??null) !== String(a.new??null));
+    if (mismatches.length) {
+      st.style.color='#f87171';
+      st.textContent='RLS blocked: ' + mismatches.map(m=>`${m.field} still=${confirmed[m.field]}`).join(', ');
+      return;
+    }
+  }
+  // audit (best-effort)
+  if (audits.length) {
+    await sb.from('user_admin_audit').insert(audits.map(a => ({
+      admin_email: me?.email || 'admin', user_id: u.id, user_email: u.email,
+      field: a.field, old_value: a.old==null?null:String(a.old), new_value: a.new==null?null:String(a.new),
+    }))).then(()=>{}, ()=>{});
+  }
+  Object.assign(u, updates);
+  if (isAmbassador) {
+    const { error: ambErr } = await sb.from('ambassadors').upsert({
+      user_id: u.id, referral_code: newRefCode, status: newAmbStatus,
+    }, { onConflict: 'user_id' });
+    if (ambErr) { st.style.color='#fbbf24'; st.textContent='Saved profile, but ambassador record failed: ' + ambErr.message; return; }
+    loadAmbassadorData(u);
+  }
+  st.style.color='#86efac'; st.textContent='Saved.';
+  render(); loadAudit(u);
+}
+async function loadAudit(u) {
+  const el = document.getElementById('auditLog');
+  const { data } = await sb.from('user_admin_audit').select('field,old_value,new_value,admin_email,created_at')
+    .eq('user_id', u.id).order('created_at',{ascending:false}).limit(8);
+  el.innerHTML = (data&&data.length) ? data.map(a =>
+    `<div style="margin-top:3px">${new Date(a.created_at).toLocaleDateString()} · ${a.field}: ${a.old_value??'—'} → <b>${a.new_value??'—'}</b></div>`).join('')
+    : '<div style="margin-top:3px;color:#475569">No changes yet.</div>';
+}
+
+checkExistingSession();
+</script>
+</body>
+</html>
