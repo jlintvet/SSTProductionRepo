@@ -1107,6 +1107,7 @@ export default function SSTHeatmapLeaflet(props) {
 
   const [showSSTLayer]    = useState(true);
   const [showBathyLayer,  setShowBathyLayer]  = useState(true);
+  const [showBathyRaster, setShowBathyRaster] = useState(false);
   const [showWrecks,      setShowWrecks]      = useState(false);
   const [showBuoys,       setShowBuoys]       = useState(false);
   const [buoysData,       setBuoysData]       = useState(null);
@@ -2610,11 +2611,12 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (bathyTileRef.current) { try { map.removeLayer(bathyTileRef.current); } catch(_){} bathyTileRef.current = null; }
-    if (!showBathyLayer || !BATHY_TILE_URL) return;
+    if (!showBathyRaster || !BATHY_TILE_URL) return;
     const lyr = L.tileLayer(BATHY_TILE_URL, {
       pane: 'bathyTilePane',
       minZoom: 5,
-      maxZoom: 12,
+      maxNativeZoom: 11,
+      maxZoom: 18,
       opacity: 0.85,
       attribution: '',
       interactive: false,
@@ -2624,7 +2626,7 @@ export default function SSTHeatmapLeaflet(props) {
     return () => {
       if (bathyTileRef.current) { try { map.removeLayer(bathyTileRef.current); } catch(_){} bathyTileRef.current = null; }
     };
-  }, [mapReady, showBathyLayer, BATHY_TILE_URL]);
+  }, [mapReady, showBathyRaster, BATHY_TILE_URL]);
 
   // ── Bathymetry ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -3185,6 +3187,7 @@ export default function SSTHeatmapLeaflet(props) {
             showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
             showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
+            showBathyRaster={showBathyRaster} setShowBathyRaster={setShowBathyRaster}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             showBuoys={showBuoys} setShowBuoys={setShowBuoys} buoysLoading={buoysLoading}
             selectedLocation={selectedLocation}
@@ -3848,6 +3851,15 @@ export default function SSTHeatmapLeaflet(props) {
                         className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBathyLayer ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300"}`}>
                         {jsonContoursLoading ? "Loading…" : "Bathymetry"}
                       </button>
+                      <MobileProGate isPro={isPro} label="Shaded Relief is available on the Pro plan.">
+                        <button onClick={() => setShowBathyRaster(v => !v)}
+                          className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBathyRaster ? "bg-cyan-700 text-white border-cyan-700" : "bg-white text-slate-600 border-slate-300"}`}>
+                          Shaded Relief
+                        </button>
+                      </MobileProGate>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <div />
                       <MobileProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
                         <button onClick={() => setShowWrecks(w => !w)}
                           className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showWrecks ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-600 border-slate-300"}`}>

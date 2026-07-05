@@ -87,6 +87,7 @@ const HELP_CONFIG = {
   trip:        { title: "Plan Trip",                     image: "/trip_plan_ref.png",   text: "Drop waypoints on the map to plan a route. Distance and bearing are calculated automatically between each leg. Tap a waypoint to rename or delete it. Routes can be saved and shared." },
   gps:         { title: "Real-Time GPS",                 image: "/help/gps.png",        text: "Tracks your vessel position on the map using the device GPS. Position updates every few seconds. Enable this at the dock and your track will build as you run." },
   bathy:       { title: "Bathymetry Contours",           image: "/help/bathy.png",      text: "NOAA bathymetric contours in fathoms. Depth contours reveal the shelf, shelf edge, canyons, and drop-offs where fish concentrate. The 100-fathom curve is the classic mahi and wahoo zone; deeper canyons hold tuna and marlin." },
+  shadedrelief:{ title: "Shaded Relief",                  image: "/help/bathy.png",      text: "Full-color bathymetric relief from NOAA hydrographic survey data. Depth is shown with a nautical color gradient, with topographic shading revealing canyon walls, shelf-edge structure, and seafloor terrain not visible in standard contour lines." },
   altoverlay:  { title: "SLA Overlay",                   image: "/altimetry_ref.png",   text: "Sea Level Anomaly contours overlaid on the current data layer. Lets you combine SST or chlorophyll with eddy information. Positive SLA = warm-core eddy = look here. Updated weekly." },
   bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png", text: "Wrecks, reefs, rock piles, and hard bottom from NOAA charts. Bottom structure concentrates bait and holds amberjack, grouper, cobia, and sharks. Many offshore wrecks also attract pelagics when the conditions are right." },
   loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png", text: "" },
@@ -286,6 +287,7 @@ export default function MapControlPanel({
   seaColorPlaying, setSeaColorPlaying,
   // overlays
   showBathyLayer, setShowBathyLayer,
+  showBathyRaster, setShowBathyRaster,
   jsonContoursLoading,
   showWrecks, setShowWrecks,
   wrecksLoading,
@@ -649,6 +651,17 @@ export default function MapControlPanel({
               </ToolBtn>
             </div>
             {hbtn("bathy")}
+          </div>
+
+          <div className="flex gap-1 items-stretch">
+            <div className="flex-1">
+              <ProGate isPro={isPro} label="Shaded Relief is available on the Pro plan.">
+                <ToolBtn active={showBathyRaster} onClick={() => setShowBathyRaster(v => !v)}>
+                  Shaded Relief
+                </ToolBtn>
+              </ProGate>
+            </div>
+            {hbtn("shadedrelief")}
           </div>
 
           <div className="flex gap-1 items-stretch">
