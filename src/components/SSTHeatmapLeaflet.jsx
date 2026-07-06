@@ -807,7 +807,7 @@ export async function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isO
   const CHUNK=50;
   let latCursor=0;
   for(let pyStart=0;pyStart<CANVAS_H;pyStart+=CHUNK){
-    await new Promise(r=>setTimeout(r,0));
+    await new Promise(r=>{const _mc=new MessageChannel();_mc.port1.onmessage=r;_mc.port2.postMessage(null);});
     for(let py=pyStart;py<Math.min(pyStart+CHUNK,CANVAS_H);py++){const mY=mercYNorth-(py/(CANVAS_H-1))*mercYRange;const lat=invMercY(mY);// Advance latCursor: latSet descending, find bracket latSet[c]>=lat>=latSet[c+1]
   while(latCursor<latSet.length-2&&latSet[latCursor+1]>lat)latCursor++;
   const latIdx0=Math.min(latCursor,latSet.length-2);const gridLat0=latSet[latIdx0],gridLat1=latSet[latIdx0+1];if(gridLat0-gridLat1>0.2)continue;if(lat>gridLat0||lat<gridLat1)continue;
