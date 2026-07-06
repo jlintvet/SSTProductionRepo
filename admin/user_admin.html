@@ -140,7 +140,6 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
             <option value="inactive">Inactive</option>
           </select>
           <div class="note" style="margin-top:3px">Separate from Tier above — this only controls whether their referral code still works, not their subscription access.</div>
-          <div class="note" id="ambStatsNote" style="margin-top:6px"></div>
 
           <div class="flabel" style="display:flex;align-items:center;justify-content:space-between">
             <span>Referred users (<span id="ambReferredCount">0</span>)</span>
@@ -189,7 +188,7 @@ const sb = supabase.createClient(SB_URL, SB_ANON);
 const TIER_COLORS = { trial:'#d97706', standard:'#64748b', pro:'#16a34a', ambassador:'#7c3aed' };
 
 let me = null, allUsers = [], selectedId = null, sortKey = 'created_at', sortAsc = false;
-let ambRow = null, ambReferred = [], selectedReferredIds = new Set();
+let ambReferred = [], selectedReferredIds = new Set();
 
 // ── Auth ──
 async function doLogin() {
@@ -216,7 +215,7 @@ function showApp() {
 // ── Load + counts ──
 async function loadUsers() {
   const { data, error } = await sb.from('user_profiles')
-    .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code')
+    .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code,ambassador_status')
     .order('created_at', { ascending:false });
   if (error) { document.getElementById('shownCount').textContent = 'Error: ' + error.message; return; }
   allUsers = data || [];
@@ -306,32 +305,25 @@ function onTierChange() {
 // ── Ambassador management ──
 async function loadAmbassadorData(u) {
   document.getElementById('eRefCode').value = u.referral_code || '';
-  const { data: amb } = await sb.from('ambassadors').select('*').eq('user_id', u.id).maybeSingle();
-  ambRow = amb || null;
-  document.getElementById('eAmbStatus').value = amb?.status || 'active';
-  document.getElementById('ambStatsNote').textContent = amb
-    ? `${amb.total_referrals||0} referrals · ${amb.converted_referrals||0} converted · $${((amb.total_commission_cents||0)/100).toFixed(2)} commission`
-    : 'No ambassador record yet — Save will create one.';
+  document.getElementById('eAmbStatus').value = u.ambassador_status || 'active';
 
-  // Two schemas exist in this repo for "who does this ambassador's code
-  // belong to" (see ambassador-schema.sql vs UserSettingsModal.jsx), so
-  // check both the link table and a direct match on referred_by rather
-  // than assuming one is authoritative.
-  const ids = new Set();
-  const { data: refRows } = await sb.from('ambassador_referrals').select('referred_user_id').eq('ambassador_user_id', u.id);
-  (refRows||[]).forEach(r => ids.add(r.referred_user_id));
-  const code = u.referral_code || amb?.referral_code || '';
-  const orParts = [`referred_by.eq.${u.id}`];
-  if (code) orParts.push(`referred_by.eq.${code}`);
-  const { data: byField } = await sb.from('user_profiles').select('id').or(orParts.join(','));
-  (byField||[]).forEach(r => ids.add(r.id));
-  ids.delete(u.id); // never list an ambassador as their own referral
+  // redeem_referral_code (the live DB function -- not in this repo) matches
+  // purely on user_profiles.referral_code / referred_by; the ambassadors /
+  // ambassador_referrals tables from ambassador-schema.sql are unused dead
+  // schema (zero rows, never read by redemption). Match every code this
+  // ambassador has ever had -- current plus ambassador_code_history --
+  // same as the get_my_referrals RPC the self-service Settings UI calls.
+  const codes = new Set();
+  if (u.referral_code) codes.add(u.referral_code.toLowerCase());
+  const { data: history } = await sb.from('ambassador_code_history').select('code').eq('user_id', u.id);
+  (history||[]).forEach(h => h.code && codes.add(h.code.toLowerCase()));
 
   selectedReferredIds = new Set();
-  if (!ids.size) { ambReferred = []; renderAmbReferred(); return; }
+  if (!codes.size) { ambReferred = []; renderAmbReferred(); return; }
   const { data: profiles } = await sb.from('user_profiles')
-    .select('id,email,display_name,tier,subscription_status,created_at').in('id', Array.from(ids));
-  ambReferred = profiles || [];
+    .select('id,email,display_name,tier,subscription_status,created_at,referred_by')
+    .not('referred_by', 'is', null);
+  ambReferred = (profiles||[]).filter(p => p.referred_by && codes.has(p.referred_by.toLowerCase()));
   renderAmbReferred();
 }
 
@@ -411,7 +403,10 @@ async function saveUser() {
   cmp('tier', u.tier||null, newTier);
   cmp('region', u.region||null, newRegion);
   cmp('trial_end', u.trial_end?new Date(u.trial_end).toISOString():null, newTrial);
-  if (isAmbassador) cmp('referral_code', u.referral_code||null, newRefCode);
+  if (isAmbassador) {
+    cmp('referral_code', u.referral_code||null, newRefCode);
+    cmp('ambassador_status', u.ambassador_status||null, newAmbStatus);
+  }
   if (!audits.length && !isAmbassador) { st.style.color='#94a3b8'; st.textContent='No changes.'; return; }
   const { error } = await sb.from('user_profiles').update(updates).eq('id', u.id);
   if (error) { st.style.color='#f87171'; st.textContent='Error: '+error.message; return; }
@@ -435,13 +430,7 @@ async function saveUser() {
     }))).then(()=>{}, ()=>{});
   }
   Object.assign(u, updates);
-  if (isAmbassador) {
-    const { error: ambErr } = await sb.from('ambassadors').upsert({
-      user_id: u.id, referral_code: newRefCode, status: newAmbStatus,
-    }, { onConflict: 'user_id' });
-    if (ambErr) { st.style.color='#fbbf24'; st.textContent='Saved profile, but ambassador record failed: ' + ambErr.message; return; }
-    loadAmbassadorData(u);
-  }
+  if (isAmbassador) loadAmbassadorData(u);
   st.style.color='#86efac'; st.textContent='Saved.';
   render(); loadAudit(u);
 }
