@@ -23,7 +23,7 @@ const SLIDES = [
     id: "welcome",
     title: "Welcome to RipLoc",
     caption: "A quick tour of what RipLoc can do for your fishing. Take 2 minutes now — it pays off on the water.",
-    videoUrl: null, // replace with: "https://xxx.supabase.co/storage/v1/object/public/onboarding-videos/01_welcome.mp4"
+    videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RipLoc+Layout.mp4",
   },
   {
     id: "sst-map",
