@@ -789,7 +789,7 @@ async function loadPrebakedMask(url){try{const t0=performance.now();const res=aw
 async function buildOceanMaskFromLand(bounds,maskUrl){const prebaked=await loadPrebakedMask(maskUrl);if(prebaked)return prebaked;console.warn("[MASK] falling back to live Natural Earth download");try{const res=await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson");const gj=await res.json();let polys=[];for(const f of gj.features){const g=f.geometry;if(g.type==="Polygon")polys.push(g.coordinates);else if(g.type==="MultiPolygon")g.coordinates.forEach(p=>polys.push(p));}polys=polys.filter(poly=>{const r=poly[0];let mnLon=Infinity,mxLon=-Infinity,mnLat=Infinity,mxLat=-Infinity;for(const[lo,la]of r){if(lo<mnLon)mnLon=lo;if(lo>mxLon)mxLon=lo;if(la<mnLat)mnLat=la;if(la>mxLat)mxLat=la;}return mxLon>=bounds.west&&mnLon<=bounds.east&&mxLat>=bounds.south&&mnLat<=bounds.north;});if(!polys.length)return null;const STEP=0.02;const ocean=new Set();for(let lat=bounds.south;lat<=bounds.north+STEP*0.5;lat+=STEP){for(let lon=bounds.west;lon<=bounds.east+STEP*0.5;lon+=STEP){let isLand=false;for(const poly of polys){if(pointInRing(lon,lat,poly[0])){let inHole=false;for(let h=1;h<poly.length;h++){if(pointInRing(lon,lat,poly[h])){inHole=true;break;}}if(!inHole){isLand=true;break;}}}if(!isLand)ocean.add(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}}if(!ocean.size)return null;return(lat,lon)=>ocean.has(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}catch(e){console.error("[MASK] fallback also failed:",e);return null;}}
 
 // ── Canvas raster ─────────────────────────────────────────────────────────────
-export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,rangeMin,rangeMax){
+export async function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,rangeMin,rangeMax){
   if(!latSet.length||!lonSet.length)return null;
   const latNorth=latSet[0],latSouth=latSet[latSet.length-1],lonWest=lonSet[0],lonEast=lonSet[lonSet.length-1];
   const lonRange=lonEast-lonWest||1;
@@ -802,8 +802,13 @@ export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,r
   const HALF_CELL=0.01; // half of canonical 0.02° grid step for overlay border
   const mercY=(lat)=>Math.log(Math.tan(Math.PI/4+(lat*Math.PI/180)/2));const invMercY=(y)=>(2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI;
   const mercYNorth=mercY(latNorth),mercYSouth=mercY(latSouth),mercYRange=mercYNorth-mercYSouth||1;
+  // Process rows in 50-row chunks, yielding to the event loop between each chunk.
+  // Prevents the tab from freezing on large grids (e.g. VIIRS clear-sky 89k cells).
+  const CHUNK=50;
   let latCursor=0;
-  for(let py=0;py<CANVAS_H;py++){const mY=mercYNorth-(py/(CANVAS_H-1))*mercYRange;const lat=invMercY(mY);// Advance latCursor: latSet descending, find bracket latSet[c]>=lat>=latSet[c+1]
+  for(let pyStart=0;pyStart<CANVAS_H;pyStart+=CHUNK){
+    await new Promise(r=>setTimeout(r,0));
+    for(let py=pyStart;py<Math.min(pyStart+CHUNK,CANVAS_H);py++){const mY=mercYNorth-(py/(CANVAS_H-1))*mercYRange;const lat=invMercY(mY);// Advance latCursor: latSet descending, find bracket latSet[c]>=lat>=latSet[c+1]
   while(latCursor<latSet.length-2&&latSet[latCursor+1]>lat)latCursor++;
   const latIdx0=Math.min(latCursor,latSet.length-2);const gridLat0=latSet[latIdx0],gridLat1=latSet[latIdx0+1];if(gridLat0-gridLat1>0.2)continue;if(lat>gridLat0||lat<gridLat1)continue;
   const latFrac=gridLat0===gridLat1?0:Math.max(0,Math.min(1,(gridLat0-lat)/(gridLat0-gridLat1)));
@@ -813,7 +818,7 @@ export function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,r
   const lonIdx0=Math.min(lonCursor,lonSet.length-2);const gridLon0=lonSet[lonIdx0],gridLon1=lonSet[lonIdx0+1];if(gridLon1-gridLon0>0.2)continue;if(lon<gridLon0||lon>gridLon1)continue;const lonFrac=gridLon0===gridLon1?0:Math.max(0,Math.min(1,(lon-gridLon0)/(gridLon1-gridLon0)));const vNW=grid[`${gridLat0}_${gridLon0}`],vNE=grid[`${gridLat0}_${gridLon1}`];const vSW=grid[`${gridLat1}_${gridLon0}`],vSE=grid[`${gridLat1}_${gridLon1}`];const wNW=(1-latFrac)*(1-lonFrac),wNE=(1-latFrac)*lonFrac,wSW=latFrac*(1-lonFrac),wSE=latFrac*lonFrac;let sum=0,wsum=0;if(vNW!=null&&Number.isFinite(vNW)){sum+=vNW*wNW;wsum+=wNW;}if(vNE!=null&&Number.isFinite(vNE)){sum+=vNE*wNE;wsum+=wNE;}if(vSW!=null&&Number.isFinite(vSW)){sum+=vSW*wSW;wsum+=wSW;}if(vSE!=null&&Number.isFinite(vSE)){sum+=vSE*wSE;wsum+=wSE;}if(wsum<0.25)continue;const val=sum/wsum;
       const rgb=colorFn?colorFn(val,valMin,valMax,rangeMin,rangeMax):sstColor(val,valMin,valMax,rangeMin,rangeMax);
       if(!rgb)continue;
-      const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=Math.round(220*Math.min(1,wsum));}}
+      const i=(py*CANVAS_W+px)*4;d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=Math.round(220*Math.min(1,wsum));}}}
   ctx.putImageData(img,0,0);
   return new Promise((resolve)=>{canvas.toBlob((blob)=>{if(!blob){resolve(null);return;}resolve({dataURL:URL.createObjectURL(blob),west:lonWest-HALF_CELL,east:lonEast+HALF_CELL,north:latNorth+HALF_CELL,south:latSouth-HALF_CELL});},"image/png");});
 }
