@@ -120,6 +120,10 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   const [referral, setReferral] = useState({ tier: null, referred_by: null, referral_end: null });
   const [referralInput, setReferralInput] = useState("");
   const [referralStatus, setReferralStatus] = useState(null); // null | "redeeming" | "ok" | error message
+  const [ambCodeInput, setAmbCodeInput] = useState("");
+  const [ambCodeStatus, setAmbCodeStatus] = useState(null); // null | "saving" | "ok" | error message
+  const [myReferrals, setMyReferrals] = useState([]);
+  const [myReferralsLoading, setMyReferralsLoading] = useState(false);
   // Region is part of the same unsaved-changes flow as everything else in
   // this modal -- picking a region just updates local state here; it's
   // written to user_profiles (alongside display_name etc.) when "Save
@@ -137,7 +141,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     if (!userId) return;
     Promise.all([
       loadUserSettings(userId),
-      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle, tier, referred_by, referral_end, region").eq("id", userId).single(),
+      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle, tier, referred_by, referral_end, referral_code, region").eq("id", userId).single(),
     ]).then(([s, { data: prof }]) => {
       setForm(s);
       setProfile({
@@ -149,11 +153,14 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
       setRegion(loadedRegion);
       initialRegionRef.current = loadedRegion;
       setReferral({
-        tier:         prof?.tier ?? null,
-        referred_by:  prof?.referred_by ?? null,
-        referral_end: prof?.referral_end ?? null,
+        tier:          prof?.tier ?? null,
+        referred_by:   prof?.referred_by ?? null,
+        referral_end:  prof?.referral_end ?? null,
+        referral_code: prof?.referral_code ?? null,
       });
+      setAmbCodeInput(prof?.referral_code ?? "");
       setLoading(false);
+      if (prof?.tier === "ambassador") loadMyReferrals();
     });
   }, [userId]);
 
@@ -196,6 +203,29 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
         return;
       }
       setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  async function loadMyReferrals() {
+    setMyReferralsLoading(true);
+    const { data, error } = await supabase.rpc("get_my_referrals");
+    if (!error) setMyReferrals(data || []);
+    setMyReferralsLoading(false);
+  }
+
+  async function handleSaveAmbCode() {
+    const code = ambCodeInput.trim().toLowerCase();
+    if (!code) return;
+    setAmbCodeStatus("saving");
+    const { error } = await supabase.rpc("set_my_referral_code", { p_code: code });
+    if (error) {
+      setAmbCodeStatus(error.message || "Could not save that code");
+    } else {
+      setAmbCodeStatus("ok");
+      setReferral(r => ({ ...r, referral_code: code }));
+      setAmbCodeInput(code);
+      loadMyReferrals();
+      setTimeout(() => setAmbCodeStatus(null), 2000);
     }
   }
 
@@ -466,6 +496,68 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
               </>
             )}
           </Section>
+
+          {/* ── Ambassador ── */}
+          {referral.tier === "ambassador" && (
+            <Section title="Ambassador">
+              <Row label="Your code">
+                <TextInput
+                  value={ambCodeInput}
+                  placeholder="e.g. captainjoethankyou"
+                  onChange={v => setAmbCodeInput(v.toLowerCase())}
+                />
+              </Row>
+              <button
+                onClick={handleSaveAmbCode}
+                disabled={
+                  ambCodeStatus === "saving" ||
+                  !ambCodeInput.trim() ||
+                  ambCodeInput.trim().toLowerCase() === (referral.referral_code || "")
+                }
+                className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
+              >
+                {ambCodeStatus === "saving" ? "Saving…" : "Save code"}
+              </button>
+              {ambCodeStatus && ambCodeStatus !== "saving" && ambCodeStatus !== "ok" && (
+                <p className="text-[11px] text-red-500">{ambCodeStatus}</p>
+              )}
+              {ambCodeStatus === "ok" && (
+                <p className="text-[11px] text-emerald-600">Saved.</p>
+              )}
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Share this code — anyone who redeems it gets a free year of Pro. 4-30 lowercase letters/numbers, no spaces or symbols.
+              </p>
+
+              <div className="pt-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Redeemed by ({myReferrals.length})
+                </p>
+                {myReferralsLoading ? (
+                  <p className="text-[11px] text-slate-400">Loading…</p>
+                ) : myReferrals.length === 0 ? (
+                  <p className="text-[11px] text-slate-400">No one has used your code yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {myReferrals.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between text-[11px]">
+                        <div className="min-w-0">
+                          <div className="text-slate-700 font-medium truncate">
+                            {r.display_name || r.email || "Anonymous"}
+                          </div>
+                          {r.email && r.display_name && (
+                            <div className="text-slate-400 truncate">{r.email}</div>
+                          )}
+                        </div>
+                        <div className="text-slate-400 flex-shrink-0 pl-2">
+                          {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
 
           {/* ── Referral Code ── */}
           {referral.tier !== "pro" && referral.tier !== "ambassador" && (
