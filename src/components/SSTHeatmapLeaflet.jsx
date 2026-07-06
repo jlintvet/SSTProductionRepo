@@ -789,7 +789,7 @@ async function loadPrebakedMask(url){try{const t0=performance.now();const res=aw
 async function buildOceanMaskFromLand(bounds,maskUrl){const prebaked=await loadPrebakedMask(maskUrl);if(prebaked)return prebaked;console.warn("[MASK] falling back to live Natural Earth download");try{const res=await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson");const gj=await res.json();let polys=[];for(const f of gj.features){const g=f.geometry;if(g.type==="Polygon")polys.push(g.coordinates);else if(g.type==="MultiPolygon")g.coordinates.forEach(p=>polys.push(p));}polys=polys.filter(poly=>{const r=poly[0];let mnLon=Infinity,mxLon=-Infinity,mnLat=Infinity,mxLat=-Infinity;for(const[lo,la]of r){if(lo<mnLon)mnLon=lo;if(lo>mxLon)mxLon=lo;if(la<mnLat)mnLat=la;if(la>mxLat)mxLat=la;}return mxLon>=bounds.west&&mnLon<=bounds.east&&mxLat>=bounds.south&&mnLat<=bounds.north;});if(!polys.length)return null;const STEP=0.02;const ocean=new Set();for(let lat=bounds.south;lat<=bounds.north+STEP*0.5;lat+=STEP){for(let lon=bounds.west;lon<=bounds.east+STEP*0.5;lon+=STEP){let isLand=false;for(const poly of polys){if(pointInRing(lon,lat,poly[0])){let inHole=false;for(let h=1;h<poly.length;h++){if(pointInRing(lon,lat,poly[h])){inHole=true;break;}}if(!inHole){isLand=true;break;}}}if(!isLand)ocean.add(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}}if(!ocean.size)return null;return(lat,lon)=>ocean.has(`${Math.round((lat-bounds.south)/STEP)}_${Math.round((lon-bounds.west)/STEP)}`);}catch(e){console.error("[MASK] fallback also failed:",e);return null;}}
 
 // ── Canvas raster ─────────────────────────────────────────────────────────────
-export async function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,rangeMin,rangeMax){
+export async function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isOcean,rangeMin,rangeMax,signal=null){
   if(!latSet.length||!lonSet.length)return null;
   const latNorth=latSet[0],latSouth=latSet[latSet.length-1],lonWest=lonSet[0],lonEast=lonSet[lonSet.length-1];
   const lonRange=lonEast-lonWest||1;
@@ -807,6 +807,7 @@ export async function gridToDataURL(latSet,lonSet,grid,valMin,valMax,colorFn,isO
   const CHUNK=50;
   let latCursor=0;
   for(let pyStart=0;pyStart<CANVAS_H;pyStart+=CHUNK){
+    if(signal&&signal.aborted)return null;
     await new Promise(r=>{const _mc=new MessageChannel();_mc.port1.onmessage=r;_mc.port2.postMessage(null);});
     for(let py=pyStart;py<Math.min(pyStart+CHUNK,CANVAS_H);py++){const mY=mercYNorth-(py/(CANVAS_H-1))*mercYRange;const lat=invMercY(mY);// Advance latCursor: latSet descending, find bracket latSet[c]>=lat>=latSet[c+1]
   while(latCursor<latSet.length-2&&latSet[latCursor+1]>lat)latCursor++;
@@ -2028,18 +2029,18 @@ export default function SSTHeatmapLeaflet(props) {
     if (!showSSTLayer) { if (useGl) removeSstImage(glLayerRef.current); return; }
     const rangeMin = sstRange?.min !== undefined ? sstRange.min : undefined;
     const rangeMax = sstRange?.max !== undefined ? sstRange.max : undefined;
-    let cancelled = false;
+    const _ac_sst = new AbortController();
     const isHourlyViirs = (dataSource === "VIIRS" || dataSource === "VIIRSSNPP");
     // Hourly VIIRS: gapFillGrid floods sounds/bays (inshore() check treats them as inshore).
     // Skip gap-fill for hourly; canonical latSet still ensures correct Mercator bounds.
     const sstGrid = (useGl && !isHourlyViirs) ? gapFillGrid(latSet, lonSet, grid, mask, 1) : grid;
     const sstIsOcean = useGl ? null : mask;
-    Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, sstIsOcean, rangeMin, rangeMax)).then(async result => {
-      if (cancelled || !result) return;
+    gridToDataURL(latSet, lonSet, sstGrid, sstMin, sstMax, null, sstIsOcean, rangeMin, rangeMax, _ac_sst.signal).then(async result => {
+      if (_ac_sst.signal.aborted || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
         const imgUrl = isHourlyViirs ? dataURL : await solidify(dataURL);
-        if (cancelled) return;
+        if (_ac_sst.signal.aborted) return;
         blobUrlsRef.current.push(imgUrl);
         upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
       } else {
@@ -2061,7 +2062,7 @@ export default function SSTHeatmapLeaflet(props) {
       } catch(_) {}
       sstReadyRef.current = true; setSstReady(true);
     });
-    return () => { cancelled = true; };
+    return () => { _ac_sst.abort(); };
   }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, activeDataLayer, dataSource,
       waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max, sstRange?.maskOutside]);
 
@@ -2127,7 +2128,7 @@ export default function SSTHeatmapLeaflet(props) {
       colorFn = (val, mn, mx) => slaColor(val, mn, mx);
     } else { return; }
     if (!latSet2.length) return;
-    let cancelled = false;
+    const _ac_ov = new AbortController();
     const useRefGrid = activeDataLayer==="seacolor";
     const renderLatSet = useRefGrid ? latSet : latSet2;
     const renderLonSet = useRefGrid ? lonSet : lonSet2;
@@ -2144,8 +2145,8 @@ export default function SSTHeatmapLeaflet(props) {
     const ocMask = activeDataLayer === "altimetry"
       ? altimetryDeepMask
       : (useGl ? null : waterMaskRef.current);
-    Promise.resolve(gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,ocMask,finalRangeMin,finalRangeMax)).then(async result => {
-      if (cancelled || !result) return;
+    gridToDataURL(renderLatSet,renderLonSet,ovGrid,finalMin,finalMax,finalColorFn,ocMask,finalRangeMin,finalRangeMax,_ac_ov.signal).then(async result => {
+      if (_ac_ov.signal.aborted || !result) return;
       const { dataURL, west, east, north, south } = result;
       if (useGl) {
         // CHL and Sea Color: blur to feather 4km block edges; no solidify so partial-alpha
@@ -2153,13 +2154,13 @@ export default function SSTHeatmapLeaflet(props) {
         // Composite keeps solidify — full-region coverage, needs crisp land-edge clipping.
         const isSoftOverlay = activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor";
         const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 4) : await solidify(dataURL);
-        if (cancelled) return;
+        if (_ac_ov.signal.aborted) return;
         blobUrlsRef.current.push(imgUrl);
         upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
       } else {
         // Altimetry: blur to feather the offshore data boundary (0.125deg grid has hard edges)
         const altBlurred = await blurOverlay(dataURL, 4);
-        if (cancelled) return;
+        if (_ac_ov.signal.aborted) return;
         blobUrlsRef.current.push(altBlurred);
         const overlay = L.imageOverlay(altBlurred, [[south, west], [north, east]], { opacity: 0.92, interactive: false, pane: "sstDataPane" });
         overlay.addTo(map); overlayLayerRef.current = overlay;
@@ -2207,7 +2208,7 @@ export default function SSTHeatmapLeaflet(props) {
       }
       sstReadyRef.current = true; setSstReady(true);
     });
-    return () => { cancelled = true; };
+    return () => { _ac_ov.abort(); };
   }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
 
   // ── Velocity layer ─────────────────────────────────────────────────────────
@@ -2549,14 +2550,14 @@ export default function SSTHeatmapLeaflet(props) {
       }
       const speedGrid = {};
       latSet.forEach(lat => lonSet.forEach(lon => { const v = windSpeed(lat, lon); if (v != null) speedGrid[`${lat}_${lon}`] = v; }));
-      let cancelled = false;
+      const _ac_wind = new AbortController();
       const useGl = !!(glLayerRef.current && MAPBOX_TOKEN);
-      Promise.resolve(gridToDataURL(latSet, lonSet, speedGrid, 0, maxSpd, windSpeedColor, useGl ? null : waterMaskRef.current)).then(async result => {
-        if (cancelled || !result || !mapRef.current) return;
+      gridToDataURL(latSet, lonSet, speedGrid, 0, maxSpd, windSpeedColor, useGl ? null : waterMaskRef.current, undefined, undefined, _ac_wind.signal).then(async result => {
+        if (_ac_wind.signal.aborted || !result || !mapRef.current) return;
         const { dataURL, west, east, north, south } = result;
         if (useGl) {
           const solid = await solidify(dataURL);
-          if (cancelled) return;
+          if (_ac_wind.signal.aborted) return;
           blobUrlsRef.current.push(solid);
           // Softer fill (0.6) so it reads as a background and the white flow
           // particles stay legible on top, Windy-style.
@@ -2567,7 +2568,7 @@ export default function SSTHeatmapLeaflet(props) {
           raster.addTo(mapRef.current); windRasterOverlayRef.current = raster;
         }
       });
-      return () => { cancelled = true; };
+      return () => { _ac_wind.abort(); };
     }
   }, [mapReady, windActive, windData, windHourIndex, isWindMap, waterMaskVersion]);
 
