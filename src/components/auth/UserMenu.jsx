@@ -44,6 +44,21 @@ export default function UserMenu({ onUpgrade }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // A region change forces a full page reload (region drives which data
+  // pipeline the whole app uses -- see UserSettingsModal.handleSave). That
+  // reload wipes all React state, including this open modal. Without this,
+  // saving a region change looks like Settings just slammed shut instead of
+  // reflecting the save. UserSettingsModal sets this flag right before
+  // reloading; we check it once on mount and reopen Settings automatically.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("riploc.reopenSettingsAfterReload") === "1") {
+        sessionStorage.removeItem("riploc.reopenSettingsAfterReload");
+        setShowSettings(true);
+      }
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     supabase.from("user_profiles").select("display_name").eq("id", user.id).single()
@@ -151,7 +166,7 @@ export default function UserMenu({ onUpgrade }) {
         <UserSettingsModal
           userId={userId}
           onClose={() => setShowSettings(false)}
-          onSaved={(s) => { setUserSettings(s); setShowSettings(false); }}
+          onSaved={(s) => { setUserSettings(s); }}
         />
       )}
     </div>

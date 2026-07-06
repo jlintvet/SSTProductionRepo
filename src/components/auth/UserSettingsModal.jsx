@@ -187,7 +187,11 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
       if (regionChanged) {
         // Region drives which region config/data pipeline the whole app
         // uses -- reload so everything downstream picks up the new region
-        // instead of trying to hot-swap it across the app.
+        // instead of trying to hot-swap it across the app. That reload
+        // blows away all React state including this modal, which looked
+        // like Settings had just closed instead of saved -- flag it so
+        // UserMenu reopens Settings right after the reload completes.
+        try { sessionStorage.setItem("riploc.reopenSettingsAfterReload", "1"); } catch (_) {}
         window.location.reload();
         return;
       }
