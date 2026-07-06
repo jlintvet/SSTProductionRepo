@@ -24,6 +24,7 @@ const SLIDES = [
     title: "Welcome to RipLoc",
     caption: "A quick tour of what RipLoc can do for your fishing. Take 2 minutes now — it pays off on the water.",
     videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RipLoc+Layout.mp4",
+    posterUrl: "/onboarding-welcome-poster.jpg",
   },
   {
     id: "sst-map",
@@ -138,6 +139,7 @@ export default function OnboardingCarousel({ onComplete }) {
               ref={videoRef}
               key={slide}
               src={current.videoUrl}
+              poster={current.posterUrl || undefined}
               muted={muted}
               playsInline
               controls
