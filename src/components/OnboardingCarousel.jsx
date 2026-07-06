@@ -90,13 +90,13 @@ export default function OnboardingCarousel({ onComplete }) {
   const current             = SLIDES[slide];
   const isLast              = slide === total - 1;
 
-  // Reset mute state on slide change; autoplay the video
+  // Reset video to start on slide change; do NOT autoplay — user taps play.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = muted;
     v.currentTime = 0;
-    v.play().catch(() => {}); // Ignore autoplay policy rejections
+    v.pause();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slide]);
 
@@ -138,11 +138,10 @@ export default function OnboardingCarousel({ onComplete }) {
               ref={videoRef}
               key={slide}
               src={current.videoUrl}
-              autoPlay
               muted={muted}
               playsInline
               controls
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               style={{ maxHeight: "100%", display: "block" }}
             />
           ) : (
