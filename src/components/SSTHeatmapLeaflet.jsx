@@ -2025,6 +2025,7 @@ export default function SSTHeatmapLeaflet(props) {
     const mask = waterMaskRef.current; if (!mask) return;
     if (sstOverlayRef.current) { map.removeLayer(sstOverlayRef.current); sstOverlayRef.current = null; }
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN) && activeDataLayer !== "altimetry";
+    if (showBathyRaster) { if (useGl) removeSstImage(glLayerRef.current); return; }
     if (activeDataLayer !== "sst") return;
     if (!showSSTLayer) { if (useGl) removeSstImage(glLayerRef.current); return; }
     const rangeMin = sstRange?.min !== undefined ? sstRange.min : undefined;
@@ -2063,7 +2064,7 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { _ac_sst.abort(); };
-  }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, activeDataLayer, dataSource,
+  }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, showBathyRaster, activeDataLayer, dataSource,
       waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max, sstRange?.maskOutside]);
 
 
@@ -2073,6 +2074,7 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (overlayLayerRef.current) { map.removeLayer(overlayLayerRef.current); overlayLayerRef.current = null; }
+    if (showBathyRaster) return;
     let overlayGrid=null,latSet2=[],lonSet2=[],colorFn=null,min2=0,max2=1;
     if (activeDataLayer==="chlorophyll"&&chlData?.days?.length) {
       const day=chlData.days[chlDateIndex]||chlData.days[chlData.days.length-1];
@@ -2209,7 +2211,7 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { _ac_ov.abort(); };
-  }, [mapReady, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
+  }, [mapReady, showBathyRaster, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
 
   // ── Velocity layer ─────────────────────────────────────────────────────────
   useEffect(() => {

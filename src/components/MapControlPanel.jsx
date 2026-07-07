@@ -653,16 +653,6 @@ export default function MapControlPanel({
             {hbtn("bathy")}
           </div>
 
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1">
-              <ProGate isPro={isPro} label="Shaded Relief is available on the Pro plan.">
-                <ToolBtn active={showBathyRaster} onClick={() => setShowBathyRaster(v => !v)}>
-                  Shaded Relief
-                </ToolBtn>
-              </ProGate>
-            </div>
-            {hbtn("shadedrelief")}
-          </div>
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
@@ -800,6 +790,17 @@ export default function MapControlPanel({
               </ProGate>
             </div>
             {hbtn("bottomfeat")}
+          </div>
+
+          <div className="flex gap-1 items-stretch">
+            <div className="flex-1">
+              <ProGate isPro={isPro} label="Shaded Relief is available on the Pro plan.">
+                <ToolBtn active={showBathyRaster} color="cyan" onClick={() => setShowBathyRaster(v => !v)}>
+                  Shaded Relief
+                </ToolBtn>
+              </ProGate>
+            </div>
+            {hbtn("shadedrelief")}
           </div>
 
           <div className="flex gap-1 items-stretch">
