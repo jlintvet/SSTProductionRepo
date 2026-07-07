@@ -403,6 +403,44 @@ SHELF_BREAK_FT    = 1200   # 200 fathoms — used for UI shelf break styling
 - `bathymetry_contours.json` — GeoJSON LineStrings with `depth_ft` + `depth_fathoms` properties, Chaikin-smoothed
 - `bathymetry_grid.json` — raw 2D depth grid for feature detection algorithms
 
+---
+
+## Wrecks / Bottom Features (`DailySST/wrecks.json`)
+
+### Source
+`DailySST/wrecks.json` is a **static GeoJSON FeatureCollection** (270 features as of July 2026) committed directly to `jlintvet/SSTv2`. It is the authoritative source — do not regenerate or overwrite it from any script.
+
+Previous versions were generated from GPX files via `StaticLayersRetrieval.py` using fishingstatus.com data. Those GPX files no longer exist; all fishingstatus.com/GPX references have been removed from the file.
+
+### Adding or editing features
+Edit `DailySST/wrecks.json` directly. Each feature follows this structure:
+```json
+{
+  "type": "Feature",
+  "geometry": { "type": "Point", "coordinates": [lon, lat] },
+  "properties": {
+    "name": "Feature Name",
+    "symbol": "Rocks",
+    "region": "HatterasNC",
+    "depth_ft": 90,
+    "year_sunk": 1943
+  }
+}
+```
+
+**Required properties:** `name`, `symbol` (`"Wreck"` or `"Rocks"`), `region`
+**Optional properties:** `depth_ft` (number), `year_sunk` (number) — both shown in the hover popup if present
+
+**Valid `region` values** (used for per-departure-location filtering and popup display):
+- `"HatterasNC"` → "Hatteras, NC"
+- `"MoreheadNC"` → "Morehead City, NC"
+- `"ChesapeakeMD"` → "Chesapeake, MD"
+- `"OceanCityMD"` → "Ocean City, MD"
+
+### Frontend fetch
+URL: `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/wrecks.json`
+Fetched once on first toggle of the Bottom Features tool (`showWrecks`). Filtered to `regionBounds` and by `loc.wreckRegion` (from the selected departure location).
+
 ### `_build_grid` — elevation-sign land mask + morphological opening
 
 `_build_grid` uses two masking steps before gap-fill, both derived from the CRM data itself (no external polygon downloads). CRM uses the same sign convention as GEBCO: negative elevation = ocean depth, positive = above sea level (land).
@@ -634,33 +672,4 @@ sstPlayRef.current = setInterval(() => sstAdvanceFn.current(), 1500);
 ### Layer-specific advance logic
 
 - **SST HD Composite:** check `activeDataLayer === "composite"` (NOT `dataSource`) — HD Composite sets `activeDataLayer` while `dataSource` stays as the SST sub-source. Wrap `compositeDateIndex` at end.
-- **SST Hourly (VIIRS):** advance through `available_hours` on the current day first; roll to next day only when at the last hour. On day roll, set `viirsHour` to the first hour of the new day. Wraps back to day 0.
-- **SST MUR / GOESCOMP / CHL / SC layers:** advance their respective date index, wrapping at end.
-
-### Stop-on-source-change effects
-
-Each play loop has a `useEffect` that stops playback when the relevant source changes — `sstPlaying` stops when `dataSource` or `activeDataLayer` changes; `chlPlaying` stops when `activeChlSource` changes; `seaColorPlaying` when `activeScSource` changes.
-
-### `fmtDate` helper
-
-Both `MapControlPanel.jsx` and `SSTHeatmapLeaflet.jsx` define an identical `fmtDate(s)` helper that converts ISO `"2026-06-22"` or YYYYMMDD `"20260622"` → `"Jun 22"`. Raw date strings must never appear as `DateNav` labels.
-
----
-
-## Dropbox truncation bug — CRITICAL
-
-Dropbox syncs files written by the Edit tool and silently truncates large JSX files mid-write. This has caused deploy failures before.
-
-**Mandatory workflow for every JSX/config edit:**
-1. Apply changes via Python string-replace (NOT the Edit tool directly on large files).
-2. Immediately verify: `wc -l <file>` and `tail -5 <file>` — confirm file is complete.
-3. If truncated: `git show <good_sha>:<path>` to restore, then re-apply.
-4. `git add -u && git commit && git push`.
-5. Poll Vercel until state is READY (not just "pushed").
-
-**Key file sizes (lines) — if shorter, file is truncated:**
-- `src/components/SSTHeatmapLeaflet.jsx` — 4514 lines
-- `src/pages/SSTLive.jsx` — ~1213 lines
-- `src/lib/glSandwich.js` — ~337 lines
-- `src/components/MapControlPanel.jsx` — ~829 lines
-- `src/lib/dataFetchers.js` — ~492 lines
+- **SST Hourly (VIIRS):** advance through `available_hours` on the current day first; roll to next day only when at the last hour. On day roll, set `viirsHour` to the first hour
