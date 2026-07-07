@@ -107,11 +107,15 @@ Since CHL at ~0.011° is close to the SST grid at 0.01°, `expandCoarseGrid` pro
 ├──────────────────────────────────────────┤
 │ Wind velocity (L.velocityLayer)          │
 ├──────────────────────────────────────────┤
+│ Shaded Relief tile layer (CloudFront)    │ ← bathyTileRef (pane z=362)
+├──────────────────────────────────────────┤
 │ CartoDB tile layer                       │ ← bottom
 └──────────────────────────────────────────┘
 ```
 
 Leaflet image overlays sit above the tile layer automatically. SST is rendered first, then the CHL/SeaColor/Composite overlay on top. No z-index tricks needed.
+
+**Shaded Relief (`showBathyRaster`):** A CloudFront-hosted raster tile layer rendered in a custom Leaflet pane (`bathyTilePane`, z=362 — above CartoDB/basemap, below all SST/CHL overlays). Controlled by `showBathyRaster` state. **When `showBathyRaster` is true, both the SST `useEffect` and the overlay `useEffect` clear their GL layer and active imageOverlay and return early** — the shaded relief replaces all SST/CHL/composite rendering. Switching `showBathyRaster` to false restores the previously active data layer. Do not add null-guard short-circuits that run before the `showBathyRaster` return-early check, or the overlay cleanup step will be skipped when toggling relief off.
 
 SST must still be **ocean-only by the time it hits the canvas**. The basemap's land areas show through transparent pixels — so land-filtered SST is correct. The `waterMaskRef` ocean mask function is passed to `gridToDataURL` as `isOcean` to skip land pixels.
 
@@ -119,13 +123,26 @@ SST must still be **ocean-only by the time it hits the canvas**. The basemap's l
 
 ## The `gridToDataURL` function
 
-Lives in `SSTHeatmapLeaflet.jsx`. Signature: `gridToDataURL(latSet, lonSet, grid, valMin, valMax, colorFn, isOcean, rangeMin, rangeMax) → Promise<{dataURL, west, east, north, south}>`.
+Lives in `SSTHeatmapLeaflet.jsx`. Signature: `gridToDataURL(latSet, lonSet, grid, valMin, valMax, colorFn, isOcean, rangeMin, rangeMax, signal) → Promise<{dataURL, west, east, north, south}>`.
+
+**`signal` is required.** Pass an `AbortSignal` from an `AbortController`; the function checks `signal.aborted` at every chunk boundary and resolves `null` if aborted. The calling `useEffect` must abort on cleanup:
+
+```js
+const _ac = new AbortController();
+gridToDataURL(..., _ac.signal).then(result => {
+  if (_ac.signal.aborted || !result) return;
+  // use result
+});
+return () => { _ac.abort(); };
+```
+
+Without `AbortSignal`, every stale invocation of `gridToDataURL` (fired by rapid dep changes on mount) keeps its chunked pixel loop running and queues up MessageChannel tasks — burying the main thread for 20+ seconds. This was the root cause of the tab-freeze regression after chunking was added (commits `fd059643`, `0e8bfc31`, `4367d514`).
 
 Contract:
 - `latSet` descending (north → south), `lonSet` ascending (west → east).
 - `grid` is a flat object keyed by `"${lat}_${lon}"` strings.
 - `isOcean` is the frontend coastline mask function; checked per pixel. Pass `waterMaskRef.current`.
-- Canvas is **fixed 512 × 400 pixels**.
+- Canvas is **fixed 512 × 400 pixels**. The pixel loop is chunked at 50 rows per chunk with a `MessageChannel` yield between chunks — keeps the browser responsive during large VIIRS bundles.
 - Each canvas pixel resolves to a geographic lat/lon via inverse Mercator (problem 2 above).
 - Each pixel value is **bilinearly interpolated** from the 4 surrounding source-grid cells.
 - Missing or null neighbors drop out of the weighted sum (renormalized by `wsum`). If `wsum < 0.25`, pixel is transparent.
@@ -434,10 +451,13 @@ The elevation-sign + morphological opening approach solves all three problems wi
 11. **Previous layer bleeds through beneath altimetry overlay** → confirm `removeSstImage(glLayerRef.current)` is called in the overlay effect immediately after computing `useGl` when `activeDataLayer === "altimetry"`. If missing, SST/CHL/composite data in the `sst-img` GL raster source remains visible underneath the Leaflet imageOverlay.
 12. **Altimetry legend bar colors don't match the map** → `SLA_GRADIENT` in `SSTLive.jsx` and `SLA_STOPS` in `SSTHeatmapLeaflet.jsx` must use the same color stops. Update both together whenever the color scheme changes.
 13. **Depth contours appear over land / peninsulas** → the elevation-sign land mask or morphological opening in `_build_grid` has been removed or reordered. Both must run before gap-fill. See Bathymetry section above. Delete `bathymetry_contours.json` and `bathymetry_contours_ga_sc.json` from the repo to force regeneration on next workflow run.
-16. **Depth contours appear inside sounds / bays (Bogue Sound, White Oak River, etc.)** → `_morphological_open_ocean` has been removed or the radius reduced below ~4. CRM (like GEBCO) assigns real depth to enclosed water bodies, so the elevation-sign land mask alone is insufficient — morphological opening is required to exclude narrow water bodies. Radius=6 (~2.7 km) is the tuned value; lowering it below 4 may let sounds through, raising it above 8 may clip the nearshore 10-fathom contour.
-17. **200-fathom contour has a hairpin spike near Cape Hatteras** → this was the root cause of the GEBCO → CRM migration. Do not revert to the GEBCO/ERDDAP source. If the spike reappears on CRM data, it is likely a CRM data artifact in that volume — try increasing `_CRM_STRIDE` slightly (e.g. 20) to smooth past the anomalous cell.
-14. **Users get localhost error on email confirmation** → fix Supabase Site URL.
-15. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
+14. **Depth contours appear inside sounds / bays (Bogue Sound, White Oak River, etc.)** → `_morphological_open_ocean` has been removed or the radius reduced below ~4. CRM (like GEBCO) assigns real depth to enclosed water bodies, so the elevation-sign land mask alone is insufficient — morphological opening is required to exclude narrow water bodies. Radius=6 (~2.7 km) is the tuned value; lowering it below 4 may let sounds through, raising it above 8 may clip the nearshore 10-fathom contour.
+15. **200-fathom contour has a hairpin spike near Cape Hatteras** → this was the root cause of the GEBCO → CRM migration. Do not revert to the GEBCO/ERDDAP source. If the spike reappears on CRM data, it is likely a CRM data artifact in that volume — try increasing `_CRM_STRIDE` slightly (e.g. 20) to smooth past the anomalous cell.
+16. **Users get localhost error on email confirmation** → fix Supabase Site URL.
+17. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
+18. **Shaded relief toggled on but SST/CHL still renders underneath** → the `showBathyRaster` early-return in the SST or overlay `useEffect` is missing or mis-ordered. Both effects must check `if (showBathyRaster) { /* cleanup + return */ }` before the main render path. Without it, the previous overlay lingers below the shaded relief tile layer.
+19. **Grey strip at north on CHL/composite/seacolor (especially portrait mobile)** → `setMaxBounds` in the overlay `.then()` or in the post-sstReady / vv-resize refit is using `llBounds` (region bounds, north=39.5°N) instead of actual data bounds. `dataBoundsRef.current` must be set to `{south, west, north, east}` from `gridToDataURL`'s result in every overlay `.then()` and in the SST `.then()`, and both refits must use `_db = dataBoundsRef.current` for `setMaxBounds`. See `docs/map_viewport_nuances.md` sections 5–6 for full pattern and commit b270a27.
+20. **Tab freezes for 20+ seconds on load** → `gridToDataURL` was called without an `AbortSignal`, or the calling effect is not aborting the controller on cleanup. Stale invocations pile up MessageChannel tasks. Ensure every call passes `_ac.signal` and `return () => _ac.abort()` is in the effect cleanup. See the `gridToDataURL` section above.
 
 ---
 
@@ -467,6 +487,8 @@ The elevation-sign + morphological opening approach solves all three problems wi
 **Why switching sources "fixes" it:** The SST overlay `.then()` callback calls `map.setMaxBounds(...)` and `map.setMinZoom(newFillZoom)`. Leaflet's `setMaxBounds` internally calls `_panInsideMaxBounds()` immediately when the map is already loaded, snapping the view inside bounds. `setMinZoom` calls `setZoom(getZoom())` internally when `newZoom > currentZoom`, forcing a re-render. Both run on every source switch — so the view always corrects after loading.
 
 **Fix:** A one-time `useEffect([sstReady, mapReady])` fires 150ms after the first layer renders (`sstReady` becomes `true`). **`sstReady` must be set by ALL layer paths** — both the SST imageOverlay `.then()` and the overlay layer `.then()` (composite / CHL / seacolor / altimetry). If only the SST path sets it, users with composite saved in localStorage will never trigger the refit. By that point the DOM layout is fully settled. It performs a full refit: `invalidateSize()` → `calcFillZoom` with correct container height → `setView(mercCenter, fz)` → while-loop bounds guard (tolerance 0.02°) → `setMinZoom` → `setMaxBounds`. Guarded by `userInteractedRef.current` so it never resets a panned user.
+
+**`setMaxBounds` in the refit MUST use `dataBoundsRef.current`** (the actual loaded data bounds), not `llBounds` (region bounds). `llBounds` has `north=39.5°N` — using it here overrides the tighter `north=39.0°N` data bounds that the overlay `.then()` set, causing the viewport to allow panning 0.5° above data north. Same applies to the vv-resize refit (`onVVResize`). See `docs/map_viewport_nuances.md` sections 5–6 and commit b270a27.
 
 ```js
 useEffect(() => {
@@ -637,7 +659,7 @@ Dropbox syncs files written by the Edit tool and silently truncates large JSX fi
 5. Poll Vercel until state is READY (not just "pushed").
 
 **Key file sizes (lines) — if shorter, file is truncated:**
-- `src/components/SSTHeatmapLeaflet.jsx` — ~4335 lines
+- `src/components/SSTHeatmapLeaflet.jsx` — 4514 lines
 - `src/pages/SSTLive.jsx` — ~1213 lines
 - `src/lib/glSandwich.js` — ~337 lines
 - `src/components/MapControlPanel.jsx` — ~829 lines
