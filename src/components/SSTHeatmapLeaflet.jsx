@@ -1071,6 +1071,10 @@ export default function SSTHeatmapLeaflet(props) {
   const canyonLabelLayerRef = useRef(null);
 
   const blobUrlsRef         = useRef([]);
+  // Tightest data bounds from the most recently loaded overlay/SST layer.
+  // Refits use these instead of llBounds so the viewport cannot extend
+  // north of the actual data boundary on mobile (portrait) screens.
+  const dataBoundsRef        = useRef(null);
 
   const selectedLocationRef = useRef(selectedLocation);
   useEffect(() => { selectedLocationRef.current = selectedLocation; }, [selectedLocation]);
@@ -1997,7 +2001,8 @@ export default function SSTHeatmapLeaflet(props) {
           if (_vb.getNorth() <= regionBounds.north + 0.02 && _vb.getSouth() >= regionBounds.south - 0.02) break;
           map.setView(mercCenter, map.getZoom() + 0.1, { animate: false });
         }
-        map.setMinZoom(map.getZoom()); map.setMaxBounds(llBounds);
+        const _db = dataBoundsRef.current;
+        map.setMinZoom(map.getZoom()); map.setMaxBounds(_db ? [[_db.south, _db.west], [_db.north, _db.east]] : llBounds);
         setRepaintTrigger(t => t + 1);
       } catch(_){}
     };
@@ -2058,6 +2063,7 @@ export default function SSTHeatmapLeaflet(props) {
         const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
         const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
         const mH = mN - mS, lR = east - west;
+        dataBoundsRef.current = { south, west, north, east };
         map.setMaxBounds([[south, west], [north, east]]);
         map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
       } catch(_) {}
@@ -2180,8 +2186,11 @@ export default function SSTHeatmapLeaflet(props) {
       // edge-to-edge with no top/bottom clip (matches main's proven behavior).
       if (activeDataLayer !== 'altimetry') {
         try {
-          // Region bounds for maxBounds (pan to full coastline); data bounds for minZoom
-          map.setMaxBounds(llBounds);
+          // Data bounds for maxBounds + minZoom. mercCenter is the Mercator midpoint of
+          // the region (39.5N), not the data (39.0N); centering there at data-fill-zoom
+          // overshoots north — clamping maxBounds to actual data north prevents it.
+          dataBoundsRef.current = { south, west, north, east };
+          map.setMaxBounds([[south, west], [north, east]]);
           const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
           const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
           const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
@@ -3061,7 +3070,8 @@ export default function SSTHeatmapLeaflet(props) {
           if (vb.getNorth() <= regionBounds.north + 0.02 && vb.getSouth() >= regionBounds.south - 0.02) break;
           map.setView(mercCenter, map.getZoom() + 0.1, { animate: false });
         }
-        map.setMinZoom(map.getZoom()); map.setMaxBounds(llBounds);
+        const _db2 = dataBoundsRef.current;
+        map.setMinZoom(map.getZoom()); map.setMaxBounds(_db2 ? [[_db2.south, _db2.west], [_db2.north, _db2.east]] : llBounds);
       } catch(_) {}
     }, 150);
     return () => clearTimeout(t);
