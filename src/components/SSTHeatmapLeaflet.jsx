@@ -2625,7 +2625,7 @@ export default function SSTHeatmapLeaflet(props) {
       minZoom: 5,
       maxNativeZoom: 11,
       maxZoom: 18,
-      opacity: 0.85,
+      opacity: 1,
       attribution: '',
       interactive: false,
     });
