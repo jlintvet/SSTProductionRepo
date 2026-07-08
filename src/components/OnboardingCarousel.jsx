@@ -30,7 +30,7 @@ const SLIDES = [
     id: "control-panel",
     title: "Navigating the Control Panel",
     caption: "The control panel explained — Sources, Overlays, Tools & Community Features.",
-    videoUrl: "/Overview%20of%20App%20Navigation%20and%20Controls.mp4",
+    videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/Overview+of+App+Navigation+and+Controls.mp4",
   },
   {
     id: "sst-map",
