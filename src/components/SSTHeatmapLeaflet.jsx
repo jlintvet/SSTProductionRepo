@@ -688,8 +688,15 @@ function computeLoranTD_Y(lat, lon) {
   return LORAN_Y_SEC.ed + (loranHaversineKm(lat, lon, LORAN_Y_SEC.lat, LORAN_Y_SEC.lon)
     - loranHaversineKm(lat, lon, LORAN_Y_MASTER.lat, LORAN_Y_MASTER.lon)) / 0.299709;
 }
-function buildLoranGrid(map, waterMask) {
-  const LSTEP = 0.1, LAT_MAX = 42, LAT_MIN = 24, LON_MIN = -87, LON_MAX = -60;
+function buildLoranGrid(map, waterMask, regionBounds) {
+  const LSTEP = 0.1;
+  // Clip to region + padding instead of full US coast — the full extent
+  // (~49k points x ~1000 isoline levels) freezes the main thread.
+  const PAD = 1.5;
+  const LAT_MAX = regionBounds ? Math.min(42, regionBounds.north + PAD) : 42;
+  const LAT_MIN = regionBounds ? Math.max(24, regionBounds.south - PAD) : 24;
+  const LON_MIN = regionBounds ? Math.max(-87, regionBounds.west  - PAD) : -87;
+  const LON_MAX = regionBounds ? Math.min(-60, regionBounds.east  + PAD) : -60;
   const latSet = [], lonSet = [];
   for (let la = LAT_MAX; la >= LAT_MIN - 0.001; la = Math.round((la - LSTEP) * 1e4) / 1e4) latSet.push(la);
   for (let lo = LON_MIN; lo <= LON_MAX + 0.001; lo = Math.round((lo + LSTEP) * 1e4) / 1e4) lonSet.push(lo);
@@ -2518,7 +2525,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (loranLayerRef.current) { loranLayerRef.current._loranCleanup?.(); map.removeLayer(loranLayerRef.current); loranLayerRef.current = null; }
     if (!showLoranGrid) return;
-    const grp = buildLoranGrid(map, waterMaskRef.current);
+    const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds);
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
   }, [mapReady, showLoranGrid, waterMaskVersion]);
 
