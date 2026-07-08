@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
-import { Crosshair, Move, Wind } from "lucide-react";
+import { Crosshair, Move, Wind, LifeBuoy } from "lucide-react";
 import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
 import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 import { SPECIES_LABELS } from "@/components/CommunityReportForm";
+import HelpReportModal from "@/components/HelpReportModal";
 
 // ── SavedPanel: tabbed Locations + Routes panel ───────────────────────────────
 function SavedPanel({
@@ -1347,6 +1348,7 @@ export default function SSTHeatmapLeaflet(props) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [panelCollapsed,  setPanelCollapsed] = useState(false);
   const [mobilePanel,     setMobilePanel]     = useState(null); // null | "sst" | "chl" | "seacolor" | "wind" | "tools"
+  const [showMobileHelp, setShowMobileHelp] = useState(false);
   const [shareLocation,   setShareLocation]   = useState(null);
 
   // ── Trip mode ref sync ───────────────────────────────────────────────────────
@@ -3376,7 +3378,16 @@ export default function SSTHeatmapLeaflet(props) {
               }}>
               GPS
             </button>
+            {/* Help & feedback */}
+            <button onClick={() => setShowMobileHelp(true)} title="Help & report an issue"
+              className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
+              style={{ width: 30, height: 30, padding: 0 }}>
+              <LifeBuoy className="w-4 h-4 text-slate-500" />
+            </button>
           </div>
+
+          {/* Mobile help & feedback modal */}
+          {showMobileHelp && <HelpReportModal onClose={() => setShowMobileHelp(false)} />}
 
           {/* Mobile saved panel */}
           {showSavedPanel&&(

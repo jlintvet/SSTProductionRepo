@@ -73,7 +73,7 @@ export default function TopBar({ onUpgrade }) {
         onClick={() => setShowHelp(true)}
         title="Help & report an issue"
         aria-label="Help & report an issue"
-        className="flex-shrink-0 w-8 h-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-cyan-700 flex items-center justify-center transition-colors"
+        className="hidden sm:flex flex-shrink-0 w-8 h-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-cyan-700 items-center justify-center transition-colors"
       >
         <LifeBuoy className="w-4 h-4" />
       </button>
