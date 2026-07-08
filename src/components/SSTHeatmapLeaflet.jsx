@@ -1097,6 +1097,9 @@ export default function SSTHeatmapLeaflet(props) {
   const showCurrentsRef  = useRef(false);          useEffect(() => { showCurrentsRef.current = showCurrents; }, [showCurrents]);
   const compositeDataRef=useRef(compositeData);useEffect(()=>{compositeDataRef.current=compositeData;},[compositeData]);
   const altimetryDataRef=useRef(altimetryData);useEffect(()=>{altimetryDataRef.current=altimetryData;},[altimetryData]);
+  const sstLatSetRef=useRef(latSet);useEffect(()=>{sstLatSetRef.current=latSet;},[latSet]);
+  const sstLonSetRef=useRef(lonSet);useEffect(()=>{sstLonSetRef.current=lonSet;},[lonSet]);
+  const sstGridRef=useRef(grid);useEffect(()=>{sstGridRef.current=grid;},[grid]);
   const sstReadyRef = useRef(false);
   const userInteractedRef = useRef(false);
 
@@ -1710,10 +1713,10 @@ export default function SSTHeatmapLeaflet(props) {
       const { lat, lng: lon } = e.latlng;
       if (lon < regionBounds.west || lon > regionBounds.east || lat < regionBounds.south || lat > regionBounds.north) return;
       let sst = null;
-      if (latSet.length > 0 && lonSet.length > 0) {
-        const nearLat = latSet.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
-        const nearLon = lonSet.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
-        sst = grid[`${nearLat}_${nearLon}`] ?? null;
+      if (sstLatSetRef.current.length > 0 && sstLonSetRef.current.length > 0) {
+        const nearLat = sstLatSetRef.current.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
+        const nearLon = sstLonSetRef.current.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
+        sst = sstGridRef.current[`${nearLat}_${nearLon}`] ?? null;
       }
       let depth_ft = null;
       if (bathyDataRef.current?.points?.length) {
@@ -1746,9 +1749,12 @@ export default function SSTHeatmapLeaflet(props) {
       if (lon < regionBounds.west || lon > regionBounds.east || lat < regionBounds.south || lat > regionBounds.north) {
         setHoverInfo(null); onHoverSst?.(null); return;
       }
-      const nearLat = latSet.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
-      const nearLon = lonSet.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
-      let sst = grid[`${nearLat}_${nearLon}`] ?? null;
+      let sst = null;
+      if (sstLatSetRef.current.length > 0 && sstLonSetRef.current.length > 0) {
+        const nearLat = sstLatSetRef.current.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
+        const nearLon = sstLonSetRef.current.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
+        sst = sstGridRef.current[`${nearLat}_${nearLon}`] ?? null;
+      }
       if (activeDataLayerRef.current === "composite") { console.log("[COMP]", !!compositeDataRef.current, compositeDataRef.current?.sst?.length, compositeDataRef.current?.latSet?.length); }
       if (activeDataLayerRef.current === "composite" && compositeDataRef.current?.sst?.length) {
         const cd = compositeDataRef.current;
@@ -1828,10 +1834,10 @@ export default function SSTHeatmapLeaflet(props) {
       // Guard against stale closure: latSet captured at init time may be empty if data
       // hadn't loaded yet when the map was created.
       let sst = null;
-      if (latSet.length > 0 && lonSet.length > 0) {
-        const nearLat = latSet.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
-        const nearLon = lonSet.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
-        sst = grid[`${nearLat}_${nearLon}`] ?? null;
+      if (sstLatSetRef.current.length > 0 && sstLonSetRef.current.length > 0) {
+        const nearLat = sstLatSetRef.current.reduce((a,b)=>Math.abs(b-lat)<Math.abs(a-lat)?b:a);
+        const nearLon = sstLonSetRef.current.reduce((a,b)=>Math.abs(b-lon)<Math.abs(a-lon)?b:a);
+        sst = sstGridRef.current[`${nearLat}_${nearLon}`] ?? null;
       }
       let depth_ft = null;
       if (bathyDataRef.current?.points?.length) { let best=null,bestDist=Infinity; for(const pt of bathyDataRef.current.points){const d=(pt.lat-lat)**2+(pt.lon-lon)**2;if(d<bestDist){bestDist=d;best=pt;}} depth_ft = best?.depth_ft ?? null; }
