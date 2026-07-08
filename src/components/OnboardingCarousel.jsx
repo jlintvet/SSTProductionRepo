@@ -27,6 +27,12 @@ const SLIDES = [
     posterUrl: "/onboarding-welcome-poster.jpg",
   },
   {
+    id: "control-panel",
+    title: "Navigating the Control Panel",
+    caption: "The control panel explained — Sources, Overlays, Tools & Community Features.",
+    videoUrl: "/Overview%20of%20App%20Navigation%20and%20Controls.mp4",
+  },
+  {
     id: "sst-map",
     title: "Reading the SST Map",
     caption: "What the colors mean, how to read warm/cold gradients, and why temperature edges are the key to finding fish.",
