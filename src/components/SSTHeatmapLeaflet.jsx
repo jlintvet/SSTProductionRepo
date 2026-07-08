@@ -2064,9 +2064,13 @@ export default function SSTHeatmapLeaflet(props) {
         const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
         const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
         const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
-        const mH = mN - mS, lR = east - west;
-        dataBoundsRef.current = { south, west, north, east };
-        map.setMaxBounds([[south, west], [north, east]]);
+        const mH = mN - mS;
+        // Use region bounds for west/east/south — data may not reach region edges
+        // (MUR/CHL/SeaColor are ocean-only, inshore areas often excluded).
+        // Keep data north to clamp the grey-strip-at-top.
+        const lR = regionBounds.east - regionBounds.west;
+        dataBoundsRef.current = { south: regionBounds.south, west: regionBounds.west, north, east: regionBounds.east };
+        map.setMaxBounds([[regionBounds.south, regionBounds.west], [north, regionBounds.east]]);
         map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
       } catch(_) {}
       sstReadyRef.current = true; setSstReady(true);
@@ -2191,12 +2195,14 @@ export default function SSTHeatmapLeaflet(props) {
           // Data bounds for maxBounds + minZoom. mercCenter is the Mercator midpoint of
           // the region (39.5N), not the data (39.0N); centering there at data-fill-zoom
           // overshoots north — clamping maxBounds to actual data north prevents it.
-          dataBoundsRef.current = { south, west, north, east };
-          map.setMaxBounds([[south, west], [north, east]]);
+          // Use region bounds for west/east/south — ocean-only data may not
+          // reach the region's inshore western edge; keep data north for grey-strip fix.
+          dataBoundsRef.current = { south: regionBounds.south, west: regionBounds.west, north, east: regionBounds.east };
+          map.setMaxBounds([[regionBounds.south, regionBounds.west], [north, regionBounds.east]]);
           const sz = map.getSize(); const cw = sz.x || 800, ch = sz.y || 600;
           const mN = Math.log(Math.tan(Math.PI/4 + north * Math.PI/360));
           const mS = Math.log(Math.tan(Math.PI/4 + south * Math.PI/360));
-          const mH = mN - mS, lR = east - west;
+          const mH = mN - mS, lR = regionBounds.east - regionBounds.west;
           map.setMinZoom(Math.max(Math.log2((cw * 360) / (256 * lR)), Math.log2((ch * 2 * Math.PI) / (256 * mH))));
         } catch(_) {}
       } else {
