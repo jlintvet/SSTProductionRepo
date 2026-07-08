@@ -121,7 +121,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   const [referralInput, setReferralInput] = useState("");
   const [referralStatus, setReferralStatus] = useState(null); // null | "redeeming" | "ok" | error message
   const [ambCodeInput, setAmbCodeInput] = useState("");
-  const [ambCodeStatus, setAmbCodeStatus] = useState(null); // null | "saving" | "ok" | error message
+  const [ambCodeError, setAmbCodeError] = useState(null); // null | error message string
   const [myReferrals, setMyReferrals] = useState([]);
   const [myReferralsLoading, setMyReferralsLoading] = useState(false);
   // Region is part of the same unsaved-changes flow as everything else in
@@ -176,8 +176,12 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
 
   async function handleSave() {
     setSaving(true);
+    setAmbCodeError(null);
     const regionChanged = region !== initialRegionRef.current;
-    const [ok, { error: profError }] = await Promise.all([
+    const codeChanged = referral.tier === "ambassador" &&
+      ambCodeInput.trim() &&
+      ambCodeInput.trim().toLowerCase() !== (referral.referral_code || "");
+    const saves = [
       saveUserSettings(userId, form),
       supabase.from("user_profiles").update({
         display_name:   profile.display_name.trim()   || null,
@@ -185,7 +189,15 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
         cashapp_handle: profile.cashapp_handle.trim() || null,
         region,
       }).eq("id", userId).select(),
-    ]);
+    ];
+    if (codeChanged) saves.push(supabase.rpc("set_my_referral_code", { p_code: ambCodeInput.trim().toLowerCase() }));
+    const results = await Promise.all(saves);
+    const [ok, { error: profError }] = results;
+    if (codeChanged) {
+      const { error: codeError } = results[2];
+      if (codeError) setAmbCodeError(codeError.message || "Could not save that code");
+      else { setReferral(r => ({ ...r, referral_code: ambCodeInput.trim().toLowerCase() })); loadMyReferrals(); }
+    }
     if (profError) console.error("profile upsert error:", profError);
     setSaving(false);
     if (ok && !profError) {
@@ -211,22 +223,6 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     const { data, error } = await supabase.rpc("get_my_referrals");
     if (!error) setMyReferrals(data || []);
     setMyReferralsLoading(false);
-  }
-
-  async function handleSaveAmbCode() {
-    const code = ambCodeInput.trim().toLowerCase();
-    if (!code) return;
-    setAmbCodeStatus("saving");
-    const { error } = await supabase.rpc("set_my_referral_code", { p_code: code });
-    if (error) {
-      setAmbCodeStatus(error.message || "Could not save that code");
-    } else {
-      setAmbCodeStatus("ok");
-      setReferral(r => ({ ...r, referral_code: code }));
-      setAmbCodeInput(code);
-      loadMyReferrals();
-      setTimeout(() => setAmbCodeStatus(null), 2000);
-    }
   }
 
   async function handleRedeemReferral() {
@@ -507,22 +503,8 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                   onChange={v => setAmbCodeInput(v.toLowerCase())}
                 />
               </Row>
-              <button
-                onClick={handleSaveAmbCode}
-                disabled={
-                  ambCodeStatus === "saving" ||
-                  !ambCodeInput.trim() ||
-                  ambCodeInput.trim().toLowerCase() === (referral.referral_code || "")
-                }
-                className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
-              >
-                {ambCodeStatus === "saving" ? "Saving…" : "Save code"}
-              </button>
-              {ambCodeStatus && ambCodeStatus !== "saving" && ambCodeStatus !== "ok" && (
-                <p className="text-[11px] text-red-500">{ambCodeStatus}</p>
-              )}
-              {ambCodeStatus === "ok" && (
-                <p className="text-[11px] text-emerald-600">Saved.</p>
+              {ambCodeError && (
+                <p className="text-[11px] text-red-500">{ambCodeError}</p>
               )}
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 Share this code — anyone who redeems it gets a free year of Pro. 4-30 lowercase letters/numbers, no spaces or symbols.
@@ -780,3 +762,4 @@ function RegionPickerInline({ selected, onSelect, onCancel }) {
     </div>
   );
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
