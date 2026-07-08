@@ -405,6 +405,61 @@ SHELF_BREAK_FT    = 1200   # 200 fathoms — used for UI shelf break styling
 
 ---
 
+## Shaded Relief (`BathyTileGenerator.py`) — Pro raster bathymetry
+
+**Not the same feature as "Bathymetry" above.** "Bathymetry" (`showBathyLayer`, free) draws vector depth-contour lines from `bathymetry_contours.json`. **"Shaded Relief"** (`showBathyRaster`, Pro-gated) is a full-color raster tile overlay — a separate pipeline, separate hosting (S3/CloudFront, not the `SSTv2` GitHub repo), and a separate Leaflet layer entirely.
+
+### Backend pipeline (`BathyTileGenerator.py`)
+
+Runs standalone (not part of the daily SST/CHL workflows) — manually dispatched via `.github/workflows/bathy-tiles.yml`. Tiles are static imagery with no daily data to refresh, so this only needs to be re-run when the color ramp changes, the CRM source data updates, or a new region is added.
+
+Pipeline, one region at a time (`process_region()`):
+1. **Fetch** — `fetch_crm_region()` pulls elevation from NCEI CRM 2023 via OPeNDAP (same `CRM_VOLUMES` source and bounding boxes as `StaticLayersRetrieval.py`'s contour pipeline — three volumes: NE Atlantic / SE Atlantic / FL–E Gulf). Fetched in `LAT_CHUNK_DEG = 0.25`° lat chunks — the OPeNDAP server times out above ~5M cells, and a full `mid_atlantic` region at stride 2 is ~115M cells. Each chunk retries up to 3× with backoff.
+   - `CRM_STRIDE` (env var, default `2` = ~60m; workflow default input is `1` = ~30m/max detail; `3` = ~90m for fast test runs).
+   - Post-fetch: `_fill_ocean_gaps` (4-connected neighbor averaging, up to 5 passes — fixes checkerboard artifacts from CRM volume misalignment), then `_smooth_elevation` (Gaussian, `sigma=2.2` — softens blocky source-resolution artifacts).
+   - `_fill_offshore_nodata` exists but is **disabled** — offshore NODATA is deliberately left transparent so the GL basemap shows through at the continental-shelf-edge data boundary, instead of being painted with a flat deep-water fallback color.
+2. **VRT** — `write_vrt()` writes the elevation grid as raw float32 binary + a GDAL VRT sidecar (avoids needing GDAL's Python bindings — only the CLI tools are used).
+3. **Hillshade + color-relief** (`gdaldem`) — `generate_hillshade` (`-z 2 -az 315 -alt 45`, light from NW) and `generate_color_relief` using the `COLOR_RAMP` nautical-chart palette (warm sand shallows → aqua shelf → mid blue → dark navy deep, **not black** — color stops keyed by elevation in meters, see the script).
+4. **Blend + mask** (`blend_and_mask()`) — multiplies hillshade onto color-relief (`0.42 + hillshade*0.58` soft-multiply floor so shadows go near-black without crushing to pure black), then alpha-masks: ocean (`elev < 0`) → opaque, land → transparent. Processed in `STRIP_H = 500`-row strips to cap working memory (~250MB) since a full-resolution float32 array can exceed 7GB at stride 1.
+5. **Tiling** (`gdal2tiles`) — `-z 5-11 -r lanczos --xyz` (standard XYZ tile scheme, matches Leaflet's default).
+6. **Upload** — pushes every tile to `s3://sst-bathy-tiles/bathy/{region}/{z}/{x}/{y}.png` with `Cache-Control: max-age=86400`, then submits a CloudFront invalidation for `/bathy/{region}/*` if `CLOUDFRONT_DISTRIBUTION_ID` is set (GitHub secret). Without that secret, tiles are just cached for up to 24h with no invalidation.
+
+CloudFront domain: `https://d3qy1jhzqojgwx.cloudfront.net`. Tile URL pattern: `/bathy/{region}/{z}/{x}/{y}.png`.
+
+Regions (`REGION_CONFIGS`): `mid_atlantic` (33.70–39.00N, -78.89 to -72.21) and `ga_sc` (29.80–35.20N, -82.00 to -75.20) — identical bounding boxes to the contour pipeline's `_REGION_CONFIGS`.
+
+### Workflow (`bathy-tiles.yml`)
+
+- **Manual trigger only** (`workflow_dispatch`) — inputs `region` (`all` / `mid_atlantic` / `ga_sc`) and `crm_stride` (`1`/`2`/`3`). Not scheduled; tiles don't need daily regeneration.
+- 240-minute timeout — OPeNDAP fetch + GDAL tiling at stride 1 for the full region can be slow.
+- Installs `gdal-bin` via apt, plus `netCDF4 numpy Pillow boto3 scipy` via pip (scipy enables gap-fill/smoothing — the script degrades gracefully without it, just skips those steps and logs a warning).
+- Requires `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets (S3 upload) and optionally `CLOUDFRONT_DISTRIBUTION_ID` (cache invalidation). AWS region `us-east-2`.
+- `permissions: contents: read` — output goes to S3, not git, so there's no repo write-back step (unlike the daily SST/CHL/bathymetry-contour workflows).
+
+### Frontend integration (`SSTHeatmapLeaflet.jsx`)
+
+- **`BATHY_TILE_URL`** is built per-region in `SSTLive.jsx`: `` `https://d3qy1jhzqojgwx.cloudfront.net/bathy/${BATHY_TILE_REGION}/{z}/{x}/{y}.png?v=2` `` where `BATHY_TILE_REGION` is `regionConfig.dataPathSuffix || "mid_atlantic"` (GA/SC regions get `"ga_sc"`, everyone else falls back to `"mid_atlantic"`). The `?v=2` cache-bust was added to force mobile browsers to drop indefinitely-cached stale tiles from before the backend started setting `max-age=86400` on upload — bump this suffix again if a future re-render needs to bypass long-lived mobile caches.
+- **State:** `showBathyRaster` (`useState(false)`, default off).
+- **Pane:** `bathyTilePane`, created at map-init with `zIndex: 362` — above `sstDataPane` (350, non-GL SST/CHL raster) but below `bathyPane` (375, contour lines) and `overlayPane` (400, wind/currents). See the pane-stacking comment above the `map.createPane` calls in the map-init effect.
+- **Tile layer `useEffect`** (deps: `mapReady`, `showBathyRaster`, `BATHY_TILE_URL`): tears down and recreates `bathyTileRef` on every toggle. `minZoom: 5, maxNativeZoom: 11, maxZoom: 18, opacity: 1` — Leaflet upscales past the native zoom-11 tiles instead of going blank at higher zoom. `interactive: false`, no attribution string.
+- **Gating other layers:** when `showBathyRaster` is true it must fully replace SST/CHL/composite/seacolor rendering, not just sit on top of it. Both the SST `useEffect` and the overlay (CHL/composite/seacolor/altimetry) `useEffect` check `if (showBathyRaster) { ...cleanup...; return; }` **before** their normal render path, clearing the GL layer / active `imageOverlay` first. Toggling `showBathyRaster` back off restores whatever `activeDataLayer` was already selected. See debug checklist item 18 below if the old layer bleeds through underneath.
+
+### Control panel UI
+
+- **Desktop:** `MapControlPanel.jsx`, Tools section — Pro-gated (`ProGate`) `ToolBtn` labeled "Shaded Relief", `color="cyan"` (matches the standardized ToolBtn active color — not a distinct per-button color). Sits above the "Plan Trip" button. Help button (`hbtn("shadedrelief")`) alongside it.
+- **Mobile:** in the mobile Tools drawer (`mobilePanel === "tools"`), paired in a 2-column grid with the "Bathymetry" button. `MobileProGate` wraps it; active state `bg-cyan-700`.
+- **Help config:** `HELP_CONFIG.shadedrelief` — title "Shaded Relief", reuses the `/help/bathy.png` image (no dedicated image file), text explains the nautical color gradient + topographic shading vs. plain contour lines.
+- **Both desktop and mobile buttons are Pro-gated** — free users see the dimmed button + upgrade prompt (`ProGate` / `MobileProGate`), same pattern as other Pro tools.
+
+### History
+
+- Introduced as a Pro overlay separated from the free contour "Bathymetry" toggle; tile zoom fixed (`maxNativeZoom` / `maxZoom` split so tiles upscale past zoom 11 instead of blanking).
+- Opacity tuned from `0.85` to `1` (relief looked washed out at 0.85 against the basemap).
+- Moved from the Overlays section to the Tools section in the control panel (both desktop and mobile) so it sits with other Pro rendering-mode toggles rather than additive overlays.
+- `?v=2` cache-bust suffix added to `BATHY_TILE_URL` to clear indefinitely-cached stale tiles on mobile browsers, once the backend started sending a 24h `Cache-Control` header on upload.
+
+---
+
 ## Wrecks / Bottom Features (`DailySST/wrecks.json`)
 
 ### Source
