@@ -31,6 +31,7 @@ const SLIDES = [
     title: "Navigating the Control Panel",
     caption: "The control panel explained — Sources, Overlays, Tools & Community Features.",
     videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/Overview+of+App+Navigation+and+Controls.mp4",
+    posterUrl: "/onboarding-control-panel-poster.jpg",
   },
   {
     id: "sst-map",
@@ -91,7 +92,7 @@ const SLIDES = [
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function OnboardingCarousel({ onComplete }) {
   const [slide, setSlide]   = useState(0);
-  const [muted, setMuted]   = useState(true);
+  const [muted, setMuted]   = useState(false);
   const videoRef            = useRef(null);
   const total               = SLIDES.length;
   const current             = SLIDES[slide];
