@@ -35,9 +35,10 @@ const SLIDES = [
   },
   {
     id: "sst-map",
-    title: "Reading the SST Map",
-    caption: "What the colors mean, how to read warm/cold gradients, and why temperature edges are the key to finding fish.",
-    videoUrl: null,
+    title: "Our Data Sources Explained",
+    caption: "A high level overview of our SST, Chlorophyl, Sea Color, Altimetry and Wind data sources.",
+    videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RipLoc+Source+Data.mp4",
+    posterUrl: "/onboarding-data-sources-poster.jpg",
   },
   {
     id: "data-sources",
