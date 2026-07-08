@@ -167,6 +167,10 @@ tr:hover td{background:#1e293b}
     <div class="pill green">Tips total <span id="statTipsAll">—</span></div>
     <button id="bathyBtn" class="btn btn-slate btn-sm" onclick="toggleBathy()" style="margin-left:4px;background:#1e40af;border-color:#3b82f6;color:#bfdbfe">Bathy on</button>
     <button id="sstBtn" class="btn btn-slate btn-sm" onclick="togglePinsSst()" style="margin-left:4px">SST off</button>
+    <div style="display:flex;gap:2px;margin-left:6px">
+      <button id="regionBtnMA" class="btn btn-slate btn-sm" onclick="setRegion('mid_atlantic')">Mid-Atl</button>
+      <button id="regionBtnGS" class="btn btn-slate btn-sm" onclick="setRegion('ga_sc')">GA/SC</button>
+    </div>
     <div id="tokenWrap">
       <input id="tokenInput" type="password" placeholder="GitHub token" autocomplete="off"/>
       <button id="signOutBtn" class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
@@ -178,6 +182,7 @@ tr:hover td{background:#1e293b}
     <button class="tab-btn" onclick="switchTab('leaderboard')">Leaderboard</button>
     <button class="tab-btn" onclick="switchTab('tips')">Tips</button>
     <button class="tab-btn" onclick="switchTab('zones')">Zones</button>
+    <button class="tab-btn" onclick="switchTab('seed')">Seed</button>
     <button class="tab-btn" onclick="switchTab('prizes')">Prizes</button>
   </div>
 
@@ -358,6 +363,36 @@ tr:hover td{background:#1e293b}
     </div>
   </div>
 
+  <!-- ── SEED (pin volume / frequency + kill switch) ── -->
+  <div id="tabSeed" class="tab-pane" style="flex-direction:column">
+    <div class="data-header">
+      <h2>Seed Volume &amp; Kill Switch</h2>
+      <button class="btn btn-slate btn-sm" style="margin-left:auto" onclick="loadSeedConfig()">Refresh</button>
+    </div>
+    <div class="data-body" style="max-width:480px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <input type="checkbox" id="sEnabled" style="width:16px;height:16px;accent-color:#38bdf8;cursor:pointer"/>
+        <label for="sEnabled" style="font-size:13px;font-weight:600;cursor:pointer">Seeding enabled (kill switch)</label>
+      </div>
+      <div style="margin-bottom:10px"><div class="flabel">End date (posting auto-stops after this date)</div><input id="sEndDate" class="finput" type="date"/></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1"><div class="flabel">Pins per run — min</div><input id="sPinsMin" class="finput" type="number" min="0" max="50"/></div>
+        <div style="flex:1"><div class="flabel">Pins per run — max</div><input id="sPinsMax" class="finput" type="number" min="0" max="50"/></div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin:-6px 0 10px">Runs 3x/day (schedule in community-seed.yml) &mdash; total/day &asymp; 3 &times; midpoint of this range.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1"><div class="flabel">Live fraction (0-1)</div><input id="sLiveFraction" class="finput" type="number" min="0" max="1" step="0.05"/></div>
+        <div style="flex:1"><div class="flabel">Tip fraction (0-1)</div><input id="sTipFraction" class="finput" type="number" min="0" max="1" step="0.05"/></div>
+      </div>
+      <div style="margin-bottom:10px"><div class="flabel">Backfill days (used by "create" only)</div><input id="sBackfillDays" class="finput" type="number" min="0" max="30"/></div>
+      <div style="display:flex;gap:6px;padding-top:4px">
+        <button class="btn btn-green btn-sm" onclick="saveSeedConfig()">Save</button>
+      </div>
+      <div id="seedStatus" style="font-size:11px;min-height:14px;margin-top:6px"></div>
+      <div id="sUpdatedAt" style="font-size:10px;color:#64748b;margin-top:2px"></div>
+    </div>
+  </div>
+
   <!-- ── PRIZES ── -->
   <div id="tabPrizes" class="tab-pane" id="prizesPane" style="flex-direction:column">
     <div class="data-header">
@@ -407,8 +442,6 @@ const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
 const GH_REPO  = 'jlintvet/SSTProductionRepo';
 const GH_PATH  = 'src/public/prizes.json';
 const GH_API   = 'https://api.github.com';
-const BATHY_URL = 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json';
-const VIIRS_COMPOSITE_URL = 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/viirs_composite.json';
 
 const SPECIES = {
   yellowfin:'Yellowfin Tuna', blackfin:'Blackfin Tuna', bluefin:'Bluefin Tuna',
@@ -416,6 +449,63 @@ const SPECIES = {
   cobia:'Cobia', grouper:'Grouper', rockfish:'Rockfish', seabass:'Seabass',
   tilefish:'Tilefish', flounder:'Flounder', other:'Other'
 };
+
+// ── Region (mid_atlantic / ga_sc) ────────────────────────────────────────────
+const REGIONS = {
+  mid_atlantic: {
+    label: 'Mid-Atlantic',
+    center: [35.5, -75.5], zoom: 7,
+    bounds: { north: 39.50, south: 33.70, west: -78.84, east: -72.21 },
+    bathyUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json',
+    viirsUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/viirs_composite.json',
+  },
+  ga_sc: {
+    label: 'GA/SC',
+    center: [32.4, -78.6], zoom: 7,
+    bounds: { north: 35.20, south: 29.80, west: -82.00, east: -75.20 },
+    bathyUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours_ga_sc.json',
+    viirsUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/ga_sc/viirs_composite.json',
+  },
+};
+let currentRegion = localStorage.getItem('admin_region') || 'mid_atlantic';
+if (!REGIONS[currentRegion]) currentRegion = 'mid_atlantic';
+function inRegion(lat, lon, region) {
+  const b = REGIONS[region].bounds;
+  return lat >= b.south && lat <= b.north && lon >= b.west && lon <= b.east;
+}
+function updateRegionButtons() {
+  _ovBtn(document.getElementById('regionBtnMA'), currentRegion === 'mid_atlantic', '#0e7490');
+  _ovBtn(document.getElementById('regionBtnGS'), currentRegion === 'ga_sc', '#0e7490');
+}
+function resetOverlayCaches() {
+  _bathyGeo = null; _sstCache = null;
+  if (bathyLayer) { map.removeLayer(bathyLayer); bathyLayer = null; }
+  if (pinsSst) {
+    map.removeLayer(pinsSst); pinsSst = null;
+    const b = document.getElementById('sstBtn'); b.textContent = 'SST off'; _ovBtn(b, false);
+  }
+  if (zonesMap) {
+    if (zonesBathy) { zonesMap.removeLayer(zonesBathy); zonesBathy = null; _ovBtn(document.getElementById('zBathyBtn'), false); }
+    if (zonesSst)   { zonesMap.removeLayer(zonesSst);   zonesSst = null;   _ovBtn(document.getElementById('zSstBtn'), false); }
+  }
+}
+async function setRegion(region) {
+  if (!REGIONS[region] || region === currentRegion) return;
+  currentRegion = region;
+  localStorage.setItem('admin_region', region);
+  updateRegionButtons();
+  resetOverlayCaches();
+  if (map) {
+    map.setView(REGIONS[region].center, REGIONS[region].zoom);
+    await loadBathy();
+    buildPinMarkers(); renderPinList();
+  }
+  if (zonesMap) {
+    zonesMap.setView(REGIONS[region].center, REGIONS[region].zoom);
+    toggleZonesBathy();   // bathy defaults on for the new region, same as first-open behavior
+    loadZones();
+  }
+}
 
 // ── Supabase ────────────────────────────────────────────────────────────────
 const { createClient } = supabase;
@@ -468,14 +558,14 @@ document.getElementById('authPass').addEventListener('keydown', e => { if (e.key
 let activeTab = 'pins';
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const tabs = ['pins','leaderboard','tips','zones','prizes'];
+    const tabs = ['pins','leaderboard','tips','zones','seed','prizes'];
     b.classList.toggle('active', tabs[i] === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   const el = document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1));
   if (el) { el.classList.add('active'); el.style.display = 'flex'; }
   // hide others
-  ['Pins','Leaderboard','Tips','Zones','Prizes'].filter(t => t.toLowerCase() !== name).forEach(t => {
+  ['Pins','Leaderboard','Tips','Zones','Seed','Prizes'].filter(t => t.toLowerCase() !== name).forEach(t => {
     const e = document.getElementById('tab' + t);
     if (e) e.style.display = 'none';
   });
@@ -483,6 +573,7 @@ function switchTab(name) {
   if (name === 'leaderboard') loadLeaderboard();
   if (name === 'tips') loadTips();
   if (name === 'zones') initZones();
+  if (name === 'seed') loadSeedConfig();
   if (name === 'prizes') loadPrizesJson();
   if (map) setTimeout(() => map.invalidateSize(), 50);
 }
@@ -521,8 +612,9 @@ async function loadStats() {
 let allPins = [], selectedPinId = null, map, markers = {};
 
 function initMap() {
-  map = L.map('leafletMap', { center: [35.5, -75.5], zoom: 7 });
+  map = L.map('leafletMap', { center: REGIONS[currentRegion].center, zoom: REGIONS[currentRegion].zoom });
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB', maxZoom: 19 }).addTo(map);
+  updateRegionButtons();
   loadBathy();
 }
 
@@ -537,9 +629,10 @@ function bathyStyle(ft) {
 }
 async function loadBathy() {
   try {
-    const res = await fetch(BATHY_URL + '?t=' + Date.now());
+    const res = await fetch(REGIONS[currentRegion].bathyUrl + '?t=' + Date.now());
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
+    if (bathyLayer) { map.removeLayer(bathyLayer); bathyLayer = null; }
     bathyLayer = L.geoJSON(data, { style: bathyStyle, interactive: false });
     if (bathyOn) bathyLayer.addTo(map);
   } catch(e) { console.warn('Bathy load failed:', e); }
@@ -555,7 +648,7 @@ function toggleBathy() {
 let _bathyGeo = null;
 async function getBathyGeo() {
   if (_bathyGeo) return _bathyGeo;
-  const r = await fetch(BATHY_URL + '?t=' + Date.now());
+  const r = await fetch(REGIONS[currentRegion].bathyUrl + '?t=' + Date.now());
   if (!r.ok) throw new Error('bathy HTTP ' + r.status);
   _bathyGeo = await r.json();
   return _bathyGeo;
@@ -570,7 +663,7 @@ function _sstInterp(t) {
 let _sstCache = null;
 async function getSst() {
   if (_sstCache) return _sstCache;
-  const r = await fetch(VIIRS_COMPOSITE_URL + '?t=' + Date.now());
+  const r = await fetch(REGIONS[currentRegion].viirsUrl + '?t=' + Date.now());
   if (!r.ok) throw new Error('composite HTTP ' + r.status);
   const d = await r.json();
   const { latSet, lonSet, sst } = d;
@@ -652,6 +745,7 @@ function buildPinMarkers() {
   markers = {};
   allPins.forEach(p => {
     if (!p.lat || !p.lon) return;
+    if (!inRegion(p.lat, p.lon, currentRegion)) return;
     const color = pinColor(p);
     const icon = L.divIcon({
       className: '',
@@ -680,6 +774,7 @@ function getFilteredPins() {
   const exp  = document.getElementById('fExpiry').value;
   const now  = new Date();
   return allPins.filter(p => {
+    if (p.lat != null && p.lon != null && !inRegion(p.lat, p.lon, currentRegion)) return false;
     if (type && p.type !== type) return false;
     if (flag === 'flagged' && !p.is_flagged) return false;
     if (flag === 'ok' && p.is_flagged) return false;
@@ -862,7 +957,7 @@ async function deleteTip(pinId, tipId) {
 let zonesMap=null, zoneLayers={}, draftCenter=null, draftCircle=null, draftMarker=null, editingZoneId=null, _zones=[];
 function initZones() {
   if (!zonesMap) {
-    zonesMap = L.map('zonesMap', { center: [35.5, -75.5], zoom: 7 });
+    zonesMap = L.map('zonesMap', { center: REGIONS[currentRegion].center, zoom: REGIONS[currentRegion].zoom });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB', maxZoom: 19 }).addTo(zonesMap);
     zonesMap.on('click', e => {
       draftCenter = e.latlng; updateDraftCircle();
@@ -896,7 +991,7 @@ function resetZoneDraft() {
   document.getElementById('zoneStatus').textContent='';
 }
 async function loadZones() {
-  const { data: zones, error } = await sb.from('seed_zones').select('*').order('created_at',{ascending:false});
+  const { data: zones, error } = await sb.from('seed_zones').select('*').eq('region', currentRegion).order('created_at',{ascending:false});
   Object.values(zoneLayers).forEach(l=>zonesMap.removeLayer(l)); zoneLayers={};
   const body = document.getElementById('zonesListBody');
   if (error) { body.innerHTML=`<div style="padding:10px;font-size:11px;color:#f87171">${error.message}</div>`; return; }
@@ -936,6 +1031,7 @@ async function saveZone() {
     radius_nm: parseFloat(document.getElementById('zRadius').value)||8,
     weight: parseInt(document.getElementById('zWeight').value)||1,
     species,
+    region: currentRegion,
   };
   st.style.color='#67e8f9'; st.textContent='Saving…';
   const { error } = editingZoneId
@@ -1156,6 +1252,50 @@ async function loadTips() {
     <td>$${((t.amount_cents||0)/100).toFixed(2)}</td>
     <td class="platform-${t.platform}">${t.platform}</td>
   </tr>`).join('') || '<tr><td colspan="5" style="color:#475569;text-align:center">No tips yet</td></tr>';
+}
+
+// ── SEED (pin volume / frequency + kill switch) ──────────────────────────────
+async function loadSeedConfig() {
+  const st = document.getElementById('seedStatus');
+  st.style.color = '#67e8f9'; st.textContent = 'Loading...';
+  const { data, error } = await sb.from('seed_config').select('*').eq('id', 1).maybeSingle();
+  if (error) { st.style.color = '#f87171'; st.textContent = 'Error: ' + error.message; return; }
+  if (!data) { st.style.color = '#f87171'; st.textContent = 'No seed_config row found — run community-seed-schema.sql first.'; return; }
+  document.getElementById('sEnabled').checked      = !!data.enabled;
+  document.getElementById('sEndDate').value        = data.end_date || '';
+  document.getElementById('sPinsMin').value        = data.pins_per_run_min ?? 2;
+  document.getElementById('sPinsMax').value        = data.pins_per_run_max ?? 3;
+  document.getElementById('sLiveFraction').value   = data.live_fraction ?? 0.30;
+  document.getElementById('sTipFraction').value    = data.tip_fraction ?? 0.25;
+  document.getElementById('sBackfillDays').value   = data.backfill_days ?? 5;
+  document.getElementById('sUpdatedAt').textContent = data.updated_at ? ('Last updated ' + new Date(data.updated_at).toLocaleString()) : '';
+  st.textContent = '';
+}
+
+async function saveSeedConfig() {
+  const st = document.getElementById('seedStatus');
+  const endDate = document.getElementById('sEndDate').value;
+  if (!endDate) { st.style.color = '#f87171'; st.textContent = 'End date is required.'; return; }
+  const pinsMin = Math.max(0, parseInt(document.getElementById('sPinsMin').value) || 0);
+  const pinsMax = Math.max(pinsMin, parseInt(document.getElementById('sPinsMax').value) || pinsMin);
+  const liveFraction = Math.min(1, Math.max(0, parseFloat(document.getElementById('sLiveFraction').value) || 0));
+  const tipFraction  = Math.min(1, Math.max(0, parseFloat(document.getElementById('sTipFraction').value) || 0));
+  const backfillDays = Math.max(0, parseInt(document.getElementById('sBackfillDays').value) || 0);
+  const patch = {
+    enabled: document.getElementById('sEnabled').checked,
+    end_date: endDate,
+    pins_per_run_min: pinsMin,
+    pins_per_run_max: pinsMax,
+    live_fraction: liveFraction,
+    tip_fraction: tipFraction,
+    backfill_days: backfillDays,
+    updated_at: new Date().toISOString(),
+  };
+  st.style.color = '#67e8f9'; st.textContent = 'Saving...';
+  const { error } = await sb.from('seed_config').update(patch).eq('id', 1);
+  if (error) { st.style.color = '#f87171'; st.textContent = 'Error: ' + error.message; return; }
+  st.style.color = '#86efac'; st.textContent = 'Saved';
+  loadSeedConfig();
 }
 
 // ── PRIZES ────────────────────────────────────────────────────────────────────
