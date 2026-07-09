@@ -608,10 +608,10 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
             {saving ? "Saving…" : saved ? "✓ Saved" : "Save Settings"}
           </button>
           <button
-            onClick={onClose}
+            onClick={showRegionPicker ? () => setShowRegionPicker(false) : onClose}
             className="px-4 py-2 text-sm text-slate-500 hover:text-slate-800 transition-colors"
           >
-            Cancel
+            {showRegionPicker ? "Back" : "Cancel"}
           </button>
           <button
             onClick={() => {
