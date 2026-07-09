@@ -42,9 +42,10 @@ const SLIDES = [
   },
   {
     id: "data-sources",
-    title: "SST Data Sources",
-    caption: "MUR (Cloud Free) gives the clearest daily picture. VIIRS Hourly shows the freshest satellite passes. HD Composite fills cloud gaps.",
-    videoUrl: null,
+    title: "User Settings",
+    caption: "Take a minute to configure your user settings to unlock features and community benefits.",
+    videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RipLoc+User+Settings.mp4",
+    posterUrl: "/onboarding-user-settings-poster.jpg",
   },
   {
     id: "temp-break",
