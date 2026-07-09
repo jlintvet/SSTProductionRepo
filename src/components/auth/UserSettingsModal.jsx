@@ -287,10 +287,12 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
             ) : (
               <RegionPickerInline
                 selected={region}
-                onSelect={(key) => {
+                onSelect={async (key) => {
                   setRegion(key);
-                  setSaved(false);
                   setShowRegionPicker(false);
+                  await supabase.from("user_profiles").update({ region: key }).eq("id", userId).select();
+                  try { sessionStorage.setItem("riploc.reopenSettingsAfterReload", "1"); } catch (_) {}
+                  window.location.reload();
                 }}
                 onCancel={() => setShowRegionPicker(false)}
               />
@@ -751,14 +753,7 @@ function RegionPickerInline({ selected, onSelect, onCancel }) {
           </div>
         );
       })}
-      <div className="flex justify-end mt-1">
-        <button
-          onClick={onCancel}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
+
     </div>
   );
 }
