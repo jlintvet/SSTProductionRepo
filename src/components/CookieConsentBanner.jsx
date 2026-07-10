@@ -88,7 +88,7 @@ export default function CookieConsentBanner() {
           RipLoc uses essential cookies for authentication and secure payment processing.
           We do not use advertising or tracking cookies. By continuing, you agree to our{" "}
           <a
-            href="/terms.pdf"
+            href="/terms"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "#0e7490", textDecoration: "underline" }}

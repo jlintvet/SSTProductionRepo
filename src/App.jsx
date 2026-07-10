@@ -18,6 +18,7 @@ import SharedRouteLanding from "@/pages/SharedRouteLanding";
 import MapTest from "@/pages/MapTest";
 import WreckReviewAdmin from "@/pages/WreckReviewAdmin";
 import UpgradePage from "@/pages/UpgradePage";
+import TermsPage from "@/pages/TermsPage";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 
 // Loading spinner
@@ -114,6 +115,7 @@ function AppRoot() {
       <Router>
       <Routes>
         {/* Public routes -- no auth required */}
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/upgrade" element={<UpgradePage />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/share" element={<SharedLocationLanding />} />

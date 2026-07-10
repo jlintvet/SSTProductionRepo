@@ -106,7 +106,7 @@ function RegisterForm({ onSwitch }) {
         />
         <span className="text-xs text-slate-500">
           I have read and agree to the{" "}
-          <a href="/terms.pdf" target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline font-medium">
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline font-medium">
             Terms and Conditions
           </a>
           . I am 18 years of age or older.
@@ -184,7 +184,7 @@ export default function AuthGate({ children }) {
         }
         <p className="mt-6 text-center text-[10px] text-slate-400">
           Protected by Supabase Auth.{" "}
-          <a href="/terms.pdf" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms</a>
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms</a>
         </p>
       </div>
     </div>
