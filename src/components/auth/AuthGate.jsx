@@ -40,14 +40,37 @@ function RegisterForm({ onSwitch }) {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
   const [sent, setSent]         = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (!tosAccepted) { setError("You must accept the Terms and Conditions to create an account."); return; }
     setLoading(true);
-    const { error: sbError } = await supabase.auth.signUp({ email, password });
+
+    // Capture acceptance metadata — IP fetch is best-effort
+    const tosAcceptedAt = new Date().toISOString();
+    const tosVersion = "1.0";
+    let tosIp = null;
+    try {
+      const ipRes = await fetch("https://api.ipify.org?format=json");
+      const ipData = await ipRes.json();
+      tosIp = ipData.ip || null;
+    } catch (_) {}
+
+    const { error: sbError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          tos_accepted_at: tosAcceptedAt,
+          tos_accepted_ip: tosIp,
+          tos_version: tosVersion,
+        },
+      },
+    });
     setLoading(false);
     if (sbError) { setError(sbError.message); } else { setSent(true); }
   }
@@ -74,6 +97,21 @@ function RegisterForm({ onSwitch }) {
       <InputField label="Password" id="reg-password" type="password" value={password} onChange={setPassword} autoComplete="new-password" />
       <InputField label="Confirm password" id="reg-confirm" type="password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
       {error && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={tosAccepted}
+          onChange={(e) => setTosAccepted(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
+        />
+        <span className="text-xs text-slate-500">
+          I have read and agree to the{" "}
+          <a href="/terms.pdf" target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline font-medium">
+            Terms and Conditions
+          </a>
+          . I am 18 years of age or older.
+        </span>
+      </label>
       <AuthButton loading={loading}>Create free account</AuthButton>
       <p className="text-center text-xs text-slate-500">
         Already have an account?{" "}
@@ -145,7 +183,8 @@ export default function AuthGate({ children }) {
           : <RegisterForm onSwitch={() => setMode("login")} />
         }
         <p className="mt-6 text-center text-[10px] text-slate-400">
-          By continuing you agree to our Terms of Service and Privacy Policy.
+          Protected by Supabase Auth.{" "}
+          <a href="/terms.pdf" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms</a>
         </p>
       </div>
     </div>
