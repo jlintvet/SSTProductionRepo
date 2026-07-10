@@ -18,6 +18,7 @@ import SharedRouteLanding from "@/pages/SharedRouteLanding";
 import MapTest from "@/pages/MapTest";
 import WreckReviewAdmin from "@/pages/WreckReviewAdmin";
 import UpgradePage from "@/pages/UpgradePage";
+import CookieConsentBanner from "@/components/CookieConsentBanner";
 
 // Loading spinner
 function Spinner() {
@@ -108,7 +109,9 @@ function AppRoot() {
   }, []);
 
   return (
-    <Router>
+    <>
+      <CookieConsentBanner />
+      <Router>
       <Routes>
         {/* Public routes -- no auth required */}
         <Route path="/upgrade" element={<UpgradePage />} />
@@ -134,6 +137,7 @@ function AppRoot() {
         } />
       </Routes>
     </Router>
+    </>
   );
 }
 
