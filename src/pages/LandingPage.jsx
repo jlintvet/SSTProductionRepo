@@ -580,6 +580,14 @@ function AuthForm({ onSuccess, initialMode }) {
         bounds: "N 35.2°  ·  S 29.8°  ·  W 82.0°  ·  E 75.2°",
         ports: ["Beaufort SC","Carolina Beach","Charleston","Darien","Fernandina Beach","Georgetown SC","Hilton Head","Jekyll Island","Little River Inlet","Mayport","Murrells Inlet","Myrtle Beach","Southport","St. Augustine","St. Simons Island","Tybee Island","Wrightsville Beach"],
       },
+      {
+        key: "ne_fl",
+        label: "Northeast Florida",
+        mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-81.75,26.0,-77.27,30.5]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
+        desc: "Jacksonville to Fort Lauderdale offshore — Gulf Stream close to shore, reef structure, deep inlets",
+        bounds: "N 30.5°  ·  S 26.0°  ·  W 81.75°  ·  E 77.27°",
+        ports: ["Mayport","St. Augustine","Ponce Inlet","Port Canaveral","Sebastian Inlet","Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale"],
+      },
     ];
     function handleRegionContinue() {
       sessionStorage.setItem("pendingRegion", selectedRegion);

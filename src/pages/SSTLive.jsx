@@ -192,6 +192,7 @@ const SLA_GRADIENT  = "linear-gradient(to right, rgb(0,0,200), rgb(0,190,255), r
 const REGION_OPTIONS = [
   { value: "mid_atlantic", label: "Mid-Atlantic (MD / VA / NC)" },
   { value: "ga_sc",        label: "Georgia & South Carolina" },
+  { value: "ne_fl",        label: "Northeast Florida" },
 ];
 
 function InlineLogin() {

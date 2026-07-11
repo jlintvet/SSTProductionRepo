@@ -82,6 +82,44 @@ export const REGION_CONFIGS = {
     ],
   },
 
+  ne_fl: {
+    label: "Northeast Florida",
+    bounds: {
+      north:  30.50,
+      south:  26.00,
+      west:  -81.75,
+      east:  -77.27,
+    },
+    minZoom:         6,
+    maxZoom:         11,
+    defaultCenter:   { lat: 28.25, lon: -79.51 },
+    defaultZoom:     7,
+    defaultLocation: "Port Canaveral, FL",
+    // Sub-path under SSTv2 repo where backend writes NE FL data files.
+    // e.g. DailySSTData/MUR/ne_fl/mur_YYYYMMDD.csv
+    // Leave "" for mid_atlantic (uses root paths for backward compat).
+    dataPathSuffix:  "ne_fl",
+    // South Florida runs warmer than ga_sc; these are best-guess estimates.
+    sstSeasonalDefaults: {
+      summer: { min: 72, max: 90 }, // Jun-Sep: nearshore 82-88, Gulf Stream close to shore
+      fall:   { min: 68, max: 86 },
+      winter: { min: 64, max: 82 }, // mild winters, Gulf Stream runs very close to shore south of Ft Pierce
+      spring: { min: 68, max: 84 },
+    },
+    locations: [
+      // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
+      { label: "Mayport, FL",           lat: 30.3966, lon: -81.4280, wreckRegion: "JacksonvilleFL",   noaaCoverage: true, noaaZone: "AMZ452" },
+      { label: "St. Augustine, FL",     lat: 29.8943, lon: -81.3126, wreckRegion: "StAugustineFL",     noaaCoverage: true, noaaZone: "AMZ454" },
+      { label: "Ponce Inlet, FL",       lat: 29.0808, lon: -80.9284, wreckRegion: "PonceInletFL",      noaaCoverage: true, noaaZone: "AMZ570" },
+      { label: "Port Canaveral, FL",    lat: 28.4158, lon: -80.5931, wreckRegion: "PortCanaveralFL",   noaaCoverage: true, noaaZone: "AMZ572" },
+      { label: "Sebastian Inlet, FL",   lat: 27.8600, lon: -80.4483, wreckRegion: "SebastianInletFL",  noaaCoverage: true, noaaZone: "AMZ575" },
+      { label: "Fort Pierce, FL",       lat: 27.4700, lon: -80.2883, wreckRegion: "FortPierceFL",      noaaCoverage: true, noaaZone: "AMZ575" },
+      { label: "Stuart, FL",            lat: 27.1661, lon: -80.1567, wreckRegion: "StuartFL",          noaaCoverage: true, noaaZone: "AMZ575" },
+      { label: "Lake Worth Inlet, FL",  lat: 26.7723, lon: -80.0373, wreckRegion: "LakeWorthFL",       noaaCoverage: true, noaaZone: "AMZ670" },
+      { label: "Fort Lauderdale, FL",   lat: 26.0860, lon: -80.1160, wreckRegion: "FortLauderdaleFL",  noaaCoverage: true, noaaZone: "AMZ671" },
+    ],
+  },
+
 };
 
 export const DEFAULT_REGION = "mid_atlantic";

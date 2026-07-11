@@ -170,6 +170,7 @@ tr:hover td{background:#1e293b}
     <div style="display:flex;gap:2px;margin-left:6px">
       <button id="regionBtnMA" class="btn btn-slate btn-sm" onclick="setRegion('mid_atlantic')">Mid-Atl</button>
       <button id="regionBtnGS" class="btn btn-slate btn-sm" onclick="setRegion('ga_sc')">GA/SC</button>
+      <button id="regionBtnNEFL" class="btn btn-slate btn-sm" onclick="setRegion('ne_fl')">NE FL</button>
     </div>
     <div id="tokenWrap">
       <input id="tokenInput" type="password" placeholder="GitHub token" autocomplete="off"/>
@@ -466,6 +467,13 @@ const REGIONS = {
     bathyUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours_ga_sc.json',
     viirsUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/ga_sc/viirs_composite.json',
   },
+  ne_fl: {
+    label: 'NE FL',
+    center: [28.25, -79.51], zoom: 7,
+    bounds: { north: 30.50, south: 26.00, west: -81.75, east: -77.27 },
+    bathyUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours_ne_fl.json',
+    viirsUrl: 'https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySSTData/VIIRS/Bundled/ne_fl/viirs_composite.json',
+  },
 };
 let currentRegion = localStorage.getItem('admin_region') || 'mid_atlantic';
 if (!REGIONS[currentRegion]) currentRegion = 'mid_atlantic';
@@ -476,6 +484,7 @@ function inRegion(lat, lon, region) {
 function updateRegionButtons() {
   _ovBtn(document.getElementById('regionBtnMA'), currentRegion === 'mid_atlantic', '#0e7490');
   _ovBtn(document.getElementById('regionBtnGS'), currentRegion === 'ga_sc', '#0e7490');
+  _ovBtn(document.getElementById('regionBtnNEFL'), currentRegion === 'ne_fl', '#0e7490');
 }
 function resetOverlayCaches() {
   _bathyGeo = null; _sstCache = null;
