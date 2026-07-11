@@ -52,6 +52,7 @@ const SLIDES = [
     title: "Community Features",
     caption: "See where other anglers are catching fish and send tips. Post reports and earn points and tips. Contributions maintain your access to this content.",
     videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RIPLock+Community+Features+and+Posting+Guide.mp4",
+    posterUrl: "/community-features-poster.png",
   },
 ];
 
