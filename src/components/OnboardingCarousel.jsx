@@ -1,5 +1,5 @@
 // src/components/OnboardingCarousel.jsx
-// New-user onboarding carousel — video-based, 10 slides.
+// New-user onboarding carousel — video-based, 5 slides.
 // Videos are hosted in Supabase Storage bucket "onboarding-videos".
 // Replace each videoUrl with the actual public URL after uploading your recordings.
 //
@@ -52,42 +52,6 @@ const SLIDES = [
     title: "Community Features",
     caption: "See where other anglers are catching fish and send tips. Post reports and earn points and tips. Contributions maintain your access to this content.",
     videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RIPLock+Community+Features+and+Posting+Guide.mp4",
-  },
-  {
-    id: "hotspots",
-    title: "Fish Hot Spots",
-    caption: "AI-scored locations based on SST, chlorophyll, currents, and bottom structure. Select your target species to tune the model.",
-    videoUrl: null,
-  },
-  {
-    id: "overlays",
-    title: "Currents, Wind & Sea Color",
-    caption: "Layer ocean currents, wind, and sea color over your SST map. Current edges concentrate bait and attract pelagics.",
-    videoUrl: null,
-  },
-  {
-    id: "bathy",
-    title: "Bathymetry & Bottom Features",
-    caption: "NOAA depth contours and wrecks/reefs. The 100-fathom curve and canyon edges are your structural waypoints.",
-    videoUrl: null,
-  },
-  {
-    id: "community",
-    title: "Community Pins",
-    caption: "See where other anglers are catching fish right now. Post live reports and collect points for the leaderboard.",
-    videoUrl: null,
-  },
-  {
-    id: "trip",
-    title: "Trip Planning & Routes",
-    caption: "Build a waypoint route over the SST map. See distance, fuel burn, and share the plan with your crew.",
-    videoUrl: null,
-  },
-  {
-    id: "weather",
-    title: "Weather & Buoys",
-    caption: "Marine forecasts and live NDBC buoy readings within range of your departure. Know before you go.",
-    videoUrl: null,
   },
 ];
 
