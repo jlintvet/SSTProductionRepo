@@ -1,17 +1,22 @@
 # Adding a New Region — Step-by-Step Playbook
 
-This document captures every change made to add the **Georgia & South Carolina** (`ga_sc`) region as a replicable checklist. Follow it in order when adding any new region. Replace `<NEW>` with your new region key (e.g. `gulf_stream`, `new_england`) and fill in the bounds/ports accordingly.
+This document captures every change made to add a new region, using the **Northeast Florida** (`ne_fl`) rollout as the most recent worked example (added after `mid_atlantic` and `ga_sc`). Follow it in order when adding any new region. Replace `<NEW>` with your new region key (lowercase, underscore — e.g. `gulf_coast_fl`, `outer_banks_sc`) and fill in the bounds/ports accordingly.
+
+**Rewritten in full after the `ne_fl` rollout, which caught this document badly out of date** — file names had changed, whole scripts had been added, and an entire third repo (the NOAA weather scraper) wasn't mentioned anywhere in the old version, resulting in a region that shipped with a silently broken marine forecast widget. If you're an agent reading this doc to implement a new region: verify every specific file/line reference below against the live repos before editing — treat this as a strong prior, not gospel, and update it again if you find it's drifted.
 
 ---
 
-## Overview of the Two Repos
+## Overview of the Three Repos
 
 | Repo | Purpose |
 |---|---|
-| `jlintvet/SSTv2` | Python backend — fetches + bakes all data files via GitHub Actions |
-| `jlintvet/SSTProductionRepo` | React/Vite frontend — consumes those files, handles auth + UI |
+| `jlintvet/SSTv2` | Python backend — fetches + bakes SST/CHL/altimetry/wind/bathymetry data via GitHub Actions |
+| `jlintvet/SSTProductionRepo` | React/Vite frontend — consumes those files, handles auth + UI. Auto-deploys to Vercel on push to `main`. |
+| `jlintvet/NOAAPARSE` | Small, separate Python repo — scrapes NOAA marine forecast zone text hourly into per-port JSON files that the frontend fetches directly. **Easy to forget entirely** — nothing in the other two repos points at it except a handful of raw GitHub URLs buried in one frontend hook file. |
 
-Work the backend first so data files exist by the time frontend is wired up.
+All three are cloned with the same GitHub PAT (found in the Dropbox-mounted `SSTProductionRepo`'s git remote — `git remote -v`). Only `SSTProductionRepo` is normally checked out in the Dropbox folder; clone `SSTv2` and `NOAAPARSE` fresh into scratch space (e.g. `/tmp/`) — never edit through the Dropbox git working copy, its `.git` can have stale locks and Dropbox sync can silently truncate large writes.
+
+Work backend first, weather-scraper second, frontend last, so data files and forecast JSON exist by the time the region is selectable in the UI.
 
 ---
 
@@ -19,38 +24,29 @@ Work the backend first so data files exist by the time frontend is wired up.
 
 ### Step 1.1 — Add region to every Python script's `_REGION_CONFIGS`
 
-Each script has a `_REGION_CONFIGS` dict near the top and reads `REGION = os.environ.get("REGION", "mid_atlantic")`. Add your new region to every one:
+Each script has its own dict near the top and reads `REGION = os.environ.get("REGION", "mid_atlantic")`. **The key names are not identical across files** — read each file's existing region entries before writing the new one; don't copy the shape from a different file.
 
 **`sst_data_fetcher.py`** (MUR SST + GOES Composite + VIIRS passes)
 ```python
 _REGION_CONFIGS = {
-    "mid_atlantic": {
-        "bbox":   {"lon_min": -78.89, "lon_max": -72.21, "lat_min": 33.70, "lat_max": 39.00},
-        "subdir": "",          # root — backward compat
-    },
-    "ga_sc": {
-        "bbox":   {"lon_min": -82.00, "lon_max": -75.20, "lat_min": 29.80, "lat_max": 35.20},
-        "subdir": "ga_sc",
-    },
-    "<NEW>": {
-        "bbox":   {"lon_min": ..., "lon_max": ..., "lat_min": ..., "lat_max": ...},
-        "subdir": "<NEW>",
-    },
+    "mid_atlantic": {"north": 39.00, "south": 33.70, "west": -78.89, "east": -72.21, "subdir": ""},
+    "ga_sc":        {"north": 35.20, "south": 29.80, "west": -82.00, "east": -75.20, "subdir": "ga_sc"},
+    "<NEW>":        {"north": ...,   "south": ...,   "west": ...,    "east": ...,    "subdir": "<NEW>"},
 }
 ```
-`OUTPUT_DIR` automatically resolves to `DailySSTData/<subdir>/` (or root when subdir is `""`).
+Also update the module docstring's usage examples and the `_dpath()` helper's inline comment — cosmetic, but keeps the file's own documentation honest for the next person.
 
 **`VIIRSHourlyBundler.py`**
 ```python
 _REGION_CONFIGS = {
-    "mid_atlantic": {"bbox": {...}, "subdir": ""},
-    "ga_sc":        {"bbox": {...}, "subdir": "ga_sc"},
-    "<NEW>":        {"bbox": {...}, "subdir": "<NEW>"},
+    "mid_atlantic": {"subdir": "",      "bbox": {"lat_min": 33.70, "lat_max": 39.00, "lon_min": -78.89, "lon_max": -72.21}},
+    "ga_sc":        {"subdir": "ga_sc", "bbox": {"lat_min": 29.80, "lat_max": 35.20, "lon_min": -82.00, "lon_max": -75.20}},
+    "<NEW>":        {"subdir": "<NEW>", "bbox": {"lat_min": ...,   "lat_max": ...,   "lon_min": ...,    "lon_max": ...}},
 }
 ```
-> **Gotcha:** If the new region has sparser VIIRS coverage (lower latitudes), set `COMPOSITE_WINDOW_HOURS=72` in the workflow (see Step 1.2). Also check whether `_fill_col_gaps` is needed — ga_sc required it because its lon grid starts at a non-integer origin causing vertical banding. See the function in `VIIRSHourlyBundler.py` for the fix.
+> **Gotcha:** `_fill_col_gaps` has a comment about `ga_sc`'s lon grid starting at an integer origin (`-82.00`) causing vertical-banding artifacts. Check whether your region's `lon_min` lands on a similar boundary; if it carries the same fractional offset as `mid_atlantic` already does, it's unaffected and you only need a documentation comment update, not a logic change. Read the function rather than assuming — the fill pass usually already runs unconditionally for every region.
 
-**`DailyChlorophyllandSeaColorRetrieval.py`** and **`CHLSeaColorBundler.py`**
+**`DailyChlorophyllandSeaColorRetrieval.py`** and **`CHLSeaColorBundler.py`** (same shape in both)
 ```python
 _REGION_CONFIGS = {
     "mid_atlantic": {"lat_min": 33.70, "lat_max": 39.00, "lon_min": -78.89, "lon_max": -72.21, "subdir": ""},
@@ -58,7 +54,7 @@ _REGION_CONFIGS = {
     "<NEW>":        {"lat_min": ...,   "lat_max": ...,   "lon_min": ...,   "lon_max": ...,   "subdir": "<NEW>"},
 }
 ```
-> **CHL/SeaColor URL path rule:** Files land at `Chlorophyll/<subdir>/Bundled/` — the subdir comes BEFORE `Bundled/`, not after. The frontend `dataFetchers.js` mirrors this. Getting this backwards was a bug in the ga_sc rollout.
+> **CHL/SeaColor URL path rule:** output lands at `Chlorophyll/<subdir>/Bundled/` — the subdir comes **before** `Bundled/`. This is normally handled generically once the region is in the dict.
 
 **`StaticLayersRetrieval.py`** (bathymetry contours + grid + points)
 ```python
@@ -68,260 +64,204 @@ _REGION_CONFIGS = {
     "<NEW>":        {"lat_min": ...,   "lat_max": ...,   "lon_min": ...,   "lon_max": ...,   "suffix": "_<NEW>"},
 }
 ```
-This writes `bathymetry_contours_<NEW>.json`, `bathymetry_grid_<NEW>.json`, and `bathymetry_<NEW>.json`.
+Note the key is `suffix` here, not `subdir`, and carries a leading underscore. Writes `bathymetry_contours<suffix>.json`, `bathymetry_grid<suffix>.json`, `bathymetry<suffix>.json`.
 
----
-
-### Step 1.2 — Update GitHub Actions workflows
-
-**`.github/workflows/Daily SST.yml`**
-
-Add the new region to the manual dispatch `options` list AND to the default `REGIONS` string in the run step:
-```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      region:
-        options:
-          - mid_atlantic
-          - ga_sc
-          - <NEW>       # add here
-...
-      REGIONS="mid_atlantic ga_sc <NEW>"   # add here
+**`fetch_ocean_dynamics.py`** (wind/currents/altimetry)
+```python
+_REGION_CONFIGS = {
+    "mid_atlantic": {"bbox": {...}, "subdir": ""},
+    "ga_sc":        {"bbox": {"lat_min": 29.80, "lat_max": 35.20, "lon_min": -82.00, "lon_max": -75.20}, "subdir": "ga_sc"},
+    "<NEW>":        {"bbox": {"lat_min": ...,   "lat_max": ...,   "lon_min": ...,    "lon_max": ...},    "subdir": "<NEW>"},
+}
 ```
 
-**`.github/workflows/VIIRSHourlyBundler.yml`**
-
-Add a bundler invocation for the new region:
-```yaml
-- name: Bundle all regions
-  run: |
-    REGION="mid_atlantic" python VIIRSHourlyBundler.py
-    REGION="ga_sc" COMPOSITE_WINDOW_HOURS="72" python VIIRSHourlyBundler.py
-    REGION="<NEW>" COMPOSITE_WINDOW_HOURS="72" python VIIRSHourlyBundler.py
+**`BathyTileGenerator.py`**
+```python
+REGION_CONFIGS = {
+    "mid_atlantic": {"lat_min": ..., "lat_max": ..., "lon_min": ..., "lon_max": ...},
+    "ga_sc":        {"lat_min": 29.80, "lat_max": 35.20, "lon_min": -82.00, "lon_max": -75.20},
+    "<NEW>":        {"lat_min": ...,   "lat_max": ...,   "lon_min": ...,   "lon_max": ...},
+}
 ```
-Adjust `COMPOSITE_WINDOW_HOURS` down to 36 if the region has dense coverage.
+Also supports `REGION=all` to run every region — no change needed, it iterates the dict.
 
-**`.github/workflows/ChlorophyllandSeaColor.yml`**
+**`Getwinddata.py`** — the exception. **No `_REGION_CONFIGS`.** One shared grid (`LAT_MIN, LAT_MAX, LAT_STEP` / `LON_MIN, LON_MAX, LON_STEP`) with margin covers every region at once. Check whether the new region's bounds fall inside the current grid; if not, widen only the edge that's exceeded (don't shrink the others), and update the explanatory comment above the constants to mention the new region.
 
-Add two steps (retrieval + bundler) for the new region, each with `REGION: <NEW>` env:
-```yaml
-- name: Run DailyChlorophyllandSeaColorRetrieval.py (<NEW>)
-  env:
-    REGION: <NEW>
-    CMEMS_USER: ${{ secrets.CMEMS_USER }}
-    CMEMS_PASSWORD: ${{ secrets.CMEMS_PASSWORD }}
-    COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.CMEMS_USER }}
-    COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.CMEMS_PASSWORD }}
-  run: python DailyChlorophyllandSeaColorRetrieval.py
+### Step 1.2 — Update GitHub Actions workflows (`.github/workflows/`)
 
-- name: Run CHLSeaColorBundler.py (<NEW>)
-  env:
-    REGION: <NEW>
-  run: python CHLSeaColorBundler.py
-```
+These are real `.github/workflows/*.yml` files — ignore any stray duplicate `.yml` files that may exist at a repo root or in a Dropbox mirror, those are not the ones GitHub Actions runs.
 
-**`.github/workflows/Static layers.yml`**
-
-Add a step:
-```yaml
-- name: Run StaticLayersRetrieval.py (<NEW>)
-  run: REGION=<NEW> python StaticLayersRetrieval.py
-```
-Trigger this manually from the GitHub Actions UI after adding the step to generate the initial bathy files. They're static — only re-run if bounds change.
-
-**`.github/workflows/Update wind data.yml`**
-
-If the new region extends coverage beyond the current lat/lon grid, expand it in `Getwinddata.py`. For ga_sc we widened from `lat 33–40, lon -78.5 to -72.5` to `lat 29–40, lon -82.5 to -72.5`.
-
----
+| Workflow | Trigger | What to add |
+|---|---|---|
+| `Daily SST.yml` | `schedule` cron, hourly | New region in `workflow_dispatch.inputs.region.options`, and in the `REGIONS="mid_atlantic ga_sc <NEW>"` string used by the run-step loop |
+| `VIIRSHourlyBundler.yml` | `workflow_run` chained off `Daily SST.yml`, + safety-net cron | New `REGION="<NEW>" COMPOSITE_WINDOW_HOURS="72" python VIIRSHourlyBundler.py` line. 72h window suits lower-latitude/sparser-coverage regions; use 36h (matching mid_atlantic) if the new region has dense coverage. |
+| `ChlorophyllandSeaColor.yml` | `schedule` cron, hourly | A retrieval + bundler step pair, `env: REGION: <NEW>`, same `CMEMS_USER`/`CMEMS_PASSWORD` secret references as the existing region's steps |
+| `Static layers.yml` | `workflow_dispatch` only (manual) | One step: `REGION=<NEW> python StaticLayersRetrieval.py`. Trigger manually from the Actions tab after merging — static data, rarely re-run. |
+| `Ocean_Mask.yml` | `workflow_dispatch` + `push` (paths-filtered on `bake_ocean_mask*.py`) | A step to run the new `bake_ocean_mask_<NEW>.py`, and add its output path to the commit step's `git add` list. **The `push` path-filter trigger is not fully reliable when the new script and this workflow file change in the same commit** — after pushing, verify `DailySSTData/<NEW>/ocean_mask.json` actually appears in the repo within a few minutes; if not, trigger the workflow manually. |
+| `fetch-ocean-dynamics.yml` | `workflow_run` chained off VIIRS bundler | Regions run as parallel background processes (`&` + `wait $PID`) inside one step — add a third parallel invocation, extend the exit-status check, the prune-old-files loop, and the log-copy/commit lines |
+| `Update wind data.yml` | `schedule` cron | Historically **no change needed** — it just runs `Getwinddata.py` once against the shared grid from Step 1.1. Confirm by grepping the file for `REGION`/the previous region's key rather than assuming, but don't add a region loop here if the underlying script doesn't need one. |
 
 ### Step 1.3 — Create the ocean mask script for the new region
 
-Copy `bake_ocean_mask_ga_sc.py` → `bake_ocean_mask_<NEW>.py` and update bounds and output path:
+Copy the most recently added region's `bake_ocean_mask_<region>.py` verbatim, changing only:
 ```python
 NORTH, SOUTH = <lat_max>, <lat_min>
 WEST,  EAST  = <lon_min>, <lon_max>
 OUT_PATH = "DailySSTData/<NEW>/ocean_mask.json"
 ```
-Add it to **`.github/workflows/Ocean_Mask.yml`**:
-```yaml
-- name: Bake ocean mask (<NEW>)
-  run: python bake_ocean_mask_<NEW>.py
-- name: Commit generated files
-  run: |
-    git add DailySSTData/ocean_mask.json DailySSTData/ga_sc/ocean_mask.json DailySSTData/<NEW>/ocean_mask.json
-    git commit -m "Update ocean masks" || echo "No changes"
-    git push
-```
-Trigger this manually once to generate and commit the mask.
-
----
+This is a self-contained script — downloads Natural Earth 10m land polygons, classifies a grid via point-in-polygon, writes bitpacked JSON. It's a *different, simpler* mask than the frontend's `openocean_mask_<region>.json` (Part 2, Step 2.3) — don't conflate the two, and don't add sophistication (like morphological opening) that the reference script doesn't already have; matching the existing quality bar beats a one-off improvement that makes this region inconsistent.
 
 ### Step 1.4 — Verify data files appear in SSTv2
 
-After triggering the workflows, confirm these are committed to the repo:
+After pushing (and, for `Static layers.yml` and possibly `Ocean_Mask.yml`, manually triggering), confirm these are committed to the repo:
 ```
 DailySSTData/<NEW>/ocean_mask.json
 DailySSTData/MUR/<NEW>/mur_YYYYMMDD.csv
 DailySSTData/VIIRS/Passes/<NEW>/
 DailySSTData/VIIRS/Bundled/<NEW>/viirs_index.json
 Chlorophyll/<NEW>/Bundled/<date>/chl_bundle.json.gz
-bathymetry_contours_<NEW>.json
-bathymetry_grid_<NEW>.json
-bathymetry_<NEW>.json
+DailySST/Currents/<NEW>/currents_latest.json
+DailySST/Altimetry/<NEW>/altimetry_latest_grid.json
+bathymetry_contours_<NEW>.json / bathymetry_grid_<NEW>.json / bathymetry_<NEW>.json
 ```
+SST/VIIRS/CHL/wind/currents/altimetry populate automatically within an hour or two of pushing (all cron- or workflow_run-chained). Bathymetry and the ocean mask need the one-time manual triggers noted in the table above — tell the user explicitly which is which, don't assume they'll infer it.
 
 ---
 
-## Part 2 — Frontend (`SSTProductionRepo`)
+## Part 2 — Weather forecast (`jlintvet/NOAAPARSE` repo — do not skip)
 
-Work on a new branch (e.g. `<NEW>-region`). Use the CLAUDE.md patch-script workflow for any large file changes.
+This is a **separate small repo**, unrelated to SSTv2's data pipeline. It is the single most commonly-missed part of this playbook because nothing in SSTv2 or the frontend's `regionConfig.js` points at it directly — the only trace is a set of raw GitHub URLs inside one frontend hook. A past region shipped without this step and the marine weather widget silently showed "not available" for every port in the new region, with no error visible anywhere in normal testing.
 
-### Step 2.1 — Add region to `src/config/regionConfig.js`
+The data flow:
+```
+NOAAPARSE/scraper.py (hourly cron, own workflow)
+  → writes <port>_noaa.json into the NOAAPARSE repo root
+  → src/hooks/useMarineForecast.js fetches it by raw URL
+  → keyed by NOAA_SOURCES[location.label]  (exact string match against regionConfig.js's port label)
+```
+
+### Step 2.1 — Add scrapes to `NOAAPARSE/scraper.py`
+
+Not parameterized by region — a flat list of `scrape_and_save(url, filename)` calls in `main()`. Add one per new port, grouped under a comment banner matching the existing per-region banners. Which base URL works depends on the NWS office, not a fixed rule:
+- `forecast.weather.gov/MapClick.php?zoneid=XXX` — most nearshore/inshore zones
+- `marine.weather.gov/MapClick.php?zoneid=XXX` — most 20-60nm offshore zones
+- Some office-managed zones return 400/404 from either MapClick endpoint and need `scrape_and_save_latlon(lat, lon, filename)` instead — read that function's docstring, it explains when this applies
+
+**Fetch the zone URL yourself and read the page's own "Zone Area Forecast for ..." heading before committing to it** — this confirms the office and coverage area match the port, faster and more reliably than trusting a web search result.
+
+### Step 2.2 — Wire `src/hooks/useMarineForecast.js` (frontend)
+
+Add an entry to the `NOAA_SOURCES` object for each new port, keyed by the **exact** location label used in `regionConfig.js` (punctuation included — this is a plain object-key lookup with no fuzzy matching, a mismatch fails silently):
+```js
+"Port Canaveral, FL": {
+  forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/portcanaveralfl_noaa.json",
+  tideStation:     "8721604",
+  noaaZone:        { id: "AMZ572", description: "Volusia-Brevard County Line to Sebastian Inlet FL, 20-60nm" },
+},
+```
+`tideStation` is a NOAA CO-OPS station ID fetched live at request time — no pre-scraping needed, just a correct ID. **If the new region reuses an existing port label from another region** (common at region boundaries), it automatically inherits the existing entry — don't duplicate it.
+
+### Step 2.3 — Keep `regionConfig.js`'s `noaaZone` footnote in sync
+
+`regionConfig.js`'s per-location `noaaZone: "AMZ572"` field is a **separate, independent copy** of the same fact, used only to render a UI footnote — nothing enforces it matches `NOAA_SOURCES`. Use the same zone ID in both when adding a port. This has already drifted apart once in production for an existing region (footnote showed one zone, the actual fetched/displayed forecast was for a different one) — if you're ever touching one of these two fields for an existing port, check the other still matches.
+
+---
+
+## Part 3 — Frontend (`SSTProductionRepo`)
+
+Work on a new branch or directly on `main` per the project's usual flow (sole-developer, direct pushes). Use the CLAUDE.md patch-script workflow for large file changes; never edit through the Dropbox mount directly.
+
+### Step 3.1 — Add region to `src/config/regionConfig.js`
 
 ```js
 <NEW>: {
   label: "Display Name",
-  bounds: {
-    north: <lat_max>,
-    south: <lat_min>,
-    west:  <lon_min>,
-    east:  <lon_max>,
-  },
+  bounds: { north: <lat_max>, south: <lat_min>, west: <lon_min>, east: <lon_max> },
   minZoom: 6,
   maxZoom: 11,
   defaultCenter: { lat: <center_lat>, lon: <center_lon> },
   defaultZoom: 7,
   defaultLocation: "<Default Port Name>",
-  dataPathSuffix: "<NEW>",   // must match SSTv2 subdir exactly
+  dataPathSuffix: "<NEW>",   // must match SSTv2's subdir/suffix exactly
+  sstSeasonalDefaults: { summer: {min,max}, fall: {min,max}, winter: {min,max}, spring: {min,max} },
   locations: [
-    { label: "Port Name", lat: ..., lon: ..., wreckRegion: "...", noaaCoverage: false },
+    { label: "Port Name", lat: ..., lon: ..., wreckRegion: "...", noaaCoverage: true, noaaZone: "..." },
     // ...
   ],
 },
 ```
-`dataPathSuffix` drives all data URL construction. `""` = mid-atlantic (root paths). Any non-empty value = subdir under SSTv2 data paths.
+`dataPathSuffix` drives all SST/CHL/altimetry/wind data URL construction (`""` = mid_atlantic root paths, any non-empty value = subdir). `wreckRegion` is a soft-match filter key for a wrecks overlay — safe to invent a new value per port even before any wreck data is tagged with it; unmatched locations just show zero wreck features, no error. `sstSeasonalDefaults` anchors the SST color ramp; if you don't have real measured seasonal ranges yet, estimate from latitude relative to existing regions and say clearly in a code comment that it's a placeholder pending calibration.
 
----
+### Step 3.2 — Add region everywhere else the region list is duplicated
 
-### Step 2.2 — Add region to the signup form in `SSTLive.jsx`
+There is **no single source of truth** beyond `regionConfig.js` — three more places, plus two admin tools, independently list regions:
 
-```js
-const REGION_OPTIONS = [
-  { value: "mid_atlantic", label: "Mid-Atlantic (NC–NJ)" },
-  { value: "ga_sc",        label: "Georgia & South Carolina" },
-  { value: "<NEW>",        label: "<Display label>" },
-];
-```
-The selected value is stored in `user_metadata.region` on sign-up and in `user_profiles.region` via pre-upsert.
+- `src/pages/SSTLive.jsx` — `REGION_OPTIONS` array (signup dropdown)
+- `src/components/auth/UserSettingsModal.jsx` — `REGION_PICKER_DATA` array (own `desc`/`bounds`/`bbox`/`ports` fields; `bbox` is `"west,south,east,north"`, feeds a live Mapbox Static Images URL — no pre-baked image needed)
+- `src/pages/LandingPage.jsx` — a similarly-shaped but independently-typed `REGIONS` array inside the signup flow's `regionStep` (uses `mapUrl` instead of `bbox`, same live Mapbox URL approach)
+- `admin/community_admin.html` — internal debug tool, plain HTML/JS outside `src/`. Has its own `REGIONS` object (`label`, `center`, `zoom`, `bounds`, `bathyUrl`, `viirsUrl` raw-GitHub URLs — note `viirsUrl`'s subdir goes **after** `Bundled/`, opposite of the CHL/SeaColor convention, because the two bundlers build output paths differently), a toolbar button per region, and `_ovBtn(...)` active-state wiring
+- `admin/user_admin.html` — two `<select>` dropdowns (`#fRegion` filter, `#eRegion` edit) each need a new `<option>`
 
----
+The selected region is stored in `user_metadata.region` at signup and `user_profiles.region` (plain `text` column, no enum/check constraint historically — confirm with a quick `.sql` grep before assuming this is still true) via pre-upsert.
 
-### Step 2.3 — Generate and commit the altimetry open-ocean mask
+### Step 3.3 — Generate and commit the altimetry open-ocean mask
 
-The `openOceanRef` useEffect in `SSTHeatmapLeaflet.jsx` tries `/openocean_mask_${suffix}.json` first, then falls back to `/openocean_mask.json` (mid-atlantic only, lat 33.7–39.0°N). You must generate a region-specific mask and commit it to `public/`.
+`SSTHeatmapLeaflet.jsx`'s `openOceanRef` effect tries `/openocean_mask_<suffix>.json` first, falling back to the mid_atlantic default. Without a region-specific mask, altimetry renders using the wrong region's land/water boundary.
 
-**Why it's needed:** Without it, `altimetryDeepMask` returns `true` (open ocean) for all out-of-bounds pixels → altimetry renders over land.
-
-**How to generate `public/openocean_mask_<NEW>.json`:**
-
-Use a Python script similar to `gen_ga_sc_openocean_mask_v2.py` (in the session outputs). The approach depends on region geography:
-
-- **Region has large enclosed sounds/bays** (like NC's Pamlico/Core Sound, ~80km wide): Stitch the mid-atlantic GEBCO mask for overlapping latitudes + GLOBE `global_land_mask` for the rest, with a small 5×5 morphological opening. GLOBE data treats large sounds as ocean (they are water), and morphological opening can't remove features >0.26° wide.
-- **Open coast only, no large enclosed sounds**: GLOBE `global_land_mask` + morphological opening alone is sufficient.
-
-Output format:
+If you don't have the original GEBCO/GLOBE-stitching tooling used for some earlier regions, a validated fallback: the `global_land_mask` pip package (`pip install global-land-mask scipy numpy`) plus a 5×5 morphological opening. Output format:
 ```json
-{
-  "bounds": {"n": <lat_max>, "s": <lat_min>, "e": <lon_max>, "w": <lon_min>},
-  "step": 0.02,
-  "rows": <N>,
-  "cols": <M>,
-  "packed": "<base64 bitpacked grid>"
-}
+{ "bounds": {"n":..,"s":..,"e":..,"w":..}, "step": 0.02, "rows": N, "cols": M, "packed": "<base64 bitpacked, row-major, MSB-first, 1=open ocean>" }
 ```
-A `1` bit = open ocean (show altimetry). A `0` bit = excluded (land or enclosed water).
-
-Sanity check before committing: verify a few known ocean points return 1 and known land/sound points return 0.
+**Known limitation of this fallback method:** it resolves land at roughly 1-2km, so narrow enclosed water bodies running close behind barrier islands (lagoons, sounds under a couple miles wide) often come out misclassified as open ocean — the barrier island separating them from the true ocean doesn't resolve at this grid density. Sanity-check a few known ocean/land/enclosed-water points before committing, and tell the user plainly if the region's geography includes this kind of feature — it's the same category of issue `ga_sc` needed a hand-stitched fix for (Pamlico/Core Sound).
 
 Commit to `SSTProductionRepo/public/openocean_mask_<NEW>.json`.
 
----
+### Step 3.4 — Verify these behaviors (usually no code changes needed)
 
-### Step 2.4 — Verify these behaviors in `SSTHeatmapLeaflet.jsx` (no code changes needed)
+Confirmed generalized/parameterized as of the last few region rollouts — check with a quick grep for the previous region's key before assuming, but don't add region-specific branches if the generic code already covers it:
 
-These were all generalized during ga_sc and work for any region with the right mask files in place:
-
-**Ocean mask (SST/CHL/composite):** `waterMaskRef` loads from SSTv2 at `DailySSTData/<suffix>/ocean_mask.json`. Already region-aware.
-
-**Altimetry open-ocean mask:** Tries `/openocean_mask_${suffix}.json` → fallback to `/openocean_mask.json`.
-
-**`altimetryDeepMask` out-of-bounds:** Returns `true` (show data). Points outside mask bounds are open ocean.
-
-**`ocMask` for altimetry raster:** `altimetryDeepMask` only — NOT combined with `waterMaskRef`. See Section 9 of `SST_RENDERING.md`. The combined mask is only for contour lines.
-
-**`blurOverlay` on altimetry:** Applied to the Leaflet `imageOverlay` path to feather the 0.125° block edges and offshore data boundary.
-
-**`setMaxBounds(llBounds)`:** All layers use region bounds, not data bounds. The data boundary is often offshore and must not lock the viewport away from the coast.
-
-**Bathymetry:** `SSTLive.jsx` derives URLs from `dataPathSuffix` automatically. Falls back to mid-atlantic if files 404.
-
-**VIIRS cache key:** Includes region — no stale cross-region cache issues.
+- `src/lib/dataFetchers.js` — every fetch function takes `regionBounds`/`dataPathSuffix` params already
+- `SSTHeatmapLeaflet.jsx` / `SSTHeatmapMapbox.jsx` — reads `dataPathSuffix`, tries the region mask then falls back; `setMaxBounds` uses region bounds not data bounds; VIIRS cache key includes region
+- `src/hooks/useRegionAccess.js` — reads region from the Supabase profile dynamically
 
 ---
 
-### Step 2.5 — Check Supabase `user_profiles.region` column
-
-If `region` is an enum or has a check constraint, add `<NEW>` to it. If it's plain `text` (current setup), no migration needed.
-
----
-
-## Part 3 — Testing Checklist
+## Part 4 — Testing Checklist
 
 Set `VITE_FORCE_REGION=<NEW>` on the branch preview Vercel URL to test without touching production user records.
 
 **Data layers — verify each loads, no console 404s:**
-- [ ] VIIRS SST (daily composite)
-- [ ] VIIRS SST (hourly — check for vertical banding)
+- [ ] VIIRS SST (daily composite + hourly — check for vertical banding)
 - [ ] MUR SST
-- [ ] Chlorophyll
-- [ ] Sea Color (Kd490)
+- [ ] Chlorophyll / Sea Color (Kd490)
 - [ ] GOES HD Composite
-- [ ] Altimetry raster + contours
+- [ ] Altimetry raster + contours (no data bleeding over land or enclosed water)
 - [ ] Bathymetry contours
 - [ ] Wind/currents
 
-**Rendering quality:**
-- [ ] SST colors consistent with mid-atlantic (fixed 50–90°F scale)
-- [ ] Altimetry: no data bleeding over land or into enclosed sounds
-- [ ] Altimetry: edges softened (blurOverlay applied), not blocky
-- [ ] Altimetry: can pan to the coastline (viewport not locked to data edge)
-- [ ] CHL/SeaColor: edges feathered
+**Weather widget (the part most likely to be silently skipped):**
+- [ ] Every port shows a marine forecast, not "not available"
+- [ ] Tide chart renders for every port
+- [ ] The zone footnote shown in the UI matches the zone actually being fetched (spot check `regionConfig.js` vs `useMarineForecast.js` for a couple of ports)
 
-**Viewport:**
-- [ ] Map centers on the new region at correct zoom
-- [ ] `setMaxBounds` allows panning to the full coast including inland areas
-- [ ] No grey bars after data loads (minZoom from data bounds)
-
-**Auth:**
-- [ ] Sign-up with new region stores in `user_metadata.region`
-- [ ] Login routes correctly to the new region
+**Viewport / auth:** map centers correctly, no grey bars, `setMaxBounds` allows panning to full coast, sign-up stores the new region, login routes correctly.
 
 ---
 
-## Key Gotchas — Learned from ga_sc
+## Key Gotchas — Learned Across Rollouts
 
 | Bug | Root cause | Fix |
 |---|---|---|
-| CHL/SeaColor 404 | URL path `Chlorophyll/Bundled/ga_sc/` instead of `Chlorophyll/ga_sc/Bundled/` | Subdir goes BEFORE `Bundled/` in both bundler output path and JS fetch URL |
-| Altimetry over land south of 33.7°N | `altimetryDeepMask` out-of-bounds returned `false` (land) | Out-of-bounds = open ocean → return `true` |
-| Altimetry showed in Pamlico/Core Sound | GLOBE treats large sounds as water; morphological opening can't remove 80km+ features | Stitch mid-atlantic GEBCO mask for lat≥33.7°N; GLOBE for lat<33.7°N |
-| Altimetry blocky + hard west edge | No `blurOverlay` on Leaflet imageOverlay path | `await blurOverlay(dataURL, 4)` before creating the imageOverlay |
-| Viewport locked to altimetry data edge | `setMaxBounds` used data bounds, not region bounds | Use `llBounds` (region config bounds) for `setMaxBounds` on all layers |
-| Map pans to mid-atlantic on region load | `selectedLocation` initialized once from wrong region | `key={region}` on `AppProvider` forces remount on region change |
-| VIIRS vertical banding | Non-integer lon grid origin caused alignment drift | `_fill_col_gaps` in `VIIRSHourlyBundler.py` |
-| Altimetry raster too restrictive | `ocMask` used `waterMask AND altimetryDeepMask` | Altimetry raster `ocMask = altimetryDeepMask` only; combined mask for contours only |
+| Marine weather widget silently shows nothing for a whole new region | `NOAAPARSE` is a separate repo with no cross-reference from SSTv2 or `regionConfig.js`; adding a region without touching it is easy and produces no visible error | Always do Part 2 — grep `NOAAPARSE/scraper.py` and `useMarineForecast.js`'s `NOAA_SOURCES` for the new ports explicitly, don't assume "the region is done" after Parts 1 and 3 |
+| `regionConfig.js`'s `noaaZone` footnote shows a different zone than the forecast actually displayed | It's an independent hand-maintained copy of the same fact as `NOAA_SOURCES`'s zone id, nothing keeps them in sync | Set both from the same source value when adding a port; spot-check both when editing either |
+| An agent implements from `docs/adding_a_new_region.md` or `SST_DATA_PIPELINE.md` and misses files/repos that changed since those docs were last accurate | Docs go stale faster than they get updated; this doc itself has already needed a full rewrite once | Grep the live repos for the most recently added region's key before trusting any doc's specific file list — including this one |
+| CHL/SeaColor 404 | URL path `Chlorophyll/Bundled/<region>/` instead of `Chlorophyll/<region>/Bundled/` | Subdir goes BEFORE `Bundled/` for CHL/SeaColor — but AFTER `Bundled/` for VIIRS (`VIIRS/Bundled/<region>/`), the two bundlers are not consistent with each other, don't assume one matches the other |
+| Altimetry over land / in enclosed sounds or lagoons | Simple land/water classification at ~1-2km resolution doesn't resolve narrow barrier islands separating enclosed water from open ocean | Sanity-check specific known points before shipping a new region's `openocean_mask`; flag the limitation rather than silently shipping it |
+| Viewport locked to altimetry data edge | `setMaxBounds` used data bounds instead of region bounds | Use region config bounds (`llBounds`) for `setMaxBounds` on all layers |
+| Map pans to the previous region on region change | `selectedLocation` initialized once from the wrong region | `key={region}` on the relevant provider forces remount on region change |
+| VIIRS vertical banding | Non-integer lon grid origin caused alignment drift for some regions | `_fill_col_gaps` in `VIIRSHourlyBundler.py` — check whether it's needed for a new region's specific `lon_min`, don't assume it always is or never is |
+| `Ocean_Mask.yml`'s push-path trigger doesn't reliably fire when the new mask script and the workflow file itself change in the same commit | Path-filtered `push` triggers can be inconsistent across a self-modifying-workflow-file commit | Verify the output file actually appears in the repo after pushing; trigger `workflow_dispatch` manually if it doesn't within a few minutes |
+| Git push rejected as non-fast-forward minutes after cloning | These repos get frequent automated commits (data pipeline runs, buoy fetches, hourly weather scrapes) | `git fetch origin main && git rebase origin/main` immediately before every push, even on a freshly-cloned scratch copy |
 
 ---
 
@@ -333,64 +273,39 @@ SSTv2/DailySSTData/
   <NEW>/ocean_mask.json                      ← new region inshore mask
   MUR/mur_YYYYMMDD.csv                       ← mid-atlantic MUR
   MUR/<NEW>/mur_YYYYMMDD.csv                 ← new region MUR
-  VIIRS/Passes/viirs_YYYYMMDD_HHMM.csv      ← mid-atlantic passes
+  VIIRS/Passes/viirs_YYYYMMDD_HHMM.csv       ← mid-atlantic passes
   VIIRS/Passes/<NEW>/...                     ← new region passes
   VIIRS/Bundled/viirs_index.json             ← mid-atlantic bundle index
-  VIIRS/Bundled/<NEW>/viirs_index.json       ← new region bundle index
+  VIIRS/Bundled/<NEW>/viirs_index.json       ← new region bundle index (subdir AFTER Bundled/)
 
 SSTv2/Chlorophyll/
   Bundled/<date>/chl_bundle.json.gz          ← mid-atlantic CHL
-  <NEW>/Bundled/<date>/chl_bundle.json.gz    ← new region CHL
+  <NEW>/Bundled/<date>/chl_bundle.json.gz    ← new region CHL (subdir BEFORE Bundled/)
 
 SSTv2/
   bathymetry_contours.json                   ← mid-atlantic bathy
-  bathymetry_<NEW>.json                      ← new region bathy
-  bathymetry_contours_<NEW>.json
-  bathymetry_grid_<NEW>.json
+  bathymetry_<NEW>.json / bathymetry_contours_<NEW>.json / bathymetry_grid_<NEW>.json
+
+SSTv2/DailySST/
+  Currents/<NEW>/currents_latest.json
+  Altimetry/<NEW>/altimetry_latest_grid.json
+
+NOAAPARSE/
+  <port>_noaa.json                           ← one per port, all regions flat in repo root
 ```
 
 ## Frontend Files Modified
 
 ```
-src/config/regionConfig.js           ← add region entry (required)
-src/pages/SSTLive.jsx                ← add to REGION_OPTIONS (required)
-public/openocean_mask_<NEW>.json     ← new file, generate + commit (required)
+src/config/regionConfig.js                  ← add region entry (required)
+src/pages/SSTLive.jsx                       ← REGION_OPTIONS (required)
+src/components/auth/UserSettingsModal.jsx   ← REGION_PICKER_DATA (required)
+src/pages/LandingPage.jsx                   ← REGIONS in regionStep (required)
+admin/community_admin.html                  ← REGIONS object + button (required)
+admin/user_admin.html                       ← 2 dropdown options (required)
+public/openocean_mask_<NEW>.json            ← new file, generate + commit (required)
+src/hooks/useMarineForecast.js              ← NOAA_SOURCES per new port (required — see Part 2)
 
-src/lib/dataFetchers.js              ← already parameterized, no changes needed
-src/components/SSTHeatmapLeaflet.jsx ← already generalized, no changes needed
-src/context/AppContext.jsx           ← already generalized, no changes needed
+src/lib/dataFetchers.js                     ← already parameterized, no changes needed
+src/components/SSTHeatmapLeaflet.jsx        ← already generalized, no changes needed
 ```
-
----
-
-## GA/SC Region — NOAA Forecast Zone Reference
-
-This table documents the NOAA marine zone assignments for every departure location in the `ga_sc` region. Use it for cross-checking and when adding new scraper entries.
-
-**Zone source offices:**
-- ILM = NWS Wilmington NC  |  CHS = NWS Charleston SC  |  JAX = NWS Jacksonville FL
-- OPC = Ocean Prediction Center (manages ILM outer and most CHS outer zones via AMZ2xx/AMZ37x)
-
-| Departure Location | NOAA Zone | Zone Description | Offshore Range | Tide Station | JSON File |
-|---|---|---|---|---|---|
-| Wrightsville Beach, NC | AMZ270 | Surf City to Cape Fear (ILM/OPC) | 20–40nm | 8658163 | wrightsvillebeachnc_noaa.json |
-| Carolina Beach, NC | AMZ270 | Surf City to Cape Fear (ILM/OPC) | 20–40nm | 8658120 | carolinabeachnc_noaa.json |
-| Southport, NC | AMZ272 | Cape Fear to Little River Inlet (ILM/OPC) | 20–40nm | 8659084 | southportnc_noaa.json |
-| Little River Inlet, SC | AMZ274 | Little River Inlet to Murrells Inlet (ILM/OPC) | 20–40nm | 8661070 | littleriversc_noaa.json |
-| Myrtle Beach, SC | AMZ274 | Little River Inlet to Murrells Inlet (ILM/OPC) | 20–40nm | 8661070 | myrtlebeachsc_noaa.json |
-| Murrells Inlet, SC | AMZ276 | Murrells Inlet to South Santee River (ILM/OPC) | 20–40nm | 8661070 | murrellsinletsc_noaa.json |
-| Georgetown, SC | AMZ276 | Murrells Inlet to South Santee River (ILM/OPC) | 20–40nm | 8665530 | georgetownsc_noaa.json |
-| Charleston, SC | AMZ370 | South Santee River to Edisto Beach (CHS/OPC) | 20–40nm | 8665530 | charlestonsc_noaa.json |
-| Beaufort, SC | AMZ372 | Edisto Beach to Savannah (CHS/OPC) | 20–40nm | 8670659 | beaufortsc_noaa.json |
-| Hilton Head, SC | AMZ372 | Edisto Beach to Savannah (CHS/OPC) | 20–40nm | 8670659 | hiltonheadsc_noaa.json |
-| Tybee Island, GA | AMZ374 | Savannah to Altamaha Sound (CHS-managed) | 20–60nm | 8670870 | tybeega_noaa.json |
-| Darien, GA | AMZ374 | Savannah to Altamaha Sound (CHS-managed) | 20–60nm | 8670870 | darienga_noaa.json |
-| St. Simons Island, GA | AMZ470 | Altamaha Sound to Fernandina Beach (JAX) | 20–60nm | 8679511 | stsimonsgaga_noaa.json |
-| Jekyll Island, GA | AMZ470 | Altamaha Sound to Fernandina Beach (JAX) | 20–60nm | 8679511 | jekyllga_noaa.json |
-| Fernandina Beach, FL | AMZ452 | Fernandina Beach to St. Augustine (JAX inner) | Out 20nm | 8720197 | fernandinafl_noaa.json |
-| Mayport, FL | AMZ452 | Fernandina Beach to St. Augustine (JAX inner) | Out 20nm | 8720218 | mayportfl_noaa.json |
-| St. Augustine, FL | AMZ454 | St. Augustine to Flagler Beach (JAX inner) | Out 20nm | 8720587 | staugustinefl_noaa.json |
-
-> **FL note:** Fernandina Beach, Mayport, and St. Augustine use inshore (<20nm) JAX zones. The Gulf Stream runs closer to shore here so the inner zone is more relevant for day-trip anglers.
->
-> **OPC zones (AMZ270–276, AMZ370–374):** These zones return 400 from `marine.weather.gov/MapClick.php?zoneid=AMZxxx` and 404 from `api.weather.gov/zones/forecast/`. Use `scrape_and_save_latlon(lat, lon, filename)` instead — pass an offshore coordinate ~30nm from the port (inside the zone) and `marine.weather.gov` auto-detects the correct zone. JAX zones (AMZ47x, AMZ45x) work normally via zone ID.
