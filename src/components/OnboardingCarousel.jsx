@@ -1,5 +1,5 @@
 // src/components/OnboardingCarousel.jsx
-// New-user onboarding carousel — video-based, 5 slides.
+// New-user onboarding carousel — video-based, 6 slides.
 // Videos are hosted in Supabase Storage bucket "onboarding-videos".
 // Replace each videoUrl with the actual public URL after uploading your recordings.
 //
@@ -54,12 +54,20 @@ const SLIDES = [
     videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RIPLock+Community+Features+and+Posting+Guide.mp4",
     posterUrl: "/community-features-poster.png",
   },
+  {
+    id: "mobile-home",
+    title: "Enhanced Mobile Experience",
+    caption: "Add the website to your phone homepage to enhance the mobile browser experience.",
+    videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/Add+RIPLOCK+to+Home+Screen+for+Full+App.mp4",
+    posterUrl: "/mobile-homescreen-poster.png",
+  },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function OnboardingCarousel({ onComplete }) {
   const [slide, setSlide]   = useState(0);
   const [muted, setMuted]   = useState(false);
+  const [done,  setDone]    = useState(false);
   const videoRef            = useRef(null);
   const total               = SLIDES.length;
   const current             = SLIDES[slide];
@@ -84,10 +92,42 @@ export default function OnboardingCarousel({ onComplete }) {
   }
 
   function goNext() {
-    if (isLast) { onComplete(); return; }
+    if (isLast) { setDone(true); return; }
     setSlide(s => s + 1);
   }
   function goPrev() { if (slide > 0) setSlide(s => s - 1); }
+
+  if (done) {
+    return createPortal(
+      <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/70 p-4">
+        <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 flex-shrink-0">
+            <span className="text-xs font-semibold text-slate-400">Getting Started</span>
+            <button
+              onClick={onComplete}
+              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex flex-col items-center justify-center px-8 py-12 text-center">
+            <p className="text-lg font-semibold text-slate-800 mb-3">All done!</p>
+            <p className="text-sm text-slate-500 leading-relaxed mb-8">
+              Enjoy the app. You can revisit this tour anytime via the App Tour button in User Settings.
+            </p>
+            <button
+              onClick={onComplete}
+              className="px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors"
+            >
+              Start Exploring
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/70 p-4">
@@ -183,10 +223,10 @@ export default function OnboardingCarousel({ onComplete }) {
 
           {isLast ? (
             <button
-              onClick={onComplete}
-              className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors"
+              onClick={() => setDone(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors"
             >
-              Get Started
+              Finish <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button
