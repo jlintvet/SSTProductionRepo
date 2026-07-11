@@ -228,4 +228,13 @@ export default function OnboardingCarousel({ onComplete }) {
               onClick={goNext}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors"
             >
-              Next <ChevronRight cl
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+      </div>
+    </div>,
+    document.body
+  );
+}
