@@ -49,9 +49,9 @@ const SLIDES = [
   },
   {
     id: "temp-break",
-    title: "Temp Break Tool",
-    caption: "Set a target temperature and sharpness to highlight the exact gradient you want to fish. Yellowfin and marlin stack up here.",
-    videoUrl: null,
+    title: "Community Features",
+    caption: "See where other anglers are catching fish and send tips. Post reports and earn points and tips. Contributions maintain your access to this content.",
+    videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RIPLock+Community+Features+and+Posting+Guide.mp4",
   },
   {
     id: "hotspots",
@@ -228,13 +228,4 @@ export default function OnboardingCarousel({ onComplete }) {
               onClick={goNext}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors"
             >
-              Next <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-      </div>
-    </div>,
-    document.body
-  );
-}
+              Next <ChevronRight cl
