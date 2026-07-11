@@ -96,7 +96,17 @@ const NOAA_SOURCES = {
   "St. Augustine, FL":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/staugustinefl_noaa.json",       tideStation: "8720587",  noaaZone: { id: "AMZ474", description: "St. Augustine to Flagler Beach FL, 20-60nm" } },
   "St. Simons Island, GA":  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stsimonsgaga_noaa.json",        tideStation: "8679511",  noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
   "Tybee Island, GA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/tybeega_noaa.json",             tideStation: "8670870",  noaaZone: { id: "AMZ384", description: "Savannah GA to Altamaha Sound GA, 20-60nm" } },
-  "Wrightsville Beach, NC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wrightsvillebeachnc_noaa.json", tideStation: "8658163",  noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } }
+  "Wrightsville Beach, NC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wrightsvillebeachnc_noaa.json", tideStation: "8658163",  noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } },
+    // ── Northeast Florida Region ─────────────────────────────────────────────
+    // "Mayport, FL" and "St. Augustine, FL" reuse the ga_sc entries above (same
+    // physical ports, same label strings) — only the 7 new ports need entries here.
+  "Ponce Inlet, FL":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/ponceinletfl_noaa.json",         tideStation: "8721147",  noaaZone: { id: "AMZ570", description: "Flagler Beach to Volusia-Brevard County Line FL, 20-60nm" } },
+  "Port Canaveral, FL":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/portcanaveralfl_noaa.json",      tideStation: "8721604",  noaaZone: { id: "AMZ572", description: "Volusia-Brevard County Line to Sebastian Inlet FL, 20-60nm" } },
+  "Sebastian Inlet, FL":    { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sebastianinletfl_noaa.json",     tideStation: "8722004",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
+  "Fort Pierce, FL":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortpiercefl_noaa.json",         tideStation: "8722212",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
+  "Stuart, FL":              { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stuartfl_noaa.json",             tideStation: "8722357",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
+  "Lake Worth Inlet, FL":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/lakeworthinletfl_noaa.json",     tideStation: "8722588",  noaaZone: { id: "AMZ670", description: "Jupiter Inlet to Deerfield Beach FL, 20-60nm" } },
+  "Fort Lauderdale, FL":    { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa.json",     tideStation: "8722956",  noaaZone: { id: "AMZ671", description: "Deerfield Beach to Ocean Reef FL, 20-60nm" } }
 
 };
 
