@@ -150,26 +150,31 @@ export const REGION_CONFIGS = {
       // Cape Charles, VA intentionally omitted — same physical port already
       // exists as "Cape Charles, VA" in mid_atlantic (bay-side, ANZ631); not
       // duplicated here to avoid a conflicting NOAA_SOURCES zone under one label.
-      { label: "Virginia Beach, VA",         lat: 36.8317, lon: -75.9683, wreckRegion: "VirginiaBeachVA",     noaaCoverage: true, noaaZone: "ANZ686" },
-      { label: "Wachapreague, VA",           lat: 37.6078, lon: -75.6858, wreckRegion: "WachapreagueVA",      noaaCoverage: true, noaaZone: "ANZ684" },
-      { label: "Chincoteague, VA",           lat: 37.9317, lon: -75.3833, wreckRegion: "ChincoteagueVA",      noaaCoverage: true, noaaZone: "ANZ682" },
-      // Label matches existing mid_atlantic port exactly so it reuses that
-      // region's NOAA_SOURCES/wreck data instead of duplicating it under a
-      // slightly different string.
-      { label: "Ocean City Inlet, MD",       lat: 38.3283, lon: -75.0917, wreckRegion: "OceanCityMD",         noaaCoverage: true, noaaZone: "ANZ485" },
-      { label: "Indian River Inlet, DE",     lat: 38.6100, lon: -75.0700, wreckRegion: "IndianRiverInletDE",  noaaCoverage: true, noaaZone: "ANZ485" },
-      { label: "Cape May, NJ",               lat: 38.9683, lon: -74.9600, wreckRegion: "CapeMayNJ",           noaaCoverage: true, noaaZone: "ANZ485" },
-      { label: "Atlantic City, NJ",          lat: 39.3567, lon: -74.4181, wreckRegion: "AtlanticCityNJ",      noaaCoverage: true, noaaZone: "ANZ482" },
-      { label: "Barnegat Light, NJ",         lat: 39.7617, lon: -74.1117, wreckRegion: "BarnegatLightNJ",     noaaCoverage: true, noaaZone: "ANZ481" },
-      { label: "Manasquan, NJ",              lat: 40.1050, lon: -74.0550, wreckRegion: "ManasquanNJ",         noaaCoverage: true, noaaZone: "ANZ480" },
-      { label: "Sandy Hook, NJ",             lat: 40.4669, lon: -74.0094, wreckRegion: "SandyHookNJ",         noaaCoverage: true, noaaZone: "ANZ385" },
-      { label: "Freeport, NY",               lat: 40.5867, lon: -73.5783, wreckRegion: "FreeportNY",          noaaCoverage: true, noaaZone: "ANZ385" },
-      { label: "Captree, NY",                lat: 40.6267, lon: -73.2600, wreckRegion: "CaptreeNY",           noaaCoverage: true, noaaZone: "ANZ385" },
-      { label: "Shinnecock Inlet, NY",       lat: 40.8367, lon: -72.4800, wreckRegion: "ShinnecockNY",        noaaCoverage: true, noaaZone: "ANZ380" },
-      { label: "Montauk, NY",                lat: 41.0483, lon: -71.9594, wreckRegion: "MontaukNY",           noaaCoverage: true, noaaZone: "ANZ380" },
-      { label: "Stonington, CT",             lat: 41.3350, lon: -71.9050, wreckRegion: "StoningtonCT",        noaaCoverage: true, noaaZone: "ANZ237" },
-      { label: "Point Judith, RI",           lat: 41.3633, lon: -71.4900, wreckRegion: "PointJudithRI",       noaaCoverage: true, noaaZone: "ANZ283" },
-      { label: "Newport, RI",                lat: 41.5043, lon: -71.3261, wreckRegion: "NewportRI",           noaaCoverage: true, noaaZone: "ANZ283" },
+      // Virginia Beach, VA intentionally omitted (removed 2026-07-12 per Jon).
+      //
+      // wreckRegion: every port below shares the single "VaToRI" region key.
+      // Bottom features aren't tied to individual departure ports in this
+      // region — every va_ri port shows the full VA-to-RI feature set rather
+      // than a nearest-port subset. (Ocean City Inlet, MD previously reused
+      // mid_atlantic's "OceanCityMD" wreck data specifically; it now uses
+      // the shared va_ri pool like every other port here. Its NOAA_SOURCES
+      // marine-forecast reuse via the matching label is unaffected.)
+      { label: "Wachapreague, VA",           lat: 37.6078, lon: -75.6858, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ684" },
+      { label: "Chincoteague, VA",           lat: 37.9317, lon: -75.3833, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ682" },
+      { label: "Ocean City Inlet, MD",       lat: 38.3283, lon: -75.0917, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ485" },
+      { label: "Indian River Inlet, DE",     lat: 38.6100, lon: -75.0700, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ485" },
+      { label: "Cape May, NJ",               lat: 38.9683, lon: -74.9600, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ485" },
+      { label: "Atlantic City, NJ",          lat: 39.3567, lon: -74.4181, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ482" },
+      { label: "Barnegat Light, NJ",         lat: 39.7617, lon: -74.1117, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ481" },
+      { label: "Manasquan, NJ",              lat: 40.1050, lon: -74.0550, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ480" },
+      { label: "Sandy Hook, NJ",             lat: 40.4669, lon: -74.0094, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ385" },
+      { label: "Freeport, NY",               lat: 40.5867, lon: -73.5783, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ385" },
+      { label: "Captree, NY",                lat: 40.6267, lon: -73.2600, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ385" },
+      { label: "Shinnecock Inlet, NY",       lat: 40.8367, lon: -72.4800, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ380" },
+      { label: "Montauk, NY",                lat: 41.0483, lon: -71.9594, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ380" },
+      { label: "Stonington, CT",             lat: 41.3350, lon: -71.9050, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ237" },
+      { label: "Point Judith, RI",           lat: 41.3633, lon: -71.4900, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ283" },
+      { label: "Newport, RI",                lat: 41.5043, lon: -71.3261, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ283" },
     ],
   },
 
