@@ -662,6 +662,15 @@ const CANYON_LABELS = [
   { name: "Wilmington Canyon", lat: 38.3194, lon: -73.4772 },
   { name: "Spencer Canyon",    lat: 38.5760, lon: -73.1220 },
   { name: "Lindenkohl Canyon", lat: 38.7550, lon: -72.9457 },
+  { name: "Berkeley Canyon",   lat: 39.0064, lon: -72.8017 },
+  { name: "Carteret Canyon",   lat: 38.9191, lon: -72.9081 },
+  { name: "Toms Canyon",       lat: 39.1543, lon: -72.7011 },
+  { name: "Hudson Canyon",     lat: 39.6826, lon: -72.4744 },
+  { name: "Block Canyon",      lat: 39.8458, lon: -71.2333 },
+  { name: "Alvin Canyon",      lat: 40.0750, lon: -70.4500 },
+  { name: "Nantucket Canyon",  lat: 40.0750, lon: -70.1833 },
+  { name: "Atlantis Canyon",   lat: 39.9583, lon: -69.9167 },
+  { name: "Veatch Canyon",     lat: 40.0101, lon: -69.6217 },
 ];
 
 // ── Loran-C overlay — two crossing families ──────────────────────────────────
