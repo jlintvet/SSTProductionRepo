@@ -1071,6 +1071,7 @@ export default function SSTHeatmapLeaflet(props) {
   const breakLayerRef    = useRef(null);
   const breakGlowRef     = useRef(null);
   const bathyLayerRef    = useRef(null);
+  const radarTileRef     = useRef(null);
   const bathyTileRef     = useRef(null);
   const bathyLabelRef    = useRef(null);
   const wreckLayerRef    = useRef(null);
@@ -1137,6 +1138,7 @@ export default function SSTHeatmapLeaflet(props) {
 
   const [showSSTLayer]    = useState(true);
   const [showBathyLayer,  setShowBathyLayer]  = useState(true);
+  const [showRadarOverlay, setShowRadarOverlay] = useState(false);
   const [showBathyRaster, setShowBathyRaster] = useState(false);
   const [showWrecks,      setShowWrecks]      = useState(false);
   const [showBuoys,       setShowBuoys]       = useState(false);
@@ -1645,6 +1647,9 @@ export default function SSTHeatmapLeaflet(props) {
     map.createPane("sstDataPane"); map.getPane("sstDataPane").style.zIndex = "350"; map.getPane("sstDataPane").style.pointerEvents = "none";
     map.createPane("bathyTilePane"); map.getPane("bathyTilePane").style.zIndex = "362"; map.getPane("bathyTilePane").style.pointerEvents = "none";
     map.createPane("bathyPane");   map.getPane("bathyPane").style.zIndex   = "375"; map.getPane("bathyPane").style.pointerEvents   = "none";
+    // radarPane sits above overlayPane (400, wind/currents) so live radar reads clearly
+    // above data/overlay layers, but stays below markerPane (600) so pins/labels remain on top.
+    map.createPane("radarPane");   map.getPane("radarPane").style.zIndex   = "405"; map.getPane("radarPane").style.pointerEvents = "none";
 
     // Prevent Leaflet from intercepting spacebar when the user is typing in an input/textarea
     const stopSpaceInInputs = (e) => {
@@ -2675,6 +2680,54 @@ export default function SSTHeatmapLeaflet(props) {
     };
   }, [mapReady, showBathyRaster, BATHY_TILE_URL]);
 
+  // ── Radar overlay (RainViewer, POC — mid_atlantic only) ─────────────────────
+  // Proof of concept: gated to the Mid-Atlantic region config only. RainViewer
+  // is a free public radar-tile API (no key required); see docs/map_control_panel.md
+  // for the Overlays section pattern this follows (teardown/recreate on toggle,
+  // same shape as the bathyTileRef effect above).
+  useEffect(() => {
+    const map = mapRef.current; if (!mapReady || !map) return;
+    if (radarTileRef.current) { try { map.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
+    const isRadarRegion = regionConfig?.label === "Mid-Atlantic";
+    if (!showRadarOverlay || !isRadarRegion) return;
+
+    let cancelled = false;
+    const addRadarLayer = (host, framePath) => {
+      if (cancelled) return;
+      const m = mapRef.current; if (!m) return;
+      if (radarTileRef.current) { try { m.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
+      const lyr = L.tileLayer(`${host}${framePath}/256/{z}/{x}/{y}/2/1_1.png`, {
+        pane: "radarPane",
+        opacity: 0.65,
+        maxNativeZoom: 7,
+        maxZoom: 18,
+        attribution: "Weather radar &copy; RainViewer",
+        interactive: false,
+      });
+      lyr.addTo(m);
+      radarTileRef.current = lyr;
+    };
+    const fetchLatestFrame = () => {
+      fetch("https://api.rainviewer.com/public/weather-maps.json")
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(d => {
+          const frames = d?.radar?.past;
+          const latest = frames?.[frames.length - 1];
+          if (latest?.path) addRadarLayer(d.host, latest.path);
+        })
+        .catch(err => console.error("[RADAR] RainViewer fetch failed:", err));
+    };
+    fetchLatestFrame();
+    // RainViewer's mosaic updates roughly every 10 minutes — refresh on the same cadence.
+    const intervalId = setInterval(fetchLatestFrame, 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      const m = mapRef.current;
+      if (m && radarTileRef.current) { try { m.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
+    };
+  }, [mapReady, showRadarOverlay, regionConfig]);
+
   // ── Bathymetry ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapReady || !showBathyLayer || jsonContours) return;
@@ -3237,6 +3290,8 @@ export default function SSTHeatmapLeaflet(props) {
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showBathyRaster={showBathyRaster} setShowBathyRaster={setShowBathyRaster}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
+            showRadarOverlay={showRadarOverlay} setShowRadarOverlay={setShowRadarOverlay}
+            isRadarAvailable={regionConfig?.label === "Mid-Atlantic"}
             showBuoys={showBuoys} setShowBuoys={setShowBuoys} buoysLoading={buoysLoading}
             selectedLocation={selectedLocation}
             windSliderHeight={sliderHeight}
