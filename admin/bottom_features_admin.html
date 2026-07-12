@@ -18,6 +18,8 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
 .stat-pill.green span{color:#86efac}
 #bathyBtn{background:#1e40af;color:#bfdbfe;border:1px solid #3b82f6;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;white-space:nowrap}
 #bathyBtn.on{background:#3b82f6;color:white}
+#addBtn{background:#1a4731;color:#bbf7d0;border:1px solid #22c55e;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;white-space:nowrap}
+#addBtn.on{background:#22c55e;color:#052e12}
 #tokenWrap{margin-left:auto;display:flex;align-items:center;gap:6px}
 #tokenInput{background:#334155;border:1px solid #475569;border-radius:6px;padding:4px 8px;color:#e2e8f0;font-size:12px;width:200px}
 #commitBtn{background:#2563eb;color:white;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
@@ -65,7 +67,6 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
 .coord-val{flex:1;background:#0f172a;border-radius:4px;padding:4px 7px;font-size:11px;color:#64748b;font-family:monospace}
 .notes-ta{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;resize:vertical;min-height:56px;font-family:system-ui}
 .notes-ta:focus{outline:none;border-color:#3b82f6}
-#dmsNote{font-size:10px;color:#64748b;margin-top:3px}
 #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center}
 #modal.show{display:flex}
 #modalBox{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px;width:420px;max-height:80vh;overflow-y:auto}
@@ -91,8 +92,11 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
   <div class="stat-pill green">Keep <span id="sKeep">&#8212;</span></div>
   <div class="stat-pill red">Remove <span id="sRemove">&#8212;</span></div>
   <div class="stat-pill">Edited <span id="sEdited">&#8212;</span></div>
+  <div class="stat-pill" style="background:#1e3a5c"><span style="color:#93c5fd">New <span id="sNew">0</span></span></div>
   <button id="bathyBtn" onclick="toggleBathy()">Bathy off</button>
+  <button id="addBtn" onclick="toggleAddMode()">+ Add Feature</button>
   <div id="tokenWrap">
+        <input id="tokenInput" type="password" placeholder="GitHub token (session only)"/>
         <button id="commitBtn" disabled onclick="startCommit()">Commit to GitHub</button>
   </div>
 </div>
@@ -103,10 +107,32 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
       <div class="filter-row">
         <select id="fRegion" class="filter-sel">
           <option value="">All regions</option>
-          <option value="HatterasNC">Hatteras NC</option>
-          <option value="MoreheadNC">Morehead NC</option>
-          <option value="ChesapeakeMD">Chesapeake MD</option>
-          <option value="OceanCityMD">Ocean City MD</option>
+          <optgroup label="NC (Hatteras / Morehead)">
+            <option value="HatterasNC">Hatteras NC</option>
+            <option value="MoreheadNC">Morehead City NC</option>
+          </optgroup>
+          <optgroup label="VA - RI (va_ri region)">
+            <option value="VirginiaBeachVA">Virginia Beach VA</option>
+            <option value="WachapreagueVA">Wachapreague VA</option>
+            <option value="ChincoteagueVA">Chincoteague VA</option>
+            <option value="OceanCityMD">Ocean City MD</option>
+            <option value="IndianRiverInletDE">Indian River Inlet DE</option>
+            <option value="CapeMayNJ">Cape May NJ</option>
+            <option value="AtlanticCityNJ">Atlantic City NJ</option>
+            <option value="BarnegatLightNJ">Barnegat Light NJ</option>
+            <option value="ManasquanNJ">Manasquan NJ</option>
+            <option value="SandyHookNJ">Sandy Hook NJ</option>
+            <option value="FreeportNY">Freeport NY</option>
+            <option value="CaptreeNY">Captree NY</option>
+            <option value="ShinnecockNY">Shinnecock Inlet NY</option>
+            <option value="MontaukNY">Montauk NY</option>
+            <option value="StoningtonCT">Stonington CT</option>
+            <option value="PointJudithRI">Point Judith RI</option>
+            <option value="NewportRI">Newport RI</option>
+          </optgroup>
+          <optgroup label="Legacy">
+            <option value="ChesapeakeMD">Chesapeake MD (legacy)</option>
+          </optgroup>
         </select>
         <select id="fSymbol" class="filter-sel">
           <option value="">All types</option>
@@ -130,7 +156,7 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
   </div>
   <div id="mapWrap">
     <div id="map"></div>
-    <div id="keyHints">K = keep &nbsp;&#183;&nbsp; X = remove &nbsp;&#183;&nbsp; &#8593;&#8595; = browse &nbsp;&#183;&nbsp; Tab = next pending</div>
+    <div id="keyHints">K = keep &nbsp;&#183;&nbsp; X = remove &nbsp;&#183;&nbsp; &#8593;&#8595; = browse &nbsp;&#183;&nbsp; Tab = next pending &nbsp;&#183;&nbsp; Add Feature + click map = place new</div>
   </div>
   <div id="rightPanel">
     <div id="panelEmpty">Select a feature<br>to review or edit</div>
@@ -143,12 +169,10 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
         <div class="plabel">Type</div>
         <div class="sym-toggle">
           <button class="sym-btn" id="sWreck"     onclick="setSym('Wreck')">&#9875; Wreck</button>
-          <button class="sym-btn" id="sStructure" onclick="setSym('Structure')">&#128136; Structure</button>
-          <button class="sym-btn" id="sOther"     onclick="setSym('Other')">&#9711; Other</button>
+          <button class="sym-btn" id="sStructure" onclick="setSym('Rocks')">&#9640; Rocks / Structure</button>
         </div>
-        <div id="dmsNote" style="display:none">Type changes won't write to text-format file (OceanCityMD)</div>
       </div>
-      <div>
+      <div id="dispWrap">
         <div class="plabel">Disposition</div>
         <div class="dec-btns">
           <button class="dec-btn keep" id="dKeep" onclick="setDec('keep')">&#10003; Keep</button>
@@ -156,16 +180,31 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
           <button class="dec-btn rem"  id="dRem"  onclick="setDec('remove')">&#10007; Remove</button>
         </div>
       </div>
-      <div>
+      <div id="newModeWrap" style="display:none">
+        <div class="plabel">New feature &mdash; not yet saved</div>
+        <button id="deletePendingBtn" class="dec-btn rem" style="width:100%;padding:6px">&#10007; Discard this pending feature</button>
+      </div>
+      <div id="coordWrap">
         <div class="plabel">Coordinates</div>
         <div class="coord-row">
           <div class="coord-val" id="cLat">&#8212;</div>
           <div class="coord-val" id="cLon">&#8212;</div>
         </div>
       </div>
+      <div id="latLonEditWrap" style="display:none">
+        <div class="plabel">Coordinates (click map or type)</div>
+        <div class="coord-row">
+          <input id="eLat" class="pinput" type="number" step="0.00001" placeholder="Latitude"/>
+          <input id="eLon" class="pinput" type="number" step="0.00001" placeholder="Longitude"/>
+        </div>
+      </div>
       <div>
         <div class="plabel">Region</div>
-        <div id="cRegion" style="font-size:12px;color:#94a3b8;padding:2px 0"></div>
+        <select id="eRegion" class="pinput"></select>
+      </div>
+      <div>
+        <div class="plabel">Depth (ft, optional)</div>
+        <input id="eDepth" class="pinput" type="text" placeholder="e.g. 90"/>
       </div>
       <div>
         <div class="plabel">Notes</div>
@@ -182,34 +221,44 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
   </div>
 </div>
 <script>
-const WRECKS_URL='https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/wrecks.json';
+const WRECKS_PATH='DailySST/wrecks.json';
+const WRECKS_URL='https://raw.githubusercontent.com/jlintvet/SSTv2/main/'+WRECKS_PATH;
 const BATHY_URL='https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry_contours.json';
 const REPO='jlintvet/SSTv2';
 const API='https://api.github.com';
-const REGION_GPX={
-  HatterasNC:{path:'DailySST/Fishing_Spots_HatterasNC.gpx',fmt:'xml'},
-  MoreheadNC:{path:'DailySST/Fishing_Spots_MoreheadNC.gpx',fmt:'xml'},
-  ChesapeakeMD:{path:'DailySST/Fishing_spots_ChesapeakeMD.gpx',fmt:'xml'},
-  OceanCityMD:{path:'DailySST/Fishing_Spots_OceanCityMD.gpx',fmt:'dms'},
-};
-const REGION_LABEL={
-  HatterasNC:'Hatteras, NC',MoreheadNC:'Morehead City, NC',
-  ChesapeakeMD:'Chesapeake, MD',OceanCityMD:'Ocean City, MD',
-};
-const NORM_SYM=s=>s==='Rocks'?'Structure':(s||'Structure');
-const STORE_KEY='bf_admin_decisions_v2';
-const GH_TOKEN=['ghp_ri2Q4H','X1YLH1jcVvRPP','qsie5FWjYoS3GcQHj'].join('');
 
-let features=[],decisions={},selKey=null,spatialOrder=[],spatialPos=0;
-let map,markersMap={},bathyLayer=null,bathyOn=false;
+const REGION_LABEL={
+  HatterasNC:'Hatteras, NC', MoreheadNC:'Morehead City, NC',
+  ChesapeakeMD:'Chesapeake, MD (legacy)', OceanCityMD:'Ocean City, MD',
+  VirginiaBeachVA:'Virginia Beach, VA', WachapreagueVA:'Wachapreague, VA', ChincoteagueVA:'Chincoteague, VA',
+  IndianRiverInletDE:'Indian River Inlet, DE', CapeMayNJ:'Cape May, NJ', AtlanticCityNJ:'Atlantic City, NJ',
+  BarnegatLightNJ:'Barnegat Light, NJ', ManasquanNJ:'Manasquan, NJ', SandyHookNJ:'Sandy Hook, NJ',
+  FreeportNY:'Freeport, NY', CaptreeNY:'Captree, NY', ShinnecockNY:'Shinnecock Inlet, NY', MontaukNY:'Montauk, NY',
+  StoningtonCT:'Stonington, CT', PointJudithRI:'Point Judith, RI', NewportRI:'Newport, RI',
+};
+const REGION_KEYS=Object.keys(REGION_LABEL);
+
+const STORE_KEY='bf_admin_decisions_v2';
+const NEW_STORE_KEY='bf_admin_new_features_v1';
+const NORM_SYM=s=>s==='Rocks'?'Structure':(s||'Structure');
+const TO_RAW_SYM=s=>s==='Structure'?'Rocks':(s||'Rocks');
+
+let features=[],decisions={},newFeatures=[],selKey=null,spatialOrder=[],spatialPos=0,addMode=false,nextTempId=1;
+let map,markersMap={},bathyLayer=null,bathyOn=false,lastCommitSucceeded=false;
 
 const fKey=f=>{const[lo,la]=f.geometry.coordinates;return`${(f.properties?.name??'').trim()}_${la.toFixed(4)}_${lo.toFixed(4)}`;};
+const nKey=n=>'NEW::'+n.tempId;
+const isNewKey=k=>!!k&&k.startsWith('NEW::');
 const getDec=k=>decisions[k]?.decision??'pending';
 const getName=(k,f)=>decisions[k]?.newName??f.properties?.name??'';
 const getSym=(k,f)=>decisions[k]?.newSymbol??NORM_SYM(f.properties?.symbol);
-const findF=k=>features.find(f=>fKey(f)===k);
+const getRegionOverride=(k,f)=>decisions[k]?.newRegion??f.properties?.region;
+const getDepth=(k,f)=>decisions[k]?.newDepth??(f.properties?.depth_ft!=null?String(f.properties.depth_ft):'');
+const findF=k=>isNewKey(k)?newFeatures.find(n=>nKey(n)===k):features.find(f=>fKey(f)===k);
 const saveD=()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(decisions));}catch(_){}};
 const loadD=()=>{try{const s=localStorage.getItem(STORE_KEY);if(s)decisions=JSON.parse(s);}catch(_){}};
+const saveN=()=>{try{localStorage.setItem(NEW_STORE_KEY,JSON.stringify(newFeatures));}catch(_){}};
+const loadN=()=>{try{const s=localStorage.getItem(NEW_STORE_KEY);if(s){newFeatures=JSON.parse(s);nextTempId=1+Math.max(0,...newFeatures.map(n=>n.tempId||0));}}catch(_){}};
 
 function d2(a,b){const[lo1,la1]=a.geometry.coordinates,[lo2,la2]=b.geometry.coordinates;return(la1-la2)**2+(lo1-lo2)**2;}
 function buildSpatialOrder(feats){
@@ -227,17 +276,28 @@ function buildSpatialOrder(feats){
 }
 
 function initMap(){
-  map=L.map('map',{center:[36.8,-74.8],zoom:7});
+  map=L.map('map',{center:[39.5,-73.5],zoom:6});
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'CartoDB',maxZoom:19}).addTo(map);
+  map.on('click',onMapClick);
+}
+
+function onMapClick(e){
+  if(!addMode)return;
+  const n={tempId:nextTempId++,name:'New Feature',symbol:'Wreck',region:document.getElementById('fRegion').value||'OceanCityMD',
+    lat:+e.latlng.lat.toFixed(5),lon:+e.latlng.lng.toFixed(5),depth_ft:'',notes:''};
+  newFeatures.push(n);saveN();
+  buildAllMarkers();renderList();updateStats();
+  select(nKey(n),false);
 }
 
 function dispColor(k){
+  if(isNewKey(k))return'#60a5fa';
   const d=getDec(k);
   return d==='keep'?'#22c55e':d==='remove'?'#ef4444':'#f59e0b';
 }
 
 function mkIcon(k,sel){
-  const c=dispColor(k),op=getDec(k)==='remove'?0.35:1;
+  const c=dispColor(k),op=(!isNewKey(k)&&getDec(k)==='remove')?0.35:1;
   const ring=sel?'<circle cx="10" cy="10" r="9" fill="none" stroke="white" stroke-width="2"/>':"";
   return L.divIcon({className:'',
     html:'<svg width="20" height="20" viewBox="0 0 20 20" style="opacity:'+op+'"><circle cx="10" cy="10" r="6" fill="'+c+'" stroke="white" stroke-width="1.5"/>'+ring+'</svg>',
@@ -249,6 +309,12 @@ function buildAllMarkers(){
   features.forEach(f=>{
     const k=fKey(f),[lo,la]=f.geometry.coordinates;
     const m=L.marker([la,lo],{icon:mkIcon(k,false)});
+    m.on('click',()=>select(k,false));
+    m.addTo(map);markersMap[k]=m;
+  });
+  newFeatures.forEach(n=>{
+    const k=nKey(n);
+    const m=L.marker([n.lat,n.lon],{icon:mkIcon(k,false)});
     m.on('click',()=>select(k,false));
     m.addTo(map);markersMap[k]=m;
   });
@@ -280,12 +346,27 @@ function toggleBathy(){
   else{btn.textContent='Bathy off';btn.classList.remove('on');if(bathyLayer)map.removeLayer(bathyLayer);}
 }
 
+function toggleAddMode(){
+  addMode=!addMode;
+  const btn=document.getElementById('addBtn');
+  if(addMode){btn.textContent='Click map to place…';btn.classList.add('on');}
+  else{btn.textContent='+ Add Feature';btn.classList.remove('on');}
+}
+
 function select(k,flyTo){
   const prev=selKey;selKey=k;
   if(prev)refreshMk(prev);refreshMk(k);
-  if(flyTo){const f=findF(k);if(f){const[lo,la]=f.geometry.coordinates;map.setView([la,lo],Math.max(map.getZoom(),10),{animate:true});}}
-  const idx=features.findIndex(f=>fKey(f)===k);
-  const si=spatialOrder.indexOf(idx);if(si>=0)spatialPos=si;
+  if(flyTo){
+    const f=findF(k);
+    if(f){
+      const[la,lo]=isNewKey(k)?[f.lat,f.lon]:[f.geometry.coordinates[1],f.geometry.coordinates[0]];
+      map.setView([la,lo],Math.max(map.getZoom(),10),{animate:true});
+    }
+  }
+  if(!isNewKey(k)){
+    const idx=features.findIndex(f=>fKey(f)===k);
+    const si=spatialOrder.indexOf(idx);if(si>=0)spatialPos=si;
+  }
   renderPanel();renderList();updateStats();
   setTimeout(()=>{const el=document.querySelector('#featureList .feat-item.selected');if(el)el.scrollIntoView({block:'nearest'});},0);
 }
@@ -306,7 +387,7 @@ function navNextUndisposed(){
 }
 
 function setDec(dec){
-  if(!selKey)return;
+  if(!selKey||isNewKey(selKey))return;
   if(!decisions[selKey])decisions[selKey]={};
   decisions[selKey].decision=dec;
   saveD();refreshMk(selKey);renderPanel();renderList();updateStats();
@@ -315,6 +396,10 @@ function setDec(dec){
 
 function setSym(sym){
   if(!selKey)return;
+  if(isNewKey(selKey)){
+    const n=findF(selKey);if(n){n.symbol=sym;saveN();}
+    renderPanel();return;
+  }
   if(!decisions[selKey])decisions[selKey]={};
   decisions[selKey].newSymbol=sym;
   saveD();renderPanel();updateStats();
@@ -323,6 +408,10 @@ function setSym(sym){
 function commitName(){
   if(!selKey)return;
   const v=document.getElementById('eName').value.trim();
+  if(isNewKey(selKey)){
+    const n=findF(selKey);if(n){n.name=v;saveN();renderList();}
+    return;
+  }
   if(!decisions[selKey])decisions[selKey]={};
   if(v)decisions[selKey].newName=v;else delete decisions[selKey].newName;
   saveD();renderList();updateStats();
@@ -330,13 +419,62 @@ function commitName(){
 function commitNotes(){
   if(!selKey)return;
   const v=document.getElementById('eNotes').value;
+  if(isNewKey(selKey)){
+    const n=findF(selKey);if(n){n.notes=v;saveN();}
+    return;
+  }
   if(!decisions[selKey])decisions[selKey]={};
   if(v)decisions[selKey].notes=v;else delete decisions[selKey].notes;
   saveD();
 }
-document.getElementById('eName').addEventListener('change',commitName);
-document.getElementById('eName').addEventListener('keydown',e=>{if(e.key==='Enter')commitName();});
+function commitRegion(){
+  if(!selKey)return;
+  const v=document.getElementById('eRegion').value;
+  if(isNewKey(selKey)){
+    const n=findF(selKey);if(n){n.region=v;saveN();renderList();}
+    return;
+  }
+  const f=findF(selKey);
+  if(!decisions[selKey])decisions[selKey]={};
+  if(v&&f&&v!==f.properties.region)decisions[selKey].newRegion=v;else delete decisions[selKey].newRegion;
+  saveD();renderList();updateStats();
+}
+function commitDepth(){
+  if(!selKey)return;
+  const v=document.getElementById('eDepth').value.trim();
+  if(isNewKey(selKey)){
+    const n=findF(selKey);if(n){n.depth_ft=v;saveN();}
+    return;
+  }
+  if(!decisions[selKey])decisions[selKey]={};
+  if(v)decisions[selKey].newDepth=v;else delete decisions[selKey].newDepth;
+  saveD();updateStats();
+}
+function commitLatLon(){
+  if(!selKey||!isNewKey(selKey))return;
+  const n=findF(selKey);if(!n)return;
+  const lat=parseFloat(document.getElementById('eLat').value);
+  const lon=parseFloat(document.getElementById('eLon').value);
+  if(!isNaN(lat))n.lat=lat;
+  if(!isNaN(lon))n.lon=lon;
+  saveN();buildAllMarkers();refreshMk(selKey);
+}
+function deletePending(){
+  if(!selKey||!isNewKey(selKey))return;
+  newFeatures=newFeatures.filter(n=>nKey(n)!==selKey);
+  saveN();selKey=null;buildAllMarkers();renderPanel();renderList();updateStats();
+}
+
+['eName'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',commitName);
+  document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')commitName();});
+});
 document.getElementById('eNotes').addEventListener('change',commitNotes);
+document.getElementById('eRegion').addEventListener('change',commitRegion);
+document.getElementById('eDepth').addEventListener('change',commitDepth);
+document.getElementById('eLat').addEventListener('change',commitLatLon);
+document.getElementById('eLon').addEventListener('change',commitLatLon);
+document.getElementById('deletePendingBtn').addEventListener('click',deletePending);
 
 document.addEventListener('keydown',e=>{
   const tag=e.target.tagName;
@@ -353,32 +491,51 @@ function getFiltered(){
   const sym=document.getElementById('fSymbol').value;
   const dec=document.getElementById('fDecision').value;
   const q=document.getElementById('searchInput').value.trim().toLowerCase();
-  return features.filter(f=>{
+  const existingFiltered=features.filter(f=>{
     const k=fKey(f);
-    if(reg&&f.properties.region!==reg)return false;
+    const r=getRegionOverride(k,f);
+    if(reg&&r!==reg)return false;
     if(sym&&getSym(k,f)!==sym)return false;
     if(dec&&getDec(k)!==dec)return false;
     if(q&&!getName(k,f).toLowerCase().includes(q))return false;
     return true;
-  });
+  }).map(f=>({kind:'existing',f,k:fKey(f)}));
+  const newFiltered=newFeatures.filter(n=>{
+    if(reg&&n.region!==reg)return false;
+    if(sym&&NORM_SYM(n.symbol)!==sym)return false;
+    if(dec&&dec!=='pending')return false;
+    if(q&&!(n.name||'').toLowerCase().includes(q))return false;
+    return true;
+  }).map(n=>({kind:'new',n,k:nKey(n)}));
+  return[...newFiltered,...existingFiltered];
 }
 ['fRegion','fSymbol','fDecision'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{renderList();updateStats();}));
 document.getElementById('searchInput').addEventListener('input',()=>{renderList();updateStats();});
 
 function renderList(){
   const filtered=getFiltered();
-  document.getElementById('listCount').textContent=filtered.length+' of '+features.length;
+  const totalCount=features.length+newFeatures.length;
+  document.getElementById('listCount').textContent=filtered.length+' of '+totalCount;
   const reviewed=features.filter(f=>decisions[fKey(f)]?.decision&&decisions[fKey(f)].decision!=='pending').length;
   document.getElementById('listProgress').textContent=reviewed+'/'+features.length+' reviewed';
   const list=document.getElementById('featureList');
   if(!filtered.length){list.innerHTML='<div style="padding:20px;text-align:center;color:#475569">No matches</div>';return;}
-  list.innerHTML=filtered.map(f=>{
-    const k=fKey(f),dec=getDec(k);
+  list.innerHTML=filtered.map(item=>{
+    const k=item.k,sel=k===selKey?' selected':'';
+    if(item.kind==='new'){
+      const n=item.n;
+      const rl=REGION_LABEL[n.region]??n.region??'(no region)';
+      return '<div class="feat-item'+sel+'" data-key="'+encodeURIComponent(k)+'">'
+        +'<div class="feat-dot" style="background:#60a5fa"></div>'
+        +'<div class="feat-name" title="'+(n.name||'').replace(/"/g,'&quot;')+'">'+(n.name||'(unnamed)').replace(/</g,'&lt;')+' &#9998;</div>'
+        +'<div class="feat-region">'+rl+'</div>'
+        +'</div>';
+    }
+    const f=item.f,dec=getDec(k);
     const name=getName(k,f)||'(unnamed)';
     const dc=dispColor(k),op=dec==='remove'?0.35:1;
     const strike=dec==='remove'?' strike':'';
-    const sel=k===selKey?' selected':'';
-    const rl=REGION_LABEL[f.properties.region]??f.properties.region;
+    const rl=REGION_LABEL[getRegionOverride(k,f)]??getRegionOverride(k,f);
     return '<div class="feat-item'+sel+'" data-key="'+encodeURIComponent(k)+'">'
       +'<div class="feat-dot" style="background:'+dc+';opacity:'+op+'"></div>'
       +'<div class="feat-name'+strike+'" title="'+name.replace(/"/g,'&quot;')+'">'+name.replace(/</g,'&lt;')+'</div>'
@@ -391,26 +548,47 @@ document.getElementById('featureList').addEventListener('click',e=>{
   if(item)select(decodeURIComponent(item.dataset.key),true);
 });
 
+function fillRegionSelect(sel,current){
+  sel.innerHTML=REGION_KEYS.map(k=>'<option value="'+k+'"'+(k===current?' selected':'')+'>'+REGION_LABEL[k]+'</option>').join('');
+}
+
 function renderPanel(){
   const empty=document.getElementById('panelEmpty');
   const content=document.getElementById('panelContent');
+  const isNew=isNewKey(selKey);
   if(!selKey||!findF(selKey)){empty.style.display='flex';content.style.display='none';return;}
   empty.style.display='none';content.style.display='flex';
+  document.getElementById('dispWrap').style.display=isNew?'none':'block';
+  document.getElementById('newModeWrap').style.display=isNew?'block':'none';
+  document.getElementById('coordWrap').style.display=isNew?'none':'block';
+  document.getElementById('latLonEditWrap').style.display=isNew?'block':'none';
+
+  if(isNew){
+    const n=findF(selKey);
+    document.getElementById('eName').value=n.name||'';
+    document.getElementById('eNotes').value=n.notes||'';
+    document.getElementById('eLat').value=n.lat;
+    document.getElementById('eLon').value=n.lon;
+    document.getElementById('eDepth').value=n.depth_ft||'';
+    fillRegionSelect(document.getElementById('eRegion'),n.region);
+    document.getElementById('sWreck').className='sym-btn'+(n.symbol==='Wreck'?' aw':'');
+    document.getElementById('sStructure').className='sym-btn'+(n.symbol==='Rocks'?' as':'');
+    return;
+  }
   const f=findF(selKey);
   const dec=getDec(selKey);
   const name=getName(selKey,f);
   const sym=getSym(selKey,f);
   const[lo,la]=f.geometry.coordinates;
-  const region=f.properties.region;
+  const region=getRegionOverride(selKey,f);
   document.getElementById('eName').value=name;
-  document.getElementById('eNotes').value=decisions[selKey]?.notes??'';
+  document.getElementById('eNotes').value=decisions[selKey]?.notes??f.properties?.notes??'';
+  document.getElementById('eDepth').value=getDepth(selKey,f);
   document.getElementById('cLat').textContent=la.toFixed(5)+'deg N';
   document.getElementById('cLon').textContent=Math.abs(lo).toFixed(5)+'deg W';
-  document.getElementById('cRegion').textContent=REGION_LABEL[region]??region;
-  document.getElementById('dmsNote').style.display=region==='OceanCityMD'?'block':'none';
+  fillRegionSelect(document.getElementById('eRegion'),region);
   document.getElementById('sWreck').className='sym-btn'+(sym==='Wreck'?' aw':'');
   document.getElementById('sStructure').className='sym-btn'+(sym==='Structure'?' as':'');
-  document.getElementById('sOther').className='sym-btn'+(sym==='Other'?' ao':'');
   document.getElementById('dKeep').className='dec-btn keep'+(dec==='keep'?' active':'');
   document.getElementById('dPend').className='dec-btn pend'+(dec==='pending'?' active':'');
   document.getElementById('dRem').className='dec-btn rem'+(dec==='remove'?' active':'');
@@ -421,13 +599,14 @@ function updateStats(){
   const keep=features.filter(f=>getDec(fKey(f))==='keep').length;
   const remove=features.filter(f=>getDec(fKey(f))==='remove').length;
   const pending=features.filter(f=>getDec(fKey(f))==='pending').length;
-  const edited=features.filter(f=>{const d=decisions[fKey(f)];return d&&(d.newName||d.newSymbol);}).length;
+  const edited=features.filter(f=>{const d=decisions[fKey(f)];return d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth);}).length;
   document.getElementById('sTotal').textContent=total;
   document.getElementById('sKeep').textContent=keep;
   document.getElementById('sRemove').textContent=remove;
   document.getElementById('sPending').textContent=pending;
   document.getElementById('sEdited').textContent=edited;
-  document.getElementById('commitBtn').disabled=!(remove>0||edited>0);
+  document.getElementById('sNew').textContent=newFeatures.length;
+  document.getElementById('commitBtn').disabled=!(remove>0||edited>0||newFeatures.length>0);
 }
 
 async function loadFeatures(){
@@ -438,61 +617,17 @@ async function loadFeatures(){
     const data=await res.json();
     features=data.features??[];
     spatialOrder=buildSpatialOrder(features);
-    loadD();
+    loadD();loadN();
     buildAllMarkers();
     renderList();updateStats();
     if(features.length)select(fKey(features[spatialOrder[0]]),true);
   }catch(e){document.getElementById('listCount').textContent='Load failed: '+e.message;}
-
-
-}
-
-function applyToXmlGpx(xmlStr,regionChanges){
-  const parser=new DOMParser();
-  const doc=parser.parseFromString(xmlStr,'application/xml');
-  if(doc.querySelector('parsererror'))throw new Error('GPX XML parse error');
-  const allWpts=[...doc.querySelectorAll('wpt')];
-  const toRemove=[];
-  allWpts.forEach(wpt=>{
-    const lat=parseFloat(wpt.getAttribute('lat'));
-    const lon=parseFloat(wpt.getAttribute('lon'));
-    if(isNaN(lat)||isNaN(lon))return;
-    const nameEl=wpt.querySelector('name');
-    const symEl=wpt.querySelector('sym');
-    const name=(nameEl?.textContent??'').trim();
-    const k=name+'_'+lat.toFixed(4)+'_'+lon.toFixed(4);
-    const ch=regionChanges[k];if(!ch)return;
-    if(ch.decision==='remove'){toRemove.push(wpt);return;}
-    if(ch.newName&&nameEl)nameEl.textContent=ch.newName;
-    if(ch.newSymbol&&symEl)symEl.textContent=ch.newSymbol;
-  });
-  toRemove.forEach(w=>w.parentNode?.removeChild(w));
-  return new XMLSerializer().serializeToString(doc);
-}
-
-const DMS_RE=/^(.+?)\s+(\d+)[oO°]\s*(\d+)'\s*(\d+(?:\.\d+)?)\"?\s*N\s+(\d+)[oO°]\s*(\d+)'\s*(\d+(?:\.\d+)?)\"?\s*W\s*$/;
-const dmsDD=(d,m,s)=>parseFloat(d)+parseFloat(m)/60+parseFloat(s)/3600;
-
-function applyToDmsFile(text,regionChanges){
-  return text.split('\n').map(raw=>{
-    const line=raw.trim();if(!line)return raw;
-    const m=DMS_RE.exec(line);if(!m)return raw;
-    const[,name,ld,lm,ls,od,om,os]=m;
-    const lat=dmsDD(ld,lm,ls),lon=dmsDD(od,om,os);
-    const k=name.trim()+'_'+lat.toFixed(4)+'_'+lon.toFixed(4);
-    const ch=regionChanges[k];if(!ch)return raw;
-    if(ch.decision==='remove')return null;
-    if(ch.newName)return raw.replace(name.trim(),ch.newName.trim());
-    return raw;
-  }).filter(l=>l!==null).join('\n');
 }
 
 const ghH=tok=>({'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'});
 const ghGet=async(tok,p)=>{const r=await fetch(API+'/repos/'+REPO+'/'+p,{headers:ghH(tok)});if(!r.ok)throw new Error('GET '+p+' -> '+r.status);return r.json();};
-const ghPost=async(tok,p,b)=>{const r=await fetch(API+'/repos/'+REPO+'/'+p,{method:'POST',headers:ghH(tok),body:JSON.stringify(b)});if(!r.ok)throw new Error('POST '+p+' -> '+r.status+' '+await r.text());return r.json();};
-const ghPatch=async(tok,p,b)=>{const r=await fetch(API+'/repos/'+REPO+'/'+p,{method:'PATCH',headers:ghH(tok),body:JSON.stringify(b)});if(!r.ok)throw new Error('PATCH '+p+' -> '+r.status);return r.json();};
+const ghPut=async(tok,p,b)=>{const r=await fetch(API+'/repos/'+REPO+'/'+p,{method:'PUT',headers:ghH(tok),body:JSON.stringify(b)});if(!r.ok)throw new Error('PUT '+p+' -> '+r.status+' '+await r.text());return r.json();};
 const toB64=s=>btoa(unescape(encodeURIComponent(s)));
-const fromB64=b=>decodeURIComponent(escape(atob(b.replace(/\n/g,''))));
 
 let progLines=[];
 function logP(icon,text,cls){
@@ -509,69 +644,71 @@ function updP(icon,text,cls){
 }
 
 async function startCommit(){
-  const token=GH_TOKEN;
-  if(!token){alert('Enter a GitHub token first.');return;}
-  const regionChanges={};
-  features.forEach(f=>{
-    const k=fKey(f),d=decisions[k];if(!d)return;
-    if(!(d.decision==='remove'||d.newName||d.newSymbol))return;
-    const r=f.properties.region;
-    if(!regionChanges[r])regionChanges[r]={};
-    regionChanges[r][k]=d;
-  });
-  const affected=Object.keys(regionChanges);
-  if(!affected.length){alert('No file changes to commit.');return;}
-  progLines=[];
+  const token=document.getElementById('tokenInput').value.trim();
+  if(!token){alert('Paste a GitHub token with write access to jlintvet/SSTv2 into the field first. It is only held in this browser tab for this session and is never saved to the file.');return;}
+  const removedKeys=features.filter(f=>getDec(fKey(f))==='remove').map(fKey);
+  const editedFeatures=features.filter(f=>{const d=decisions[fKey(f)];return d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth)&&d.decision!=='remove';});
+  if(!removedKeys.length&&!editedFeatures.length&&!newFeatures.length){alert('No changes to commit.');return;}
+  progLines=[];lastCommitSucceeded=false;
   document.getElementById('modalTitle').textContent='Committing to GitHub...';
   document.getElementById('modalClose').style.display='none';
   document.getElementById('modal').classList.add('show');
-  const remCount=features.filter(f=>getDec(fKey(f))==='remove').length;
-  const nameCount=features.filter(f=>decisions[fKey(f)]?.newName).length;
-  const symCount=features.filter(f=>decisions[fKey(f)]?.newSymbol&&f.properties.region!=='OceanCityMD').length;
   try{
-    logP('...','Getting HEAD...');
-    const ref=await ghGet(token,'git/refs/heads/main');
-    const headSha=ref.object.sha;
-    updP('ok','HEAD '+headSha.slice(0,7),'ok');
-    logP('...','Getting tree...');
-    const commitData=await ghGet(token,'git/commits/'+headSha);
-    const treeSha=commitData.tree.sha;
-    updP('ok','Tree '+treeSha.slice(0,7),'ok');
-    const treeItems=[];
-    for(const region of affected){
-      const gpx=REGION_GPX[region];
-      if(!gpx){logP('!','No GPX config for: '+region,'err');continue;}
-      logP('...','Fetching '+gpx.path+'...');
-      const contents=await ghGet(token,'contents/'+gpx.path);
-      const orig=fromB64(contents.content);
-      updP('ok','Fetched '+gpx.path,'ok');
-      logP('...','Applying changes to '+region+'...');
-      const modified=gpx.fmt==='xml'?applyToXmlGpx(orig,regionChanges[region]):applyToDmsFile(orig,regionChanges[region]);
-      const rc=Object.values(regionChanges[region]);
-      updP('ok',region+': '+rc.filter(c=>c.decision==='remove').length+' removed, '+rc.filter(c=>c.newName).length+' renamed','ok');
-      logP('...','Creating blob...');
-      const blob=await ghPost(token,'git/blobs',{content:toB64(modified),encoding:'base64'});
-      updP('ok','Blob '+blob.sha.slice(0,7),'ok');
-      treeItems.push({path:gpx.path,mode:'100644',type:'blob',sha:blob.sha});
-    }
-    logP('...','Creating tree...');
-    const newTree=await ghPost(token,'git/trees',{base_tree:treeSha,tree:treeItems});
-    updP('ok','Tree '+newTree.sha.slice(0,7),'ok');
+    logP('...','Fetching current wrecks.json...');
+    const cur=await ghGet(token,'contents/'+WRECKS_PATH);
+    const raw=decodeURIComponent(escape(atob(cur.content.replace(/\n/g,''))));
+    const data=JSON.parse(raw);
+    updP('ok','Fetched, '+data.features.length+' existing features','ok');
+
+    logP('...','Applying changes...');
+    let kept=data.features.filter(f=>!removedKeys.includes(fKey(f)));
+    kept=kept.map(f=>{
+      const k=fKey(f),d=decisions[k];
+      if(!d)return f;
+      const p={...f.properties};
+      if(d.newName)p.name=d.newName;
+      if(d.newSymbol)p.symbol=TO_RAW_SYM(d.newSymbol);
+      if(d.newRegion)p.region=d.newRegion;
+      if(d.newDepth){const dv=parseInt(d.newDepth,10);if(!isNaN(dv))p.depth_ft=dv;}
+      if(d.notes)p.notes=d.notes;
+      return{...f,properties:p};
+    });
+    const additions=newFeatures.map(n=>{
+      const p={name:n.name||'(unnamed)',symbol:TO_RAW_SYM(n.symbol||'Wreck'),region:n.region||'OceanCityMD'};
+      const depth=parseInt(n.depth_ft,10);
+      if(!isNaN(depth))p.depth_ft=depth;
+      if(n.notes)p.notes=n.notes;
+      return{type:'Feature',geometry:{type:'Point',coordinates:[+n.lon,+n.lat]},properties:p};
+    });
+    const allFeatures=[...kept,...additions];
+    const lats=allFeatures.map(f=>f.geometry.coordinates[1]);
+    const lons=allFeatures.map(f=>f.geometry.coordinates[0]);
+    data.features=allFeatures;
+    data.feature_count=allFeatures.length;
+    data.metadata=data.metadata||{};
+    data.metadata.region={lat_min:Math.min(...lats),lat_max:Math.max(...lats),lon_min:Math.min(...lons),lon_max:Math.max(...lons)};
+    data.metadata.regions=[...new Set(allFeatures.map(f=>f.properties.region))].sort();
+    data.metadata.generated=new Date().toISOString();
+    updP('ok',removedKeys.length+' removed, '+editedFeatures.length+' edited, '+additions.length+' added','ok');
+
+    logP('...','Writing '+WRECKS_PATH+'...');
     const parts=[];
-    if(remCount)parts.push(remCount+' removed');
-    if(nameCount)parts.push(nameCount+' renamed');
-    if(symCount)parts.push(symCount+' retyped');
-    const msg='data: bottom features batch update ('+parts.join(', ')+')';
-    logP('...','Creating commit...');
-    const newCommit=await ghPost(token,'git/commits',{message:msg,tree:newTree.sha,parents:[headSha]});
-    updP('ok','Commit '+newCommit.sha.slice(0,7),'ok');
-    logP('...','Updating main...');
-    await ghPatch(token,'git/refs/heads/main',{sha:newCommit.sha});
-    updP('ok','main updated','ok');
+    if(removedKeys.length)parts.push(removedKeys.length+' removed');
+    if(editedFeatures.length)parts.push(editedFeatures.length+' edited');
+    if(additions.length)parts.push(additions.length+' added');
+    const msg='data: bottom features update ('+parts.join(', ')+')';
+    await ghPut(token,'contents/'+WRECKS_PATH,{
+      message:msg,
+      content:toB64(JSON.stringify(data,null,2)),
+      sha:cur.sha,
+      branch:'main',
+    });
+    updP('ok','Committed to main','ok');
     logP('done',msg,'ok');
     document.getElementById('modalTitle').textContent='Commit successful';
-    affected.forEach(r=>Object.keys(regionChanges[r]).forEach(k=>{if(decisions[k]){delete decisions[k].newName;delete decisions[k].newSymbol;}}));
-    saveD();
+    lastCommitSucceeded=true;
+    decisions={};saveD();
+    newFeatures=[];saveN();
   }catch(err){
     logP('x','Error: '+err.message,'err');
     document.getElementById('modalTitle').textContent='Commit failed';
@@ -579,7 +716,10 @@ async function startCommit(){
   document.getElementById('modalClose').style.display='inline-block';
 }
 
-function closeModal(){document.getElementById('modal').classList.remove('show');}
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+  if(lastCommitSucceeded){lastCommitSucceeded=false;selKey=null;loadFeatures();}
+}
 
 initMap();
 loadFeatures();
@@ -587,3 +727,4 @@ loadBathy();
 </script>
 </body>
 </html>
+                                                      
