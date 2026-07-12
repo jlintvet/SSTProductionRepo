@@ -722,6 +722,14 @@ const REGION_PICKER_DATA = [
     bbox: "[-81.97,26.0,-76.14,30.5]",
     ports: ["Mayport","St. Augustine","Ponce Inlet","Port Canaveral","Sebastian Inlet","Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale"],
   },
+  {
+    key: "va_ri",
+    label: "Virginia to Rhode Island",
+    desc: "Chesapeake Bay mouth to Rhode Island Sound offshore — Delmarva, Jersey Shore, Long Island, Block Island Sound",
+    bounds: "N 41.51°  ·  S 37.26°  ·  W 77.46°  ·  E 68.97°",
+    bbox: "[-77.46,37.26,-68.97,41.51]",
+    ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],
+  },
 ];
 
 function RegionPickerInline({ selected, onSelect, onCancel }) {

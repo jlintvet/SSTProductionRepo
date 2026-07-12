@@ -120,6 +120,59 @@ export const REGION_CONFIGS = {
     ],
   },
 
+  va_ri: {
+    label: "Virginia to Rhode Island",
+    bounds: {
+      north:  41.51,
+      south:  37.26,
+      west:  -77.46,
+      east:  -68.97,
+    },
+    minZoom:         6,
+    maxZoom:         11,
+    defaultCenter:   { lat: 39.39, lon: -73.22 },
+    defaultZoom:     6.5,
+    defaultLocation: "Montauk, NY",
+    // Sub-path under SSTv2 repo where backend writes VA-RI data files.
+    // e.g. DailySSTData/MUR/va_ri/mur_YYYYMMDD.csv
+    // Leave "" for mid_atlantic (uses root paths for backward compat).
+    dataPathSuffix:  "va_ri",
+    // This region runs colder than mid_atlantic, especially in winter/spring
+    // up toward Rhode Island Sound; these are best-guess estimates.
+    sstSeasonalDefaults: {
+      summer: { min: 55, max: 78 }, // Jun-Sep: nearshore up to high 70s, shelf water cooler than Gulf Stream regions
+      fall:   { min: 46, max: 68 }, // Oct-Nov: rapid cooling north of Cape Cod latitudes
+      winter: { min: 34, max: 50 }, // Dec-Feb: cold, near-freezing in shallow bays/sounds
+      spring: { min: 40, max: 62 }, // Mar-May: slow warming
+    },
+    locations: [
+      // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
+      // Cape Charles, VA intentionally omitted — same physical port already
+      // exists as "Cape Charles, VA" in mid_atlantic (bay-side, ANZ631); not
+      // duplicated here to avoid a conflicting NOAA_SOURCES zone under one label.
+      { label: "Virginia Beach, VA",         lat: 36.8317, lon: -75.9683, wreckRegion: "VirginiaBeachVA",     noaaCoverage: true, noaaZone: "ANZ686" },
+      { label: "Wachapreague, VA",           lat: 37.6078, lon: -75.6858, wreckRegion: "WachapreagueVA",      noaaCoverage: true, noaaZone: "ANZ684" },
+      { label: "Chincoteague, VA",           lat: 37.9317, lon: -75.3833, wreckRegion: "ChincoteagueVA",      noaaCoverage: true, noaaZone: "ANZ682" },
+      // Label matches existing mid_atlantic port exactly so it reuses that
+      // region's NOAA_SOURCES/wreck data instead of duplicating it under a
+      // slightly different string.
+      { label: "Ocean City Inlet, MD",       lat: 38.3283, lon: -75.0917, wreckRegion: "OceanCityMD",         noaaCoverage: true, noaaZone: "ANZ485" },
+      { label: "Indian River Inlet, DE",     lat: 38.6100, lon: -75.0700, wreckRegion: "IndianRiverInletDE",  noaaCoverage: true, noaaZone: "ANZ485" },
+      { label: "Cape May, NJ",               lat: 38.9683, lon: -74.9600, wreckRegion: "CapeMayNJ",           noaaCoverage: true, noaaZone: "ANZ485" },
+      { label: "Atlantic City, NJ",          lat: 39.3567, lon: -74.4181, wreckRegion: "AtlanticCityNJ",      noaaCoverage: true, noaaZone: "ANZ482" },
+      { label: "Barnegat Light, NJ",         lat: 39.7617, lon: -74.1117, wreckRegion: "BarnegatLightNJ",     noaaCoverage: true, noaaZone: "ANZ481" },
+      { label: "Manasquan, NJ",              lat: 40.1050, lon: -74.0550, wreckRegion: "ManasquanNJ",         noaaCoverage: true, noaaZone: "ANZ480" },
+      { label: "Sandy Hook, NJ",             lat: 40.4669, lon: -74.0094, wreckRegion: "SandyHookNJ",         noaaCoverage: true, noaaZone: "ANZ385" },
+      { label: "Freeport, NY",               lat: 40.5867, lon: -73.5783, wreckRegion: "FreeportNY",          noaaCoverage: true, noaaZone: "ANZ385" },
+      { label: "Captree, NY",                lat: 40.6267, lon: -73.2600, wreckRegion: "CaptreeNY",           noaaCoverage: true, noaaZone: "ANZ385" },
+      { label: "Shinnecock Inlet, NY",       lat: 40.8367, lon: -72.4800, wreckRegion: "ShinnecockNY",        noaaCoverage: true, noaaZone: "ANZ380" },
+      { label: "Montauk, NY",                lat: 41.0483, lon: -71.9594, wreckRegion: "MontaukNY",           noaaCoverage: true, noaaZone: "ANZ380" },
+      { label: "Stonington, CT",             lat: 41.3350, lon: -71.9050, wreckRegion: "StoningtonCT",        noaaCoverage: true, noaaZone: "ANZ237" },
+      { label: "Point Judith, RI",           lat: 41.3633, lon: -71.4900, wreckRegion: "PointJudithRI",       noaaCoverage: true, noaaZone: "ANZ283" },
+      { label: "Newport, RI",                lat: 41.5043, lon: -71.3261, wreckRegion: "NewportRI",           noaaCoverage: true, noaaZone: "ANZ283" },
+    ],
+  },
+
 };
 
 export const DEFAULT_REGION = "mid_atlantic";

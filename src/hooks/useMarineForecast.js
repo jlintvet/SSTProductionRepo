@@ -106,7 +106,27 @@ const NOAA_SOURCES = {
   "Fort Pierce, FL":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortpiercefl_noaa.json",         tideStation: "8722212",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
   "Stuart, FL":              { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stuartfl_noaa.json",             tideStation: "8722357",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
   "Lake Worth Inlet, FL":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/lakeworthinletfl_noaa.json",     tideStation: "8722588",  noaaZone: { id: "AMZ670", description: "Jupiter Inlet to Deerfield Beach FL, 20-60nm" } },
-  "Fort Lauderdale, FL":    { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa.json",     tideStation: "8722956",  noaaZone: { id: "AMZ671", description: "Deerfield Beach to Ocean Reef FL, 20-60nm" } }
+  "Fort Lauderdale, FL":    { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa.json",     tideStation: "8722956",  noaaZone: { id: "AMZ671", description: "Deerfield Beach to Ocean Reef FL, 20-60nm" } },
+    // ── Virginia to Rhode Island Region ──────────────────────────────────────
+    // "Virginia Beach, VA" reuses the mid_atlantic entry above (same label,
+    // same physical port/zone). "Ocean City Inlet, MD" also reuses the
+    // mid_atlantic entry above (same label). Only the remaining 15 new ports
+    // need entries here.
+  "Wachapreague, VA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wachapreagueva_noaa.json",     tideStation: "8631044", noaaZone: { id: "ANZ684", description: "Parramore Island VA to Cape Charles Light, 20-60nm" } },
+  "Chincoteague, VA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/chincoteagueva_noaa.json",     tideStation: "8630249", noaaZone: { id: "ANZ682", description: "Chincoteague VA to Parramore Island VA, 20-60nm" } },
+  "Indian River Inlet, DE": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/indianriverinletde_noaa.json", tideStation: "8557380", noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
+  "Cape May, NJ":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capemaynj_noaa.json",           tideStation: "8536110", noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
+  "Atlantic City, NJ":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/atlanticcitynj_noaa.json",      tideStation: "8534720", noaaZone: { id: "ANZ482", description: "Little Egg Inlet NJ to Great Egg Inlet NJ, 20-60nm" } },
+  "Barnegat Light, NJ":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/barnegatlightnj_noaa.json",     tideStation: "8533615", noaaZone: { id: "ANZ481", description: "Manasquan Inlet NJ to Little Egg Inlet NJ, 20-60nm" } },
+  "Manasquan, NJ":          { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/manasquannj_noaa.json",         tideStation: "8532585", noaaZone: { id: "ANZ480", description: "Sandy Hook NJ to Manasquan Inlet NJ, 20-40nm" } },
+  "Sandy Hook, NJ":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sandyhooknj_noaa.json",         tideStation: "8531680", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
+  "Freeport, NY":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/freeportny_noaa.json",          tideStation: "8516385", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
+  "Captree, NY":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/captreeny_noaa.json",           tideStation: "8515186", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
+  "Shinnecock Inlet, NY":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/shinnecockny_noaa.json",        tideStation: "8512354", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },
+  "Montauk, NY":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/montaukny_noaa.json",          tideStation: "8510560", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },
+  "Stonington, CT":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stoningtonct_noaa.json",        tideStation: "8458694", noaaZone: { id: "ANZ237", description: "Block Island Sound, bay waters (no 20-60nm offshore equivalent)" } },
+  "Point Judith, RI":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/pointjudithri_noaa.json",       tideStation: "8455083", noaaZone: { id: "ANZ283", description: "Montauk NY to Martha's Vineyard, 25-60nm" } },
+  "Newport, RI":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/newportri_noaa.json",          tideStation: "8452660", noaaZone: { id: "ANZ283", description: "Montauk NY to Martha's Vineyard, 25-60nm" } }
 
 };
 
