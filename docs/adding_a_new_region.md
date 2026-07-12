@@ -248,6 +248,42 @@ Set `VITE_FORCE_REGION=<NEW>` on the branch preview Vercel URL to test without t
 
 ---
 
+## Part 5 — Updating an Existing Region's Boundaries (No New Region Key)
+
+This is the lighter-weight variant: changing north/south/west/east for a region that already exists, not adding a new one. Worked example: `ne_fl`'s west bound moved from Cedar Hills, FL (`-81.75`) to Baldwin, FL (`-81.97`), and east extended 60nm further out (`-77.27` → `-76.14`, now 120nm total east of Walkers Cay).
+
+### Step 5.1 — Compute the new bound value(s)
+
+- If a bound is tied to a named place (a town, an inlet), look up that place's coordinate directly — that *is* the bound, not an offset from it. (Precedent: `ne_fl`'s north bound is Jacksonville's latitude, south is Ft Lauderdale's latitude, the original west was Cedar Hills' longitude.)
+- If a bound is defined as "N miles further [direction]" from a named reference point (like `ne_fl`'s east bound, defined relative to Walkers Cay), convert nautical miles to degrees at that reference point's own latitude: `degrees_per_nm = 1 / (60 * cos(latitude_radians))`. Recompute from the original reference point rather than incrementing the previously-rounded stored value, to avoid compounding rounding drift.
+- Only the bound(s) actually being moved change — leave the others untouched.
+
+### Step 5.2 — Update every SSTv2 `_REGION_CONFIGS` dict (same 8 files as Part 1 Step 1.1)
+
+Same files, same per-file key names (`sst_data_fetcher.py`, `VIIRSHourlyBundler.py`, `DailyChlorophyllandSeaColorRetrieval.py`, `CHLSeaColorBundler.py`, `StaticLayersRetrieval.py`, `fetch_ocean_dynamics.py`, `BathyTileGenerator.py`, `bake_ocean_mask_<region>.py`) — edit the existing region's values in place, no new dict entry. Also grep for the old bound values inside code *comments* — `VIIRSHourlyBundler.py`'s `_fill_col_gaps` docstring names the region's `lon_min` by value, `Getwinddata.py`'s header comment lists every region's span in prose — these drift silently since nothing reads them programmatically.
+
+- **Check `Getwinddata.py`'s shared grid (`LAT_MIN`/`LAT_MAX`/`LON_MIN`/`LON_MAX`) still covers the new bounds.** Only widen it if a new bound actually exceeds the current grid edge — don't touch it otherwise. If you do widen it, the job's runtime grows with the extra grid points; check `timeout-minutes` in `Update wind data.yml` still leaves headroom (see Key Gotchas).
+- No workflow YAML changes needed — no new region key means no new triggers; the existing scheduled/chained jobs already cover this region.
+
+### Step 5.3 — Regenerate BOTH ocean masks — the step most likely to be skipped
+
+Unlike adding a brand-new region (where a missing mask 404s and falls back — loud, if slow), **a stale mask after a boundary change doesn't 404. It loads successfully with the old bounds baked into its own `bounds` field**, and every pixel gets silently misclassified against the wrong extent. Nothing in the console flags this.
+
+- Backend: `DailySSTData/<region>/ocean_mask.json`, produced by `bake_ocean_mask_<region>.py` via `Ocean_Mask.yml`. Update the script's `NORTH/SOUTH/WEST/EAST` (Step 5.2) and push — the `paths:`-filtered trigger fires reliably on a normal content change to that file (the unreliable case from Part 1 is specifically a same-commit *workflow-file* edit, not a plain script content change). **The job is slow** — baking and classifying all 3 regions in one job (checkout + setup + 3× Natural Earth download/classify) took roughly 30 minutes total in the last observed run. Don't assume a missing update after a couple of minutes means it failed; confirm by checking the file's own `bounds` field against what you just pushed. If the change needs to be live sooner than that, push the same `global_land_mask` fallback used below as an interim backend file too — CI's Natural Earth version overwrites it once the job completes.
+- Frontend: `public/openocean_mask_<region>.json`, same `global_land_mask` fallback method as Part 3 Step 3.3, same new bounds. Re-run the sanity checks near the *moved* edge specifically (the new west/east town or offset point), not just the region's center.
+
+### Step 5.4 — Update every place bounds are duplicated in the frontend (same locations as Part 3 Step 3.2)
+
+`regionConfig.js`'s `bounds` object, plus **recompute `defaultCenter`** as the midpoint of the new bounds — don't leave it at the old center, it ends up off-center after an asymmetric bound change. Then `UserSettingsModal.jsx`'s `bounds` display string and `bbox`, `LandingPage.jsx`'s `bounds` string and `mapUrl`'s embedded bbox, and `admin/community_admin.html`'s `center`/`bounds`. All of these are copies of the same four numbers in different formats (`"N 30.5°  ·  S 26.0°  ·  W 81.97°  ·  E 76.14°"` vs `[-81.97,26.0,-76.14,30.5]` vs `{north, south, west, east}`) — grep the old bound values across `src/` and `admin/` after editing to confirm nothing was missed, the same way you'd verify a rename.
+
+### Step 5.5 — What normally does NOT need to change
+
+- No new region key anywhere, no new dropdown entries, no new NOAA scraper calls or `NOAA_SOURCES` ports — a boundary move alone doesn't add or remove departure ports. Sanity-check this assumption though if a bound moves past an existing port's location.
+- `admin/user_admin.html` — its dropdowns list region keys, not bounds, so it's untouched.
+- `wreckRegion` values and `sstSeasonalDefaults` — tied to ports/climate, not raw bounds.
+
+---
+
 ## Key Gotchas — Learned Across Rollouts
 
 | Bug | Root cause | Fix |
@@ -262,6 +298,10 @@ Set `VITE_FORCE_REGION=<NEW>` on the branch preview Vercel URL to test without t
 | VIIRS vertical banding | Non-integer lon grid origin caused alignment drift for some regions | `_fill_col_gaps` in `VIIRSHourlyBundler.py` — check whether it's needed for a new region's specific `lon_min`, don't assume it always is or never is |
 | `Ocean_Mask.yml`'s push-path trigger doesn't reliably fire when the new mask script and the workflow file itself change in the same commit | Path-filtered `push` triggers can be inconsistent across a self-modifying-workflow-file commit | Verify the output file actually appears in the repo after pushing; trigger `workflow_dispatch` manually if it doesn't within a few minutes |
 | Git push rejected as non-fast-forward minutes after cloning | These repos get frequent automated commits (data pipeline runs, buoy fetches, hourly weather scrapes) | `git fetch origin main && git rebase origin/main` immediately before every push, even on a freshly-cloned scratch copy |
+| A boundary-only update leaves a stale ocean mask that loads successfully but silently misaligns everything | The mask JSON's own `bounds` field drives the frontend's pixel math — a bound change makes the *value* wrong, not the *file* missing, so there's no 404 to flag it | After any boundary change, regenerate both ocean masks (Part 5, Step 5.3) and verify each file's own `bounds` field matches the new values before considering the change done |
+| `Ocean_Mask.yml`'s job runs long (~30 min total for all 3 regions) | Each region's Natural Earth download + point-in-polygon classification takes several minutes on its own; the workflow bakes all regions sequentially in one job | Don't read "no update after a few minutes" as a failure; if it needs to be live sooner, push a `global_land_mask`-based interim file for the backend mask too (same method as the frontend fallback) — CI overwrites it once the job finishes |
+| A GitHub Actions job that pushes its own output (`Ocean_Mask.yml`'s commit step) can lose a `git push` race against other automated workflows and fail silently with no output committed | No retry/rebase logic on the push step, combined with several other workflows (VIIRS bundler, hotspots, buoys, SST fetch) committing to `main` every few minutes | Add a fetch+rebase+retry loop around any workflow's self-committing push step, not just a one-off manual retry |
+| `Update wind data.yml` exceeded its `timeout-minutes` after a region's bounds widened the shared wind grid | More grid points (Step 5.2's `Getwinddata.py` check) means more Open-Meteo batches, and the job had a tight fixed timeout | If you widen the shared wind grid for any region, re-check `timeout-minutes` in `Update wind data.yml` has headroom for the larger batch count, not just that the script logic is correct |
 
 ---
 
