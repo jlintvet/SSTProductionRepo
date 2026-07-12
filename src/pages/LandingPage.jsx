@@ -131,14 +131,16 @@ const GLOBAL_CSS = `
   .rl-hero-content{transition:opacity .5s ease,transform .5s ease;}
   .rl-hero-content.fading{opacity:0;transform:translateY(12px);}
 
-  /* TRUST BAR */
+  /* TRUST BAR — horizontal marquee, single line, scrolls left to right */
   .rl-trust{background:#0f2244;border-top:1px solid rgba(12,196,160,.14);
-    border-bottom:1px solid rgba(12,196,160,.14);padding:1rem 2.5rem;}
-  .rl-trust-inner{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;
-    justify-content:center;gap:1.5rem 3rem;}
-  .rl-trust-item{display:flex;align-items:center;gap:.5rem;font-size:12.5px;font-weight:600;
-    color:#7a9ab5;letter-spacing:.05em;text-transform:uppercase;}
+    border-bottom:1px solid rgba(12,196,160,.14);padding:1rem 0;overflow:hidden;}
+  .rl-trust-track{display:inline-flex;width:max-content;
+    animation:rl-trust-scroll 38s linear infinite;}
+  .rl-trust:hover .rl-trust-track{animation-play-state:paused;}
+  .rl-trust-item{display:inline-flex;align-items:center;gap:.5rem;font-size:12.5px;font-weight:600;
+    color:#7a9ab5;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;padding:0 1.75rem;}
   .rl-dot{width:6px;height:6px;border-radius:50%;background:#00c8e8;flex-shrink:0;}
+  @keyframes rl-trust-scroll{from{transform:translateX(-50%);}to{transform:translateX(0);}}
 
   /* SECTIONS */
   .rl-sec{padding:6rem 2.5rem;}
@@ -801,6 +803,24 @@ const PRO_FEATS = [
   "90-day community access window",
 ];
 
+const TRUST_ITEMS = [
+  "30-Day Pro Trial Free",
+  "No Credit Card",
+  "Marine Weather",
+  "Oceanographic Data",
+  "HD Satellite Imagery",
+  "Live Fishing Reports",
+  "100% of Tips Go to Anglers",
+  "Detailed Bathymetry",
+  "High Definition Shaded Relief",
+  "Adjustable Color Mapping",
+  "Access to All Regions",
+  "Trip Planning",
+  "Distance and Heading Detail",
+  "Location, Route, Catch & Weather Sharing",
+  "Live GPS",
+];
+
 const HERO_SLIDES = [
   {
     imgKey: "boat",
@@ -883,7 +903,7 @@ function HeroCarousel({ open, heroBoatImg, featureMahiImg, ctaBillfishImg }) {
             <PlayIcon /> Watch How It Works
           </button>
         </div>
-        <p className="rl-hero-note">No credit card required &middot; East Coast Mid-Atlantic &middot; More regions coming</p>
+        <p className="rl-hero-note">No credit card required &middot; Mid-Atlantic &middot; Georgia &amp; South Carolina &middot; Northeast Florida &middot; Virginia to Rhode Island &middot; More regions coming</p>
       </div>
       <div className="rl-carousel-dots">
         {HERO_SLIDES.map((_, i) => (
@@ -1028,11 +1048,11 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
       {/* HERO CAROUSEL */}
       <HeroCarousel open={openRegister} heroBoatImg={heroBoatImg} featureMahiImg={featureMahiImg} ctaBillfishImg={ctaBillfishImg} />
 
-      {/* TRUST BAR */}
+      {/* TRUST BAR — scrolling marquee */}
       <div className="rl-trust">
-        <div className="rl-trust-inner">
-          {["30-Day Pro Trial Free","No Credit Card","No Ads. Ever.","100% of Tips Go to Anglers","Zero Kickbacks"].map(t => (
-            <div key={t} className="rl-trust-item"><div className="rl-dot" />{t}</div>
+        <div className="rl-trust-track">
+          {[...TRUST_ITEMS, ...TRUST_ITEMS].map((t, i) => (
+            <div key={i} className="rl-trust-item"><div className="rl-dot" />{t}</div>
           ))}
         </div>
       </div>
