@@ -40,6 +40,7 @@ import commPhoto16 from "../public/community/img_2804.jpg";
 import commPhoto17 from "../public/community/img_2925.jpg";
 import commPhoto18 from "../public/community/img_2947.jpg";
 import commPhoto19 from "../public/community/img_3034.jpg";
+import commPhoto20 from "../public/community/img_5564.jpg";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -943,6 +944,7 @@ const ALL_COMMUNITY_PHOTOS = [
   { src: commPhoto17 },
   { src: commPhoto18 },
   { src: commPhoto19 },
+  { src: commPhoto20 },
 ];
 const PHOTOS_VISIBLE = 3;
 function shufflePhotos(arr) {
