@@ -112,26 +112,11 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
             <option value="MoreheadNC">Morehead City NC</option>
           </optgroup>
           <optgroup label="VA - RI (va_ri region)">
-            <option value="VirginiaBeachVA">Virginia Beach VA</option>
-            <option value="WachapreagueVA">Wachapreague VA</option>
-            <option value="ChincoteagueVA">Chincoteague VA</option>
-            <option value="OceanCityMD">Ocean City MD</option>
-            <option value="IndianRiverInletDE">Indian River Inlet DE</option>
-            <option value="CapeMayNJ">Cape May NJ</option>
-            <option value="AtlanticCityNJ">Atlantic City NJ</option>
-            <option value="BarnegatLightNJ">Barnegat Light NJ</option>
-            <option value="ManasquanNJ">Manasquan NJ</option>
-            <option value="SandyHookNJ">Sandy Hook NJ</option>
-            <option value="FreeportNY">Freeport NY</option>
-            <option value="CaptreeNY">Captree NY</option>
-            <option value="ShinnecockNY">Shinnecock Inlet NY</option>
-            <option value="MontaukNY">Montauk NY</option>
-            <option value="StoningtonCT">Stonington CT</option>
-            <option value="PointJudithRI">Point Judith RI</option>
-            <option value="NewportRI">Newport RI</option>
+            <option value="VaToRI">VA to RI (all va_ri ports share this)</option>
           </optgroup>
           <optgroup label="Legacy">
-            <option value="ChesapeakeMD">Chesapeake MD (legacy)</option>
+            <option value="OceanCityMD">Ocean City MD (mid_atlantic)</option>
+            <option value="ChesapeakeMD">Chesapeake MD (mid_atlantic)</option>
           </optgroup>
         </select>
         <select id="fSymbol" class="filter-sel">
@@ -229,12 +214,8 @@ const API='https://api.github.com';
 
 const REGION_LABEL={
   HatterasNC:'Hatteras, NC', MoreheadNC:'Morehead City, NC',
-  ChesapeakeMD:'Chesapeake, MD (legacy)', OceanCityMD:'Ocean City, MD',
-  VirginiaBeachVA:'Virginia Beach, VA', WachapreagueVA:'Wachapreague, VA', ChincoteagueVA:'Chincoteague, VA',
-  IndianRiverInletDE:'Indian River Inlet, DE', CapeMayNJ:'Cape May, NJ', AtlanticCityNJ:'Atlantic City, NJ',
-  BarnegatLightNJ:'Barnegat Light, NJ', ManasquanNJ:'Manasquan, NJ', SandyHookNJ:'Sandy Hook, NJ',
-  FreeportNY:'Freeport, NY', CaptreeNY:'Captree, NY', ShinnecockNY:'Shinnecock Inlet, NY', MontaukNY:'Montauk, NY',
-  StoningtonCT:'Stonington, CT', PointJudithRI:'Point Judith, RI', NewportRI:'Newport, RI',
+  ChesapeakeMD:'Chesapeake, MD (mid_atlantic)', OceanCityMD:'Ocean City, MD (mid_atlantic)',
+  VaToRI:'VA to RI (shared across all va_ri ports)',
 };
 const REGION_KEYS=Object.keys(REGION_LABEL);
 
