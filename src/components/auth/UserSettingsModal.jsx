@@ -718,8 +718,8 @@ const REGION_PICKER_DATA = [
     key: "ne_fl",
     label: "Northeast Florida",
     desc: "Jacksonville to Fort Lauderdale offshore — Gulf Stream close to shore, reef structure, deep inlets",
-    bounds: "N 30.5°  ·  S 26.0°  ·  W 81.75°  ·  E 77.27°",
-    bbox: "[-81.75,26.0,-77.27,30.5]",
+    bounds: "N 30.5°  ·  S 26.0°  ·  W 81.97°  ·  E 76.14°",
+    bbox: "[-81.97,26.0,-76.14,30.5]",
     ports: ["Mayport","St. Augustine","Ponce Inlet","Port Canaveral","Sebastian Inlet","Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale"],
   },
 ];

@@ -87,12 +87,12 @@ export const REGION_CONFIGS = {
     bounds: {
       north:  30.50,
       south:  26.00,
-      west:  -81.75,
-      east:  -77.27,
+      west:  -81.97,
+      east:  -76.14,
     },
     minZoom:         6,
     maxZoom:         11,
-    defaultCenter:   { lat: 28.25, lon: -79.51 },
+    defaultCenter:   { lat: 28.25, lon: -79.06 },
     defaultZoom:     7,
     defaultLocation: "Port Canaveral, FL",
     // Sub-path under SSTv2 repo where backend writes NE FL data files.
