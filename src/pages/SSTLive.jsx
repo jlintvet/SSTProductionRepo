@@ -424,6 +424,12 @@ function SSTPageBody() {
   const [altimetryDateIndex, setAltimetryDateIndex] = useState(0);
   const [altimetryPlaying,   setAltimetryPlaying]   = useState(false);
   const _altimetryCache  = useRef(new Map());
+  // Cross-region staleness guard: this effect used to run once ([]) and cache
+  // dated grids keyed only by dateStr. Switching regions in the same tab (no
+  // full reload) never re-triggered discovery and reused the OTHER region's
+  // cached grid under the same date string -- rendered as altimetry color
+  // extending past the current region's true bounds (2026-07-13 incident).
+  const _altBaseFetchedRef = useRef(null);
   const altimetryPlayRef = useRef(null);
   const sstPlayRef   = useRef(null);
   const [sstPlaying, setSstPlaying] = useState(false);
@@ -610,8 +616,17 @@ function SSTPageBody() {
   const altimetryActive = activeDataLayer === "altimetry";
 
   // ── Altimetry: discover available dated files (last 8 days), then load latest ──
+  // Keyed off ALTIMETRY_BASE_R (region-scoped URL prefix) so switching regions
+  // without a full page reload correctly re-discovers and re-fetches instead of
+  // reusing a stale altimetryDates/_altimetryCache from whatever region was
+  // active at first mount.
   useEffect(() => {
-    if (altimetryLoading || altimetryDates.length > 0) return;
+    if (_altBaseFetchedRef.current === ALTIMETRY_BASE_R) return; // already fetched for this region
+    if (altimetryLoading) return;
+    _altBaseFetchedRef.current = ALTIMETRY_BASE_R;
+    setAltimetryDates([]);
+    setAltimetryData(null);
+    setAltimetryDateIndex(0);
     setAltimetryLoading(true);
     const now = new Date();
     const candidates = Array.from({ length: 8 }, (_, i) => {
@@ -623,7 +638,7 @@ function SSTPageBody() {
         const r = await fetch(`${ALTIMETRY_BASE_R}/altimetry_${dateStr}_grid.json`);
         if (!r.ok) return null;
         const data = await r.json();
-        _altimetryCache.current.set(dateStr, data);
+        _altimetryCache.current.set(`${ALTIMETRY_BASE_R}::${dateStr}`, data);
         return dateStr;
       } catch { return null; }
     })).then(results => {
@@ -634,23 +649,24 @@ function SSTPageBody() {
       }
       setAltimetryDates(available);
       setAltimetryDateIndex(available.length - 1);
-      setAltimetryData(_altimetryCache.current.get(available[available.length - 1]));
+      setAltimetryData(_altimetryCache.current.get(`${ALTIMETRY_BASE_R}::${available[available.length - 1]}`));
     }).catch(e => console.error("[ALTIMETRY] discovery failed:", e))
       .finally(() => setAltimetryLoading(false));
-  }, []);
+  }, [ALTIMETRY_BASE_R]);
 
   // Switch data when user changes date
   useEffect(() => {
     if (!altimetryDates.length) return;
     const dateStr = altimetryDates[altimetryDateIndex];
     if (!dateStr) return;
-    if (_altimetryCache.current.has(dateStr)) {
-      setAltimetryData(_altimetryCache.current.get(dateStr)); return;
+    const cacheKey = `${ALTIMETRY_BASE_R}::${dateStr}`;
+    if (_altimetryCache.current.has(cacheKey)) {
+      setAltimetryData(_altimetryCache.current.get(cacheKey)); return;
     }
     setAltimetryLoading(true);
     fetch(`${ALTIMETRY_BASE_R}/altimetry_${dateStr}_grid.json`)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then(d => { _altimetryCache.current.set(dateStr, d); setAltimetryData(d); })
+      .then(d => { _altimetryCache.current.set(cacheKey, d); setAltimetryData(d); })
       .catch(e => console.error("[ALTIMETRY] fetch failed:", e))
       .finally(() => setAltimetryLoading(false));
   }, [altimetryDateIndex, altimetryDates]);
