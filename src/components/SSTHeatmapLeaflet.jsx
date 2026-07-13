@@ -2243,7 +2243,22 @@ export default function SSTHeatmapLeaflet(props) {
           );
           map.setView(altMercCenter, fzAlt, { animate: false });
           map.setMinZoom(fzAlt);
-          map.setMaxBounds(llBounds); // use region bounds so coast is pannable
+          // Use the ACTUAL altimetry data bounds (not llBounds/regionBounds) -- unlike
+          // CHL/composite/seacolor below, which only tighten the north edge and keep
+          // regionBounds for south/west/east (their ocean-only fetch may not reach the
+          // region's inshore edge, so full-region panning there is correct), altimetry's
+          // grid IS a full rectangle already, so all four edges should come from the
+          // real data. Previously this used llBounds (full region bounds, e.g. 39.50N
+          // for mid_atlantic) instead of the real data edge (e.g. 38.94N) -- SST/CHL/
+          // seacolor/composite/currents/wind all correctly stop panning at their true
+          // data edge, but altimetry alone let the user pan ~0.5 degrees past it into a
+          // zone with no real data, and dataBoundsRef was never set for altimetry either,
+          // so every later refit (vv-resize, post-sstReady) fell back to the same loose
+          // llBounds instead of tightening once real bounds were known (2026-07-13
+          // incident -- reported as "altimetry lets you pan out of bounds, other layers
+          // don't"; see docs/map_viewport_nuances.md section 8.6).
+          dataBoundsRef.current = { south, west, north, east };
+          map.setMaxBounds([[south, west], [north, east]]);
         } catch(_) {}
         userInteractedRef.current = true;
       }
