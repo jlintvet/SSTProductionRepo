@@ -33,8 +33,17 @@ export default function RadarTimeSlider({ frames, frameIndex, setFrameIndex, isP
 
   return (
     <div className="absolute left-0 right-0 z-[600] select-none" style={{ bottom: bottomOffset, background: "rgba(23,28,38,0.72)", backdropFilter: "blur(8px)" }}>
+      {/* Custom track/thumb styling -- the unstyled native <input type=range> track is
+          nearly invisible against this dark translucent bar (browser default track is a
+          thin, low-contrast line), which read as "no controls" in testing. */}
+      <style>{`
+        .radar-range-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.25); outline: none; }
+        .radar-range-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #0891b2; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer; }
+        .radar-range-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #0891b2; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); cursor: pointer; }
+        .radar-range-slider::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.25); }
+      `}</style>
       <div className="relative" style={{ height: 24, pointerEvents: "none" }}>
-        <div className="absolute flex flex-col items-center" style={{ left: `calc(52px + (100% - 52px - 8px) * ${thumbPct / 100})`, transform: "translateX(-50%)", top: 2 }}>
+        <div className="absolute flex flex-col items-center" style={{ left: `clamp(60px, calc(52px + (100% - 60px) * ${thumbPct / 100}), calc(100% - 60px))`, transform: "translateX(-50%)", top: 2 }}>
           <div className="text-[11px] font-semibold text-white px-2 py-0.5 rounded" style={{ background: "#0891b2", whiteSpace: "nowrap", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
             {fmtTime(currentTime)}{isLatest ? " (latest)" : ""}
           </div>
@@ -50,12 +59,11 @@ export default function RadarTimeSlider({ frames, frameIndex, setFrameIndex, isP
             {isPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white ml-0.5" />}
           </button>
         </div>
-        <div className="flex-1 relative flex flex-col justify-end pb-1 pr-3 pl-1">
+        <div className="flex-1 relative flex flex-col justify-center pr-3 pl-1">
           <input
             type="range" min={0} max={nFrames - 1} value={frameIndex}
             onChange={e => { setIsPlaying(false); setFrameIndex(Number(e.target.value)); }}
-            className="w-full appearance-none cursor-pointer"
-            style={{ height: 24, accentColor: "#0891b2", background: "transparent" }}
+            className="radar-range-slider cursor-pointer"
           />
         </div>
       </div>

@@ -1657,6 +1657,10 @@ export default function SSTHeatmapLeaflet(props) {
     // raster layers, mutually exclusive with each other and with SST/CHL/composite),
     // below bathyPane (contour lines, 375) and markerPane (pins/labels, 600).
     map.createPane("radarPane");   map.getPane("radarPane").style.zIndex   = "362"; map.getPane("radarPane").style.pointerEvents = "none";
+    // RainViewer tiles cap out at native zoom 7 and look blocky once the map is
+    // zoomed in past that -- a slight blur on the whole pane (not the basemap below
+    // it) softens the hard pixel edges, closer to how Windy/most radar apps render.
+    map.getPane("radarPane").style.filter = "blur(1.2px)";
 
     // Prevent Leaflet from intercepting spacebar when the user is typing in an input/textarea
     const stopSpaceInInputs = (e) => {
