@@ -290,6 +290,49 @@ uses (the very first mount-time fit before any data has loaded, and the wind
 layer, which is intentionally region-agnostic per its own code comment) -- don't
 assume a new one you find is *also* intentional without checking why.
 
+**This is a repeat regression, not a one-off -- full history from `git log`:**
+1. 2026-06-11 (`673f579`, `9754a4c`, `c43d3aa`): altimetry's own maxBounds/minZoom
+   was written correctly from the start, using `gridToDataURL`'s real data bounds.
+2. 2026-07-01 (`614c8b8`, commit message "blurOverlay on imageOverlay path + llBounds
+   for setMaxBounds"): altimetry's own branch was **deliberately changed** from real
+   data bounds to `llBounds`, with the comment `// use region bounds so coast is
+   pannable` -- this reads as an intentional design decision, not a bug, which is
+   exactly why it survived unnoticed for so long.
+3. 2026-07-07 (`b270a27`, "use data bounds for maxBounds — prevents north overshoot
+   on mobile"): fixed the *identical* bug for CHL/composite/SeaColor (introduced
+   `dataBoundsRef`, the pattern this section's fix now also uses for altimetry) --
+   but the diff is explicitly gated `if (activeDataLayer !== 'altimetry')`, so this
+   fix pass walled altimetry off and never touched it. From this point on, every
+   other layer used the correct pattern and altimetry alone did not, but nothing
+   flagged the inconsistency.
+4. `docs/adding_a_new_region.md` then documented altimetry's `llBounds` usage as
+   the correct, already-generalized behavior ("Confirmed generalized/parameterized
+   ... `setMaxBounds` uses region bounds not data bounds") -- actively wrong
+   guidance that any future session reading the doc before touching this code
+   would have trusted instead of questioned.
+5. 2026-07-13 (`723b32d`): fixed again, this time bringing altimetry in line with
+   the `dataBoundsRef` pattern every other layer already uses. Both the doc's wrong
+   description and its wrong Key Gotchas row were corrected in the same pass (not
+   just supplemented), specifically to break this cycle.
+
+**Why past attempts to catch this from documentation alone failed:** the code
+carries a comment that sounds deliberate (`// use region bounds so coast is
+pannable`), and the docs actively confirmed that reading as correct rather than
+flagging it as a known bug pattern. A written incident report alone (like section
+8.6 above, added after step 5) documents *that* it happened, but doesn't force a
+check before the *next* altimetry-adjacent edit ships. **The actionable difference
+this time:** before shipping any change that touches altimetry's render effect
+(overlay build, refits, minZoom/maxBounds logic) in `SSTHeatmapLeaflet.jsx`, run
+`grep -n "setMaxBounds" src/components/SSTHeatmapLeaflet.jsx` and confirm every
+altimetry-branch call site sets `dataBoundsRef.current` from real data and passes
+`[[south, west], [north, east]]` -- if you find `llBounds` on the altimetry branch,
+that is the bug from this section, not a stylistic choice, regardless of any
+comment nearby claiming otherwise. As of `723b32d` there are exactly three
+legitimate remaining `setMaxBounds(llBounds)` call sites in the whole file: the
+very first mount-time fit before any data has loaded, and the wind layer (both
+intentionally region-agnostic) -- a fourth site, or one on the altimetry branch
+specifically, is the regression.
+
 ## 8. Quick reference: what causes each failure mode
 
 | Symptom | Root cause |
