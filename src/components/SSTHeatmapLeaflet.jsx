@@ -260,6 +260,7 @@ import ShareLocationDialog from "@/components/ShareLocationDialog";
 import SSTLegend from "@/components/SSTLegend";
 import SSTRangeControl from "@/components/SSTRangeControl";
 import WindTimeSlider, { WindLegend } from "@/components/WindTimeSlider";
+import RadarTimeSlider from "@/components/RadarTimeSlider";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, blurOverlay, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
@@ -1072,6 +1073,7 @@ export default function SSTHeatmapLeaflet(props) {
   const breakGlowRef     = useRef(null);
   const bathyLayerRef    = useRef(null);
   const radarTileRef     = useRef(null);
+  const radarPlayRef      = useRef(null);
   const bathyTileRef     = useRef(null);
   const bathyLabelRef    = useRef(null);
   const wreckLayerRef    = useRef(null);
@@ -1139,6 +1141,10 @@ export default function SSTHeatmapLeaflet(props) {
   const [showSSTLayer]    = useState(true);
   const [showBathyLayer,  setShowBathyLayer]  = useState(true);
   const [showRadarOverlay, setShowRadarOverlay] = useState(false);
+  const [radarFrames, setRadarFrames] = useState([]);   // [{time, path}] from RainViewer, oldest -> newest
+  const [radarFrameIndex, setRadarFrameIndex] = useState(0);
+  const [radarHost, setRadarHost] = useState("");
+  const [radarPlaying, setRadarPlaying] = useState(false);
   const [showBathyRaster, setShowBathyRaster] = useState(false);
   const [showWrecks,      setShowWrecks]      = useState(false);
   const [showBuoys,       setShowBuoys]       = useState(false);
@@ -1647,9 +1653,10 @@ export default function SSTHeatmapLeaflet(props) {
     map.createPane("sstDataPane"); map.getPane("sstDataPane").style.zIndex = "350"; map.getPane("sstDataPane").style.pointerEvents = "none";
     map.createPane("bathyTilePane"); map.getPane("bathyTilePane").style.zIndex = "362"; map.getPane("bathyTilePane").style.pointerEvents = "none";
     map.createPane("bathyPane");   map.getPane("bathyPane").style.zIndex   = "375"; map.getPane("bathyPane").style.pointerEvents   = "none";
-    // radarPane sits above overlayPane (400, wind/currents) so live radar reads clearly
-    // above data/overlay layers, but stays below markerPane (600) so pins/labels remain on top.
-    map.createPane("radarPane");   map.getPane("radarPane").style.zIndex   = "405"; map.getPane("radarPane").style.pointerEvents = "none";
+    // radarPane sits at the same level as bathyTilePane (both are full basemap-replace
+    // raster layers, mutually exclusive with each other and with SST/CHL/composite),
+    // below bathyPane (contour lines, 375) and markerPane (pins/labels, 600).
+    map.createPane("radarPane");   map.getPane("radarPane").style.zIndex   = "362"; map.getPane("radarPane").style.pointerEvents = "none";
 
     // Prevent Leaflet from intercepting spacebar when the user is typing in an input/textarea
     const stopSpaceInInputs = (e) => {
@@ -2059,7 +2066,7 @@ export default function SSTHeatmapLeaflet(props) {
     const mask = waterMaskRef.current; if (!mask) return;
     if (sstOverlayRef.current) { map.removeLayer(sstOverlayRef.current); sstOverlayRef.current = null; }
     const useGl = !!(glLayerRef.current && MAPBOX_TOKEN) && activeDataLayer !== "altimetry";
-    if (showBathyRaster) { if (useGl) removeSstImage(glLayerRef.current); return; }
+    if (showBathyRaster || showRadarOverlay) { if (useGl) removeSstImage(glLayerRef.current); return; }
     if (activeDataLayer !== "sst") return;
     if (!showSSTLayer) { if (useGl) removeSstImage(glLayerRef.current); return; }
     const rangeMin = sstRange?.min !== undefined ? sstRange.min : undefined;
@@ -2103,7 +2110,7 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { _ac_sst.abort(); };
-  }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, showBathyRaster, activeDataLayer, dataSource,
+  }, [mapReady, latSet, lonSet, grid, sstMin, sstMax, showSSTLayer, showBathyRaster, showRadarOverlay, activeDataLayer, dataSource,
       waterMaskVersion, repaintTrigger, sstRange?.min, sstRange?.max, sstRange?.maskOutside]);
 
 
@@ -2113,7 +2120,7 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (overlayLayerRef.current) { map.removeLayer(overlayLayerRef.current); overlayLayerRef.current = null; }
-    if (showBathyRaster) return;
+    if (showBathyRaster || showRadarOverlay) return;
     let overlayGrid=null,latSet2=[],lonSet2=[],colorFn=null,min2=0,max2=1;
     if (activeDataLayer==="chlorophyll"&&chlData?.days?.length) {
       const day=chlData.days[chlDateIndex]||chlData.days[chlData.days.length-1];
@@ -2255,7 +2262,7 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { _ac_ov.abort(); };
-  }, [mapReady, showBathyRaster, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
+  }, [mapReady, showBathyRaster, showRadarOverlay, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
 
   // ── Velocity layer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2680,53 +2687,63 @@ export default function SSTHeatmapLeaflet(props) {
     };
   }, [mapReady, showBathyRaster, BATHY_TILE_URL]);
 
-  // ── Radar overlay (RainViewer, POC — mid_atlantic only) ─────────────────────
-  // Proof of concept: gated to the Mid-Atlantic region config only. RainViewer
-  // is a free public radar-tile API (no key required); see docs/map_control_panel.md
-  // for the Overlays section pattern this follows (teardown/recreate on toggle,
-  // same shape as the bathyTileRef effect above).
+  // ── Radar (RainViewer, POC — mid_atlantic only) ─────────────────────────────
+  // Proof of concept: gated to the Mid-Atlantic region config only. Behaves like
+  // Shaded Relief (a Tools-section, full basemap-replace mode) rather than an
+  // additive Overlay — see the showRadarOverlay bail-outs added to the SST and
+  // CHL/composite/seacolor/altimetry overlay effects below. RainViewer is a free
+  // public radar-tile API (no key required).
+  //
+  // Frame-list fetch: pulls ~2 hours of past 10-min frames so the time slider has
+  // something to scrub through, not just the single latest frame.
   useEffect(() => {
-    const map = mapRef.current; if (!mapReady || !map) return;
-    if (radarTileRef.current) { try { map.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
     const isRadarRegion = regionConfig?.label === "Mid-Atlantic";
-    if (!showRadarOverlay || !isRadarRegion) return;
+    if (!showRadarOverlay || !isRadarRegion) { setRadarFrames([]); return; }
 
     let cancelled = false;
-    const addRadarLayer = (host, framePath) => {
-      if (cancelled) return;
-      const m = mapRef.current; if (!m) return;
-      if (radarTileRef.current) { try { m.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
-      const lyr = L.tileLayer(`${host}${framePath}/256/{z}/{x}/{y}/2/1_1.png`, {
-        pane: "radarPane",
-        opacity: 0.65,
-        maxNativeZoom: 7,
-        maxZoom: 18,
-        attribution: "Weather radar &copy; RainViewer",
-        interactive: false,
-      });
-      lyr.addTo(m);
-      radarTileRef.current = lyr;
-    };
-    const fetchLatestFrame = () => {
+    const fetchFrames = () => {
       fetch("https://api.rainviewer.com/public/weather-maps.json")
         .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(d => {
-          const frames = d?.radar?.past;
-          const latest = frames?.[frames.length - 1];
-          if (latest?.path) addRadarLayer(d.host, latest.path);
+          if (cancelled) return;
+          const frames = d?.radar?.past ?? [];
+          if (!frames.length) return;
+          setRadarHost(d.host);
+          setRadarFrames(frames);
+          // Stay pinned to "latest" across a refresh unless the user has scrubbed back;
+          // simplest signal for that in this POC is: was already at the last index.
+          setRadarFrameIndex(i => (i === 0 ? frames.length - 1 : Math.min(i, frames.length - 1)));
         })
-        .catch(err => console.error("[RADAR] RainViewer fetch failed:", err));
+        .catch(err => console.error("[RADAR] RainViewer frame list fetch failed:", err));
     };
-    fetchLatestFrame();
+    fetchFrames();
     // RainViewer's mosaic updates roughly every 10 minutes — refresh on the same cadence.
-    const intervalId = setInterval(fetchLatestFrame, 10 * 60 * 1000);
+    const intervalId = setInterval(fetchFrames, 10 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(intervalId); };
+  }, [showRadarOverlay, regionConfig]);
+
+  // Tile-render effect: swaps in the tile layer for whichever frame is selected.
+  useEffect(() => {
+    const map = mapRef.current; if (!mapReady || !map) return;
+    if (radarTileRef.current) { try { map.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
+    if (!showRadarOverlay || !radarHost || !radarFrames.length) return;
+    const frame = radarFrames[radarFrameIndex] ?? radarFrames[radarFrames.length - 1];
+    if (!frame?.path) return;
+    const lyr = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+      pane: "radarPane",
+      opacity: 0.85,
+      maxNativeZoom: 7,
+      maxZoom: 18,
+      attribution: "Weather radar &copy; RainViewer",
+      interactive: false,
+    });
+    lyr.addTo(map);
+    radarTileRef.current = lyr;
     return () => {
-      cancelled = true;
-      clearInterval(intervalId);
       const m = mapRef.current;
       if (m && radarTileRef.current) { try { m.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
     };
-  }, [mapReady, showRadarOverlay, regionConfig]);
+  }, [mapReady, showRadarOverlay, radarHost, radarFrames, radarFrameIndex]);
 
   // ── Bathymetry ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -3169,7 +3186,8 @@ export default function SSTHeatmapLeaflet(props) {
     };
   }, [clearMarkersRef]);
 
-  const sliderHeight = windActive ? 80 : 0;
+  const sliderHeight = (windActive ? 80 : 0) + (showRadarOverlay && radarFrames.length ? 72 : 0);
+  const radarSliderBottom = windActive ? 80 : 0;
   const showRangeControl = activeDataLayer === "sst";
 
   return (
@@ -3290,7 +3308,8 @@ export default function SSTHeatmapLeaflet(props) {
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showBathyRaster={showBathyRaster} setShowBathyRaster={setShowBathyRaster}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
-            showRadarOverlay={showRadarOverlay} setShowRadarOverlay={setShowRadarOverlay}
+            showRadarOverlay={showRadarOverlay}
+            setShowRadarOverlay={v => { setShowRadarOverlay(v); if (v) setShowBathyRaster(false); }}
             isRadarAvailable={regionConfig?.label === "Mid-Atlantic"}
             showBuoys={showBuoys} setShowBuoys={setShowBuoys} buoysLoading={buoysLoading}
             selectedLocation={selectedLocation}
@@ -4421,6 +4440,10 @@ export default function SSTHeatmapLeaflet(props) {
 
           {windActive&&windData?.hours?.length>0&&isDesktop&&(
             <WindTimeSlider windData={windData} windHourIndex={windHourIndex} setWindHourIndex={setWindHourIndex} isPlaying={windPlaying} setIsPlaying={setWindPlaying} isWindMap={isWindMap}/>
+            {showRadarOverlay && radarFrames.length > 0 && (
+              <RadarTimeSlider frames={radarFrames} frameIndex={radarFrameIndex} setFrameIndex={setRadarFrameIndex}
+                isPlaying={radarPlaying} setIsPlaying={setRadarPlaying} bottomOffset={radarSliderBottom}/>
+            )}
           )}
 
           {isWindMap && (

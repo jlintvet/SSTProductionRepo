@@ -427,15 +427,15 @@ export default function MapControlPanel({
         <div className="flex flex-col gap-1 px-2 pb-2">
 
           <div className="flex gap-1 items-stretch">
-            <div className="flex-1"><LayerBtn active={isSSTGroup} color="cyan" onClick={() => { setActiveDataLayer("sst"); setShowBathyRaster(false); }}>SST</LayerBtn></div>
+            <div className="flex-1"><LayerBtn active={isSSTGroup} color="cyan" onClick={() => { setActiveDataLayer("sst"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>SST</LayerBtn></div>
             {hbtn("sst")}
           </div>
 
           {isSSTGroup && (
             <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
-              <SubSourceBtn active={isSST && dataSource === "MUR"} onClick={() => { setActiveDataLayer("sst"); setDataSource("MUR"); setShowBathyRaster(false); }}>Cloud Free</SubSourceBtn>
-              <SubSourceBtn active={isSST && dataSource === "VIIRS"} onClick={() => { setActiveDataLayer("sst"); setDataSource("VIIRS"); setShowBathyRaster(false); }}>Hourly</SubSourceBtn>
-              <SubSourceBtn active={isComposite} onClick={() => { setActiveDataLayer("composite"); setShowBathyRaster(false); }}>HD Composite</SubSourceBtn>
+              <SubSourceBtn active={isSST && dataSource === "MUR"} onClick={() => { setActiveDataLayer("sst"); setDataSource("MUR"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>Cloud Free</SubSourceBtn>
+              <SubSourceBtn active={isSST && dataSource === "VIIRS"} onClick={() => { setActiveDataLayer("sst"); setDataSource("VIIRS"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>Hourly</SubSourceBtn>
+              <SubSourceBtn active={isComposite} onClick={() => { setActiveDataLayer("composite"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>HD Composite</SubSourceBtn>
 
               {isComposite && compositeData && (
                 compositeDates?.length >= 1 ? (
@@ -512,7 +512,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isCHL} color="cyan" onClick={() => { setActiveDataLayer("chlorophyll"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isCHL} color="cyan" onClick={() => { setActiveDataLayer("chlorophyll"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 {chlLoading ? "Loading…" : "Chlorophyll"}
               </LayerBtn>
             </div>
@@ -548,7 +548,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isSC} color="cyan" onClick={() => { setActiveDataLayer("seacolor"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isSC} color="cyan" onClick={() => { setActiveDataLayer("seacolor"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 {seaColorLoading ? "Loading…" : "Sea color"}
               </LayerBtn>
             </div>
@@ -584,7 +584,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isAlt} color="cyan" onClick={() => { setActiveDataLayer("altimetry"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isAlt} color="cyan" onClick={() => { setActiveDataLayer("altimetry"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 Altimetry
               </LayerBtn>
             </div>
@@ -606,7 +606,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isWindMap} color="cyan" onClick={() => { setActiveDataLayer("windmap"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isWindMap} color="cyan" onClick={() => { setActiveDataLayer("windmap"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 {windLoading ? "Loading…" : "Wind"}
               </LayerBtn>
             </div>
@@ -655,17 +655,6 @@ export default function MapControlPanel({
             {hbtn("bathy")}
           </div>
 
-
-          {isRadarAvailable && (
-            <div className="flex gap-1 items-stretch">
-              <div className="flex-1">
-                <ToolBtn active={showRadarOverlay} color="cyan" onClick={() => setShowRadarOverlay(v => !v)}>
-                  Radar
-                </ToolBtn>
-              </div>
-              {hbtn("radar")}
-            </div>
-          )}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
@@ -808,13 +797,24 @@ export default function MapControlPanel({
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <ProGate isPro={isPro} label="Shaded Relief is available on the Pro plan.">
-                <ToolBtn active={showBathyRaster} color="cyan" onClick={() => setShowBathyRaster(v => !v)}>
+                <ToolBtn active={showBathyRaster} color="cyan" onClick={() => setShowBathyRaster(v => { const next = !v; if (next) setShowRadarOverlay(false); return next; })}>
                   Shaded Relief
                 </ToolBtn>
               </ProGate>
             </div>
             {hbtn("shadedrelief")}
           </div>
+
+          {isRadarAvailable && (
+            <div className="flex gap-1 items-stretch">
+              <div className="flex-1">
+                <ToolBtn active={showRadarOverlay} color="cyan" onClick={() => setShowRadarOverlay(v => !v)}>
+                  Radar
+                </ToolBtn>
+              </div>
+              {hbtn("radar")}
+            </div>
+          )}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
