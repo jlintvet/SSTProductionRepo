@@ -4440,10 +4440,11 @@ export default function SSTHeatmapLeaflet(props) {
 
           {windActive&&windData?.hours?.length>0&&isDesktop&&(
             <WindTimeSlider windData={windData} windHourIndex={windHourIndex} setWindHourIndex={setWindHourIndex} isPlaying={windPlaying} setIsPlaying={setWindPlaying} isWindMap={isWindMap}/>
-            {showRadarOverlay && radarFrames.length > 0 && (
-              <RadarTimeSlider frames={radarFrames} frameIndex={radarFrameIndex} setFrameIndex={setRadarFrameIndex}
-                isPlaying={radarPlaying} setIsPlaying={setRadarPlaying} bottomOffset={radarSliderBottom}/>
-            )}
+          )}
+
+          {showRadarOverlay && radarFrames.length > 0 && (
+            <RadarTimeSlider frames={radarFrames} frameIndex={radarFrameIndex} setFrameIndex={setRadarFrameIndex}
+              isPlaying={radarPlaying} setIsPlaying={setRadarPlaying} bottomOffset={radarSliderBottom}/>
           )}
 
           {isWindMap && (
