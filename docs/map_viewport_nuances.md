@@ -165,6 +165,78 @@ Current known-good line counts:
 
 ---
 
+## 8.5. Cross-region altimetry data cache (2026-07-13 incident)
+
+This is a different bug class from sections 1-7 above -- those are all about
+viewport *centering/zoom* math in `SSTHeatmapLeaflet.jsx` given correct data.
+This one is about the data itself being wrong: **the wrong region's altimetry
+grid rendering on top of the current region's map**, positioned using that
+other region's own (much wider) geographic bounds.
+
+**Symptom:** altimetry color renders with a hard rectangular cutoff well
+outside the current region's configured bounds -- e.g. mid_atlantic (bounds
+north 39.50) showing solid color up past Dover/Wilmington DE, a good degree
+north of its real 38.94N data edge, cut off in a straight line rather than
+fading out at the coast.
+
+**Root cause:** `SSTLive.jsx`'s altimetry-discovery `useEffect` (the one that
+probes the last 8 days of `altimetry_<date>_grid.json` files and picks the
+latest) had an **empty dependency array (`[]`)**, so it only ever runs once
+per page load. Its cache, `_altimetryCache` (a `useRef(new Map())`), was keyed
+**only by date string** (e.g. `"20260712"`), not by region.
+
+Neither `AppShell` nor `AppProvider` remounts when the active region changes
+(no `key={region}` anywhere in `SSTLive.jsx`'s render of `<AppShell
+region={userRegion}>`) -- see the `adding_a_new_region.md` Key Gotchas entry
+"Map pans to the previous region on region change", which documented `key=
+{region}` as the prescribed fix for this class of bug but it was never
+actually applied to `AppShell`. Without a remount, switching regions in the
+same browser tab (which happens constantly during manual multi-region
+testing -- flipping `user_profiles.region` in Supabase, or toggling
+`VITE_FORCE_REGION` on a preview branch) leaves every per-region `useEffect`
+with an empty dependency array permanently stuck on whichever region was
+active at first mount.
+
+Concretely: view va_ri, let it cache `"20260712" -> {va_ri's wide SLA grid}`.
+Switch to mid_atlantic in the same tab. The discovery effect never re-runs
+(empty deps), so `_altimetryCache` still has `"20260712"` cached -- and it
+gets reused for mid_atlantic under the same date key. That cached grid's own
+`north/south/west/east` (computed by `gridToDataURL`, used directly as the
+Leaflet `imageOverlay`'s bounding box) still reflects va_ri's much larger
+extent, so the color raster renders stretched across geography well outside
+mid_atlantic's real box -- looks exactly like a viewport bug, but the
+viewport math is fine; the underlying data object is simply from the wrong
+region.
+
+**Fix (commit `b768948`):** track the last-fetched `ALTIMETRY_BASE_R` (the
+region-scoped URL prefix, already derived from `regionConfig.dataPathSuffix`)
+in a ref; add it to the discovery effect's dependency array so a region
+change re-triggers discovery (after resetting `altimetryDates`/
+`altimetryData` first); and scope every cache key as
+`` `${ALTIMETRY_BASE_R}::${dateStr}` `` instead of bare `dateStr`, in both the
+discovery effect and the "switch data when user changes date" effect.
+
+**This is a latent bug pattern, not something specific to va_ri or to this
+one effect.** Any other per-region data fetch in `SSTLive.jsx` that (a) has
+an empty/incomplete `useEffect` dependency array and (b) caches results in a
+plain `useRef` Map keyed only by date/id (not region) has the same exposure.
+At minimum, `chlCompositeDates`, `seaColorCompositeDates`, `compositeDates`,
+and `currentsData`'s fetch effects share the surface-level shape (a `useRef`
+cache + a discovery effect) and haven't been individually audited for this
+specific empty-deps issue -- check them if a similar "shows the wrong
+region's data" report comes in for any other layer.
+
+**The more durable fix, still not done:** actually apply `key={region}` (or
+`key={regionKey}`) to `<AppShell region={userRegion}>` in `SSTLive.jsx`
+(currently ~line 1312), which would force a full remount -- and reset every
+ref/state in the whole component tree -- on any region change, rather than
+patching each affected cache one at a time as they're discovered. Doing this
+would obsolete the per-effect fix above and any future instance of the same
+pattern, at the cost of every data layer doing a full cold-load on region
+switch (acceptable, since region switches are rare in production -- one
+account is normally pinned to one region via Supabase -- and only frequent
+during manual multi-region testing).
+
 ## 8. Quick reference: what causes each failure mode
 
 | Symptom | Root cause |
@@ -178,3 +250,4 @@ Current known-good line counts:
 | Data cut off only at bottom on altimetry | `halfH = min(halfN, halfS)` approach: halfN binds, viewport bottom > dataSouth |
 | Grey strip above 38.94°N on altimetry | Used bbox north (39.00) instead of actual centroid north (38.9375) |
 | Inspect touch never fires on mobile | `latSet=[]` from stale closure; `reduce()` on empty array fails silently — guard with `latSet.length > 0` |
+| Altimetry color renders past the current region's real bounds, hard rectangular cutoff | `SSTLive.jsx` altimetry-discovery effect has empty deps `[]` + `_altimetryCache` keyed only by date, not region; no remount on region change reuses another region's wider cached grid | Scope the cache key and the effect's deps by `ALTIMETRY_BASE_R` (region path prefix) — see section 8.5 |
