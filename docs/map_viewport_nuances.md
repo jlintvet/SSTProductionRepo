@@ -237,6 +237,59 @@ switch (acceptable, since region switches are rare in production -- one
 account is normally pinned to one region via Supabase -- and only frequent
 during manual multi-region testing).
 
+## 8.6. Altimetry's maxBounds used the full region box, not real data bounds (2026-07-13 incident)
+
+A second, distinct bug found the same day as section 8.5's cache issue -- easy to
+confuse with it since the visible symptom looks similar (color past the region's
+real edge), but the mechanism and fix are completely different.
+
+**Symptom, precisely:** SST/CHL/SeaColor/composite/wind/currents all correctly stop
+panning at the region's real data edge (e.g. mid_atlantic's SST/CHL stop right at
+~39.00N, matching Ocean City MD). Altimetry loads matching that same correct edge
+initially, **but the user can then pan further north on altimetry specifically**,
+into a zone with no other layer showing anything -- and solid altimetry color fills
+that zone rather than the expected blank basemap.
+
+**Root cause:** in the overlay-build effect's altimetry branch,
+```js
+map.setMaxBounds(llBounds); // use region bounds so coast is pannable
+```
+used `llBounds` -- the full REGION bounds (e.g. 39.50N for mid_atlantic) -- instead
+of the real altimetry data bounds (e.g. 38.94N) that `gridToDataURL` had just
+computed a few lines above (`{ dataURL, west, east, north, south } = result;`,
+already used correctly for the `L.imageOverlay`'s own bounds). The CHL/composite/
+SeaColor branch a few lines earlier in the same effect already does this properly --
+it sets `dataBoundsRef.current` with the real data `north` and calls `setMaxBounds`
+with it. **Altimetry never set `dataBoundsRef.current` at all.** That mattered
+beyond just the initial load: both refits that read `dataBoundsRef.current` (the
+vv-resize refit around line ~2028, and the post-sstReady refit around line ~3103)
+fall back to `llBounds` whenever it's null -- so on altimetry, every refit event
+(not just the first paint) kept re-applying the loose, full-region bound.
+
+This was **not** a timing race or a stale cache (that was section 8.5's bug) -- the
+very first, primary `setMaxBounds` call for altimetry was simply wrong on every
+single load, consistently, which is exactly why it was reproducible in a genuinely
+fresh incognito session when 8.5's cache bug was not (that one required first
+having viewed a different region in the same tab).
+
+**Fix (commit `723b32d`):** populate `dataBoundsRef.current` from the real
+altimetry data (`{ south, west, north, east }` -- all four edges, since altimetry's
+grid is a full rectangle, unlike CHL/composite/SeaColor which only tighten north and
+keep `regionBounds` for south/west/east because their ocean-only fetch may not reach
+the region's inshore edge) and call `setMaxBounds` with that same tight box instead
+of `llBounds`. Now altimetry's pan behavior matches every other layer, both on
+initial load and on any later refit.
+
+**Lesson for next time a "layer X lets you pan somewhere other layers don't"
+report comes in:** check whether that layer's render effect sets
+`dataBoundsRef.current` and calls `setMaxBounds` with the *real data* bounds it just
+computed, or whether it takes a shortcut straight to `llBounds`/`regionBounds`.
+Grepping for `setMaxBounds(llBounds)` across the file is the fastest way to find
+every place still using the loose bound -- as of this fix there are three remaining
+uses (the very first mount-time fit before any data has loaded, and the wind
+layer, which is intentionally region-agnostic per its own code comment) -- don't
+assume a new one you find is *also* intentional without checking why.
+
 ## 8. Quick reference: what causes each failure mode
 
 | Symptom | Root cause |
@@ -251,3 +304,4 @@ during manual multi-region testing).
 | Grey strip above 38.94°N on altimetry | Used bbox north (39.00) instead of actual centroid north (38.9375) |
 | Inspect touch never fires on mobile | `latSet=[]` from stale closure; `reduce()` on empty array fails silently — guard with `latSet.length > 0` |
 | Altimetry color renders past the current region's real bounds, hard rectangular cutoff | `SSTLive.jsx` altimetry-discovery effect has empty deps `[]` + `_altimetryCache` keyed only by date, not region; no remount on region change reuses another region's wider cached grid | Scope the cache key and the effect's deps by `ALTIMETRY_BASE_R` (region path prefix) — see section 8.5 |
+| Altimetry alone lets the user pan north (or any direction) past where every other data layer stops, even on a genuinely fresh session with no prior region ever viewed | Altimetry's `setMaxBounds` call used `llBounds` (full region bounds) instead of the real data bounds `gridToDataURL` had just computed; `dataBoundsRef.current` was never set for altimetry either, so later refits fell back to the same loose bound | Set `dataBoundsRef.current` from the real altimetry data and `setMaxBounds` to that box, not `llBounds` — see section 8.6 |
