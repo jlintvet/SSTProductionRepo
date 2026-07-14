@@ -1,7 +1,7 @@
 # MapControlPanel Reference
 
 **File:** `src/components/MapControlPanel.jsx`  
-**Current commit:** `7466ec6` (as of 2026-07-14)
+**Current commit:** `3a5c2ab` (as of 2026-07-14)
 
 ---
 
@@ -178,6 +178,8 @@ As of `f21b9c0` (positioning refined in `7466ec6`), picking a secondary source o
 **Positioning (`7466ec6`):** the bar is inset (`left-2 right-2`, rounded corners, `zIndex:1500`) rather than edge-to-edge at `bottom:0` — the original flush placement got clipped by curved device screen corners, sat inside the OS's bottom-edge swipe gesture zone (intercepting taps as system gestures), and fully covered `WeatherBottomSheet`'s 56px peek bar. It now sits at `bottom: calc(104px + env(safe-area-inset-bottom, 0px))`, clearing both the weather peek and the legend/gradient bar at `bottom:64` (~32px tall, see the `MobileGradientBar`/`SSTLegend` block further down this file's source). If you add another bottom-pinned mobile element, check it against this same stack (peek → legend → source-nav, bottom-up) rather than assuming `bottom:0` is safe.
 
 **Persistence:** `showMobileSourceNav` is only ever set `true` (on picking a secondary source) and never explicitly reset `false` — visibility is derived purely from `!mobilePanel` plus a valid source. Reopening the full drawer via the "⋯" button and closing it again (chevron handle) correctly re-shows the compact bar. Don't add a `setShowMobileSourceNav(false)` call when reopening the drawer — that reintroduces the bug where collapsing the reopened drawer left neither UI visible (fixed `7466ec6`).
+
+**Legend top-alignment (`3a5c2ab`):** the mobile legend/gradient wrapper (`right:44, bottom:64, zIndex:600`, further down this file) renders one of three different components depending on `activeDataLayer` — `SSTLegend` (bare text + a `height:20` bar, no card chrome, ~20px total) for SST, or `MobileGradientBar` (bordered/padded card, ~29px) for CHL/Sea Color. Left auto-height, the wrapper's visible top edge landed ~9px higher for SST than for CHL/Sea Color, making the gap to the source-nav bar above it look inconsistent (Jon reported this on 2026-07-14). Fixed by wrapping each branch in its own fixed-height (`32px`), top-aligned (`items-start`) flex box, so all three legends' visible top edges land at the same offset regardless of the underlying component's natural height. If a 4th legend variant is ever added here, wrap it the same way rather than leaving it bare.
 
 ## Community section
 
