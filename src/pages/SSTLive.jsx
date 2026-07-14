@@ -8,7 +8,7 @@ import { useAppContext } from "@/context/AppContext";
 import SSTHeatmapLeaflet from "@/components/SSTHeatmapLeaflet";
 import SSTLegend from "@/components/SSTLegend";
 import ShareLocationDialog from "@/components/ShareLocationDialog";
-import { WindLegend } from "@/components/WindTimeSlider";
+import { WindLegend } from "@/components/TimeScrubber";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
 import { getSeasonalSstDefault, DEFAULT_REGION } from "@/config/regionConfig";
 import TripPlanner from "@/components/TripPlanner";

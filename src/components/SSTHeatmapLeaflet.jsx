@@ -259,8 +259,7 @@ function SavedPanel({
 import ShareLocationDialog from "@/components/ShareLocationDialog";
 import SSTLegend from "@/components/SSTLegend";
 import SSTRangeControl from "@/components/SSTRangeControl";
-import WindTimeSlider, { WindLegend } from "@/components/WindTimeSlider";
-import RadarTimeSlider from "@/components/RadarTimeSlider";
+import TimeScrubber, { WindLegend } from "@/components/TimeScrubber";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, blurOverlay, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
@@ -4502,12 +4501,33 @@ export default function SSTHeatmapLeaflet(props) {
           )}
 
           {windActive&&windData?.hours?.length>0&&isDesktop&&(
-            <WindTimeSlider windData={windData} windHourIndex={windHourIndex} setWindHourIndex={setWindHourIndex} isPlaying={windPlaying} setIsPlaying={setWindPlaying} isWindMap={isWindMap}/>
+            <TimeScrubber
+              items={windData.hours}
+              getTime={h => new Date(h.time + "Z")}
+              index={windHourIndex} setIndex={setWindHourIndex}
+              isPlaying={windPlaying} setIsPlaying={setWindPlaying}
+              playIntervalMs={2333}
+              accentColor="#f59e0b"
+              showDayTabs
+              dayKey={d => `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`}
+              dayLabel={d => { const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; return `${DN[d.getUTCDay()]} ${d.getUTCDate()}`; }}
+              formatTooltip={d => { const DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; const h=d.getUTCHours(); const ampm=h===0?"12 AM":h<12?`${h} AM`:h===12?"12 PM":`${h-12} PM`; return `${DN[d.getUTCDay()]} ${d.getUTCDate()} - ${ampm}`; }}
+              legend={isWindMap ? <WindLegend maxSpeed={windData?.maxSpeed ?? 30} /> : null}
+              avoidMobileWeatherSheet={false}
+            />
           )}
 
           {showRadarOverlay && radarFrames.length > 0 && (
-            <RadarTimeSlider frames={radarFrames} frameIndex={radarFrameIndex} setFrameIndex={setRadarFrameIndex}
-              isPlaying={radarPlaying} setIsPlaying={setRadarPlaying} bottomOffset={radarSliderBottom}/>
+            <TimeScrubber
+              items={radarFrames}
+              getTime={f => new Date(f.time * 1000)}
+              index={radarFrameIndex} setIndex={setRadarFrameIndex}
+              isPlaying={radarPlaying} setIsPlaying={setRadarPlaying}
+              playIntervalMs={600}
+              accentColor="#0891b2"
+              formatTooltip={(d, item, idx, isLast) => `${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })}${isLast ? " (latest)" : ""}`}
+              bottomOffset={radarSliderBottom}
+            />
           )}
 
           {isWindMap && (
