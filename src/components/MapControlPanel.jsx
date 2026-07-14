@@ -359,7 +359,7 @@ export default function MapControlPanel({
   };
   const isSC        = activeDataLayer === "seacolor";
   const isAlt       = activeDataLayer === "altimetry";
-  const showGain    = !isWindMap && !isAlt;
+  const showGain    = !isWindMap && !isAlt && !showBathyRaster && !showRadarOverlay;
 
   const gainLabel = isSSTGroup ? "Temp gain" : isCHL ? "CHL gain" : isSC ? "Kd490 gain" : "Gain";
 

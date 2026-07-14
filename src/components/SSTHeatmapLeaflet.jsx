@@ -4664,7 +4664,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {!tripMode && (
+          {!tripMode && !showBathyRaster && !showRadarOverlay && (
           <div className="sm:hidden absolute left-0 px-2" style={{ right: 44, bottom: 64, zIndex: 600, pointerEvents: "auto" }}>
             {isWindMap
               ? null
