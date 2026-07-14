@@ -1074,6 +1074,8 @@ export default function SSTHeatmapLeaflet(props) {
   const bathyLayerRef    = useRef(null);
   const radarTileRef     = useRef(null);
   const radarPlayRef      = useRef(null);
+  const radarFadeOutRef   = useRef(null);   // previous tile layer, currently fading out
+  const radarFadeTimerRef = useRef(null);   // timeout that removes it once the fade finishes
   const bathyTileRef     = useRef(null);
   const bathyLabelRef    = useRef(null);
   const wreckLayerRef    = useRef(null);
@@ -2726,27 +2728,67 @@ export default function SSTHeatmapLeaflet(props) {
     return () => { cancelled = true; clearInterval(intervalId); };
   }, [showRadarOverlay, regionConfig]);
 
-  // Tile-render effect: swaps in the tile layer for whichever frame is selected.
+  // Tile-render effect: crossfades to the tile layer for whichever frame is selected,
+  // instead of popping instantly. RainViewer frames are real 10-min steps (see
+  // RADAR_FADE_MS below) -- this only smooths the *transition* between them, it doesn't
+  // add real intermediate data.
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
-    if (radarTileRef.current) { try { map.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
-    if (!showRadarOverlay || !radarHost || !radarFrames.length) return;
+    const RADAR_OPACITY = 0.85;
+    const RADAR_FADE_MS = 350;
+
+    // Radar turned off, region invalid, or no frames yet -- hard-clear both layers.
+    if (!showRadarOverlay || !radarHost || !radarFrames.length) {
+      if (radarFadeTimerRef.current) { clearTimeout(radarFadeTimerRef.current); radarFadeTimerRef.current = null; }
+      if (radarFadeOutRef.current) { try { map.removeLayer(radarFadeOutRef.current); } catch(_){} radarFadeOutRef.current = null; }
+      if (radarTileRef.current) { try { map.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
+      return;
+    }
+
     const frame = radarFrames[radarFrameIndex] ?? radarFrames[radarFrames.length - 1];
     if (!frame?.path) return;
-    const lyr = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+
+    const prevLyr = radarTileRef.current;
+    const newLyr = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
       pane: "radarPane",
-      opacity: 0.85,
+      opacity: 0,
       maxNativeZoom: 7,
       maxZoom: 18,
       attribution: "Weather radar &copy; RainViewer",
       interactive: false,
     });
-    lyr.addTo(map);
-    radarTileRef.current = lyr;
-    return () => {
-      const m = mapRef.current;
-      if (m && radarTileRef.current) { try { m.removeLayer(radarTileRef.current); } catch(_){} radarTileRef.current = null; }
-    };
+    newLyr.addTo(map);
+    radarTileRef.current = newLyr;
+
+    // Fast scrubbing can retrigger this effect before a prior fade finishes -- snap any
+    // still-fading layer out immediately rather than letting tile layers pile up.
+    if (radarFadeTimerRef.current) { clearTimeout(radarFadeTimerRef.current); radarFadeTimerRef.current = null; }
+    if (radarFadeOutRef.current && radarFadeOutRef.current !== prevLyr) {
+      try { map.removeLayer(radarFadeOutRef.current); } catch(_){}
+    }
+    radarFadeOutRef.current = prevLyr || null;
+
+    const newContainer = newLyr.getContainer?.();
+    if (newContainer) newContainer.style.transition = `opacity ${RADAR_FADE_MS}ms linear`;
+    const prevContainer = prevLyr?.getContainer?.();
+    if (prevContainer) prevContainer.style.transition = `opacity ${RADAR_FADE_MS}ms linear`;
+
+    // Defer the actual opacity change a frame so the transition above is registered
+    // before it fires -- setting both synchronously would skip straight to the end state.
+    const raf = requestAnimationFrame(() => {
+      newLyr.setOpacity(RADAR_OPACITY);
+      if (prevLyr) prevLyr.setOpacity(0);
+    });
+
+    if (prevLyr) {
+      radarFadeTimerRef.current = setTimeout(() => {
+        try { map.removeLayer(prevLyr); } catch(_){}
+        if (radarFadeOutRef.current === prevLyr) radarFadeOutRef.current = null;
+        radarFadeTimerRef.current = null;
+      }, RADAR_FADE_MS + 50);
+    }
+
+    return () => { cancelAnimationFrame(raf); };
   }, [mapReady, showRadarOverlay, radarHost, radarFrames, radarFrameIndex]);
 
   // ── Bathymetry ─────────────────────────────────────────────────────────────
