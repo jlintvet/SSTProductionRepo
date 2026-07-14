@@ -107,8 +107,8 @@ Since CHL at ~0.011° is close to the SST grid at 0.01°, `expandCoarseGrid` pro
 ├──────────────────────────────────────────┤
 │ Wind velocity (L.velocityLayer)          │
 ├──────────────────────────────────────────┤
-│ Shaded Relief tile layer (CloudFront)    │ ← bathyTileRef (pane z=362)
-├──────────────────────────────────────────┤
+│ Shaded Relief / Radar tile layer         │ ← bathyTileRef / radarTileRef (both pane z=362,
+├──────────────────────────────────────────┤     mutually exclusive — see their sections below)
 │ CartoDB tile layer                       │ ← bottom
 └──────────────────────────────────────────┘
 ```
@@ -442,7 +442,9 @@ Regions (`REGION_CONFIGS`): `mid_atlantic` (33.70–39.00N, -78.89 to -72.21) an
 - **State:** `showBathyRaster` (`useState(false)`, default off).
 - **Pane:** `bathyTilePane`, created at map-init with `zIndex: 362` — above `sstDataPane` (350, non-GL SST/CHL raster) but below `bathyPane` (375, contour lines) and `overlayPane` (400, wind/currents). See the pane-stacking comment above the `map.createPane` calls in the map-init effect.
 - **Tile layer `useEffect`** (deps: `mapReady`, `showBathyRaster`, `BATHY_TILE_URL`): tears down and recreates `bathyTileRef` on every toggle. `minZoom: 5, maxNativeZoom: 11, maxZoom: 18, opacity: 1` — Leaflet upscales past the native zoom-11 tiles instead of going blank at higher zoom. `interactive: false`, no attribution string.
-- **Gating other layers:** when `showBathyRaster` is true it must fully replace SST/CHL/composite/seacolor rendering, not just sit on top of it. Both the SST `useEffect` and the overlay (CHL/composite/seacolor/altimetry) `useEffect` check `if (showBathyRaster) { ...cleanup...; return; }` **before** their normal render path, clearing the GL layer / active `imageOverlay` first. Toggling `showBathyRaster` back off restores whatever `activeDataLayer` was already selected. See debug checklist item 18 below if the old layer bleeds through underneath.
+- **Gating other layers:** when `showBathyRaster` is true it must fully replace SST/CHL/composite/seacolor rendering, not just sit on top of it. Both the SST `useEffect` and the overlay (CHL/composite/seacolor/altimetry) `useEffect` check `if (showBathyRaster || showRadarOverlay) { ...cleanup...; return; }` **before** their normal render path, clearing the GL layer / active `imageOverlay` first. Toggling `showBathyRaster` back off restores whatever `activeDataLayer` was already selected. See debug checklist item 18 below if the old layer bleeds through underneath.
+- **Auto-disable on source select:** every source `onClick` in `MapControlPanel.jsx` (SST, Cloud Free, Hourly, HD Composite, Chlorophyll, Sea Color, Altimetry, Wind) calls `setShowBathyRaster(false); setShowRadarOverlay(false)`. This ensures selecting a source while Shaded Relief or Radar is active immediately dismisses it and renders the chosen data — no manual toggle-off required. Commit `fbc1612` (Shaded Relief), extended for Radar in `2b98d2d`.
+- **Mutually exclusive with Radar** (see the Radar section below) — both are full basemap-replace Tools sharing the same `radarPane`/`bathyTilePane` z-level (362). Turning one on turns the other off, in both directions.
 
 ### Control panel UI
 
@@ -457,6 +459,37 @@ Regions (`REGION_CONFIGS`): `mid_atlantic` (33.70–39.00N, -78.89 to -72.21) an
 - Opacity tuned from `0.85` to `1` (relief looked washed out at 0.85 against the basemap).
 - Moved from the Overlays section to the Tools section in the control panel (both desktop and mobile) so it sits with other Pro rendering-mode toggles rather than additive overlays.
 - `?v=2` cache-bust suffix added to `BATHY_TILE_URL` to clear indefinitely-cached stale tiles on mobile browsers, once the backend started sending a 24h `Cache-Control` header on upload.
+
+---
+
+## Radar (RainViewer) — Pro live weather overlay
+
+Live Doppler radar. Same full-basemap-replace pattern as Shaded Relief above (they're mutually exclusive with each other), but the data comes from a live third-party API at request time — there is no backend pipeline, no `SSTv2`/S3 hosting, and no daily/hourly workflow. Free public API, no key required, global coverage — see `https://api.rainviewer.com/public/weather-maps.json`.
+
+### Data source
+
+RainViewer's `weather-maps.json` returns `host` + a `radar.past` array of ~13 frames covering the last 2 hours at a **fixed 10-minute interval** (confirmed against the live endpoint — not a request parameter, RainViewer's own radar mosaic only refreshes that often). A `nowcast` key exists in the schema but is empty on the public endpoint — no forecast/extrapolation frames are available through this API. Tile URL: `{host}{frame.path}/256/{z}/{x}/{y}/2/1_1.png` (`2` = RainViewer's only public color scheme, "Universal Blue" — blue for light/moderate rain, yellow→red for heavy; there is no alternate scheme to request). Max native zoom is 7 — tiles upscale (and look blocky) beyond that, softened client-side with a `blur(1.2px)` CSS filter on the whole pane.
+
+### Frontend integration (`SSTHeatmapLeaflet.jsx`)
+
+- **State:** `showRadarOverlay` (`useState(false)`), `radarFrames` (the fetched frame array), `radarFrameIndex`, `radarHost`, `radarPlaying`.
+- **Pane:** `radarPane`, `zIndex: 362` — same level as `bathyTilePane` (they never render simultaneously). `style.filter = "blur(1.2px)"` set at creation.
+- **Frame-list fetch `useEffect`** (deps: `showRadarOverlay`): fetches `weather-maps.json` on toggle-on, re-fetches every 10 minutes while active (matches RainViewer's refresh cadence). No region gating — available everywhere.
+- **Tile-render `useEffect`** (deps: `mapReady`, `showRadarOverlay`, `radarHost`, `radarFrames`, `radarFrameIndex`): **crossfades** between frames instead of swapping instantly. The incoming `L.tileLayer` fades in (opacity 0 → 0.85) while the outgoing one fades out (→ 0) over 350ms, via a CSS `transition` set directly on each layer's `getContainer()` div (Leaflet's `setOpacity()` just writes `container.style.opacity` — the transition is what makes it animate). The opacity change is deferred one `requestAnimationFrame` after the transition property is set, otherwise the browser skips straight to the end state. Fast scrubbing snaps any still-fading layer out immediately via `radarFadeOutRef`/`radarFadeTimerRef` rather than letting tile layers pile up. This only smooths the *visual transition* between two real 10-minute frames — it does not add real intermediate data.
+- **`RadarTimeSlider.jsx`** (new component, mirrors `WindTimeSlider.jsx`): play/pause + scrub bar rendered at the bottom of the map when `showRadarOverlay && radarFrames.length`. Stacks above the wind time slider if both happen to be active (`bottomOffset` prop). The native `<input type=range>` track needs explicit CSS (`.radar-range-slider` class, defined inline via a `<style>` tag in the component) — the unstyled default track is nearly invisible against the dark bar.
+- **Gating other layers / auto-disable on source select:** identical mechanism to Shaded Relief — see that section above (`showBathyRaster || showRadarOverlay` bail-out, `setShowRadarOverlay(false)` in every source `onClick`).
+
+### Control panel UI
+
+- **Desktop only** (no mobile radar UI yet). `MapControlPanel.jsx`, Tools section — Pro-gated (`ProGate`) `ToolBtn` labeled "Radar", sits directly below "Shaded Relief". Help button (`hbtn("radar")`) alongside it.
+- **Help config:** `HELP_CONFIG.radar` reuses no dedicated image (`/help/radar.png` doesn't exist — 404s silently, text-only popup).
+
+### History / open items
+
+- Started as a Mid-Atlantic-only proof of concept on branch `radar-overlay-poc`, shipped as an Overlays-section additive tint (0.65 opacity over SST) — replaced after Jon's feedback that tinting over SST data was unreadable. Moved to Tools as a full basemap-replace mode instead (`1dd1b30`).
+- Region gate dropped and Pro-gating added together in `2b98d2d`, once the pattern was confirmed working.
+- **Color scheme is a known limitation, deliberately left as-is (2026-07-13):** RainViewer's public API only offers "Universal Blue," which some users may read as snow/ice at light-to-moderate rain intensities. Switching to NOAA MRMS (nowCOAST) would fix this at the source (native NWS green/yellow/red convention, ~4min refresh instead of 10min) but requires moving from simple XYZ tiles to a WMS layer and building frame history manually (no equivalent to RainViewer's `weather-maps.json`). Not pursued yet — revisit if user confusion comes up in practice.
+- **No forecast/nowcast** — not available from RainViewer's public API or from NOAA publicly. Not building a home-grown motion-vector nowcast; the existing NOAA marine-forecast text panel covers "what's coming."
 
 ---
 
@@ -548,9 +581,10 @@ The elevation-sign + morphological opening approach solves all three problems wi
 15. **200-fathom contour has a hairpin spike near Cape Hatteras** → this was the root cause of the GEBCO → CRM migration. Do not revert to the GEBCO/ERDDAP source. If the spike reappears on CRM data, it is likely a CRM data artifact in that volume — try increasing `_CRM_STRIDE` slightly (e.g. 20) to smooth past the anomalous cell.
 16. **Users get localhost error on email confirmation** → fix Supabase Site URL.
 17. **Users land on upgrade screen after login** → check `user_subscriptions` table — row may not exist.
-18. **Shaded relief toggled on but SST/CHL still renders underneath** → the `showBathyRaster` early-return in the SST or overlay `useEffect` is missing or mis-ordered. Both effects must check `if (showBathyRaster) { /* cleanup + return */ }` before the main render path. Without it, the previous overlay lingers below the shaded relief tile layer.
+18. **Shaded relief or radar toggled on but SST/CHL still renders underneath** → the `showBathyRaster || showRadarOverlay` early-return in the SST or overlay `useEffect` is missing or mis-ordered. Both effects must check `if (showBathyRaster || showRadarOverlay) { /* cleanup + return */ }` before the main render path. Without it, the previous overlay lingers below the shaded relief/radar tile layer. **Also:** if either is active and the user selects a source and the source data doesn't appear, verify `setShowBathyRaster(false); setShowRadarOverlay(false)` is present in all 8 source `onClick` handlers in `MapControlPanel.jsx` — this was the original defect path (commit `fbc1612`, extended to radar in `2b98d2d`).
 19. **Grey strip at north on CHL/composite/seacolor (especially portrait mobile)** → `setMaxBounds` in the overlay `.then()` or in the post-sstReady / vv-resize refit is using `llBounds` (region bounds, north=39.5°N) instead of actual data bounds. `dataBoundsRef.current` must be set to `{south, west, north, east}` from `gridToDataURL`'s result in every overlay `.then()` and in the SST `.then()`, and both refits must use `_db = dataBoundsRef.current` for `setMaxBounds`. See `docs/map_viewport_nuances.md` sections 5–6 for full pattern and commit b270a27.
 20. **Tab freezes for 20+ seconds on load** → `gridToDataURL` was called without an `AbortSignal`, or the calling effect is not aborting the controller on cleanup. Stale invocations pile up MessageChannel tasks. Ensure every call passes `_ac.signal` and `return () => _ac.abort()` is in the effect cleanup. See the `gridToDataURL` section above.
+21. **Radar tiles pile up / flicker during fast slider scrubbing** → `radarFadeOutRef`/`radarFadeTimerRef` aren't clearing a still-fading layer before a new frame change starts. Each run of the tile-render effect must snap out any in-flight fade immediately (not wait for its timeout) before starting a new crossfade. See the Radar section above.
 
 ---
 

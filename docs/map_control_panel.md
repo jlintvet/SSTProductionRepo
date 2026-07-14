@@ -1,7 +1,7 @@
 # MapControlPanel Reference
 
 **File:** `src/components/MapControlPanel.jsx`  
-**Current commit:** `ffb3da4` (as of 2026-06-11)
+**Current commit:** `2b98d2d` (as of 2026-07-13)
 
 ---
 
@@ -37,7 +37,7 @@ Active colors by layer:
 | Wind map | sky | `bg-sky-600` |
 
 ### `SubSourceBtn`
-Used for SST sub-sources (Daily / Hourly / Composite 36h). Active state is `bg-violet-50 text-violet-700`.
+Used for SST sub-sources (Daily / Hourly / Composite 36h) **and CHL / Sea color sub-sources (Daily / Composite)**. Active state is `bg-violet-50 text-violet-700`.
 
 ### `ToolBtn`
 Used for all Overlay and Tool toggle buttons. **All active states are the same color: `bg-cyan-700 text-white border-cyan-700`.** Do NOT add per-button color variants — the user explicitly standardized this.
@@ -98,6 +98,8 @@ All image paths reference `/public/` files (Vite serves `src/public/`). If an im
 | `loran` | `/loran_ref_point.png` |
 | `community` | `/help/community.png` |
 | `labels` | `/help/labels.png` |
+| `shadedrelief` | `/help/bathy.png` (reused — no dedicated image) |
+| `radar` | `/help/radar.png` (doesn't exist yet — 404s silently, text-only help popup) |
 
 ### `hbtn(id)` helper
 Inline helper function that returns a **22×22px square button** matching the height of `ToolBtn`:
@@ -118,6 +120,20 @@ Clicking toggles `helpOpen` state. The `?` button is rendered in a `flex gap-1 i
 - Image (`maxHeight: 200`)
 - Body text from `HELP_CONFIG[id].text`
 - Special case: `loran` key renders hardcoded multi-paragraph text instead of `.text` field
+
+---
+
+## CHL and Sea color sub-sources
+
+Both the Chlorophyll and Sea color layer buttons expand to show a Daily / Composite row of `SubSourceBtn`s when that layer is active.
+
+**Daily sub-source:** Shows `DateNav` when `chlData.days.length > 1`, letting the user step through available daily bundle dates.
+
+**Composite sub-source:** Shows `DateNav` whose label is the built date (`day.builtDate` = `composite.generated` sliced to YYYY-MM-DD). Prev/next step through `chlCompositeDates` / `seaColorCompositeDates` (dated composite snapshots kept for `COMPOSITE_KEEP_DAYS = 7` days by the bundler). Arrows are disabled when at the oldest/newest available composite. Until multiple dated composites exist (i.e. after the first 2 days of bundler runs) both arrows will be disabled — only one date available.
+
+**Do not show a static badge** (e.g. "N passes · 5d gap-fill") in the composite section. The built date from `DateNav` is the only label. Pass count was deliberately removed.
+
+**Color convention:** CHL sub-source uses `color="green"` DateNav; Sea color uses `color="teal"`.
 
 ---
 
@@ -144,6 +160,8 @@ Community button shows active pin count: `Community (${communityCount ?? 0})`.
 | Hot spots | `showHotspots` | `hotspots` | Yes | Species chip row appears when active |
 | Wind overlay | `showWindOverlay` | `windoverlay` | Yes | Hidden entirely when `isWindMap` active |
 | Bottom Features | `showWrecks` | `bottomfeat` | Yes | |
+| Shaded Relief | `showBathyRaster` | `shadedrelief` | Yes | Full basemap-replace mode — fully hides SST/CHL/composite/seacolor/altimetry rendering while active (see `SST_RENDERING.md`). Mutually exclusive with Radar in both directions. Auto-dismissed by every data-source `onClick` in the Data layer section. |
+| Radar | `showRadarOverlay` | `radar` | Yes | Same full basemap-replace pattern as Shaded Relief (mutually exclusive with it). Live RainViewer tiles, all regions. Renders a bottom time-scrub bar (`RadarTimeSlider.jsx`) when frames are loaded — see `SST_RENDERING.md` for the fetch/crossfade/pane details. |
 | Plan Trip | `tripMode` (via `onToggleTripMode`) | `trip` | Yes | |
 | Real Time (GPS) | `gpsActive` (via `onToggleGps`) | `gps` | Yes | |
 
@@ -183,7 +201,11 @@ murData, murDateIndex, setMurDateIndex
 goesCompData, goesCompDateIndex, setGoesCompDateIndex, activeGoesCompDay
 activeViirsNppDay, viirsNppData, viirsNppDateIndex, setViirsNppDateIndex
 chlData, chlDateIndex, setChlDateIndex, chlLoading
+chlSource, setChlSource                               // "daily" | "composite"
+chlCompositeDates, chlCompositeDateIndex, setChlCompositeDateIndex
 seaColorData, seaColorDateIndex, setSeaColorDateIndex, seaColorLoading
+seaColorSource, setSeaColorSource                     // "daily" | "composite"
+seaColorCompositeDates, seaColorCompositeDateIndex, setSeaColorCompositeDateIndex
 windLoading
 date
 
@@ -202,6 +224,8 @@ selectedFishSpecies, setSelectedFishSpecies
 showWindOverlay, setShowWindOverlay
 currentsLoading, showCurrents, setShowCurrents
 showAltimetryOverlay, setShowAltimetryOverlay
+showBathyRaster, setShowBathyRaster             // Shaded Relief — full basemap-replace, mutually exclusive with Radar
+showRadarOverlay, setShowRadarOverlay           // Radar — full basemap-replace, mutually exclusive with Shaded Relief
 
 // overlays
 showBathyLayer, setShowBathyLayer
