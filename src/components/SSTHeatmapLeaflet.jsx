@@ -4781,19 +4781,25 @@ export default function SSTHeatmapLeaflet(props) {
             {isWindMap
               ? null
               : activeDataLayer === "chlorophyll"
-              ? <MobileGradientBar
-                  gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
-                  lo={sstRange?.min ?? (chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01)}
-                  hi={sstRange?.max ?? (chlData?.days?.[chlDateIndex]?.stats?.max ?? 10)}
-                  hoverVal={hoverInfo?.chl}
-                  onBarClick={() => rangeControlOpenRef?.current?.()}/>
+              ? <div className="flex items-start" style={{ height: 32 }}>
+                  <MobileGradientBar
+                    gradient={CHL_GRADIENT} label="Chlorophyll" unit=" µg/L" logScale
+                    lo={sstRange?.min ?? (chlData?.days?.[chlDateIndex]?.stats?.min ?? 0.01)}
+                    hi={sstRange?.max ?? (chlData?.days?.[chlDateIndex]?.stats?.max ?? 10)}
+                    hoverVal={hoverInfo?.chl}
+                    onBarClick={() => rangeControlOpenRef?.current?.()}/>
+                </div>
               : activeDataLayer === "seacolor"
-              ? <MobileGradientBar
-                  gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
-                  lo={sstRange?.min ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01)}
-                  hi={sstRange?.max ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50)}
-                  onBarClick={() => rangeControlOpenRef?.current?.()}/>
-              : <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min ?? seasonalSstDefault?.min} rangeMax={sstRange?.max ?? seasonalSstDefault?.max}/>
+              ? <div className="flex items-start" style={{ height: 32 }}>
+                  <MobileGradientBar
+                    gradient={KD_GRADIENT} label="Kd490" unit=" m⁻¹"
+                    lo={sstRange?.min ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? 0.01)}
+                    hi={sstRange?.max ?? (seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? 0.50)}
+                    onBarClick={() => rangeControlOpenRef?.current?.()}/>
+                </div>
+              : <div className="flex items-start" style={{ height: 32 }}>
+                  <SSTLegend sstMin={sstMin} sstMax={sstMax} hoverSst={legendHoverSst} rangeMin={sstRange?.min ?? seasonalSstDefault?.min} rangeMax={sstRange?.max ?? seasonalSstDefault?.max}/>
+                </div>
             }
           </div>
           )}
