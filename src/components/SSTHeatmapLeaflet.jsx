@@ -4215,10 +4215,10 @@ export default function SSTHeatmapLeaflet(props) {
             if (!content) return null;
 
             return (
-              <div className="sm:hidden fixed left-0 right-0 bg-white border-t border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
-                   style={{ bottom: 0, zIndex: 2000 }}>
+              <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
+                   style={{ bottom: "calc(104px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
                 {content}
-                <button onClick={() => { setMobilePanel(reopenPanel); setShowMobileSourceNav(false); }}
+                <button onClick={() => setMobilePanel(reopenPanel)}
                   title="More options"
                   className="px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-500 text-xs font-bold flex-shrink-0">&#8942;</button>
               </div>
