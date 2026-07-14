@@ -274,7 +274,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 <span className="text-xs text-slate-600 w-24 flex-shrink-0">Region</span>
                 <div className="flex-1 flex items-center justify-between">
                   <span className="text-xs text-slate-800 font-medium">
-                    {region === "mid_atlantic" ? "Mid-Atlantic" : "Georgia & South Carolina"}
+                    {REGION_PICKER_DATA.find(r => r.key === region)?.label || region}
                   </span>
                   <button
                     onClick={() => setShowRegionPicker(true)}
