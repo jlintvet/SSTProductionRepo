@@ -4041,14 +4041,19 @@ export default function SSTHeatmapLeaflet(props) {
                         {jsonContoursLoading ? "Loading…" : "Bathymetry"}
                       </button>
                       <MobileProGate isPro={isPro} label="Shaded Relief is available on the Pro plan.">
-                        <button onClick={() => setShowBathyRaster(v => !v)}
+                        <button onClick={() => setShowBathyRaster(v => { const next = !v; if (next) setShowRadarOverlay(false); return next; })}
                           className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBathyRaster ? "bg-cyan-700 text-white border-cyan-700" : "bg-white text-slate-600 border-slate-300"}`}>
                           Shaded Relief
                         </button>
                       </MobileProGate>
                     </div>
                     <div className="grid grid-cols-2 gap-1 mt-1">
-                      <div />
+                      <MobileProGate isPro={isPro} label="Radar overlay is available on the Pro plan.">
+                        <button onClick={() => setShowRadarOverlay(v => { const next = !v; if (next) setShowBathyRaster(false); return next; })}
+                          className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showRadarOverlay ? "bg-cyan-700 text-white border-cyan-700" : "bg-white text-slate-600 border-slate-300"}`}>
+                          Radar
+                        </button>
+                      </MobileProGate>
                       <MobileProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
                         <button onClick={() => setShowWrecks(w => !w)}
                           className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showWrecks ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-600 border-slate-300"}`}>
