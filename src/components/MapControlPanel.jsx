@@ -87,6 +87,7 @@ const HELP_CONFIG = {
   trip:        { title: "Plan Trip",                     image: "/trip_plan_ref.png",   text: "Drop waypoints on the map to plan a route. Distance and bearing are calculated automatically between each leg. Tap a waypoint to rename or delete it. Routes can be saved and shared." },
   gps:         { title: "Real-Time GPS",                 image: "/help/gps.png",        text: "Tracks your vessel position on the map using the device GPS. Position updates every few seconds. Enable this at the dock and your track will build as you run." },
   bathy:       { title: "Bathymetry Contours",           image: "/help/bathy.png",      text: "NOAA bathymetric contours in fathoms. Depth contours reveal the shelf, shelf edge, canyons, and drop-offs where fish concentrate. The 100-fathom curve is the classic mahi and wahoo zone; deeper canyons hold tuna and marlin." },
+  radar:       { title: "Radar",              image: "/help/radar.png",      text: "Live Doppler radar showing rain and storm activity near the region. Data refreshes roughly every 10 minutes. Proof-of-concept: currently only available in the Mid-Atlantic region." },
   shadedrelief:{ title: "Shaded Relief",                  image: "/help/bathy.png",      text: "Full-color bathymetric relief from NOAA hydrographic survey data. Depth is shown with a nautical color gradient, with topographic shading revealing canyon walls, shelf-edge structure, and seafloor terrain not visible in standard contour lines." },
   altoverlay:  { title: "SLA Overlay",                   image: "/altimetry_ref.png",   text: "Sea Level Anomaly contours overlaid on the current data layer. Lets you combine SST or chlorophyll with eddy information. Positive SLA = warm-core eddy = look here. Updated weekly." },
   bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png", text: "Wrecks, reefs, rock piles, and hard bottom from NOAA charts. Bottom structure concentrates bait and holds amberjack, grouper, cobia, and sharks. Many offshore wrecks also attract pelagics when the conditions are right." },
@@ -293,6 +294,7 @@ export default function MapControlPanel({
   wrecksLoading,
   showBuoys, setShowBuoys, buoysLoading,
   showCanyonLabels, setShowCanyonLabels,
+  showRadarOverlay, setShowRadarOverlay, isRadarAvailable,
   showLoranGrid, setShowLoranGrid,
   // tier
   isPro,
@@ -425,15 +427,15 @@ export default function MapControlPanel({
         <div className="flex flex-col gap-1 px-2 pb-2">
 
           <div className="flex gap-1 items-stretch">
-            <div className="flex-1"><LayerBtn active={isSSTGroup} color="cyan" onClick={() => { setActiveDataLayer("sst"); setShowBathyRaster(false); }}>SST</LayerBtn></div>
+            <div className="flex-1"><LayerBtn active={isSSTGroup} color="cyan" onClick={() => { setActiveDataLayer("sst"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>SST</LayerBtn></div>
             {hbtn("sst")}
           </div>
 
           {isSSTGroup && (
             <div className="flex flex-col gap-1 pl-2 border-l-2 border-slate-200 ml-1">
-              <SubSourceBtn active={isSST && dataSource === "MUR"} onClick={() => { setActiveDataLayer("sst"); setDataSource("MUR"); setShowBathyRaster(false); }}>Cloud Free</SubSourceBtn>
-              <SubSourceBtn active={isSST && dataSource === "VIIRS"} onClick={() => { setActiveDataLayer("sst"); setDataSource("VIIRS"); setShowBathyRaster(false); }}>Hourly</SubSourceBtn>
-              <SubSourceBtn active={isComposite} onClick={() => { setActiveDataLayer("composite"); setShowBathyRaster(false); }}>HD Composite</SubSourceBtn>
+              <SubSourceBtn active={isSST && dataSource === "MUR"} onClick={() => { setActiveDataLayer("sst"); setDataSource("MUR"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>Cloud Free</SubSourceBtn>
+              <SubSourceBtn active={isSST && dataSource === "VIIRS"} onClick={() => { setActiveDataLayer("sst"); setDataSource("VIIRS"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>Hourly</SubSourceBtn>
+              <SubSourceBtn active={isComposite} onClick={() => { setActiveDataLayer("composite"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>HD Composite</SubSourceBtn>
 
               {isComposite && compositeData && (
                 compositeDates?.length >= 1 ? (
@@ -510,7 +512,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isCHL} color="cyan" onClick={() => { setActiveDataLayer("chlorophyll"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isCHL} color="cyan" onClick={() => { setActiveDataLayer("chlorophyll"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 {chlLoading ? "Loading…" : "Chlorophyll"}
               </LayerBtn>
             </div>
@@ -546,7 +548,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isSC} color="cyan" onClick={() => { setActiveDataLayer("seacolor"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isSC} color="cyan" onClick={() => { setActiveDataLayer("seacolor"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 {seaColorLoading ? "Loading…" : "Sea color"}
               </LayerBtn>
             </div>
@@ -582,7 +584,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isAlt} color="cyan" onClick={() => { setActiveDataLayer("altimetry"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isAlt} color="cyan" onClick={() => { setActiveDataLayer("altimetry"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 Altimetry
               </LayerBtn>
             </div>
@@ -604,7 +606,7 @@ export default function MapControlPanel({
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
-              <LayerBtn active={isWindMap} color="cyan" onClick={() => { setActiveDataLayer("windmap"); setShowBathyRaster(false); }}>
+              <LayerBtn active={isWindMap} color="cyan" onClick={() => { setActiveDataLayer("windmap"); setShowBathyRaster(false); setShowRadarOverlay(false); }}>
                 {windLoading ? "Loading…" : "Wind"}
               </LayerBtn>
             </div>
@@ -795,13 +797,24 @@ export default function MapControlPanel({
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
               <ProGate isPro={isPro} label="Shaded Relief is available on the Pro plan.">
-                <ToolBtn active={showBathyRaster} color="cyan" onClick={() => setShowBathyRaster(v => !v)}>
+                <ToolBtn active={showBathyRaster} color="cyan" onClick={() => setShowBathyRaster(v => { const next = !v; if (next) setShowRadarOverlay(false); return next; })}>
                   Shaded Relief
                 </ToolBtn>
               </ProGate>
             </div>
             {hbtn("shadedrelief")}
           </div>
+
+          {isRadarAvailable && (
+            <div className="flex gap-1 items-stretch">
+              <div className="flex-1">
+                <ToolBtn active={showRadarOverlay} color="cyan" onClick={() => setShowRadarOverlay(v => !v)}>
+                  Radar
+                </ToolBtn>
+              </div>
+              {hbtn("radar")}
+            </div>
+          )}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
