@@ -1,7 +1,7 @@
 # MapControlPanel Reference
 
 **File:** `src/components/MapControlPanel.jsx`  
-**Current commit:** `f21b9c0` (as of 2026-07-14)
+**Current commit:** `7466ec6` (as of 2026-07-14)
 
 ---
 
@@ -173,7 +173,11 @@ The mobile floating Tools icon (`mobilePanel === "tools"` trigger, top-right ico
 
 ## Mobile secondary-source compact nav (`showMobileSourceNav`)
 
-As of `f21b9c0`, picking a secondary source on mobile — SST's Cloud Free / Hourly / HD Composite, or CHL / Sea Color's Daily / HD Composite — closes the full 45vh drawer (`mobilePanel` → `null`) and shows a single-row compact bar pinned at the very bottom (`showMobileSourceNav` state) instead. The bar shows day prev/next (and hour prev/next for SST Hourly/VIIRS), and a "⋯" button that reopens the full drawer for that layer (source switcher + gain control). Renders nothing (`content` stays `null`) for layer/source combos with no date list to page through (single-day data, Altimetry, Wind). This was a deliberate UX fix — the full drawer stacking source row + date/hour nav + gain slider was covering too much of the map on mobile once a secondary source added its own controls. Only implemented for SST/CHL/Sea Color per Jon's scoping call on 2026-07-14; Altimetry's DateNav still lives inside its full mobile panel only.
+As of `f21b9c0` (positioning refined in `7466ec6`), picking a secondary source on mobile — SST's Cloud Free / Hourly / HD Composite, or CHL / Sea Color's Daily / HD Composite — closes the full 45vh drawer (`mobilePanel` → `null`) and shows a single-row compact bar (`showMobileSourceNav` state) instead. The bar shows day prev/next (and hour prev/next for SST Hourly/VIIRS), and a "⋯" button that reopens the full drawer for that layer (source switcher + gain control). Renders nothing (`content` stays `null`) for layer/source combos with no date list to page through (single-day data, Altimetry, Wind). This was a deliberate UX fix — the full drawer stacking source row + date/hour nav + gain slider was covering too much of the map on mobile once a secondary source added its own controls. Only implemented for SST/CHL/Sea Color per Jon's scoping call on 2026-07-14; Altimetry's DateNav still lives inside its full mobile panel only.
+
+**Positioning (`7466ec6`):** the bar is inset (`left-2 right-2`, rounded corners, `zIndex:1500`) rather than edge-to-edge at `bottom:0` — the original flush placement got clipped by curved device screen corners, sat inside the OS's bottom-edge swipe gesture zone (intercepting taps as system gestures), and fully covered `WeatherBottomSheet`'s 56px peek bar. It now sits at `bottom: calc(104px + env(safe-area-inset-bottom, 0px))`, clearing both the weather peek and the legend/gradient bar at `bottom:64` (~32px tall, see the `MobileGradientBar`/`SSTLegend` block further down this file's source). If you add another bottom-pinned mobile element, check it against this same stack (peek → legend → source-nav, bottom-up) rather than assuming `bottom:0` is safe.
+
+**Persistence:** `showMobileSourceNav` is only ever set `true` (on picking a secondary source) and never explicitly reset `false` — visibility is derived purely from `!mobilePanel` plus a valid source. Reopening the full drawer via the "⋯" button and closing it again (chevron handle) correctly re-shows the compact bar. Don't add a `setShowMobileSourceNav(false)` call when reopening the drawer — that reintroduces the bug where collapsing the reopened drawer left neither UI visible (fixed `7466ec6`).
 
 ## Community section
 
