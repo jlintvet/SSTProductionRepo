@@ -3412,7 +3412,7 @@ export default function SSTHeatmapLeaflet(props) {
           {/* Mobile floating controls — 5 layer icons + divider + inspect/pan/bookmark */}
           <div className="sm:hidden absolute flex flex-col gap-1" style={{ right: 8, top: 8, zIndex: 501 }}>
             {/* SST */}
-            <button onClick={() => { setMobilePanel(p => p === "sst" ? null : "sst"); if(activeDataLayer!=="sst"&&activeDataLayer!=="composite"){ const s=localStorage.getItem("sst_sub_layer")||"sst"; setActiveDataLayer(s); } }} title="SST"
+            <button onClick={() => { setMobilePanel(p => p === "sst" ? null : "sst"); if(activeDataLayer!=="sst"&&activeDataLayer!=="composite"){ const s=localStorage.getItem("sst_sub_layer")||"sst"; setActiveDataLayer(s); } setShowRadarOverlay(false); setShowBathyRaster(false); }} title="SST"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
                 background: mobilePanel==="sst" ? "#0891b2" : "rgba(255,255,255,0.9)",
@@ -3420,7 +3420,7 @@ export default function SSTHeatmapLeaflet(props) {
               <span style={{ fontSize:10, fontWeight:700, color: mobilePanel==="sst" ? "#fff" : "#64748b", lineHeight:1 }}>SST</span>
             </button>
             {/* CHL */}
-            <button onClick={() => { setMobilePanel(p => p === "chl" ? null : "chl"); setActiveDataLayer("chlorophyll"); }} title="Chlorophyll"
+            <button onClick={() => { setMobilePanel(p => p === "chl" ? null : "chl"); setActiveDataLayer("chlorophyll"); setShowRadarOverlay(false); setShowBathyRaster(false); }} title="Chlorophyll"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
                 background: mobilePanel==="chl" ? "#16a34a" : "rgba(255,255,255,0.9)",
@@ -3428,7 +3428,7 @@ export default function SSTHeatmapLeaflet(props) {
               <span style={{ fontSize:10, fontWeight:700, color: mobilePanel==="chl" ? "#fff" : "#64748b", lineHeight:1 }}>CHL</span>
             </button>
             {/* Sea Color */}
-            <button onClick={() => { setMobilePanel(p => p === "seacolor" ? null : "seacolor"); setActiveDataLayer("seacolor"); }} title="Sea Color"
+            <button onClick={() => { setMobilePanel(p => p === "seacolor" ? null : "seacolor"); setActiveDataLayer("seacolor"); setShowRadarOverlay(false); setShowBathyRaster(false); }} title="Sea Color"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
                 background: mobilePanel==="seacolor" ? "#0d9488" : "rgba(255,255,255,0.9)",
@@ -3436,7 +3436,7 @@ export default function SSTHeatmapLeaflet(props) {
               <span style={{ fontSize:9, fontWeight:700, color: mobilePanel==="seacolor" ? "#fff" : "#64748b", lineHeight:1 }}>SC</span>
             </button>
             {/* Altimetry */}
-            <button onClick={() => { setMobilePanel(p => p === "altimetry" ? null : "altimetry"); setActiveDataLayer("altimetry"); }} title="Altimetry"
+            <button onClick={() => { setMobilePanel(p => p === "altimetry" ? null : "altimetry"); setActiveDataLayer("altimetry"); setShowRadarOverlay(false); setShowBathyRaster(false); }} title="Altimetry"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
                 background: activeDataLayer==="altimetry" ? "#7c3aed" : "rgba(255,255,255,0.9)",
@@ -3465,9 +3465,7 @@ export default function SSTHeatmapLeaflet(props) {
               style={{ width:30, height:30, padding:0,
                 background: mobilePanel==="tools" ? "#475569" : "rgba(255,255,255,0.9)",
                 borderColor: mobilePanel==="tools" ? "#475569" : "#e2e8f0" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={mobilePanel==="tools" ? "#fff" : "#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-              </svg>
+              <span style={{ fontSize:9, fontWeight:700, color: mobilePanel==="tools" ? "#fff" : "#64748b", lineHeight:1 }}>TLS</span>
             </button>
             {/* Divider */}
             <div style={{ height:1, background:"#e2e8f0", margin:"2px 4px" }}/>
@@ -3587,9 +3585,9 @@ export default function SSTHeatmapLeaflet(props) {
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Source</div>
                     <div className="grid grid-cols-2 gap-1">
                       {[
-                        { label: "Cloud Free", active: activeDataLayer === "sst" && dataSource === "MUR",    fn: () => { setActiveDataLayer("sst"); setDataSource("MUR"); } },
-                        { label: "Hourly",   active: activeDataLayer === "sst" && dataSource === "VIIRS",    fn: () => { setActiveDataLayer("sst"); setDataSource("VIIRS"); } },
-                        { label: "HD Composite", active: activeDataLayer === "composite",                    fn: () => setActiveDataLayer("composite") },
+                        { label: "Cloud Free", active: activeDataLayer === "sst" && dataSource === "MUR",    fn: () => { setActiveDataLayer("sst"); setDataSource("MUR"); setShowRadarOverlay(false); setShowBathyRaster(false); } },
+                        { label: "Hourly",   active: activeDataLayer === "sst" && dataSource === "VIIRS",    fn: () => { setActiveDataLayer("sst"); setDataSource("VIIRS"); setShowRadarOverlay(false); setShowBathyRaster(false); } },
+                        { label: "HD Composite", active: activeDataLayer === "composite",                    fn: () => { setActiveDataLayer("composite"); setShowRadarOverlay(false); setShowBathyRaster(false); } },
                       ].map(({ label, active, fn }) => (
                         <button key={label} onClick={fn}
                           className={`text-[10px] font-semibold py-1.5 rounded-lg border transition-colors ${active ? "bg-cyan-600 text-white border-cyan-600" : "bg-white text-slate-600 border-slate-300"}`}>
@@ -3866,7 +3864,7 @@ export default function SSTHeatmapLeaflet(props) {
                           <Wind className="w-3.5 h-3.5" />{windLoading ? "Loading…" : "Overlay"}
                         </button>
                       </MobileProGate>
-                      <button onClick={() => { setActiveDataLayer(isWindMap ? "sst" : "windmap"); }}
+                      <button onClick={() => { setActiveDataLayer(isWindMap ? "sst" : "windmap"); setShowRadarOverlay(false); setShowBathyRaster(false); }}
                         className={`text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center justify-center gap-1.5 transition-colors ${isWindMap ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-600 border-slate-300"}`}>
                         <Wind className="w-3.5 h-3.5" />{windLoading ? "Loading…" : "Wind"}
                       </button>
@@ -3942,7 +3940,7 @@ export default function SSTHeatmapLeaflet(props) {
                   <div className="flex flex-col gap-1.5">
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Altimetry</div>
                       <div className="grid grid-cols-2 gap-1">
-                        <button onClick={() => setActiveDataLayer(l => l === "altimetry" ? "sst" : "altimetry")}
+                        <button onClick={() => { setActiveDataLayer(l => l === "altimetry" ? "sst" : "altimetry"); setShowRadarOverlay(false); setShowBathyRaster(false); }}
                           className={`text-[11px] font-semibold px-2 py-2 rounded-lg border flex items-center justify-center gap-1 transition-colors ${activeDataLayer === "altimetry" ? "bg-violet-600 text-white border-violet-600" : "bg-white text-slate-600 border-slate-300"}`}>
                           🌊 ALT Map
                         </button>
