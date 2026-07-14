@@ -1,7 +1,7 @@
 # MapControlPanel Reference
 
 **File:** `src/components/MapControlPanel.jsx`  
-**Current commit:** `5ad7c57` (as of 2026-07-14)
+**Current commit:** `f21b9c0` (as of 2026-07-14)
 
 ---
 
@@ -160,12 +160,20 @@ Community button shows active pin count: `Community (${communityCount ?? 0})`.
 | Hot spots | `showHotspots` | `hotspots` | Yes | Species chip row appears when active |
 | Wind overlay | `showWindOverlay` | `windoverlay` | Yes | Hidden entirely when `isWindMap` active |
 | Bottom Features | `showWrecks` | `bottomfeat` | Yes | |
-| Shaded Relief | `showBathyRaster` | `shadedrelief` | Yes | Full basemap-replace mode — fully hides SST/CHL/composite/seacolor/altimetry rendering while active (see `SST_RENDERING.md`). Mutually exclusive with Radar in both directions. Auto-dismissed by every data-source `onClick` in the Data layer section. |
+| Shaded Relief | `showBathyRaster` | `shadedrelief` | Yes | Full basemap-replace mode — fully hides SST/CHL/composite/seacolor/altimetry rendering while active (see `SST_RENDERING.md`). Mutually exclusive with Radar in both directions. Auto-dismissed by every data-source `onClick` in the Data layer section (desktop `MapControlPanel.jsx`) and, as of `b360530`, by every mobile data-source control in `SSTHeatmapLeaflet.jsx` too — the mobile icons/sub-source buttons previously only called `setActiveDataLayer`/`setDataSource` and left Radar/Shaded Relief tiles on screen after switching sources. |
 | Radar | `showRadarOverlay` | `radar` | Yes | Same full basemap-replace pattern as Shaded Relief (mutually exclusive with it). Live RainViewer tiles, all regions, desktop + mobile (mobile button added `82b2006`). Renders a bottom time-scrub bar (`TimeScrubber.jsx`, shared with Wind) when frames are loaded — see `SST_RENDERING.md` for the fetch/crossfade/pane details and the mobile weather-sheet z-index fix (`5ad7c57`). |
 | Plan Trip | `tripMode` (via `onToggleTripMode`) | `trip` | Yes | |
 | Real Time (GPS) | `gpsActive` (via `onToggleGps`) | `gps` | Yes | |
 
 ---
+
+## Mobile Tools icon
+
+The mobile floating Tools icon (`mobilePanel === "tools"` trigger, top-right icon column in `SSTHeatmapLeaflet.jsx`) is a `TLS` text label as of `b360530`, matching the SST/CHL/SC/ALT text-button style. It was previously a circle+arc SVG that read as an ambiguous dot symbol.
+
+## Mobile secondary-source compact nav (`showMobileSourceNav`)
+
+As of `f21b9c0`, picking a secondary source on mobile — SST's Cloud Free / Hourly / HD Composite, or CHL / Sea Color's Daily / HD Composite — closes the full 45vh drawer (`mobilePanel` → `null`) and shows a single-row compact bar pinned at the very bottom (`showMobileSourceNav` state) instead. The bar shows day prev/next (and hour prev/next for SST Hourly/VIIRS), and a "⋯" button that reopens the full drawer for that layer (source switcher + gain control). Renders nothing (`content` stays `null`) for layer/source combos with no date list to page through (single-day data, Altimetry, Wind). This was a deliberate UX fix — the full drawer stacking source row + date/hour nav + gain slider was covering too much of the map on mobile once a secondary source added its own controls. Only implemented for SST/CHL/Sea Color per Jon's scoping call on 2026-07-14; Altimetry's DateNav still lives inside its full mobile panel only.
 
 ## Community section
 
