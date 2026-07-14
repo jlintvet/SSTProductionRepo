@@ -1,7 +1,7 @@
 # MapControlPanel Reference
 
 **File:** `src/components/MapControlPanel.jsx`  
-**Current commit:** `2b98d2d` (as of 2026-07-13)
+**Current commit:** `5ad7c57` (as of 2026-07-14)
 
 ---
 
@@ -161,7 +161,7 @@ Community button shows active pin count: `Community (${communityCount ?? 0})`.
 | Wind overlay | `showWindOverlay` | `windoverlay` | Yes | Hidden entirely when `isWindMap` active |
 | Bottom Features | `showWrecks` | `bottomfeat` | Yes | |
 | Shaded Relief | `showBathyRaster` | `shadedrelief` | Yes | Full basemap-replace mode — fully hides SST/CHL/composite/seacolor/altimetry rendering while active (see `SST_RENDERING.md`). Mutually exclusive with Radar in both directions. Auto-dismissed by every data-source `onClick` in the Data layer section. |
-| Radar | `showRadarOverlay` | `radar` | Yes | Same full basemap-replace pattern as Shaded Relief (mutually exclusive with it). Live RainViewer tiles, all regions. Renders a bottom time-scrub bar (`RadarTimeSlider.jsx`) when frames are loaded — see `SST_RENDERING.md` for the fetch/crossfade/pane details. |
+| Radar | `showRadarOverlay` | `radar` | Yes | Same full basemap-replace pattern as Shaded Relief (mutually exclusive with it). Live RainViewer tiles, all regions, desktop + mobile (mobile button added `82b2006`). Renders a bottom time-scrub bar (`TimeScrubber.jsx`, shared with Wind) when frames are loaded — see `SST_RENDERING.md` for the fetch/crossfade/pane details and the mobile weather-sheet z-index fix (`5ad7c57`). |
 | Plan Trip | `tripMode` (via `onToggleTripMode`) | `trip` | Yes | |
 | Real Time (GPS) | `gpsActive` (via `onToggleGps`) | `gps` | Yes | |
 
