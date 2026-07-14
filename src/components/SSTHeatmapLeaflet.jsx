@@ -2708,18 +2708,16 @@ export default function SSTHeatmapLeaflet(props) {
     };
   }, [mapReady, showBathyRaster, BATHY_TILE_URL]);
 
-  // ── Radar (RainViewer, POC — mid_atlantic only) ─────────────────────────────
-  // Proof of concept: gated to the Mid-Atlantic region config only. Behaves like
-  // Shaded Relief (a Tools-section, full basemap-replace mode) rather than an
-  // additive Overlay — see the showRadarOverlay bail-outs added to the SST and
-  // CHL/composite/seacolor/altimetry overlay effects below. RainViewer is a free
-  // public radar-tile API (no key required).
+  // ── Radar (RainViewer, Pro, all regions) ─────────────────────────────────────
+  // Behaves like Shaded Relief (a Tools-section, full basemap-replace mode) rather
+  // than an additive Overlay — see the showRadarOverlay bail-outs added to the SST
+  // and CHL/composite/seacolor/altimetry overlay effects below. RainViewer is a
+  // free public radar-tile API (no key required), global coverage.
   //
   // Frame-list fetch: pulls ~2 hours of past 10-min frames so the time slider has
   // something to scrub through, not just the single latest frame.
   useEffect(() => {
-    const isRadarRegion = regionConfig?.label === "Mid-Atlantic";
-    if (!showRadarOverlay || !isRadarRegion) { setRadarFrames([]); return; }
+    if (!showRadarOverlay) { setRadarFrames([]); return; }
 
     let cancelled = false;
     const fetchFrames = () => {
@@ -3371,7 +3369,6 @@ export default function SSTHeatmapLeaflet(props) {
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             showRadarOverlay={showRadarOverlay}
             setShowRadarOverlay={v => { setShowRadarOverlay(v); if (v) setShowBathyRaster(false); }}
-            isRadarAvailable={regionConfig?.label === "Mid-Atlantic"}
             showBuoys={showBuoys} setShowBuoys={setShowBuoys} buoysLoading={buoysLoading}
             selectedLocation={selectedLocation}
             windSliderHeight={sliderHeight}
