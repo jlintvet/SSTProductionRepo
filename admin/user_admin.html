@@ -412,12 +412,28 @@ async function saveUser() {
   if (!audits.length && !isAmbassador) { st.style.color='#94a3b8'; st.textContent='No changes.'; return; }
   const { error } = await sb.from('user_profiles').update(updates).eq('id', u.id);
   if (error) { st.style.color='#f87171'; st.textContent='Error: '+error.message; return; }
-  // Read back to confirm — Supabase UPDATE with RLS mismatch returns no error but affects 0 rows
+  // Read back to confirm — Supabase UPDATE with RLS mismatch returns no error but affects 0 rows.
+  // ambassador_status must be selected here too (it's a possible audited field) or it always
+  // reads back as undefined and falsely reports as blocked.
   const { data: confirmed, error: readErr } = await sb.from('user_profiles')
-    .select('display_name,tier,region,trial_end,referral_code').eq('id', u.id).single();
+    .select('display_name,tier,region,trial_end,referral_code,ambassador_status').eq('id', u.id).single();
   if (readErr) { st.style.color='#fbbf24'; st.textContent='Saved (read-back failed: ' + readErr.message + ')'; }
   else {
-    const mismatches = audits.filter(a => String(confirmed[a.field]??null) !== String(a.new??null));
+    // trial_end comes back from Postgres/PostgREST as e.g. "2026-08-14T12:53:00+00:00"
+    // while the value we sent was built with JS's toISOString(), e.g.
+    // "2026-08-14T12:53:00.000Z" -- same instant, different text. A naive string
+    // compare flags every whole-second trial_end save as "blocked" even though it
+    // succeeded. Compare timestamp-shaped fields by parsed time instead.
+    const DATE_FIELDS = new Set(['trial_end']);
+    const valuesMatch = (field, oldConfirmed, newVal) => {
+      if (DATE_FIELDS.has(field)) {
+        const a = oldConfirmed ? new Date(oldConfirmed).getTime() : null;
+        const b = newVal ? new Date(newVal).getTime() : null;
+        return a === b;
+      }
+      return String(oldConfirmed ?? null) === String(newVal ?? null);
+    };
+    const mismatches = audits.filter(a => !valuesMatch(a.field, confirmed[a.field], a.new));
     if (mismatches.length) {
       st.style.color='#f87171';
       st.textContent='RLS blocked: ' + mismatches.map(m=>`${m.field} still=${confirmed[m.field]}`).join(', ');

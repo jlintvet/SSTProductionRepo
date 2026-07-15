@@ -93,7 +93,15 @@ function AppRoot() {
             });
         }
 
-        const pendingRegion = localStorage.getItem("pendingRegion");
+        // user_metadata.region is set at signUp() time (LandingPage.jsx's
+        // region step) and travels with the account itself, so it's present
+        // here even if this confirmation is happening on a different
+        // device/browser than the one used to sign up -- e.g. signing up on
+        // desktop and confirming from a phone notification. localStorage is
+        // only a fallback for the rare path where region couldn't be
+        // embedded at signUp() time (see LandingPage.jsx's accountCreated
+        // branch), and only works same-browser.
+        const pendingRegion = session.user.user_metadata?.region || localStorage.getItem("pendingRegion");
         if (pendingRegion) {
           localStorage.removeItem("pendingRegion");
           supabase.from("user_profiles")

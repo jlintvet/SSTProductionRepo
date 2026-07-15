@@ -530,6 +530,11 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
   const [resetSent, setResetSent] = useState(false);
   const [regionStep, setRegionStep]         = useState(false);
   const [selectedRegion, setSelectedRegion] = useState("mid_atlantic");
+  // True once signUp() has already run for this attempt (checkout-fallback
+  // path below creates the account before the region step exists). Governs
+  // whether handleRegionContinue can still embed region in signUp()'s
+  // user_metadata, or has to fall back to the old localStorage-only path.
+  const [accountCreated, setAccountCreated] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault(); setError(null); setLoading(true);
@@ -541,51 +546,106 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
     e.preventDefault(); setError(null);
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8)  { setError("Password must be at least 8 characters."); return; }
-    if (referralCode.trim()) {
-      // localStorage (not sessionStorage) -- the email confirmation link opens
-      // in a new tab, which has fresh sessionStorage. localStorage persists
-      // across tabs in the same browser so App.jsx's SIGNED_IN handler can
-      // still read it after confirmation.
-      localStorage.setItem("pendingReferralCode", referralCode.trim());
-    }
-    setLoading(true);
-    const { data, error: err } = await supabase.auth.signUp({ email, password });
-    if (err) { setLoading(false); setError(err.message); return; }
 
-    if (checkoutPriceId && data?.user?.id) {
-      // Email confirmation is still required to log in later (Supabase just
-      // sent it via signUp above) -- but it doesn't need to block payment.
-      // The just-created user's id/email is enough to open Stripe checkout
-      // right now; see create-checkout-session.js's pendingUserId path.
-      try {
-        const res = await fetch("/api/create-checkout-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            priceId: checkoutPriceId,
-            pendingUserId: data.user.id,
-            pendingEmail: email,
-          }),
-        });
-        const checkoutData = await res.json();
-        if (!res.ok) throw new Error(checkoutData.error || "Checkout failed");
-        window.location.href = checkoutData.url;
-        return; // leaving the page
-      } catch (checkoutErr) {
-        console.error("Immediate checkout failed, falling back:", checkoutErr);
-        // Fall back to the confirm-then-resume path (App.jsx's SIGNED_IN
-        // handler) so the user isn't stuck if this happened to fail.
-        localStorage.setItem("pendingUpgradePriceId", checkoutPriceId);
+    // Checkout path: create the account immediately so we have a user id to
+    // hand Stripe -- there's no region step first, so region can't be
+    // embedded in signUp() here. Falls through to the ordinary region step
+    // (with accountCreated=true) only if the immediate-checkout attempt
+    // itself fails.
+    if (checkoutPriceId) {
+      if (referralCode.trim()) {
+        // localStorage (not sessionStorage) -- the email confirmation link
+        // opens in a new tab, which has fresh sessionStorage. localStorage
+        // persists across tabs in the same browser so App.jsx's SIGNED_IN
+        // handler can still read it after confirmation.
+        localStorage.setItem("pendingReferralCode", referralCode.trim());
       }
+      setLoading(true);
+      const { data, error: err } = await supabase.auth.signUp({ email, password });
+      if (err) { setLoading(false); setError(err.message); return; }
+      setAccountCreated(true);
+
+      if (data?.user?.id) {
+        // Email confirmation is still required to log in later (Supabase
+        // just sent it via signUp above) -- but it doesn't need to block
+        // payment. The just-created user's id/email is enough to open
+        // Stripe checkout right now; see create-checkout-session.js's
+        // pendingUserId path.
+        try {
+          const res = await fetch("/api/create-checkout-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              priceId: checkoutPriceId,
+              pendingUserId: data.user.id,
+              pendingEmail: email,
+            }),
+          });
+          const checkoutData = await res.json();
+          if (!res.ok) throw new Error(checkoutData.error || "Checkout failed");
+          window.location.href = checkoutData.url;
+          return; // leaving the page
+        } catch (checkoutErr) {
+          console.error("Immediate checkout failed, falling back:", checkoutErr);
+          // Fall back to the confirm-then-resume path (App.jsx's SIGNED_IN
+          // handler) so the user isn't stuck if this happened to fail.
+          localStorage.setItem("pendingUpgradePriceId", checkoutPriceId);
+        }
+      }
+
+      setLoading(false);
+      setRegionStep(true);
+      return;
     }
 
-    setLoading(false);
+    // Ordinary path: don't create the account yet. handleRegionContinue()
+    // does that once region is picked, embedding it in signUp()'s
+    // user_metadata -- see that function for why.
     setRegionStep(true);
     // Note: for the ordinary (non-checkout) signup path, the Stripe trial
     // subscription is NOT created here — signUp() returns no session until
     // the user confirms their email, so there's no access token yet. It's
     // created in App.jsx's onAuthStateChange handler on first SIGNED_IN,
     // which fires once the user actually completes confirmation and logs in.
+  }
+  async function handleRegionContinue() {
+    setError(null);
+
+    if (accountCreated) {
+      // Checkout-fallback path: signUp() already ran before this step
+      // existed for this attempt, so there's no way left to embed region in
+      // user_metadata. Same-browser-only localStorage handoff, as before.
+      localStorage.setItem("pendingRegion", selectedRegion);
+      setRegionStep(false);
+      setSent(true);
+      return;
+    }
+
+    // Ordinary path: create the account now, with region embedded in
+    // user_metadata. Region metadata is stored on the Supabase auth user at
+    // creation time and travels with the session regardless of which
+    // device/browser the user confirms their email on -- unlike
+    // localStorage/sessionStorage, which only exist on the browser that set
+    // them. This mirrors how tos_accepted_at already survives confirmation
+    // (see AuthGate.jsx + useAuth.js's SIGNED_IN sync).
+    if (referralCode.trim()) {
+      localStorage.setItem("pendingReferralCode", referralCode.trim());
+    }
+    setLoading(true);
+    const { error: err } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { region: selectedRegion } },
+    });
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+
+    // Also stash in localStorage as a defense-in-depth fallback (covers e.g.
+    // a signUp() response that -- for whatever Supabase-side reason -- omits
+    // the metadata from the confirmed session). App.jsx's SIGNED_IN handler
+    // checks user_metadata.region first and only falls back to this.
+    localStorage.setItem("pendingRegion", selectedRegion);
+    setRegionStep(false);
+    setSent(true);
   }
   async function handleReset(e) {
     e.preventDefault(); setError(null);
@@ -633,11 +693,6 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],
       },
     ];
-    function handleRegionContinue() {
-      localStorage.setItem("pendingRegion", selectedRegion);
-      setRegionStep(false);
-      setSent(true);
-    }
     return (
       <div>
         <h3 style={{ margin: "0 0 6px", fontSize: 17, color: "#0f172a" }}>Choose your fishing region</h3>
@@ -671,8 +726,9 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
             </div>
           </div>
         ))}
-        <button className="rl-fmbtn" style={{ marginTop: 6 }} onClick={handleRegionContinue}>
-          Continue
+        {error && <div className="rl-err">{error}</div>}
+        <button className="rl-fmbtn" style={{ marginTop: 6 }} onClick={handleRegionContinue} disabled={loading}>
+          {loading ? "…" : "Continue"}
         </button>
       </div>
     );
