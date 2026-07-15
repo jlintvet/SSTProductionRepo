@@ -83,9 +83,9 @@ function AppRoot() {
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
         }).catch(e => console.error("create-trial-subscription failed:", e));
 
-        const pendingCode = sessionStorage.getItem("pendingReferralCode");
+        const pendingCode = localStorage.getItem("pendingReferralCode");
         if (pendingCode) {
-          sessionStorage.removeItem("pendingReferralCode");
+          localStorage.removeItem("pendingReferralCode");
           supabase.rpc("redeem_referral_code", { p_code: pendingCode })
             .then(({ error: redeemError }) => {
               if (redeemError) console.warn("[REFERRAL] redeem failed:", redeemError.message);
@@ -93,9 +93,9 @@ function AppRoot() {
             });
         }
 
-        const pendingRegion = sessionStorage.getItem("pendingRegion");
+        const pendingRegion = localStorage.getItem("pendingRegion");
         if (pendingRegion) {
-          sessionStorage.removeItem("pendingRegion");
+          localStorage.removeItem("pendingRegion");
           supabase.from("user_profiles")
             .upsert({ id: session.user.id, region: pendingRegion }, { onConflict: "id" })
             .then(({ error: regErr }) => {
@@ -108,9 +108,9 @@ function AppRoot() {
         // UpgradePage.jsx stashes the chosen price here when signUp() returns
         // no session (confirmation required) -- this is the first point a
         // real access token exists for that user, so send them to Stripe now.
-        const pendingUpgradePriceId = sessionStorage.getItem("pendingUpgradePriceId");
+        const pendingUpgradePriceId = localStorage.getItem("pendingUpgradePriceId");
         if (pendingUpgradePriceId) {
-          sessionStorage.removeItem("pendingUpgradePriceId");
+          localStorage.removeItem("pendingUpgradePriceId");
           fetch("/api/create-checkout-session", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },

@@ -542,7 +542,11 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8)  { setError("Password must be at least 8 characters."); return; }
     if (referralCode.trim()) {
-      sessionStorage.setItem("pendingReferralCode", referralCode.trim());
+      // localStorage (not sessionStorage) -- the email confirmation link opens
+      // in a new tab, which has fresh sessionStorage. localStorage persists
+      // across tabs in the same browser so App.jsx's SIGNED_IN handler can
+      // still read it after confirmation.
+      localStorage.setItem("pendingReferralCode", referralCode.trim());
     }
     setLoading(true);
     const { data, error: err } = await supabase.auth.signUp({ email, password });
@@ -571,7 +575,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         console.error("Immediate checkout failed, falling back:", checkoutErr);
         // Fall back to the confirm-then-resume path (App.jsx's SIGNED_IN
         // handler) so the user isn't stuck if this happened to fail.
-        sessionStorage.setItem("pendingUpgradePriceId", checkoutPriceId);
+        localStorage.setItem("pendingUpgradePriceId", checkoutPriceId);
       }
     }
 
@@ -630,7 +634,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
       },
     ];
     function handleRegionContinue() {
-      sessionStorage.setItem("pendingRegion", selectedRegion);
+      localStorage.setItem("pendingRegion", selectedRegion);
       setRegionStep(false);
       setSent(true);
     }

@@ -190,7 +190,7 @@ export default function UpgradePage() {
     // possible or failed. Stash the chosen price so App.jsx's SIGNED_IN
     // handler can resume checkout automatically once the user confirms and
     // actually gets a session.
-    sessionStorage.setItem("pendingUpgradePriceId", priceId);
+    localStorage.setItem("pendingUpgradePriceId", priceId);
     setSignupSent(true);
   }
 
