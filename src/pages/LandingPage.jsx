@@ -515,7 +515,7 @@ function RipLocLogo({ h = 34, lockup = false }) {
   );
 }
 
-function AuthForm({ onSuccess, initialMode }) {
+function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
   const [mode, setMode]         = useState(initialMode ?? "register");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -548,6 +548,13 @@ function AuthForm({ onSuccess, initialMode }) {
     const { error: err } = await supabase.auth.signUp({ email, password });
     setLoading(false);
     if (err) { setError(err.message); return; }
+    // No session yet -- Supabase requires email confirmation first. Stash the
+    // chosen price so App.jsx's SIGNED_IN handler (same mechanism used by
+    // UpgradePage.jsx) resumes checkout automatically once a real session
+    // exists post-confirmation.
+    if (checkoutPriceId) {
+      sessionStorage.setItem("pendingUpgradePriceId", checkoutPriceId);
+    }
     setRegionStep(true);
     // Note: the Stripe trial subscription is NOT created here — signUp() returns
     // no session until the user confirms their email, so there's no access token
@@ -734,7 +741,7 @@ function AuthForm({ onSuccess, initialMode }) {
   );
 }
 
-function AuthModal({ open, onClose, onSuccess, initialMode }) {
+function AuthModal({ open, onClose, onSuccess, initialMode, checkoutPriceId }) {
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
@@ -751,7 +758,7 @@ function AuthModal({ open, onClose, onSuccess, initialMode }) {
           </div>
           <div className="rl-modal-title">Lock In.</div>
           <div className="rl-modal-sub">30-day Pro trial. No credit card. No BS.</div>
-          <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} initialMode={initialMode} />
+          <AuthForm onSuccess={() => { onClose(); onSuccess?.(); }} initialMode={initialMode} checkoutPriceId={checkoutPriceId} />
         </div>
       </div>
     </div>
@@ -959,6 +966,8 @@ function shufflePhotos(arr) {
 export default function MarketingLanding({ onAuthSuccess, authed }) {
   const [modal, setModal]     = useState(false);
   const [modalMode, setModalMode] = useState("register");
+  const [checkoutIntent, setCheckoutIntent] = useState(null); // Stripe priceId, or null
+  const [proLoading, setProLoading] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
   const [photos, setPhotos] = useState(() => shufflePhotos(ALL_COMMUNITY_PHOTOS));
   // Auto-cycle carousel every 4 seconds; reset on manual nav
@@ -1026,7 +1035,72 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
     if (authed) { window.location.href = "/app"; return; }
     setModalMode("login"); setModal(true);
   };
-  const done = () => { setModal(false); onAuthSuccess?.(); };
+  const done = () => {
+    setModal(false);
+    if (checkoutIntent) {
+      // Login path -- signUp() has no session until email confirm, so this
+      // only fires for an existing user signing in, which does have a
+      // session immediately.
+      const priceId = checkoutIntent;
+      setCheckoutIntent(null);
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) startCheckoutRedirect(data.session, priceId);
+      });
+      return;
+    }
+    onAuthSuccess?.();
+  };
+
+  // Pricing card CTA: skip the second /upgrade page entirely. Logged-in
+  // visitors go straight to Stripe. Logged-out visitors get the auth modal
+  // inline, then go straight to Stripe from there too (see `done` above and
+  // AuthForm's checkoutPriceId handling for the register path).
+  async function resolveAnnualPriceId() {
+    try {
+      const res = await fetch("/api/get-prices");
+      const data = await res.json();
+      if (data?.annual?.id) return data.annual.id;
+    } catch (e) {
+      console.error("Failed to load prices:", e);
+    }
+    return "price_1Til1NDWsT9O1Ejonzrd7hIJ"; // fallback: known annual price ID
+  }
+
+  async function startCheckoutRedirect(session, priceId) {
+    try {
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ priceId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Checkout failed");
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("Checkout failed:", err);
+      // Fallback so the user isn't stuck -- lets them retry from /upgrade.
+      navigate("/upgrade");
+    } finally {
+      setProLoading(false);
+    }
+  }
+
+  async function handleGoPro() {
+    setProLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const priceId = await resolveAnnualPriceId();
+    if (session) {
+      startCheckoutRedirect(session, priceId);
+      return;
+    }
+    setProLoading(false);
+    setCheckoutIntent(priceId);
+    setModalMode("register");
+    setModal(true);
+  }
 
   return (
     <div className="rl">
@@ -1376,7 +1450,9 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
               <ul className="rl-feats">
                 {PRO_FEATS.map(f => <li key={f} className="rl-feat-li dk"><span className="chk">✓</span>{f}</li>)}
               </ul>
-              <button className="rl-pcta dk" onClick={() => navigate("/upgrade")}>Go Pro. $49/yr</button>
+              <button className="rl-pcta dk" onClick={handleGoPro} disabled={proLoading}>
+                {proLoading ? "Loading…" : "Go Pro. $49/yr"}
+              </button>
             </div>
           </div>
           <div className="rl-price-footer">30-day free Pro trial on every account. No credit card required.</div>
@@ -1484,7 +1560,7 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
         </div>
       </footer>
 
-      <AuthModal open={modal} onClose={() => setModal(false)} onSuccess={done} initialMode={modalMode} />
+      <AuthModal open={modal} onClose={() => setModal(false)} onSuccess={done} initialMode={modalMode} checkoutPriceId={checkoutIntent} />
     </div>
   );
 }
