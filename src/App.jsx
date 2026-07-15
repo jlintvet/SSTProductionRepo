@@ -103,6 +103,26 @@ function AppRoot() {
               else console.log("[REGION] set on signup:", pendingRegion);
             });
         }
+
+        // Resume checkout after a brand-new signup confirms their email.
+        // UpgradePage.jsx stashes the chosen price here when signUp() returns
+        // no session (confirmation required) -- this is the first point a
+        // real access token exists for that user, so send them to Stripe now.
+        const pendingUpgradePriceId = sessionStorage.getItem("pendingUpgradePriceId");
+        if (pendingUpgradePriceId) {
+          sessionStorage.removeItem("pendingUpgradePriceId");
+          fetch("/api/create-checkout-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+            body: JSON.stringify({ priceId: pendingUpgradePriceId }),
+          })
+            .then(r => r.json())
+            .then(data => {
+              if (data.url) window.location.href = data.url;
+              else console.warn("[UPGRADE] resume checkout failed:", data.error);
+            })
+            .catch(e => console.error("[UPGRADE] resume checkout failed:", e));
+        }
       }
     });
 

@@ -1,5 +1,12 @@
 // src/pages/UpgradePage.jsx
 // Public upgrade page — prices loaded from Stripe on mount.
+//
+// Auth is handled inline on this page (login/register tabs) so an anonymous
+// visitor never has to leave /upgrade before reaching Stripe checkout. New
+// signups need to confirm their email before Supabase issues a session, so
+// for that path we stash the chosen price in sessionStorage as
+// "pendingUpgradePriceId" — App.jsx's SIGNED_IN handler picks it up once the
+// user confirms and completes checkout automatically at that point.
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +36,22 @@ const FREE_FEATURES = [
   "Basic map navigation",
 ];
 
+const inputStyle = {
+  width: "100%", boxSizing: "border-box", padding: "12px 14px", marginBottom: 10,
+  borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)",
+  background: "rgba(255,255,255,0.06)", color: "#e2f0ff", fontSize: 14,
+  outline: "none",
+};
+
+function tabStyle(active) {
+  return {
+    flex: 1, padding: "9px 0", borderRadius: 10, border: "none", cursor: "pointer",
+    fontWeight: 600, fontSize: 13,
+    background: active ? "#0ea5e9" : "rgba(255,255,255,0.07)",
+    color: active ? "#fff" : "#93c5fd",
+  };
+}
+
 function fmt(cents, currency) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -44,6 +67,19 @@ export default function UpgradePage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
   const navigate = useNavigate();
+
+  // undefined = still checking, null = logged out, object = logged in
+  const [session, setSession] = useState(undefined);
+
+  // Inline auth panel state
+  const [showAuth, setShowAuth]     = useState(false);
+  const [authMode, setAuthMode]     = useState("register");
+  const [email, setEmail]           = useState("");
+  const [password, setPassword]     = useState("");
+  const [confirm, setConfirm]       = useState("");
+  const [authError, setAuthError]   = useState(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [signupSent, setSignupSent] = useState(false);
 
   useEffect(() => {
     fetch("/api/get-prices")
@@ -62,23 +98,25 @@ export default function UpgradePage() {
       });
   }, []);
 
-  async function handleGetPro() {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function startCheckout(sess) {
     setError(null);
     setLoading(true);
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        navigate("/?redirect=upgrade");
-        return;
-      }
-
       const priceId = annual ? prices.annual.id : prices.monthly.id;
 
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          "Authorization": `Bearer ${sess.access_token}`,
         },
         body: JSON.stringify({ priceId }),
       });
@@ -91,6 +129,43 @@ export default function UpgradePage() {
       setError(err.message || "Something went wrong. Please try again.");
       setLoading(false);
     }
+  }
+
+  function handleProClick() {
+    if (session) {
+      startCheckout(session);
+    } else {
+      setShowAuth(true);
+    }
+  }
+
+  async function handleInlineLogin(e) {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+    setAuthLoading(false);
+    if (err) { setAuthError(err.message); return; }
+    setSession(data.session);
+    startCheckout(data.session);
+  }
+
+  async function handleInlineRegister(e) {
+    e.preventDefault();
+    setAuthError(null);
+    if (password !== confirm) { setAuthError("Passwords do not match."); return; }
+    if (password.length < 8)  { setAuthError("Password must be at least 8 characters."); return; }
+    setAuthLoading(true);
+    const { error: err } = await supabase.auth.signUp({ email, password });
+    setAuthLoading(false);
+    if (err) { setAuthError(err.message); return; }
+
+    // No session yet — Supabase requires email confirmation first. Stash the
+    // chosen price so App.jsx's SIGNED_IN handler can resume checkout
+    // automatically once the user confirms and actually gets a session.
+    const priceId = annual ? prices.annual.id : prices.monthly.id;
+    sessionStorage.setItem("pendingUpgradePriceId", priceId);
+    setSignupSent(true);
   }
 
   const monthlyAmt  = prices ? fmt(prices.monthly.amount, prices.monthly.currency) : "—";
@@ -232,20 +307,70 @@ export default function UpgradePage() {
             }}>{error}</div>
           )}
 
-          <button onClick={handleGetPro} disabled={loading || !prices} style={{
-            width: "100%", padding: "15px", borderRadius: 12, border: "none",
-            background: (loading || !prices) ? "rgba(14,165,233,0.5)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-            color: "#fff", fontWeight: 700, fontSize: 16,
-            cursor: (loading || !prices) ? "not-allowed" : "pointer",
-            boxShadow: (loading || !prices) ? "none" : "0 4px 20px rgba(14,165,233,0.4)",
-            transition: "all 0.2s",
-          }}>
-            {loading ? "Loading..." : prices ? `Get Pro — ${annual ? annualAmt + "/yr" : monthlyAmt + "/mo"}` : "Loading..."}
-          </button>
+          {!showAuth ? (
+            <>
+              <button onClick={handleProClick} disabled={loading || !prices || session === undefined} style={{
+                width: "100%", padding: "15px", borderRadius: 12, border: "none",
+                background: (loading || !prices || session === undefined) ? "rgba(14,165,233,0.5)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                color: "#fff", fontWeight: 700, fontSize: 16,
+                cursor: (loading || !prices || session === undefined) ? "not-allowed" : "pointer",
+                boxShadow: (loading || !prices || session === undefined) ? "none" : "0 4px 20px rgba(14,165,233,0.4)",
+                transition: "all 0.2s",
+              }}>
+                {loading ? "Loading..." : prices ? `Get Pro — ${annual ? annualAmt + "/yr" : monthlyAmt + "/mo"}` : "Loading..."}
+              </button>
 
-          <div style={{ textAlign: "center", fontSize: 12, color: "#64748b", marginTop: 12 }}>
-            Cancel anytime · Secure checkout via Stripe
-          </div>
+              <div style={{ textAlign: "center", fontSize: 12, color: "#64748b", marginTop: 12 }}>
+                Cancel anytime · Secure checkout via Stripe
+              </div>
+            </>
+          ) : signupSent ? (
+            <div style={{ textAlign: "center", padding: "6px 0 2px" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Check your email</div>
+              <p style={{ fontSize: 13, color: "#93c5fd", lineHeight: 1.6, margin: 0 }}>
+                Confirmation link sent to <strong>{email}</strong>. Click it to activate your
+                account — we'll take you straight to checkout.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <button type="button" onClick={() => { setAuthMode("register"); setAuthError(null); }}
+                  style={tabStyle(authMode === "register")}>Create Account</button>
+                <button type="button" onClick={() => { setAuthMode("login"); setAuthError(null); }}
+                  style={tabStyle(authMode === "login")}>Sign In</button>
+              </div>
+              <form onSubmit={authMode === "login" ? handleInlineLogin : handleInlineRegister}>
+                <input type="email" placeholder="Email address" value={email}
+                  onChange={e => setEmail(e.target.value)} required autoFocus style={inputStyle} />
+                <input type="password" placeholder="Password" value={password}
+                  onChange={e => setPassword(e.target.value)} required style={inputStyle} />
+                {authMode === "register" && (
+                  <input type="password" placeholder="Confirm password" value={confirm}
+                    onChange={e => setConfirm(e.target.value)} required style={inputStyle} />
+                )}
+                {authError && (
+                  <div style={{ color: "#fca5a5", fontSize: 13, marginBottom: 10 }}>{authError}</div>
+                )}
+                <button type="submit" disabled={authLoading} style={{
+                  width: "100%", padding: "14px", borderRadius: 12, border: "none",
+                  background: authLoading ? "rgba(14,165,233,0.5)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                  color: "#fff", fontWeight: 700, fontSize: 15,
+                  cursor: authLoading ? "not-allowed" : "pointer",
+                }}>
+                  {authLoading
+                    ? "…"
+                    : authMode === "login"
+                      ? "Sign In & Continue to Checkout"
+                      : "Create Account & Continue"}
+                </button>
+              </form>
+              <button type="button" onClick={() => { setShowAuth(false); setAuthError(null); }}
+                style={{ background: "none", border: "none", color: "#7dd3fc", fontSize: 12, marginTop: 12, cursor: "pointer", padding: 0 }}>
+                ← Back
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
