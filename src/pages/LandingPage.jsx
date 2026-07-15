@@ -545,20 +545,42 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
       sessionStorage.setItem("pendingReferralCode", referralCode.trim());
     }
     setLoading(true);
-    const { error: err } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
-    if (err) { setError(err.message); return; }
-    // No session yet -- Supabase requires email confirmation first. Stash the
-    // chosen price so App.jsx's SIGNED_IN handler (same mechanism used by
-    // UpgradePage.jsx) resumes checkout automatically once a real session
-    // exists post-confirmation.
-    if (checkoutPriceId) {
-      sessionStorage.setItem("pendingUpgradePriceId", checkoutPriceId);
+    const { data, error: err } = await supabase.auth.signUp({ email, password });
+    if (err) { setLoading(false); setError(err.message); return; }
+
+    if (checkoutPriceId && data?.user?.id) {
+      // Email confirmation is still required to log in later (Supabase just
+      // sent it via signUp above) -- but it doesn't need to block payment.
+      // The just-created user's id/email is enough to open Stripe checkout
+      // right now; see create-checkout-session.js's pendingUserId path.
+      try {
+        const res = await fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            priceId: checkoutPriceId,
+            pendingUserId: data.user.id,
+            pendingEmail: email,
+          }),
+        });
+        const checkoutData = await res.json();
+        if (!res.ok) throw new Error(checkoutData.error || "Checkout failed");
+        window.location.href = checkoutData.url;
+        return; // leaving the page
+      } catch (checkoutErr) {
+        console.error("Immediate checkout failed, falling back:", checkoutErr);
+        // Fall back to the confirm-then-resume path (App.jsx's SIGNED_IN
+        // handler) so the user isn't stuck if this happened to fail.
+        sessionStorage.setItem("pendingUpgradePriceId", checkoutPriceId);
+      }
     }
+
+    setLoading(false);
     setRegionStep(true);
-    // Note: the Stripe trial subscription is NOT created here — signUp() returns
-    // no session until the user confirms their email, so there's no access token
-    // yet. It's created in App.jsx's onAuthStateChange handler on first SIGNED_IN,
+    // Note: for the ordinary (non-checkout) signup path, the Stripe trial
+    // subscription is NOT created here — signUp() returns no session until
+    // the user confirms their email, so there's no access token yet. It's
+    // created in App.jsx's onAuthStateChange handler on first SIGNED_IN,
     // which fires once the user actually completes confirmation and logs in.
   }
   async function handleReset(e) {
@@ -657,7 +679,9 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
       <h3 style={{ margin: "0 0 8px", color: "#0f172a" }}>Check your email</h3>
       <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>
         Confirmation link sent to <strong>{email}</strong>.<br/>
-        Click it to activate your account and start your 30-day Pro trial.
+        {checkoutPriceId
+          ? "Click it to activate your account — we'll take you straight to checkout."
+          : "Click it to activate your account and start your 30-day Pro trial."}
       </p>
       <button className="rl-fmbtn" style={{ background: "#64748b" }}
         onClick={() => { setSent(false); setMode("login"); }}>Back to sign in</button>
@@ -968,6 +992,7 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
   const [modalMode, setModalMode] = useState("register");
   const [checkoutIntent, setCheckoutIntent] = useState(null); // Stripe priceId, or null
   const [proLoading, setProLoading] = useState(false);
+  const [upgradedBanner, setUpgradedBanner] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
   const [photos, setPhotos] = useState(() => shufflePhotos(ALL_COMMUNITY_PHOTOS));
   // Auto-cycle carousel every 4 seconds; reset on manual nav
@@ -995,6 +1020,21 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
       s.setAttribute("data-rl", "1");
       s.textContent = GLOBAL_CSS;
       document.head.appendChild(s);
+    }
+  }, []);
+
+  // Stripe redirects here on successful checkout (?upgraded=1). Show a
+  // banner and strip the param so it doesn't linger on refresh.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgraded") === "1") {
+      setUpgradedBanner(true);
+      params.delete("upgraded");
+      const rest = params.toString();
+      window.history.replaceState(
+        null, "",
+        window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash
+      );
     }
   }, []);
 
@@ -1104,6 +1144,25 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
 
   return (
     <div className="rl">
+
+      {upgradedBanner && (
+        <div style={{
+          background: "#0ea5e9", color: "#fff", textAlign: "center",
+          padding: "12px 16px", fontSize: 14, fontWeight: 600,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 12, flexWrap: "wrap",
+        }}>
+          <span>
+            {authed
+              ? "Payment received — you're Pro now."
+              : "Payment received. Check your email to confirm your account, then sign in to start using Pro."}
+          </span>
+          <button onClick={() => setUpgradedBanner(false)} style={{
+            background: "rgba(255,255,255,0.2)", border: "none", color: "#fff",
+            borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontSize: 13,
+          }}>Dismiss</button>
+        </div>
+      )}
 
       {/* NAV */}
       <nav className="rl-nav">

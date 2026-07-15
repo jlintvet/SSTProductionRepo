@@ -156,14 +156,40 @@ export default function UpgradePage() {
     if (password !== confirm) { setAuthError("Passwords do not match."); return; }
     if (password.length < 8)  { setAuthError("Password must be at least 8 characters."); return; }
     setAuthLoading(true);
-    const { error: err } = await supabase.auth.signUp({ email, password });
-    setAuthLoading(false);
-    if (err) { setAuthError(err.message); return; }
+    const { data, error: err } = await supabase.auth.signUp({ email, password });
+    if (err) { setAuthLoading(false); setAuthError(err.message); return; }
 
-    // No session yet — Supabase requires email confirmation first. Stash the
-    // chosen price so App.jsx's SIGNED_IN handler can resume checkout
-    // automatically once the user confirms and actually gets a session.
     const priceId = annual ? prices.annual.id : prices.monthly.id;
+
+    if (data?.user?.id) {
+      // Email confirmation is still required to log in later (Supabase just
+      // sent it via signUp above) -- but it doesn't need to block payment.
+      // The just-created user's id/email is enough to open Stripe checkout
+      // right now; see create-checkout-session.js's pendingUserId path.
+      try {
+        const res = await fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            priceId,
+            pendingUserId: data.user.id,
+            pendingEmail: email,
+          }),
+        });
+        const checkoutData = await res.json();
+        if (!res.ok) throw new Error(checkoutData.error || "Checkout failed");
+        window.location.href = checkoutData.url;
+        return; // leaving the page
+      } catch (checkoutErr) {
+        console.error("Immediate checkout failed, falling back:", checkoutErr);
+      }
+    }
+
+    setAuthLoading(false);
+    // Fallback: no session yet, and immediate checkout above either wasn't
+    // possible or failed. Stash the chosen price so App.jsx's SIGNED_IN
+    // handler can resume checkout automatically once the user confirms and
+    // actually gets a session.
     sessionStorage.setItem("pendingUpgradePriceId", priceId);
     setSignupSent(true);
   }
