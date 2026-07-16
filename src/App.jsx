@@ -115,11 +115,31 @@ function AppRoot() {
           // handle_new_user() DB trigger now also reads region from signup
           // metadata directly, so this upsert is now mainly a backstop for the
           // checkout-fallback path, which can't embed region in metadata.
+          //
+          // IMPORTANT: only do this for a profile that doesn't already have a
+          // live region. user_metadata.region is frozen at signUp() time and
+          // is NEVER updated when the user later changes region in Settings
+          // (Settings only ever writes user_profiles.region). SIGNED_IN fires
+          // on every re-login, not just the first one -- so unconditionally
+          // upserting pendingRegion here was silently clobbering any later
+          // Settings region change back to the original signup value on the
+          // user's next real sign-in. That was the actual cause of "region
+          // changes in Settings aren't saving": they saved fine in the
+          // moment, the next sign-in just reverted them. Checking for an
+          // existing region first makes this upsert fire-once, like the
+          // tos_accepted_at pattern in useAuth.js.
           supabase.from("user_profiles")
-            .upsert({ id: session.user.id, email: session.user.email, region: pendingRegion }, { onConflict: "id" })
-            .then(({ error: regErr }) => {
-              if (regErr) console.warn("[REGION] set failed:", regErr.message);
-              else console.log("[REGION] set on signup:", pendingRegion);
+            .select("region")
+            .eq("id", session.user.id)
+            .maybeSingle()
+            .then(({ data: existing }) => {
+              if (existing?.region) return; // already has a live region -- Settings owns it now, don't clobber
+              return supabase.from("user_profiles")
+                .upsert({ id: session.user.id, email: session.user.email, region: pendingRegion }, { onConflict: "id" })
+                .then(({ error: regErr }) => {
+                  if (regErr) console.warn("[REGION] set failed:", regErr.message);
+                  else console.log("[REGION] set on signup:", pendingRegion);
+                });
             });
         }
 
