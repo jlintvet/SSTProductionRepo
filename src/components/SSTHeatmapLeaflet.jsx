@@ -3647,7 +3647,7 @@ export default function SSTHeatmapLeaflet(props) {
                             </button>
                           )}
                         </div>
-                        {activeViirsDay?.available_hours?.length > 1 && (
+                        {activeViirsDay?.available_hours?.length >= 1 && (
                           <div className="flex flex-wrap gap-1">
                             {activeViirsDay.available_hours.map(h => {
                               const d = new Date(new Date(`${activeViirsDay.date}T${String(h).padStart(2, "0")}:00:00Z`).toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -4133,7 +4133,7 @@ export default function SSTHeatmapLeaflet(props) {
                   <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(activeViirsDay?.date)}</span>
                   <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1)); }} disabled={viirsDateIndex === viirsData.days.length - 1}
                     className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">Day »</button>
-                  {hrs.length > 1 && (
+                  {hrs.length >= 1 && (
                     <>
                       <button onClick={() => setViirsHour(hrs[Math.max(0, hIdx - 1)])} disabled={hIdx <= 0}
                         className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>

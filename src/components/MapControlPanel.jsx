@@ -466,7 +466,7 @@ export default function MapControlPanel({
                     disableNext={viirsDateIndex === viirsData.days.length - 1}
                     onPlay={() => setSstPlaying(v => !v)} playing={sstPlaying}
                   />
-                  {activeViirsDay?.available_hours?.length > 1 && (
+                  {activeViirsDay?.available_hours?.length >= 1 && (
                     <div className="flex flex-wrap gap-1 mt-0.5">
                       {activeViirsDay.available_hours.map(h => {
                         const label = (() => {

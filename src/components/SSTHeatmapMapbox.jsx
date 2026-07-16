@@ -1478,7 +1478,7 @@ export default function SSTHeatmapLeaflet(props) {
                           <button onClick={() => setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1))} disabled={viirsDateIndex === viirsData.days.length - 1}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                         </div>
-                        {activeViirsDay?.available_hours?.length > 1 && (
+                        {activeViirsDay?.available_hours?.length >= 1 && (
                           <div className="flex flex-wrap gap-1">
                             {activeViirsDay.available_hours.map(h => {
                               const d = new Date(new Date(`${activeViirsDay.date}T${String(h).padStart(2, "0")}:00:00Z`).toLocaleString("en-US", { timeZone: "America/New_York" }));
