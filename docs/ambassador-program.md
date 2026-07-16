@@ -61,6 +61,14 @@ Because `referred_by` stores the code as a plain-text snapshot at redemption tim
 
 ---
 
+## Known-fixed issue: `referred_by` column type (fixed 2026-07-16)
+
+`referred_by` was originally created as `uuid` (with a foreign key to `auth.users(id)`) in `ambassador-schema.sql`, but every piece of code that reads or writes it — `redeem_referral_code`, `get_my_referrals`, and the admin panel's referral list — has always treated it as the ambassador's plain-text code, not a uuid. This went undetected because the column had zero non-null rows in production until the first real redemption was actually attempted, which failed outright with `operator does not exist: uuid = text` on `redeem_referral_code`'s own `WHERE referred_by = v_ambassador_code` check. `get_my_referrals()`'s `lower(p.referred_by)` call has the identical latent bug and would have failed the same way the first time anyone had a referral to list.
+
+Fixed by dropping the stale FK and changing the column to `text` (safe — the column was empty in production at the time). The fix now lives as a guarded, re-runnable `DO $$ ... $$` block in `ambassador-self-service.sql`, so re-running that file against any environment (including a fresh one seeded from `ambassador-schema.sql`) still ends up correct. **If this ever resurfaces** — e.g. a fresh Supabase project seeded only from `ambassador-schema.sql` without also running `ambassador-self-service.sql` — the symptom is the exact same `operator does not exist: uuid = text` error on first redemption attempt.
+
+---
+
 ## Deprecated: `ambassadors` / `ambassador_referrals` tables
 
 `ambassador-schema.sql` also defines an `ambassadors` table (per-ambassador stats: total referrals, commission, payouts) and an `ambassador_referrals` link table. **These are unused** — confirmed by reading the live `redeem_referral_code` function directly from Supabase, which only ever reads/writes `user_profiles` columns. As of writing, both tables have zero rows in production. Don't build new features against them without first re-verifying they're still dead; if a real commission/payout system gets built, it should probably replace this rather than resurrect it as-is.
@@ -81,9 +89,9 @@ The public "apply to be an ambassador" form lives on the landing page (`src/page
 | `src/components/auth/UserSettingsModal.jsx` | Self-service: set your own code, view redeemers, redeem someone else's code |
 | `admin/user_admin.html` | Admin: promote to ambassador, set/edit code, set status, view redeemers, bulk email |
 | `src/pages/LandingPage.jsx` | Public "apply to be an ambassador" interest form (`rl-amb-sec`) |
-| `ambassador-schema.sql` | Base columns on `user_profiles` (`referral_code`, `referred_by`, `ambassador_status`) + `ambassador_applications` table + the unused `ambassadors`/`ambassador_referrals` tables |
+| `ambassador-schema.sql` | Base columns on `user_profiles` (`referral_code`, `referred_by`, `ambassador_status`) + `ambassador_applications` table + the unused `ambassadors`/`ambassador_referrals` tables. **`referred_by`'s declared type here (`uuid`) is historically wrong** — see the Known-fixed issue above; the real fix lives in `ambassador-self-service.sql`, run that file after this one |
 | `ambassador-admin-policies.sql` | Admin RLS policies (mostly superseded now that the admin panel reads/writes `user_profiles` directly instead of the dead tables) |
-| `ambassador-self-service.sql` | `set_my_referral_code`, `get_my_referrals`, `ambassador_code_history`, and the current `redeem_referral_code` definition |
+| `ambassador-self-service.sql` | `set_my_referral_code`, `get_my_referrals`, `ambassador_code_history`, the current `redeem_referral_code` definition, and the `referred_by` uuid→text column fix |
 | `supabase/functions/admin-send-email/index.ts` | Admin-only Resend sender used to email an ambassador's redeemers in bulk |
 | Supabase table `ambassador_applications` | Raw interest-form submissions |
 | Supabase table `user_profiles` | `tier`, `referral_code`, `referred_by`, `ambassador_status`, `referral_end` |

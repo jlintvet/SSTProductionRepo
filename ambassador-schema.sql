@@ -36,6 +36,15 @@ CREATE POLICY "public_insert" ON ambassador_applications
 
 -- ── Add referral_code to user_profiles ──────────────────────
 -- Each user gets a unique referral code they can share.
+-- NOTE (2026-07-16): referred_by's type below (uuid + FK to auth.users) was
+-- the original intent but turned out to be wrong for how every later piece
+-- of code (redeem_referral_code, get_my_referrals, the admin panel) actually
+-- uses it -- as the ambassador's plain-text referral code, not their user
+-- id. Left as originally written here for history; the actual live column
+-- is now `text` per the fix in ambassador-self-service.sql. Don't run this
+-- ALTER against a fresh database without also running that file's fix
+-- immediately after, or redemptions will fail with
+-- "operator does not exist: uuid = text".
 ALTER TABLE user_profiles
   ADD COLUMN IF NOT EXISTS referral_code      text UNIQUE,
   ADD COLUMN IF NOT EXISTS referred_by        uuid REFERENCES auth.users ON DELETE SET NULL,

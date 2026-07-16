@@ -7,9 +7,20 @@
 -- function, which only exists in Supabase, not in this repo):
 --   - The real source of truth is user_profiles (tier, referral_code,
 --     referred_by, ambassador_status), matched case-insensitively.
---   - referred_by stores the CODE STRING at time of redemption (not a
---     uuid, despite ambassador-schema.sql's column comment/type intent
---     elsewhere in this repo -- the live column is text).
+--   - referred_by stores the CODE STRING at time of redemption, NOT a
+--     uuid -- despite ambassador-schema.sql declaring it
+--     `uuid REFERENCES auth.users`. That original type was never actually
+--     fixed in prod until 2026-07-16 (this comment previously claimed it
+--     already had been -- it hadn't; the column really was uuid, and
+--     stayed uuid, until the ALTER below was actually run). It went
+--     undetected because referred_by had zero non-null rows until the
+--     first real redemption attempt, which failed outright with
+--     "operator does not exist: uuid = text" on redeem_referral_code's
+--     WHERE referred_by = v_ambassador_code check -- get_my_referrals'
+--     lower(p.referred_by) call has the identical latent bug and would
+--     have failed the same way the first time anyone had a referral to
+--     list. See the ALTER statements below, which actually perform the
+--     fix this comment used to just assert had happened.
 --   - The ambassadors / ambassador_referrals tables from
 --     ambassador-schema.sql are NOT read by redeem_referral_code and
 --     currently have zero rows in production. They are effectively
@@ -47,6 +58,28 @@ CREATE POLICY "amb_code_history_read_own" ON ambassador_code_history
 UPDATE user_profiles
 SET ambassador_status = 'active'
 WHERE tier = 'ambassador' AND ambassador_status = 'none';
+
+-- ── Fix referred_by column type: uuid -> text ───────────────────
+-- ambassador-schema.sql originally created referred_by as
+-- `uuid REFERENCES auth.users ON DELETE SET NULL`, but every function
+-- below (and the admin panel) has always treated it as the ambassador's
+-- plain-text referral code, not a uuid. This went undetected because
+-- referred_by had zero non-null rows in production until the first real
+-- redemption attempt (2026-07-16), which failed with "operator does not
+-- exist: uuid = text" on redeem_referral_code's own WHERE clause. Guarded
+-- so it's a safe no-op if the column has already been fixed (or created
+-- correctly to begin with).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'user_profiles'
+      AND column_name = 'referred_by' AND data_type = 'uuid'
+  ) THEN
+    ALTER TABLE public.user_profiles DROP CONSTRAINT IF EXISTS user_profiles_referred_by_fkey;
+    ALTER TABLE public.user_profiles ALTER COLUMN referred_by TYPE text USING referred_by::text;
+  END IF;
+END $$;
 
 -- ── set_my_referral_code(p_code) ───────────────────────────────
 -- Ambassador sets/changes their own code. Validates format, checks
