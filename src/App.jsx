@@ -104,8 +104,19 @@ function AppRoot() {
         const pendingRegion = session.user.user_metadata?.region || localStorage.getItem("pendingRegion");
         if (pendingRegion) {
           localStorage.removeItem("pendingRegion");
+          // email is required here -- user_profiles.email is NOT NULL with no
+          // default, and Postgres validates NOT NULL on the INSERT branch of
+          // "ON CONFLICT DO UPDATE" even when the row already exists and the
+          // statement will end up just updating it. Omitting email made this
+          // upsert 400 on every single call (confirmed via Supabase API logs),
+          // silently no-opping the region write regardless of what the user
+          // picked -- this was the actual root cause of region never sticking,
+          // not just the storage-scoping issues fixed earlier. The
+          // handle_new_user() DB trigger now also reads region from signup
+          // metadata directly, so this upsert is now mainly a backstop for the
+          // checkout-fallback path, which can't embed region in metadata.
           supabase.from("user_profiles")
-            .upsert({ id: session.user.id, region: pendingRegion }, { onConflict: "id" })
+            .upsert({ id: session.user.id, email: session.user.email, region: pendingRegion }, { onConflict: "id" })
             .then(({ error: regErr }) => {
               if (regErr) console.warn("[REGION] set failed:", regErr.message);
               else console.log("[REGION] set on signup:", pendingRegion);

@@ -226,10 +226,16 @@ function InlineLogin() {
     });
     setLoading(false);
     if (err) { setError(err.message); return; }
-    // Pre-create user_profiles row with chosen region.
+    // Pre-create/update user_profiles row with chosen region. Mostly a
+    // backstop now -- the handle_new_user() DB trigger already reads region
+    // out of signUp()'s metadata directly -- but email is required here
+    // regardless: user_profiles.email is NOT NULL with no default, and
+    // Postgres validates NOT NULL on the INSERT branch of "ON CONFLICT DO
+    // UPDATE" even when the row already exists, so omitting it 400'd this
+    // upsert on every call.
     if (signUpData?.user?.id) {
       await supabase.from("user_profiles").upsert(
-        { id: signUpData.user.id, region: selectedRegion },
+        { id: signUpData.user.id, email: signUpData.user.email, region: selectedRegion },
         { onConflict: "id", ignoreDuplicates: false }
       ).then(({ error: pe }) => {
         if (pe) console.warn("[signup] profile upsert:", pe.message);
