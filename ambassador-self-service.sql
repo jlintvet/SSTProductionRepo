@@ -162,10 +162,14 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.get_my_referrals() TO authenticated;
 
--- ── redeem_referral_code: now also honors ambassador_status ─────
--- Previously a suspended/inactive ambassador's code kept working
--- because this check didn't exist. Everything else is unchanged from
--- the live function (see comment at top of file).
+-- ── redeem_referral_code ──────────────────────────────────────
+-- Honors ambassador_status (a suspended/inactive ambassador's code stops
+-- working). Admin-owned codes (same ADMIN_EMAILS pair used by
+-- user_admin.html and the RLS/trigger admin checks elsewhere -- this is a
+-- separate hardcoded copy of that list, not a shared constant; update both
+-- if the admin list ever changes) are exempt from the 6-redemption cap,
+-- fixed 2026-07-16 (migration redeem_referral_code_unlimited_for_admins) --
+-- everyone else's codes still cap out at 6.
 CREATE OR REPLACE FUNCTION public.redeem_referral_code(p_code text)
 RETURNS void
 LANGUAGE plpgsql
@@ -176,6 +180,7 @@ DECLARE
   v_ambassador_id uuid;
   v_ambassador_code text;
   v_ambassador_status text;
+  v_ambassador_email text;
   v_redemption_count int;
   v_caller_id uuid := auth.uid();
   v_caller_tier text;
@@ -197,7 +202,8 @@ BEGIN
   END IF;
 
   -- Lock the ambassador row to serialize concurrent redemptions of the same code
-  SELECT id, referral_code, ambassador_status INTO v_ambassador_id, v_ambassador_code, v_ambassador_status
+  SELECT id, referral_code, ambassador_status, email
+  INTO v_ambassador_id, v_ambassador_code, v_ambassador_status, v_ambassador_email
   FROM public.user_profiles
   WHERE lower(referral_code) = lower(p_code) AND tier = 'ambassador'
   FOR UPDATE;
@@ -214,12 +220,14 @@ BEGIN
     RAISE EXCEPTION 'You cannot redeem your own referral code';
   END IF;
 
-  SELECT count(*) INTO v_redemption_count
-  FROM public.user_profiles
-  WHERE referred_by = v_ambassador_code;
+  IF v_ambassador_email NOT IN ('jlintvet@gmail.com', 'jlintvet@butterpayments.com') THEN
+    SELECT count(*) INTO v_redemption_count
+    FROM public.user_profiles
+    WHERE referred_by = v_ambassador_code;
 
-  IF v_redemption_count >= 6 THEN
-    RAISE EXCEPTION 'This referral code has reached its limit of 6 redemptions';
+    IF v_redemption_count >= 6 THEN
+      RAISE EXCEPTION 'This referral code has reached its limit of 6 redemptions';
+    END IF;
   END IF;
 
   PERFORM set_config('app.bypass_profile_protection', 'on', true);
