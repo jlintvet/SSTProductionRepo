@@ -62,6 +62,7 @@ export const REGION_CONFIGS = {
     },
     locations: [
       // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
+      { label: "Beaufort Inlet, NC",     lat: 34.6937, lon: -76.6663, wreckRegion: "MoreheadNC",     noaaCoverage: true,  noaaZone: "AMZ186" },
       { label: "Beaufort, SC",           lat: 32.4316, lon: -80.6698, wreckRegion: "BeaufortSC",     noaaCoverage: true,  noaaZone: "AMZ372" },
       { label: "Carolina Beach, NC",     lat: 34.0370, lon: -77.8924, wreckRegion: "WilmingtonNC",   noaaCoverage: true,  noaaZone: "AMZ270" },
       { label: "Charleston, SC",         lat: 32.7765, lon: -79.9311, wreckRegion: "CharlestonSC",   noaaCoverage: true,  noaaZone: "AMZ370" },
