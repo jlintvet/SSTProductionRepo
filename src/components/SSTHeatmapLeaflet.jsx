@@ -2894,11 +2894,17 @@ export default function SSTHeatmapLeaflet(props) {
     if (!showWrecks || !wrecksData) return;
     const loc = selectedLocationRef.current;
     const lyr = L.layerGroup();
+    const GA_SC_WRECK_REGIONS = new Set([
+      "MoreheadNC","WilmingtonNC","MyrtleBeachSC","GeorgetownSC","CharlestonSC",
+      "BeaufortSC","HiltonHeadSC","SavannahGA","BrunswickGA","FernandinaFL",
+      "JacksonvilleFL","StAugustineFL"
+    ]);
     wrecksData.features.forEach(f => {
       const [lon, lat] = f.geometry.coordinates;
       const props = f.properties || {};
       if (lat<regionBounds.south||lat>regionBounds.north||lon<regionBounds.west||lon>regionBounds.east) return;
-      if (loc?.wreckRegion && props.region && props.region !== loc.wreckRegion) return;
+      const _sameGaScGroup = GA_SC_WRECK_REGIONS.has(loc?.wreckRegion) && GA_SC_WRECK_REGIONS.has(props.region);
+      if (loc?.wreckRegion && props.region && props.region !== loc.wreckRegion && !_sameGaScGroup) return;
       const fKey = `${(props.name ?? "").trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
       if (wreckRemovedKeys?.has(fKey)) return;
       const wreckIcon = L.divIcon({ className:"", html:'<div style="width:12px;height:12px;border-radius:50%;background:#CAD8DB;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>', iconSize:[12,12], iconAnchor:[6,6] });
