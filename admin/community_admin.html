@@ -78,6 +78,7 @@ select.finput option{background:#1e293b}
 .pin-badge{font-size:9px;padding:1px 5px;border-radius:4px;white-space:nowrap;flex-shrink:0}
 .badge-flag{background:#7f1d1d;color:#fca5a5}
 .badge-exp{background:#1c1917;color:#78716c}
+.badge-anon{background:#312e81;color:#a5b4fc}
 #pinsMap{flex:1;min-width:0;position:relative}
 #leafletMap{width:100%;height:100%}
 #pinsEdit{width:290px;flex-shrink:0;background:#1e293b;border-left:1px solid #334155;display:flex;flex-direction:column;overflow:hidden}
@@ -222,7 +223,7 @@ tr:hover td{background:#1e293b}
       <div id="pinsEditEmpty">Select a pin to edit</div>
       <div id="pinsEditForm" style="display:none">
         <div>
-          <div class="flabel">Display Name</div>
+          <div class="flabel">Display Name <span id="eAnonBadge" class="pin-badge badge-anon" style="display:none">anonymous to public</span></div>
           <input id="eName" class="finput" type="text" placeholder="Angler name"/>
         </div>
         <div>
@@ -817,6 +818,9 @@ function renderPinList() {
     const sel     = p.id === selectedPinId ? ' selected' : '';
     const expLabel = expired ? `<span class="pin-badge badge-exp">expired</span>` : '';
     const flagLabel = p.is_flagged ? `<span class="pin-badge badge-flag">flagged</span>` : '';
+    // Real display_name is always shown to admin -- this badge just flags
+    // that the PUBLIC map shows "Anonymous Captain" instead for this pin.
+    const anonLabel = p.is_anonymous ? `<span class="pin-badge badge-anon">anonymous</span>` : '';
     const expiry   = expired ? 'Expired' : 'Exp ' + timeUntil(p.expires_at);
     const specStr  = (p.species || []).map(s => SPECIES[s] || s).join(', ') || 'No species';
     return `<div class="pin-item${sel}" data-id="${p.id}">
@@ -825,7 +829,7 @@ function renderPinList() {
         <div class="pin-item-name">${esc(p.display_name || 'Unknown')}</div>
         <div class="pin-item-sub">${esc(specStr)} &middot; ${expiry}</div>
       </div>
-      ${flagLabel}${expLabel}
+      ${flagLabel}${expLabel}${anonLabel}
     </div>`;
   }).join('');
 }
@@ -865,6 +869,7 @@ function renderEditPanel(pin) {
   document.getElementById('pinsEditEmpty').style.display = 'none';
   document.getElementById('pinsEditForm').style.display  = 'flex';
   document.getElementById('eName').value    = pin.display_name || '';
+  document.getElementById('eAnonBadge').style.display = pin.is_anonymous ? 'inline-block' : 'none';
   document.getElementById('eNotes').value   = pin.notes || '';
   document.getElementById('eCoords').textContent = pin.lat ? `${pin.lat.toFixed(5)}° N, ${Math.abs(pin.lon).toFixed(5)}° W` : '—';
   const imgPreview = document.getElementById('eImagePreview');

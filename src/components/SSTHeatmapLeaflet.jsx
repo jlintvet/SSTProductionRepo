@@ -286,17 +286,17 @@ function TipFlow({ pin, userId, onClose }) {
     if (finalAmount <= 0) return;
     setRecording(true);
     try {
-      await supabase.from("community_tips").insert({
-        location_id:       pin.id,
-        tipper_user_id:    userId,
-        recipient_user_id: pin.user_id,
-        amount_cents:      Math.round(finalAmount * 100),
-        platform,
+      // record_community_tip resolves the real recipient_user_id server-side
+      // from location_id and also increments tip_count/tip_total_cents on
+      // community_locations -- both used to happen client-side, but the
+      // client no longer holds pin.user_id (see community_locations_public),
+      // and the counter update was silently RLS-blocked anyway since the
+      // tipper isn't the row's owner.
+      await supabase.rpc("record_community_tip", {
+        p_location_id:  pin.id,
+        p_amount_cents: Math.round(finalAmount * 100),
+        p_platform:     platform,
       });
-      await supabase.from("community_locations").update({
-        tip_count:       (pin.tip_count || 0) + 1,
-        tip_total_cents: (pin.tip_total_cents || 0) + Math.round(finalAmount * 100),
-      }).eq("id", pin.id);
     } catch (_) {}
 
     const note = encodeURIComponent(`riploc report tip`);
@@ -330,11 +330,10 @@ function TipFlow({ pin, userId, onClose }) {
       // report's payment handle is missing.
       supabase.functions.invoke("notify-tip-missing-handle", {
         body: {
-          location_id:       pin.id,
-          recipient_user_id: pin.user_id,
-          tipper_user_id:    userId || null,
+          location_id:    pin.id,
+          tipper_user_id: userId || null,
           platform,
-          amount_cents:      Math.round(finalAmount * 100),
+          amount_cents:   Math.round(finalAmount * 100),
         },
       }).catch(() => {});
       return;

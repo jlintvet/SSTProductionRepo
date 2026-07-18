@@ -1,6 +1,6 @@
 // src/components/CommunityReportForm.jsx
 // Modal for posting a community fishing report or live location pin.
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { X } from "lucide-react";
@@ -47,6 +47,8 @@ export default function CommunityReportForm({
   const [photo,       setPhoto]       = useState(null);   // File
   const [photoPreview,setPhotoPreview]= useState(null);   // object URL for preview
   const [photoError,  setPhotoError]  = useState(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [profile,     setProfile]     = useState(null);  // { display_name, venmo_handle, cashapp_handle, post_anonymously_default }
 
   function toggleSpecies(key) {
     setSpecies(prev => {
@@ -64,6 +66,25 @@ export default function CommunityReportForm({
   function setQty(key, val) {
     setQuantities(q => ({ ...q, [key]: Math.max(0, parseInt(val) || 0) }));
   }
+
+  // Fetch the poster's profile once on mount — used for display name,
+  // payment handles at submit time, and to seed the anonymous checkbox
+  // from the user's saved account-level default (overridable below).
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    supabase
+      .from("user_profiles")
+      .select("display_name, venmo_handle, cashapp_handle, post_anonymously_default")
+      .eq("id", userId)
+      .single()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setProfile(data);
+        setIsAnonymous(!!data.post_anonymously_default);
+      });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   function requestGps() {
     if (!navigator.geolocation) { setGpsError("Geolocation not supported."); return; }
@@ -98,13 +119,6 @@ export default function CommunityReportForm({
     const effectiveLon = (useGpsLoc && gpsCoords) ? gpsCoords.lon : lon;
 
     try {
-      // Get display name from user_profiles; fall back to email prefix
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("display_name, venmo_handle, cashapp_handle")
-        .eq("id", userId)
-        .single();
-
       // Optional photo: upload to the existing share-images bucket (same
       // pattern as HelpReportModal) before inserting the row.
       let imageUrl = null;
@@ -152,6 +166,7 @@ export default function CommunityReportForm({
           image_url:      imageUrl,
           venmo_handle:   profile?.venmo_handle   || null,
           cashapp_handle: profile?.cashapp_handle || null,
+          is_anonymous:   isAnonymous,
           points_awarded: pointsAmt,
           expires_at:     expiresAt,
         })
@@ -359,6 +374,25 @@ export default function CommunityReportForm({
             </label>
           )}
           {photoError && <p className="text-[10px] text-red-500 mt-1">{photoError}</p>}
+        </div>
+
+        {/* Anonymous toggle */}
+        <div className="px-4 pt-1 pb-2">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isAnonymous}
+              onChange={e => setIsAnonymous(e.target.checked)}
+              className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
+            />
+            <span className="text-xs text-slate-600">
+              Post anonymously
+              <span className="block text-[10px] text-slate-400">
+                Your name won't be shown on the map. You'll still get credit on the
+                leaderboard and can still be tipped — change your default in Settings.
+              </span>
+            </span>
+          </label>
         </div>
 
         {error && (

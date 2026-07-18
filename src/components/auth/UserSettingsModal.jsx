@@ -116,7 +116,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
-  const [profile, setProfile] = useState({ display_name: "", venmo_handle: "", cashapp_handle: "" });
+  const [profile, setProfile] = useState({ display_name: "", venmo_handle: "", cashapp_handle: "", post_anonymously_default: false });
   const [referral, setReferral] = useState({ tier: null, referred_by: null, referral_end: null });
   const [referralInput, setReferralInput] = useState("");
   const [referralStatus, setReferralStatus] = useState(null); // null | "redeeming" | "ok" | error message
@@ -141,13 +141,14 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     if (!userId) return;
     Promise.all([
       loadUserSettings(userId),
-      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle, tier, referred_by, referral_end, referral_code, region").eq("id", userId).single(),
+      supabase.from("user_profiles").select("display_name, venmo_handle, cashapp_handle, post_anonymously_default, tier, referred_by, referral_end, referral_code, region").eq("id", userId).single(),
     ]).then(([s, { data: prof }]) => {
       setForm(s);
       setProfile({
-        display_name:   prof?.display_name   ?? "",
-        venmo_handle:   prof?.venmo_handle   ?? "",
-        cashapp_handle: prof?.cashapp_handle ?? "",
+        display_name:             prof?.display_name   ?? "",
+        venmo_handle:             prof?.venmo_handle   ?? "",
+        cashapp_handle:           prof?.cashapp_handle ?? "",
+        post_anonymously_default: !!prof?.post_anonymously_default,
       });
       const loadedRegion = prof?.region ?? "mid_atlantic";
       setRegion(loadedRegion);
@@ -184,9 +185,10 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     const saves = [
       saveUserSettings(userId, form),
       supabase.from("user_profiles").update({
-        display_name:   profile.display_name.trim()   || null,
-        venmo_handle:   profile.venmo_handle.trim()   || null,
-        cashapp_handle: profile.cashapp_handle.trim() || null,
+        display_name:             profile.display_name.trim()   || null,
+        venmo_handle:             profile.venmo_handle.trim()   || null,
+        cashapp_handle:           profile.cashapp_handle.trim() || null,
+        post_anonymously_default: profile.post_anonymously_default,
         region,
       }).eq("id", userId).select(),
     ];
@@ -418,8 +420,22 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 onChange={v => setProf("cashapp_handle", v)}
               />
             </Row>
+            <Row label="Post anonymously">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={profile.post_anonymously_default}
+                  onChange={e => setProf("post_anonymously_default", e.target.checked)}
+                  className="rounded border-slate-300 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span className="text-xs text-slate-600">Hide my name on new community reports by default</span>
+              </label>
+            </Row>
             <p className="text-[11px] text-slate-400 leading-relaxed">
               Display name appears on your community pins. Payment handles let other anglers tip you for catch reports.
+              Posting anonymously hides your name from other users on the map — you still earn leaderboard credit and
+              can still be tipped, and this can be overridden per post. You can always be identified in admin
+              moderation. Change per post from the report form's own checkbox.
             </p>
           </Section>
 
