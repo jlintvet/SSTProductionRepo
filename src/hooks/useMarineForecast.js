@@ -15,6 +15,17 @@
 //   2. Add an entry to NOAA_SOURCES below with that JSON's raw URL + tide station
 //   3. Set noaaCoverage: true in regionConfig.js for that location
 //
+// Nearshore (0-20nm) vs offshore (20-60nm) toggle:
+//   Locations can optionally have BOTH a nearshore and offshore NOAA zone.
+//   Shape: { tideStation, offshore: { forecastJsonUrl, noaaZone }, nearshore?: {...} }
+//   If a location has no meaningful offshore/nearshore split (Chesapeake Bay
+//   zones, or any not-yet-migrated location), keep the legacy flat shape:
+//   { forecastJsonUrl, tideStation, noaaZone } — resolveZoneSource() below
+//   treats that as offshore-only and hasNearshore is false, so no toggle UI
+//   renders for it. Always verify a new nearshore zone ID against live NWS
+//   zone text (tgftp.nws.noaa.gov/data/forecasts/marine/coastal/...) — zone
+//   spans/offices are not mirrored 1:1 between nearshore and offshore.
+//
 // API:
 //   const { data, loading, error, isAvailable } = useMarineForecast(selectedLocation);
 //   // data.forecastHourlyUrl — pass to fetchHourlyForecast() on day click
@@ -24,7 +35,7 @@
 //   const hours = await fetchHourlyForecast(data.forecastHourlyUrl, "2026-06-07");
 //   // hours: array of { hour, temp, precip, wind, forecast } for that date
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import moment from "moment";
 import SunCalc from "suncalc";
 
@@ -34,50 +45,51 @@ import SunCalc from "suncalc";
 // Keyed by the exact `label` string from regionConfig.locations.
 
 const NOAA_SOURCES = {
+  // ── mid_atlantic: open-ocean locations with nearshore (0-20nm) + offshore (20-60nm) ──
   "Oregon Inlet, NC": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/weather_data.json",
-    tideStation:     "8652659",
-    noaaZone:        { id: "AMZ180", description: "Currituck Beach Light to Oregon Inlet NC, 20-60nm" },
+    tideStation: "8652659",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/weather_data.json",           noaaZone: { id: "AMZ180", description: "Currituck Beach Light to Oregon Inlet NC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/weather_data_nearshore.json", noaaZone: { id: "AMZ150", description: "S of Currituck Beach Light to Oregon Inlet NC, 0-20nm" } },
   },
   "Hatteras Inlet, NC": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hatterasncnoaa.json",
-    tideStation:     "8654467",
-    noaaZone:        { id: "AMZ184", description: "Cape Hatteras to Ocracoke Inlet NC, 20-60nm" },
+    tideStation: "8654467",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hatterasncnoaa.json",           noaaZone: { id: "AMZ184", description: "Cape Hatteras to Ocracoke Inlet NC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hatterasncnoaa_nearshore.json", noaaZone: { id: "AMZ154", description: "S of Cape Hatteras to Ocracoke Inlet NC, 0-20nm" } },
   },
   "Beaufort Inlet, NC": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortinletnoaa.json",
-    tideStation:     "8656483",
-    noaaZone:        { id: "AMZ186", description: "Ocracoke Inlet to Cape Lookout NC, 20-60nm" },
-  },
-  "Poquoson, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/poquosonnoaa.json",
-    tideStation:     "8637689",   // Gloucester Point, VA
-    noaaZone:        { id: "ANZ632", description: "Chesapeake Bay, New Point Comfort to Little Creek VA" },
-  },
-  "Bay Bridge Tunnel, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/baybridgetunnelnoaa.json",
-    tideStation:     "8638863",   // Cape Henry, VA
-    noaaZone:        { id: "ANZ634", description: "Chesapeake Bay, Little Creek to Cape Henry VA incl. CBBT" },
+    tideStation: "8656483",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortinletnoaa.json",           noaaZone: { id: "AMZ186", description: "Ocracoke Inlet to Cape Lookout NC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortinletnoaa_nearshore.json", noaaZone: { id: "AMZ156", description: "S of Ocracoke Inlet to Cape Lookout NC, 0-20nm" } },
   },
   "Virginia Beach, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/virginiabeachnoaa.json",
-    tideStation:     "8638863",   // Cape Henry, VA
-    noaaZone:        { id: "ANZ686", description: "Cape Charles Light to VA-NC border, 20-60nm" },
+    tideStation: "8638863",   // Cape Henry, VA
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/virginiabeachnoaa.json",           noaaZone: { id: "ANZ686", description: "Cape Charles Light to VA-NC border, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/virginiabeachnoaa_nearshore.json", noaaZone: { id: "ANZ656", description: "Cape Charles Light to VA-NC border, 0-20nm" } },
   },
   "Ocean City Inlet, MD": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/oceancitynoaa.json",
-    tideStation:     "8570283",   // Ocean City, MD
-    noaaZone:        { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" },
+    tideStation: "8570283",   // Ocean City, MD
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/oceancitynoaa.json",           noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
+    // Note: nearshore ANZ650 is issued by a different WFO (KAKQ) than offshore ANZ485 (KPHI)
+    // and starts where ANZ485 ends — not a mirrored span. See project plan doc.
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/oceancitynoaa_nearshore.json", noaaZone: { id: "ANZ650", description: "Fenwick Island DE to Chincoteague VA, 0-20nm" } },
+  },
+
+  // ── mid_atlantic: Chesapeake Bay locations — bay zone only, no offshore/nearshore split ──
+  "Poquoson, VA": {
+    tideStation: "8637689",   // Gloucester Point, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/poquosonnoaa.json", noaaZone: { id: "ANZ632", description: "Chesapeake Bay, New Point Comfort to Little Creek VA" } },
+  },
+  "Bay Bridge Tunnel, VA": {
+    tideStation: "8638863",   // Cape Henry, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/baybridgetunnelnoaa.json", noaaZone: { id: "ANZ634", description: "Chesapeake Bay, Little Creek to Cape Henry VA incl. CBBT" } },
   },
   "Horn Harbor, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hornharbornoaa.json",
-    tideStation:     "8637689",   // Gloucester Point, VA
-    noaaZone:        { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" },
+    tideStation: "8637689",   // Gloucester Point, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hornharbornoaa.json", noaaZone: { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" } },
   },
   "Cape Charles, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capecharlesnoaa.json",
-    tideStation:     "8632200",   // Cape Charles, VA
-    noaaZone:        { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" },
+    tideStation: "8632200",   // Cape Charles, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capecharlesnoaa.json", noaaZone: { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" } },
   },
     // ── GA/SC Region ───────────────────────────────────────────────────────────
   "Beaufort, SC":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa.json",         tideStation: "8670659",  noaaZone: { id: "AMZ382", description: "Edisto Beach SC to Savannah GA, 20-60nm" } },
@@ -131,7 +143,37 @@ const NOAA_SOURCES = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// In-memory cache. Keyed by location label.
+// Nearshore/offshore zone resolution
+// ─────────────────────────────────────────────────────────────────────────────
+// Resolves which { forecastJsonUrl, noaaZone } to use for a given source entry
+// and zoneMode. Handles both shapes: the new { offshore, nearshore? } shape
+// and the legacy flat shape (forecastJsonUrl/noaaZone directly on source) used
+// by locations not yet migrated to the toggle — those are always offshore-only.
+function resolveZoneSource(source, zoneMode) {
+  if (source.offshore) {
+    return source[zoneMode] ?? source.offshore;
+  }
+  return source; // legacy flat entry
+}
+
+const ZONE_MODE_STORAGE_KEY = "sst_zoneMode";
+
+function getStoredZoneMode() {
+  if (typeof window === "undefined") return "offshore";
+  try {
+    return window.localStorage.getItem(ZONE_MODE_STORAGE_KEY) === "nearshore" ? "nearshore" : "offshore";
+  } catch {
+    return "offshore";
+  }
+}
+
+function storeZoneMode(mode) {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(ZONE_MODE_STORAGE_KEY, mode); } catch { /* ignore */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// In-memory cache. Keyed by `${locationLabel}::${zoneMode}`.
 // ─────────────────────────────────────────────────────────────────────────────
 const cache = new Map();
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -286,14 +328,15 @@ export async function fetchHourlyForecast(forecastHourlyUrl, date) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Aggregator
 // ─────────────────────────────────────────────────────────────────────────────
-async function fetchAll(location) {
+async function fetchAll(location, zoneMode) {
   const source = NOAA_SOURCES[location.label];
   if (!source) throw new Error(`No NOAA source for ${location.label}`);
+  const zoneSource = resolveZoneSource(source, zoneMode);
 
   const sun = computeSun(location.lat, location.lon, 7);
 
   const [forecastResult, tidesResult, nwsResult] = await Promise.allSettled([
-    fetchMarineForecast(source.forecastJsonUrl),
+    fetchMarineForecast(zoneSource.forecastJsonUrl),
     fetchTides(source.tideStation),
     fetchNws(location.lat, location.lon),
   ]);
@@ -309,7 +352,7 @@ async function fetchAll(location) {
     tides:              tidesResult.status === "fulfilled" ? tidesResult.value : {},
     nws:                nwsValue.map,
     forecastHourlyUrl:  nwsValue.forecastHourlyUrl,
-    noaaZone:           source.noaaZone ?? null,
+    noaaZone:           zoneSource.noaaZone ?? null,
     sun,
   };
 }
@@ -319,8 +362,20 @@ async function fetchAll(location) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function useMarineForecast(selectedLocation) {
   const [state, setState] = useState({ data: null, loading: false, error: null });
+  const [zoneMode, setZoneModeState] = useState(getStoredZoneMode);
 
-  const isAvailable = !!(selectedLocation?.label && NOAA_SOURCES[selectedLocation.label]);
+  const source = selectedLocation?.label ? NOAA_SOURCES[selectedLocation.label] : null;
+  const isAvailable = !!source;
+  const hasNearshore = !!source?.nearshore;
+  // Locations without a nearshore option always show offshore, regardless of
+  // the user's stored preference — the toggle is hidden but the preference
+  // itself is untouched, so it's restored when they pick an open-ocean location again.
+  const effectiveZoneMode = hasNearshore ? zoneMode : "offshore";
+
+  const setZoneMode = useCallback((mode) => {
+    setZoneModeState(mode);
+    storeZoneMode(mode);
+  }, []);
 
   useEffect(() => {
     if (!selectedLocation || !isAvailable) {
@@ -329,8 +384,9 @@ export function useMarineForecast(selectedLocation) {
     }
 
     const label = selectedLocation.label;
+    const cacheKey = `${label}::${effectiveZoneMode}`;
 
-    const cached = cache.get(label);
+    const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
       setState({ data: cached.data, loading: false, error: null });
       return;
@@ -339,10 +395,10 @@ export function useMarineForecast(selectedLocation) {
     let cancelled = false;
     setState(s => ({ ...s, loading: true, error: null }));
 
-    fetchAll(selectedLocation)
+    fetchAll(selectedLocation, effectiveZoneMode)
       .then(data => {
         if (cancelled) return;
-        cache.set(label, { data, fetchedAt: Date.now() });
+        cache.set(cacheKey, { data, fetchedAt: Date.now() });
         setState({ data, loading: false, error: null });
       })
       .catch(error => {
@@ -352,7 +408,7 @@ export function useMarineForecast(selectedLocation) {
       });
 
     return () => { cancelled = true; };
-  }, [selectedLocation?.label, isAvailable]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedLocation?.label, isAvailable, effectiveZoneMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { ...state, isAvailable };
+  return { ...state, isAvailable, hasNearshore, zoneMode: effectiveZoneMode, setZoneMode };
 }

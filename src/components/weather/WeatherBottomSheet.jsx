@@ -56,7 +56,7 @@ function snapToPanelState(snap) {
 
 export default function WeatherBottomSheet() {
   const { selectedLocation, weatherPanel, setWeatherPanel } = useAppContext();
-  const { data, loading, error, isAvailable } = useMarineForecast(selectedLocation);
+  const { data, loading, error, isAvailable, hasNearshore, zoneMode, setZoneMode } = useMarineForecast(selectedLocation);
 
   const snap = panelStateToSnap(weatherPanel);
 
@@ -186,6 +186,9 @@ export default function WeatherBottomSheet() {
                 locationLabel={selectedLocation?.label}
                 forecastHourlyUrl={data.forecastHourlyUrl}
                 noaaZone={data.noaaZone}
+                hasNearshore={hasNearshore}
+                zoneMode={zoneMode}
+                onZoneModeChange={setZoneMode}
               />
             </div>
             {snap === "full" && (

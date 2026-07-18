@@ -25,10 +25,12 @@ All selectable departure locations are defined here. Each entry drives the NOAA 
 locations: [
   { label: "Bay Bridge Tunnel, VA", lat: 36.9082,      lon: -76.0918,      wreckRegion: "ChesapeakeMD", noaaCoverage: true },
   { label: "Beaufort Inlet, NC",    lat: 34.6937,      lon: -76.6663,      wreckRegion: "MoreheadNC",   noaaCoverage: true },
+  { label: "Cape Charles, VA",      lat: 37.264139,    lon: -76.026920,    wreckRegion: "ChesapeakeMD", noaaCoverage: true },
   { label: "Hatteras Inlet, NC",    lat: 35.1905,      lon: -75.7554,      wreckRegion: "HatterasNC",   noaaCoverage: true },
-  { label: "Ocean City Inlet, MD",  lat: 38.324,       lon: -75.0883,      wreckRegion: "ChesapeakeMD", noaaCoverage: true },
+  { label: "Horn Harbor, VA",       lat: 37.355565,    lon: -76.267948,    wreckRegion: "ChesapeakeMD", noaaCoverage: true },
+  { label: "Ocean City Inlet, MD",  lat: 38.324,       lon: -75.0883,      wreckRegion: "OceanCityMD",  noaaCoverage: true },
   { label: "Oregon Inlet, NC",      lat: 35.7792,      lon: -75.532,       wreckRegion: "HatterasNC",   noaaCoverage: true },
-  { label: "Poquoson, VA",          lat: 37.7629068,   lon: -75.7724311,   wreckRegion: "ChesapeakeMD", noaaCoverage: true },
+  { label: "Poquoson, VA",          lat: 37.1788,      lon: -76.373,       wreckRegion: "ChesapeakeMD", noaaCoverage: true },
   { label: "Virginia Beach, VA",    lat: 36.8516,      lon: -75.9792,      wreckRegion: "ChesapeakeMD", noaaCoverage: true },
 ]
 ```
@@ -76,6 +78,8 @@ Scrapes the NOAA NWS detailed marine forecast HTML pages and saves structured JS
 | Poquoson, VA | `forecast.weather.gov?zoneid=ANZ632` | `poquosonnoaa.json` |
 | Bay Bridge Tunnel, VA | `forecast.weather.gov?zoneid=ANZ634` | `baybridgetunnelnoaa.json` |
 | Ocean City Inlet, MD | `forecast.weather.gov?zoneid=ANZ485` | `oceancitynoaa.json` |
+| Horn Harbor, VA | `forecast.weather.gov?zoneid=ANZ631` | `hornharbornoaa.json` |
+| Cape Charles, VA | `forecast.weather.gov?zoneid=ANZ631` | `capecharlesnoaa.json` |
 
 **Two URL patterns used:**
 - Point-based: `?x=…&y=…&site=mhx` — used for NC locations and Virginia Beach
@@ -90,13 +94,15 @@ Scrapes the NOAA NWS detailed marine forecast HTML pages and saves structured JS
 | `wind_speed` | `"10 to 15 kt"` |
 | `wind_gusts` | `"Gusts up to 25 kt"` |
 | `wind_commentary` | `"becoming NW"` |
-| `wave_height` | `"3 to 5 ft"` |
+| `wave_height` | `"3 to 5 ft"` or `"1 foot"` |
 | `wave_commentary` | `"building to 6 ft"` |
 | `primary_swell_direction` | `"SE"` |
 | `primary_wave_height` | `"4 ft"` |
 | `primary_wave_period` | `"8 seconds"` |
 | `swell_components` | Array of `{ direction, height, period }` |
 | `raw_text` | Full NOAA narrative text |
+
+**Wave height parsing note:** The `_HEIGHT` regex in `scraper.py` matches all three NOAA unit forms: `ft`, `feet`, and `foot` (singular). NOAA writes "Waves 1 foot." (singular) when height is exactly 1 — without the `foot` alternative the field is silently dropped. Do not remove `foot` from the alternation.
 
 All JSON files are committed to the `jlintvet/NOAAPARSE` GitHub repository and served via `raw.githubusercontent.com`.
 
@@ -111,9 +117,10 @@ Manual reference tool for pulling today's tide predictions from the NOAA CO-OPS 
 | 8652659 | Oregon Inlet Bridge | Oregon Inlet, NC |
 | 8654467 | USCG Station Hatteras | Hatteras Inlet, NC |
 | 8656483 | Beaufort, Duke Marine Lab | Beaufort Inlet, NC |
-| 8637689 | Gloucester Point, VA | Poquoson, VA |
+| 8637689 | Gloucester Point, VA | Poquoson, VA / Horn Harbor, VA |
 | 8638863 | Cape Henry, VA | Bay Bridge Tunnel, VA / Virginia Beach, VA |
 | 8570283 | Ocean City, MD | Ocean City Inlet, MD |
+| 8632200 | Cape Charles, VA | Cape Charles, VA |
 
 ### `src/hooks/useMarineForecast.js` — Data Hook
 
@@ -145,19 +152,30 @@ Called by `WeatherDrawer` and `WeatherBottomSheet`. Fetches all weather data in 
 - Main data: 10-minute in-memory cache keyed by location label
 - Hourly data: session-persistent cache keyed by `url::date` — re-opening the same day popup is instant
 
-**NOAA_SOURCES mapping** (must match `regionConfig.js` labels exactly):
+**NOAA_SOURCES mapping** (must match `regionConfig.js` labels exactly). Two shapes are used:
+
+- **Legacy flat shape** (offshore-only — most locations): `{ forecastJsonUrl, tideStation, noaaZone }`
+- **Nearshore/offshore shape** (5 mid_atlantic open-ocean locations — see section 6a): `{ tideStation, offshore: { forecastJsonUrl, noaaZone }, nearshore?: { forecastJsonUrl, noaaZone } }`
 
 ```js
 const NOAA_SOURCES = {
-  "Oregon Inlet, NC":      { forecastJsonUrl: "…/weather_data.json",          tideStation: "8652659" },
-  "Hatteras Inlet, NC":    { forecastJsonUrl: "…/hatterasncnoaa.json",         tideStation: "8654467" },
-  "Beaufort Inlet, NC":    { forecastJsonUrl: "…/beaufortinletnoaa.json",      tideStation: "8656483" },
-  "Poquoson, VA":          { forecastJsonUrl: "…/poquosonnoaa.json",           tideStation: "8637689" },
-  "Bay Bridge Tunnel, VA": { forecastJsonUrl: "…/baybridgetunnelnoaa.json",    tideStation: "8638863" },
-  "Virginia Beach, VA":    { forecastJsonUrl: "…/virginiabeachnoaa.json",      tideStation: "8638863" },
-  "Ocean City Inlet, MD":  { forecastJsonUrl: "…/oceancitynoaa.json",          tideStation: "8570283" },
+  // Open-ocean mid_atlantic locations — nearshore/offshore toggle shape
+  "Oregon Inlet, NC": {
+    tideStation: "8652659",
+    offshore:  { forecastJsonUrl: "…/weather_data.json",           noaaZone: { id: "AMZ180", description: "…, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "…/weather_data_nearshore.json", noaaZone: { id: "AMZ150", description: "…, 0-20nm" } },
+  },
+  // ...Hatteras Inlet, Beaufort Inlet, Virginia Beach, Ocean City Inlet follow the same shape
+
+  // Chesapeake Bay locations — legacy flat shape, no nearshore/offshore split
+  "Poquoson, VA":          { forecastJsonUrl: "…/poquosonnoaa.json",           tideStation: "8637689", noaaZone: { id: "ANZ632", description: "…" } },
+  "Bay Bridge Tunnel, VA": { forecastJsonUrl: "…/baybridgetunnelnoaa.json",    tideStation: "8638863", noaaZone: { id: "ANZ634", description: "…" } },
+  "Horn Harbor, VA":       { forecastJsonUrl: "…/hornharbornoaa.json",         tideStation: "8637689", noaaZone: { id: "ANZ631", description: "…" } },
+  "Cape Charles, VA":      { forecastJsonUrl: "…/capecharlesnoaa.json",        tideStation: "8632200", noaaZone: { id: "ANZ631", description: "…" } },
 };
 ```
+
+`resolveZoneSource(source, zoneMode)` in `useMarineForecast.js` normalizes both shapes: if `source.offshore` exists it picks `source[zoneMode] ?? source.offshore`; otherwise it treats the flat entry as offshore-only. `hasNearshore` is simply `!!source?.nearshore`.
 
 ---
 
@@ -169,11 +187,13 @@ const NOAA_SOURCES = {
 AppShell
 ├── WeatherDrawer          (desktop, hidden sm:block)
 │   ├── ImmediateOutlook
+│   │   ├── NearshoreOffshoreToggle  (only if location has a nearshore zone)
 │   │   └── ForecastCard × 3
 │   └── ExtendedOutlook
 │       └── ForecastCard × N
 └── WeatherBottomSheet     (mobile, sm:hidden)
     ├── ImmediateOutlook
+    │   ├── NearshoreOffshoreToggle  (only if location has a nearshore zone)
     │   └── ForecastCard × 3
     └── ExtendedOutlook
         └── ForecastCard × N
@@ -206,7 +226,8 @@ Tapping the peek bar goes directly to `expanded` (90vh). Implemented with pointe
 - Renders the first 3 forecast periods (today, tonight, tomorrow)
 - Collapsible, defaults open
 - Includes a `(?)` help popover listing all data sources with URLs
-- Props: `forecasts`, `nwsForecast`, `tideData`, `sunData`, `forecastHourlyUrl`, `locationLabel`, `forecastTimestamp`
+- Renders `NearshoreOffshoreToggle` above the first `ForecastCard` when `hasNearshore` is true (see section 6a) — hidden entirely for locations without a nearshore zone
+- Props: `forecasts`, `nwsForecast`, `tideData`, `sunData`, `forecastHourlyUrl`, `locationLabel`, `forecastTimestamp`, `noaaZone`, `hasNearshore`, `zoneMode`, `onZoneModeChange`
 
 ### `ExtendedOutlook.jsx`
 
@@ -295,6 +316,25 @@ Runs `FishingHotspotAnalyzer.py` after the VIIRS bundler workflow completes.
 | `skip_chl` | Skip CHL/Kd490 data (for offline testing) |
 
 **Output:** `DailySST/fishing_hotspots_{date}.json` — retained for 7 days, older files pruned automatically.
+
+---
+
+## 6a. Nearshore/Offshore Toggle (mid_atlantic pilot, shipped 2026-07-18)
+
+Five open-ocean mid_atlantic locations (Oregon Inlet, Hatteras Inlet, Beaufort Inlet, Virginia Beach, Ocean City Inlet) let the user switch between a 0-20nm nearshore forecast and the 20-60nm offshore forecast. The 4 Chesapeake Bay locations have no offshore equivalent and are out of scope — see `CLAUDE.md` §5 for the full zone reference table.
+
+**Data:** each of the 5 locations has a second scraped JSON file (`*_nearshore.json`) from a second `scrape_and_save()` call in `scraper.py`, hitting a distinct NOAA zone ID. Nearshore and offshore zones are not always the same coastline span or WFO — always verify a new zone against live NWS zone text before wiring it up (see `CLAUDE.md` §5).
+
+**Hook (`useMarineForecast.js`):**
+- `resolveZoneSource(source, zoneMode)` picks `source.offshore` or `source.nearshore` (falling back to `offshore` if `nearshore` doesn't exist), or returns the entry as-is for legacy flat-shape sources.
+- `zoneMode` (`"offshore" | "nearshore"`) is hook-local state, initialized from `localStorage["sst_zoneMode"]` and updated via the hook's `setZoneMode`. It persists across locations and sessions — **not** reset when switching locations.
+- For locations without a nearshore zone, `effectiveZoneMode` is forced to `"offshore"` regardless of the stored preference; the stored preference itself is left untouched.
+- Cache key is `${locationLabel}::${effectiveZoneMode}`, so switching modes doesn't stale into the other zone's cached data.
+- Hook returns `hasNearshore`, `zoneMode`, `setZoneMode` alongside the existing `data`/`loading`/`error`/`isAvailable`.
+
+**UI (`NearshoreOffshoreToggle.jsx`):** a small segmented control ("Nearshore · 0-20nm" / "Offshore · 20-60nm"), rendered by `ImmediateOutlook` only when `hasNearshore` is true. No emojis/icons, per `CLAUDE.md` design rules. The `noaaZone` footnote on `ForecastCard` automatically reflects whichever zone is active since it just reads `data.noaaZone`.
+
+**Extending to other regions:** ga_sc, ne_fl, and va_ri are not yet migrated — each region's nearshore zone IDs must be individually researched and verified before adding the toggle there (do not pattern-match from the offshore zone ID).
 
 ---
 
