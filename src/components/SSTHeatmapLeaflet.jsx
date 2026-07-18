@@ -1239,6 +1239,24 @@ export default function SSTHeatmapLeaflet(props) {
   const [savedCommunityPins,   setSavedCommunityPins]   = useState(new Set()); // set of pin ids saved this session
   const [communityTipModal,    setCommunityTipModal]    = useState(null); // { pin }
   const [thankingId,           setThankingId]           = useState(null);
+  const communityCardElRef = useRef(null);
+  // Position the community pin card using its *actual* rendered height. Text content is
+  // synchronous, but an attached photo loads asynchronously (can take several seconds on a
+  // slow mobile connection) and grows the card after this first measurement — so this alone
+  // is only the initial placement; the photo's onLoad/onError below re-runs it once the real
+  // height is known, instead of relying on some unrelated re-render to happen to fix it later.
+  function repositionCommunityCard() {
+    const el = communityCardElRef.current;
+    if (!el || !selectedCommunityPin) return;
+    const { py } = selectedCommunityPin;
+    const h = el.offsetHeight;
+    const mapH = mapDivRef.current?.clientHeight ?? 600;
+    const top = Math.max(8, Math.min(py - 40, mapH - h - 8));
+    el.style.top = `${top}px`;
+  }
+  useLayoutEffect(() => {
+    repositionCommunityCard();
+  }, [selectedCommunityPin]);
 
   function speciesColor(sp) {
     const m = { yellowfin:"#0891b2", blackfin:"#0e7490", bluefin:"#1d4ed8",
@@ -4422,15 +4440,7 @@ export default function SSTHeatmapLeaflet(props) {
                 className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs"
                 style={{ left: popL, top: popT, zIndex: 9500, width: CARD_W }}
                 onClick={e => e.stopPropagation()}
-                ref={el => {
-                  if (!el) return;
-                  // Snap to the real rendered height (fires before paint) so pins near the
-                  // bottom of the map never open with the card cut off off-screen.
-                  const h = el.offsetHeight;
-                  const curMapH = mapDivRef.current?.clientHeight ?? mapH;
-                  const top = Math.max(8, Math.min(py - 40, curMapH - h - 8));
-                  el.style.top = `${top}px`;
-                }}
+                ref={communityCardElRef}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-2">
@@ -4468,6 +4478,8 @@ export default function SSTHeatmapLeaflet(props) {
                     src={pin.image_url}
                     alt=""
                     className="w-full max-h-48 object-contain rounded-lg mb-2 border border-slate-100 bg-slate-50"
+                    onLoad={repositionCommunityCard}
+                    onError={repositionCommunityCard}
                   />
                 )}
 
