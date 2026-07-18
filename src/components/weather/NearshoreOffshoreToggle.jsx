@@ -18,7 +18,7 @@ import React from "react";
 export default function NearshoreOffshoreToggle({ zoneMode, onChange }) {
   return (
     <div
-      className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold"
+      className="flex w-full rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold"
       role="group"
       aria-label="Forecast range"
     >
@@ -39,7 +39,7 @@ function ToggleButton({ active, onClick, children }) {
       onClick={onClick}
       aria-pressed={active}
       className={
-        "px-2.5 py-1 rounded-md transition-colors " +
+        "flex-1 px-2.5 py-1 rounded-md transition-colors text-center " +
         (active ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-700")
       }
     >
