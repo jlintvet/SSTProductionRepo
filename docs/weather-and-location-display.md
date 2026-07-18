@@ -106,21 +106,20 @@ Scrapes the NOAA NWS detailed marine forecast HTML pages and saves structured JS
 
 All JSON files are committed to the `jlintvet/NOAAPARSE` GitHub repository and served via `raw.githubusercontent.com`.
 
-### `tidepull.py` — Tide Reference Script
+### `tide_predictions_backup.py` (NOAAPARSE repo) — Tide Backup Pipeline
 
-Manual reference tool for pulling today's tide predictions from the NOAA CO-OPS API. **Not used in production** — tides are fetched live by `useMarineForecast.js` in the browser.
+**Production fallback**, added 2026-07-18 after NOAA's live tide predictions API (`api/prod/datagetter`, `product=predictions`) had a ~24-hour outage — every station, every date, every datum returned `{"error": {"message": "No Predictions data was found..."}}"` with an HTTP 200, so every location's tide panel silently showed "N/A". `tidepull.py` (repo root, still present) is the old manual/reference-only script this replaced and is not run in production.
 
-**Stations mapped:**
+Rather than re-polling the same live predictions service that failed, this computes tide predictions **locally** from NOAA's harmonic constituents — a separate NOAA *metadata* API (`mdapi/prod/webapi/stations/{id}/harcon.json` + `.../datums.json`) that stayed up throughout the outage. Harmonic constituents change only on rare station re-analysis (roughly once a decade), so:
 
-| Station ID | Name | Location |
-|---|---|---|
-| 8652659 | Oregon Inlet Bridge | Oregon Inlet, NC |
-| 8654467 | USCG Station Hatteras | Hatteras Inlet, NC |
-| 8656483 | Beaufort, Duke Marine Lab | Beaufort Inlet, NC |
-| 8637689 | Gloucester Point, VA | Poquoson, VA / Horn Harbor, VA |
-| 8638863 | Cape Henry, VA | Bay Bridge Tunnel, VA / Virginia Beach, VA |
-| 8570283 | Ocean City, MD | Ocean City Inlet, MD |
-| 8632200 | Cape Charles, VA | Cape Charles, VA |
+1. **Constituent cache** (`tide_constituents_cache.json`) — each of the 40 unique tide stations' 37 harmonic constituents + MSL/MLLW datum offset, refreshed only when missing or >180 days old.
+2. **Prediction generation** — using the `pytides2` library, a pure local computation (zero network calls) producing a rolling 60-day window of hi/lo predictions per station, written to `tide_predictions_backup.json` in the same `{ t, v, type }` shape the live NOAA call returns.
+
+Runs monthly via `.github/workflows/tide_backup.yml` (also `workflow_dispatch`-able). Because step 2 needs no network access, a fresh 60-day window still gets written even if NOAA's metadata API is *also* down on a given run — it just reuses whatever's cached. Validated against real observed water levels (predicted extrema within ~5-10 minutes of NOAA's own observed timing) and against published MHHW/MLLW datums for our own stations.
+
+**Frontend fallback wiring:** `fetchTides()` in `useMarineForecast.js` tries the live NOAA call first, per day, exactly as before. For any date that comes back rejected *or* with an empty predictions array (the exact failure mode of the 2026-07-17/18 outage — a 200 response with no usable data), it falls back to `tide_predictions_backup.json` for that station/date. No UI indication of live vs. backup by design. The backup file is fetched once per session (module-level cached promise) since it's a single combined file for every station.
+
+**Adding a new location:** add its tide station ID to `STATION_IDS` in `tide_predictions_backup.py` (same "must stay in sync with `NOAA_SOURCES`" pattern as the marine-forecast zone table) or it'll have no fallback coverage.
 
 ### `src/hooks/useMarineForecast.js` — Data Hook
 
@@ -131,7 +130,7 @@ Called by `WeatherDrawer` and `WeatherBottomSheet`. Fetches all weather data in 
 | Data | Source | Method |
 |---|---|---|
 | Marine forecast (wind, seas, swell) | GitHub raw JSON (from scraper.py) | `fetchMarineForecast()` |
-| Tide predictions (7 days) | NOAA CO-OPS API, live | `fetchTides()` |
+| Tide predictions (7 days) | NOAA CO-OPS API, live, falling back per-day to `tide_predictions_backup.json` (see below) | `fetchTides()` |
 | Air temp, conditions, precip % | NWS API (`api.weather.gov`), live | `fetchNws()` |
 | Hourly forecast URL | NWS points response property | Stored in `data.forecastHourlyUrl` |
 | Sunrise / sunset | SunCalc library, local computation | `computeSun()` |

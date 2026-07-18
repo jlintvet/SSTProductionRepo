@@ -337,6 +337,33 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 // Hourly cache: keyed by `${forecastHourlyUrl}::${date}`
 const hourlyCache = new Map();
 
+// Tide backup: a rolling 60-day window of hi/lo predictions for every
+// departure-location tide station, computed independently of NOAA's live
+// predictions/datagetter service (see tide_predictions_backup.py in the
+// NOAAPARSE repo). Used only for dates the live NOAA call didn't return --
+// added after a 2026-07-17/18 outage where NOAA's predictions endpoint
+// returned no data for every station/date/datum for ~24 hours, leaving
+// every location's tide panel showing "N/A". Fetched once per session and
+// cached module-wide -- it's one combined file for all stations, and it
+// only changes monthly, so there's no benefit to re-fetching per location.
+const TIDE_BACKUP_URL = "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/tide_predictions_backup.json";
+let tideBackupPromise = null;
+
+function fetchTideBackup() {
+  if (!tideBackupPromise) {
+    tideBackupPromise = fetch(TIDE_BACKUP_URL)
+      .then(res => {
+        if (!res.ok) throw new Error(`tide backup HTTP ${res.status}`);
+        return res.json();
+      })
+      .catch(err => {
+        console.warn("[useMarineForecast] tide backup fetch failed:", err);
+        return null;
+      });
+  }
+  return tideBackupPromise;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Individual fetch helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -385,6 +412,24 @@ async function fetchTides(stationId) {
       console.warn(`[useMarineForecast] tide fetch failed for ${days[i]}:`, r.reason);
     }
   });
+
+  // Fall back to the precomputed backup for any date the live call didn't
+  // give us. Backup predictions are computed locally from NOAA's harmonic
+  // constituents, not the predictions/datagetter service, so they stay
+  // available through exactly the kind of outage that motivated this.
+  const missingDays = days.filter(d => !tideMap[d] || !tideMap[d].length);
+  if (missingDays.length) {
+    const backup = await fetchTideBackup();
+    const stationBackup = backup?.stations?.[stationId];
+    if (stationBackup) {
+      missingDays.forEach(date => {
+        if (stationBackup[date]?.length) {
+          tideMap[date] = stationBackup[date];
+        }
+      });
+    }
+  }
+
   return tideMap;
 }
 
