@@ -4346,12 +4346,18 @@ export default function SSTHeatmapLeaflet(props) {
           {/* ── Community pin card ──────────────────────────────────── */}
           {selectedCommunityPin && (() => {
             const { pin, px, py } = selectedCommunityPin;
-            const CARD_W = 252, CARD_H = 320;
+            const CARD_W = 252;
+            // Card height is variable (optional photo, notes, depth/bearing block, tip/share
+            // buttons) so a fixed guess here isn't reliable — this is only the first-paint
+            // fallback. The ref below measures the real rendered height and snaps the final
+            // top position before the browser paints, which is what actually keeps the card
+            // on-screen when a pin sits near the bottom edge.
+            const CARD_H_ESTIMATE = 320;
             const mapW = mapDivRef.current?.clientWidth  ?? 800;
             const mapH = mapDivRef.current?.clientHeight ?? 600;
             const rawL = px + 14;
             const popL = Math.max(8, rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL);
-            const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H - 8);
+            const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H_ESTIMATE - 8);
             const isLive    = pin.type === "live";
             // Live styling is time-boxed to 48h; afterward the pin is shown
             // exactly like a Post-Trip Report (revert, don't disappear).
@@ -4412,9 +4418,19 @@ export default function SSTHeatmapLeaflet(props) {
 
             return (
               <div
+                key={pin.id}
                 className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs"
                 style={{ left: popL, top: popT, zIndex: 9500, width: CARD_W }}
                 onClick={e => e.stopPropagation()}
+                ref={el => {
+                  if (!el) return;
+                  // Snap to the real rendered height (fires before paint) so pins near the
+                  // bottom of the map never open with the card cut off off-screen.
+                  const h = el.offsetHeight;
+                  const curMapH = mapDivRef.current?.clientHeight ?? mapH;
+                  const top = Math.max(8, Math.min(py - 40, curMapH - h - 8));
+                  el.style.top = `${top}px`;
+                }}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-2">
