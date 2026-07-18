@@ -15,6 +15,17 @@
 //   2. Add an entry to NOAA_SOURCES below with that JSON's raw URL + tide station
 //   3. Set noaaCoverage: true in regionConfig.js for that location
 //
+// Nearshore (0-20nm) vs offshore (20-60nm) toggle:
+//   Locations can optionally have BOTH a nearshore and offshore NOAA zone.
+//   Shape: { tideStation, offshore: { forecastJsonUrl, noaaZone }, nearshore?: {...} }
+//   If a location has no meaningful offshore/nearshore split (Chesapeake Bay
+//   zones, or any not-yet-migrated location), keep the legacy flat shape:
+//   { forecastJsonUrl, tideStation, noaaZone } — resolveZoneSource() below
+//   treats that as offshore-only and hasNearshore is false, so no toggle UI
+//   renders for it. Always verify a new nearshore zone ID against live NWS
+//   zone text (tgftp.nws.noaa.gov/data/forecasts/marine/coastal/...) — zone
+//   spans/offices are not mirrored 1:1 between nearshore and offshore.
+//
 // API:
 //   const { data, loading, error, isAvailable } = useMarineForecast(selectedLocation);
 //   // data.forecastHourlyUrl — pass to fetchHourlyForecast() on day click
@@ -24,7 +35,7 @@
 //   const hours = await fetchHourlyForecast(data.forecastHourlyUrl, "2026-06-07");
 //   // hours: array of { hour, temp, precip, wind, forecast } for that date
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import moment from "moment";
 import SunCalc from "suncalc";
 
@@ -34,104 +45,291 @@ import SunCalc from "suncalc";
 // Keyed by the exact `label` string from regionConfig.locations.
 
 const NOAA_SOURCES = {
+  // ── mid_atlantic: open-ocean locations with nearshore (0-20nm) + offshore (20-60nm) ──
   "Oregon Inlet, NC": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/weather_data.json",
-    tideStation:     "8652659",
-    noaaZone:        { id: "AMZ180", description: "Currituck Beach Light to Oregon Inlet NC, 20-60nm" },
+    tideStation: "8652659",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/weather_data.json",           noaaZone: { id: "AMZ180", description: "Currituck Beach Light to Oregon Inlet NC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/weather_data_nearshore.json", noaaZone: { id: "AMZ150", description: "S of Currituck Beach Light to Oregon Inlet NC, 0-20nm" } },
   },
   "Hatteras Inlet, NC": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hatterasncnoaa.json",
-    tideStation:     "8654467",
-    noaaZone:        { id: "AMZ184", description: "Cape Hatteras to Ocracoke Inlet NC, 20-60nm" },
+    tideStation: "8654467",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hatterasncnoaa.json",           noaaZone: { id: "AMZ184", description: "Cape Hatteras to Ocracoke Inlet NC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hatterasncnoaa_nearshore.json", noaaZone: { id: "AMZ154", description: "S of Cape Hatteras to Ocracoke Inlet NC, 0-20nm" } },
   },
   "Beaufort Inlet, NC": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortinletnoaa.json",
-    tideStation:     "8656483",
-    noaaZone:        { id: "AMZ186", description: "Ocracoke Inlet to Cape Lookout NC, 20-60nm" },
-  },
-  "Poquoson, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/poquosonnoaa.json",
-    tideStation:     "8637689",   // Gloucester Point, VA
-    noaaZone:        { id: "ANZ632", description: "Chesapeake Bay, New Point Comfort to Little Creek VA" },
-  },
-  "Bay Bridge Tunnel, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/baybridgetunnelnoaa.json",
-    tideStation:     "8638863",   // Cape Henry, VA
-    noaaZone:        { id: "ANZ634", description: "Chesapeake Bay, Little Creek to Cape Henry VA incl. CBBT" },
+    tideStation: "8656483",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortinletnoaa.json",           noaaZone: { id: "AMZ186", description: "Ocracoke Inlet to Cape Lookout NC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortinletnoaa_nearshore.json", noaaZone: { id: "AMZ156", description: "S of Ocracoke Inlet to Cape Lookout NC, 0-20nm" } },
   },
   "Virginia Beach, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/virginiabeachnoaa.json",
-    tideStation:     "8638863",   // Cape Henry, VA
-    noaaZone:        { id: "ANZ686", description: "Cape Charles Light to VA-NC border, 20-60nm" },
+    tideStation: "8638863",   // Cape Henry, VA
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/virginiabeachnoaa.json",           noaaZone: { id: "ANZ686", description: "Cape Charles Light to VA-NC border, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/virginiabeachnoaa_nearshore.json", noaaZone: { id: "ANZ656", description: "Cape Charles Light to VA-NC border, 0-20nm" } },
   },
   "Ocean City Inlet, MD": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/oceancitynoaa.json",
-    tideStation:     "8570283",   // Ocean City, MD
-    noaaZone:        { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" },
+    tideStation: "8570283",   // Ocean City, MD
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/oceancitynoaa.json",           noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
+    // Note: nearshore ANZ650 is issued by a different WFO (KAKQ) than offshore ANZ485 (KPHI)
+    // and starts where ANZ485 ends — not a mirrored span. See project plan doc.
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/oceancitynoaa_nearshore.json", noaaZone: { id: "ANZ650", description: "Fenwick Island DE to Chincoteague VA, 0-20nm" } },
+  },
+
+  // ── mid_atlantic: Chesapeake Bay locations — bay zone only, no offshore/nearshore split ──
+  "Poquoson, VA": {
+    tideStation: "8637689",   // Gloucester Point, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/poquosonnoaa.json", noaaZone: { id: "ANZ632", description: "Chesapeake Bay, New Point Comfort to Little Creek VA" } },
+  },
+  "Bay Bridge Tunnel, VA": {
+    tideStation: "8638863",   // Cape Henry, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/baybridgetunnelnoaa.json", noaaZone: { id: "ANZ634", description: "Chesapeake Bay, Little Creek to Cape Henry VA incl. CBBT" } },
   },
   "Horn Harbor, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hornharbornoaa.json",
-    tideStation:     "8637689",   // Gloucester Point, VA
-    noaaZone:        { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" },
+    tideStation: "8637689",   // Gloucester Point, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hornharbornoaa.json", noaaZone: { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" } },
   },
   "Cape Charles, VA": {
-    forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capecharlesnoaa.json",
-    tideStation:     "8632200",   // Cape Charles, VA
-    noaaZone:        { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" },
+    tideStation: "8632200",   // Cape Charles, VA
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capecharlesnoaa.json", noaaZone: { id: "ANZ631", description: "Chesapeake Bay, Windmill Point to New Point Comfort VA" } },
   },
     // ── GA/SC Region ───────────────────────────────────────────────────────────
-  "Beaufort, SC":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa.json",         tideStation: "8670659",  noaaZone: { id: "AMZ382", description: "Edisto Beach SC to Savannah GA, 20-60nm" } },
-  "Carolina Beach, NC":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/carolinabeachnc_noaa.json",     tideStation: "8658120",  noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } },
-  "Charleston, SC":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/charlestonsc_noaa.json",        tideStation: "8665530",  noaaZone: { id: "AMZ380", description: "S. Santee River to Edisto Beach SC, 20-60nm" } },
-  "Darien, GA":             { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/darienga_noaa.json",            tideStation: "8670870",  noaaZone: { id: "AMZ384", description: "Savannah GA to Altamaha Sound GA, 20-60nm" } },
-  "Fernandina Beach, FL":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fernandinafl_noaa.json",        tideStation: "8720197",  noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
-  "Georgetown, SC":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/georgetownsc_noaa.json",        tideStation: "8665530",  noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
-  "Hilton Head, SC":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hiltonheadsc_noaa.json",        tideStation: "8670659",  noaaZone: { id: "AMZ382", description: "Edisto Beach SC to Savannah GA, 20-60nm" } },
-  "Jekyll Island, GA":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/jekyllga_noaa.json",            tideStation: "8679511",  noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
-  "Little River Inlet, SC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/littleriversc_noaa.json",       tideStation: "8661070",  noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
-  "Mayport, FL":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/mayportfl_noaa.json",           tideStation: "8720218",  noaaZone: { id: "AMZ472", description: "Fernandina Beach to St. Augustine FL, 20-60nm" } },
-  "Murrells Inlet, SC":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/murrellsinletsc_noaa.json",     tideStation: "8661070",  noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
-  "Myrtle Beach, SC":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/myrtlebeachsc_noaa.json",       tideStation: "8661070",  noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
-  "Southport, NC":          { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/southportnc_noaa.json",         tideStation: "8659084",  noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } },
-  "St. Augustine, FL":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/staugustinefl_noaa.json",       tideStation: "8720587",  noaaZone: { id: "AMZ474", description: "St. Augustine to Flagler Beach FL, 20-60nm" } },
-  "St. Simons Island, GA":  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stsimonsgaga_noaa.json",        tideStation: "8679511",  noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
-  "Tybee Island, GA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/tybeega_noaa.json",             tideStation: "8670870",  noaaZone: { id: "AMZ384", description: "Savannah GA to Altamaha Sound GA, 20-60nm" } },
-  "Wrightsville Beach, NC": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wrightsvillebeachnc_noaa.json", tideStation: "8658163",  noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } },
+  "Beaufort, SC": {
+    tideStation: "8670659",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa.json", noaaZone: { id: "AMZ382", description: "Edisto Beach SC to Savannah GA, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa_nearshore.json", noaaZone: { id: "AMZ362", description: "Edisto Beach SC to Savannah GA, 0-20nm" } },
+  },
+  "Carolina Beach, NC": {
+    tideStation: "8658120",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/carolinabeachnc_noaa.json", noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/carolinabeachnc_noaa_nearshore.json", noaaZone: { id: "AMZ250", description: "Surf City to Cape Fear NC, 0-20nm" } },
+  },
+  "Charleston, SC": {
+    tideStation: "8665530",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/charlestonsc_noaa.json", noaaZone: { id: "AMZ380", description: "S. Santee River to Edisto Beach SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/charlestonsc_noaa_nearshore.json", noaaZone: { id: "AMZ360", description: "S. Santee River to Edisto Beach SC, 0-20nm" } },
+  },
+  "Darien, GA": {
+    tideStation: "8670870",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/darienga_noaa.json", noaaZone: { id: "AMZ384", description: "Savannah GA to Altamaha Sound GA, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/darienga_noaa_nearshore.json", noaaZone: { id: "AMZ364", description: "Savannah GA to Altamaha Sound GA, 0-20nm" } },
+  },
+  "Fernandina Beach, FL": {
+    tideStation: "8720197",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fernandinafl_noaa.json", noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fernandinafl_noaa_nearshore.json", noaaZone: { id: "AMZ450", description: "Altamaha Sound GA to Fernandina Beach FL, 0-20nm" } },
+  },
+  "Georgetown, SC": {
+    tideStation: "8665530",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/georgetownsc_noaa.json", noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/georgetownsc_noaa_nearshore.json", noaaZone: { id: "AMZ256", description: "Murrells Inlet to S. Santee River SC, 0-20nm" } },
+  },
+  "Hilton Head, SC": {
+    tideStation: "8670659",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hiltonheadsc_noaa.json", noaaZone: { id: "AMZ382", description: "Edisto Beach SC to Savannah GA, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hiltonheadsc_noaa_nearshore.json", noaaZone: { id: "AMZ362", description: "Edisto Beach SC to Savannah GA, 0-20nm" } },
+  },
+  "Jekyll Island, GA": {
+    tideStation: "8679511",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/jekyllga_noaa.json", noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/jekyllga_noaa_nearshore.json", noaaZone: { id: "AMZ450", description: "Altamaha Sound GA to Fernandina Beach FL, 0-20nm" } },
+  },
+  "Little River Inlet, SC": {
+    tideStation: "8661070",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/littleriversc_noaa.json", noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/littleriversc_noaa_nearshore.json", noaaZone: { id: "AMZ254", description: "Little River Inlet to Murrells Inlet SC, 0-20nm" } },
+  },
+  "Mayport, FL": {
+    tideStation: "8720218",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/mayportfl_noaa.json", noaaZone: { id: "AMZ472", description: "Fernandina Beach to St. Augustine FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/mayportfl_noaa_nearshore.json", noaaZone: { id: "AMZ452", description: "Fernandina Beach to St. Augustine FL, 0-20nm" } },
+  },
+  "Murrells Inlet, SC": {
+    tideStation: "8661070",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/murrellsinletsc_noaa.json", noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/murrellsinletsc_noaa_nearshore.json", noaaZone: { id: "AMZ256", description: "Murrells Inlet to S. Santee River SC, 0-20nm" } },
+  },
+  "Myrtle Beach, SC": {
+    tideStation: "8661070",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/myrtlebeachsc_noaa.json", noaaZone: { id: "AMZ284", description: "Little River Inlet to S. Santee River SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/myrtlebeachsc_noaa_nearshore.json", noaaZone: { id: "AMZ254", description: "Little River Inlet to Murrells Inlet SC, 0-20nm" } },
+  },
+  "Southport, NC": {
+    tideStation: "8659084",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/southportnc_noaa.json", noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/southportnc_noaa_nearshore.json", noaaZone: { id: "AMZ252", description: "Cape Fear to Little River Inlet SC, 0-20nm" } },
+  },
+  "St. Augustine, FL": {
+    tideStation: "8720587",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/staugustinefl_noaa.json", noaaZone: { id: "AMZ474", description: "St. Augustine to Flagler Beach FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/staugustinefl_noaa_nearshore.json", noaaZone: { id: "AMZ454", description: "St. Augustine to Flagler Beach FL, 0-20nm" } },
+  },
+  "St. Simons Island, GA": {
+    tideStation: "8679511",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stsimonsgaga_noaa.json", noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stsimonsgaga_noaa_nearshore.json", noaaZone: { id: "AMZ450", description: "Altamaha Sound GA to Fernandina Beach FL, 0-20nm" } },
+  },
+  "Tybee Island, GA": {
+    tideStation: "8670870",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/tybeega_noaa.json", noaaZone: { id: "AMZ384", description: "Savannah GA to Altamaha Sound GA, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/tybeega_noaa_nearshore.json", noaaZone: { id: "AMZ364", description: "Savannah GA to Altamaha Sound GA, 0-20nm" } },
+  },
+  "Wrightsville Beach, NC": {
+    tideStation: "8658163",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wrightsvillebeachnc_noaa.json", noaaZone: { id: "AMZ280", description: "Surf City NC to Little River Inlet SC, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wrightsvillebeachnc_noaa_nearshore.json", noaaZone: { id: "AMZ250", description: "Surf City to Cape Fear NC, 0-20nm" } },
+  },
     // ── Northeast Florida Region ─────────────────────────────────────────────
     // "Mayport, FL" and "St. Augustine, FL" reuse the ga_sc entries above (same
     // physical ports, same label strings) — only the 7 new ports need entries here.
-  "Ponce Inlet, FL":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/ponceinletfl_noaa.json",         tideStation: "8721147",  noaaZone: { id: "AMZ570", description: "Flagler Beach to Volusia-Brevard County Line FL, 20-60nm" } },
-  "Port Canaveral, FL":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/portcanaveralfl_noaa.json",      tideStation: "8721604",  noaaZone: { id: "AMZ572", description: "Volusia-Brevard County Line to Sebastian Inlet FL, 20-60nm" } },
-  "Sebastian Inlet, FL":    { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sebastianinletfl_noaa.json",     tideStation: "8722004",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
-  "Fort Pierce, FL":        { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortpiercefl_noaa.json",         tideStation: "8722212",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
-  "Stuart, FL":              { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stuartfl_noaa.json",             tideStation: "8722357",  noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
-  "Lake Worth Inlet, FL":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/lakeworthinletfl_noaa.json",     tideStation: "8722588",  noaaZone: { id: "AMZ670", description: "Jupiter Inlet to Deerfield Beach FL, 20-60nm" } },
-  "Fort Lauderdale, FL":    { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa.json",     tideStation: "8722956",  noaaZone: { id: "AMZ671", description: "Deerfield Beach to Ocean Reef FL, 20-60nm" } },
+  "Ponce Inlet, FL": {
+    tideStation: "8721147",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/ponceinletfl_noaa.json", noaaZone: { id: "AMZ570", description: "Flagler Beach to Volusia-Brevard County Line FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/ponceinletfl_noaa_nearshore.json", noaaZone: { id: "AMZ550", description: "Flagler Beach to Volusia-Brevard County Line FL, 0-20nm" } },
+  },
+  "Port Canaveral, FL": {
+    tideStation: "8721604",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/portcanaveralfl_noaa.json", noaaZone: { id: "AMZ572", description: "Volusia-Brevard County Line to Sebastian Inlet FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/portcanaveralfl_noaa_nearshore.json", noaaZone: { id: "AMZ552", description: "Volusia-Brevard County Line to Sebastian Inlet FL, 0-20nm" } },
+  },
+  "Sebastian Inlet, FL": {
+    tideStation: "8722004",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sebastianinletfl_noaa.json", noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sebastianinletfl_noaa_nearshore.json", noaaZone: { id: "AMZ555", description: "Sebastian Inlet to Jupiter Inlet FL, 0-20nm" } },
+  },
+  "Fort Pierce, FL": {
+    tideStation: "8722212",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortpiercefl_noaa.json", noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortpiercefl_noaa_nearshore.json", noaaZone: { id: "AMZ555", description: "Sebastian Inlet to Jupiter Inlet FL, 0-20nm" } },
+  },
+  "Stuart, FL": {
+    tideStation: "8722357",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stuartfl_noaa.json", noaaZone: { id: "AMZ575", description: "Sebastian Inlet to Jupiter Inlet FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stuartfl_noaa_nearshore.json", noaaZone: { id: "AMZ555", description: "Sebastian Inlet to Jupiter Inlet FL, 0-20nm" } },
+  },
+  "Lake Worth Inlet, FL": {
+    tideStation: "8722588",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/lakeworthinletfl_noaa.json", noaaZone: { id: "AMZ670", description: "Jupiter Inlet to Deerfield Beach FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/lakeworthinletfl_noaa_nearshore.json", noaaZone: { id: "AMZ650", description: "Jupiter Inlet to Deerfield Beach FL, 0-20nm" } },
+  },
+  "Fort Lauderdale, FL": {
+    tideStation: "8722956",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa.json", noaaZone: { id: "AMZ671", description: "Deerfield Beach to Ocean Reef FL, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa_nearshore.json", noaaZone: { id: "AMZ651", description: "Deerfield Beach to Ocean Reef FL, 0-20nm" } },
+  },
     // ── Virginia to Rhode Island Region ──────────────────────────────────────
     // "Virginia Beach, VA" reuses the mid_atlantic entry above (same label,
     // same physical port/zone). "Ocean City Inlet, MD" also reuses the
     // mid_atlantic entry above (same label). Only the remaining 15 new ports
-    // need entries here.
-  "Wachapreague, VA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wachapreagueva_noaa.json",     tideStation: "8631044", noaaZone: { id: "ANZ684", description: "Parramore Island VA to Cape Charles Light, 20-60nm" } },
-  "Chincoteague, VA":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/chincoteagueva_noaa.json",     tideStation: "8630249", noaaZone: { id: "ANZ682", description: "Chincoteague VA to Parramore Island VA, 20-60nm" } },
-  "Indian River Inlet, DE": { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/indianriverinletde_noaa.json", tideStation: "8557380", noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
-  "Cape May, NJ":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capemaynj_noaa.json",           tideStation: "8536110", noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
-  "Atlantic City, NJ":      { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/atlanticcitynj_noaa.json",      tideStation: "8534720", noaaZone: { id: "ANZ482", description: "Little Egg Inlet NJ to Great Egg Inlet NJ, 20-60nm" } },
-  "Barnegat Light, NJ":     { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/barnegatlightnj_noaa.json",     tideStation: "8533615", noaaZone: { id: "ANZ481", description: "Manasquan Inlet NJ to Little Egg Inlet NJ, 20-60nm" } },
-  "Manasquan, NJ":          { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/manasquannj_noaa.json",         tideStation: "8532585", noaaZone: { id: "ANZ480", description: "Sandy Hook NJ to Manasquan Inlet NJ, 20-40nm" } },
-  "Sandy Hook, NJ":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sandyhooknj_noaa.json",         tideStation: "8531680", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
-  "Freeport, NY":           { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/freeportny_noaa.json",          tideStation: "8516385", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
-  "Captree, NY":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/captreeny_noaa.json",           tideStation: "8515186", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
-  "Shinnecock Inlet, NY":   { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/shinnecockny_noaa.json",        tideStation: "8512354", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },
-  "Montauk, NY":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/montaukny_noaa.json",          tideStation: "8510560", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },
-  "Stonington, CT":         { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stoningtonct_noaa.json",        tideStation: "8458694", noaaZone: { id: "ANZ237", description: "Block Island Sound, bay waters (no 20-60nm offshore equivalent)" } },
-  "Point Judith, RI":       { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/pointjudithri_noaa.json",       tideStation: "8455083", noaaZone: { id: "ANZ283", description: "Montauk NY to Martha's Vineyard, 25-60nm" } },
-  "Newport, RI":            { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/newportri_noaa.json",          tideStation: "8452660", noaaZone: { id: "ANZ283", description: "Montauk NY to Martha's Vineyard, 25-60nm" } }
+    // need entries here. Stonington, CT is bay-only (no offshore/nearshore split).
+  "Wachapreague, VA": {
+    tideStation: "8631044",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wachapreagueva_noaa.json", noaaZone: { id: "ANZ684", description: "Parramore Island VA to Cape Charles Light, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/wachapreagueva_noaa_nearshore.json", noaaZone: { id: "ANZ654", description: "Parramore Island to Cape Charles Light VA, 0-20nm" } },
+  },
+  "Chincoteague, VA": {
+    tideStation: "8630249",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/chincoteagueva_noaa.json", noaaZone: { id: "ANZ682", description: "Chincoteague VA to Parramore Island VA, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/chincoteagueva_noaa_nearshore.json", noaaZone: { id: "ANZ652", description: "Chincoteague to Parramore Island VA, 0-20nm" } },
+  },
+  "Indian River Inlet, DE": {
+    tideStation: "8557380",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/indianriverinletde_noaa.json", noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/indianriverinletde_noaa_nearshore.json", noaaZone: { id: "ANZ455", description: "Cape Henlopen to Fenwick Island DE, 0-20nm" } },
+  },
+  "Cape May, NJ": {
+    tideStation: "8536110",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capemaynj_noaa.json", noaaZone: { id: "ANZ485", description: "Cape May NJ to Fenwick Island DE, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/capemaynj_noaa_nearshore.json", noaaZone: { id: "ANZ454", description: "Cape May NJ to Cape Henlopen DE, 0-20nm" } },
+  },
+  "Atlantic City, NJ": {
+    tideStation: "8534720",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/atlanticcitynj_noaa.json", noaaZone: { id: "ANZ482", description: "Little Egg Inlet NJ to Great Egg Inlet NJ, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/atlanticcitynj_noaa_nearshore.json", noaaZone: { id: "ANZ452", description: "Little Egg Inlet to Great Egg Inlet NJ, 0-20nm" } },
+  },
+  "Barnegat Light, NJ": {
+    tideStation: "8533615",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/barnegatlightnj_noaa.json", noaaZone: { id: "ANZ481", description: "Manasquan Inlet NJ to Little Egg Inlet NJ, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/barnegatlightnj_noaa_nearshore.json", noaaZone: { id: "ANZ451", description: "Manasquan Inlet to Little Egg Inlet NJ, 0-20nm" } },
+  },
+  "Manasquan, NJ": {
+    tideStation: "8532585",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/manasquannj_noaa.json", noaaZone: { id: "ANZ480", description: "Sandy Hook NJ to Manasquan Inlet NJ, 20-40nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/manasquannj_noaa_nearshore.json", noaaZone: { id: "ANZ450", description: "Sandy Hook to Manasquan Inlet NJ, 0-20nm" } },
+  },
+  "Sandy Hook, NJ": {
+    tideStation: "8531680",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sandyhooknj_noaa.json", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/sandyhooknj_noaa_nearshore.json", noaaZone: { id: "ANZ355", description: "Sandy Hook NJ to Fire Island Inlet NY, 0-20nm" } },
+  },
+  "Freeport, NY": {
+    tideStation: "8516385",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/freeportny_noaa.json", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/freeportny_noaa_nearshore.json", noaaZone: { id: "ANZ355", description: "Sandy Hook NJ to Fire Island Inlet NY, 0-20nm" } },
+  },
+  "Captree, NY": {
+    tideStation: "8515186",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/captreeny_noaa.json", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/captreeny_noaa_nearshore.json", noaaZone: { id: "ANZ355", description: "Sandy Hook NJ to Fire Island Inlet NY, 0-20nm" } },
+  },
+  "Shinnecock Inlet, NY": {
+    tideStation: "8512354",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/shinnecockny_noaa.json", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/shinnecockny_noaa_nearshore.json", noaaZone: { id: "ANZ350", description: "Moriches Inlet NY to Montauk Point NY, 0-20nm" } },
+  },
+  "Montauk, NY": {
+    tideStation: "8510560",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/montaukny_noaa.json", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/montaukny_noaa_nearshore.json", noaaZone: { id: "ANZ350", description: "Moriches Inlet NY to Montauk Point NY, 0-20nm" } },
+  },
+  "Stonington, CT": {
+    tideStation: "8458694",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/stoningtonct_noaa.json", noaaZone: { id: "ANZ237", description: "Block Island Sound, bay waters (no 20-60nm offshore equivalent)" } },
+    // bay-only zone, no 20-60nm offshore equivalent — no nearshore toggle
+  },
+  "Point Judith, RI": {
+    tideStation: "8455083",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/pointjudithri_noaa.json", noaaZone: { id: "ANZ283", description: "Montauk NY to Martha's Vineyard, 25-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/pointjudithri_noaa_nearshore.json", noaaZone: { id: "ANZ256", description: "Montauk NY to Martha's Vineyard, 0-20nm" } },
+  },
+  "Newport, RI": {
+    tideStation: "8452660",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/newportri_noaa.json", noaaZone: { id: "ANZ283", description: "Montauk NY to Martha's Vineyard, 25-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/newportri_noaa_nearshore.json", noaaZone: { id: "ANZ256", description: "Montauk NY to Martha's Vineyard, 0-20nm" } },
+  },
 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// In-memory cache. Keyed by location label.
+// Nearshore/offshore zone resolution
+// ─────────────────────────────────────────────────────────────────────────────
+// Resolves which { forecastJsonUrl, noaaZone } to use for a given source entry
+// and zoneMode. Handles both shapes: the new { offshore, nearshore? } shape
+// and the legacy flat shape (forecastJsonUrl/noaaZone directly on source) used
+// by locations not yet migrated to the toggle — those are always offshore-only.
+function resolveZoneSource(source, zoneMode) {
+  if (source.offshore) {
+    return source[zoneMode] ?? source.offshore;
+  }
+  return source; // legacy flat entry
+}
+
+const ZONE_MODE_STORAGE_KEY = "sst_zoneMode";
+
+function getStoredZoneMode() {
+  if (typeof window === "undefined") return "offshore";
+  try {
+    return window.localStorage.getItem(ZONE_MODE_STORAGE_KEY) === "nearshore" ? "nearshore" : "offshore";
+  } catch {
+    return "offshore";
+  }
+}
+
+function storeZoneMode(mode) {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(ZONE_MODE_STORAGE_KEY, mode); } catch { /* ignore */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// In-memory cache. Keyed by `${locationLabel}::${zoneMode}`.
 // ─────────────────────────────────────────────────────────────────────────────
 const cache = new Map();
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -229,6 +427,45 @@ async function fetchNws(lat, lon) {
   return { map, forecastHourlyUrl };
 }
 
+// Active hazardous-weather alerts (Small Craft Advisory, Gale Warning, etc.)
+// for a NOAA marine zone. Same live-fetch pattern as fetchTides/fetchNws
+// (api.weather.gov) — not baked into the scraped JSON because alerts have
+// precise onset/expires timestamps that change throughout the day, unlike
+// the scraper's periodic snapshot.
+async function fetchAlerts(zoneId) {
+  if (!zoneId) return [];
+  try {
+    const res = await fetch(
+      `https://api.weather.gov/alerts/active/zone/${zoneId}`,
+      { headers: { "Accept": "application/geo+json" } }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    const features = json?.features ?? [];
+    return features.map(f => {
+      const p = f.properties ?? {};
+      return {
+        event:       p.event ?? null,
+        headline:    p.headline ?? null,
+        severity:    p.severity ?? null,
+        onset:       p.onset ?? p.effective ?? null,
+        // `ends` is the forecast hazard's actual end time (matches the headline,
+        // e.g. "...until July 19 at 8:00AM EDT"). `expires` is unrelated — it's
+        // when this alert *message* rolls off the active-alerts feed (often a
+        // much earlier, unrelated technical timestamp) and was wrongly
+        // preferred here, producing a bogus "until" time. Prefer `ends`; only
+        // fall back to `expires` for open-ended hazards with no defined end.
+        expires:     p.ends ?? p.expires ?? null,
+        description: p.description ?? null,
+        instruction: p.instruction ?? null,
+      };
+    });
+  } catch (e) {
+    console.warn("[useMarineForecast] alerts fetch failed:", e);
+    return [];
+  }
+}
+
 function computeSun(lat, lon, numDays = 7) {
   const sunMap = {};
   for (let i = 0; i < numDays; i++) {
@@ -286,16 +523,18 @@ export async function fetchHourlyForecast(forecastHourlyUrl, date) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Aggregator
 // ─────────────────────────────────────────────────────────────────────────────
-async function fetchAll(location) {
+async function fetchAll(location, zoneMode) {
   const source = NOAA_SOURCES[location.label];
   if (!source) throw new Error(`No NOAA source for ${location.label}`);
+  const zoneSource = resolveZoneSource(source, zoneMode);
 
   const sun = computeSun(location.lat, location.lon, 7);
 
-  const [forecastResult, tidesResult, nwsResult] = await Promise.allSettled([
-    fetchMarineForecast(source.forecastJsonUrl),
+  const [forecastResult, tidesResult, nwsResult, alertsResult] = await Promise.allSettled([
+    fetchMarineForecast(zoneSource.forecastJsonUrl),
     fetchTides(source.tideStation),
     fetchNws(location.lat, location.lon),
+    fetchAlerts(zoneSource.noaaZone?.id),
   ]);
 
   if (forecastResult.status === "rejected") {
@@ -309,7 +548,8 @@ async function fetchAll(location) {
     tides:              tidesResult.status === "fulfilled" ? tidesResult.value : {},
     nws:                nwsValue.map,
     forecastHourlyUrl:  nwsValue.forecastHourlyUrl,
-    noaaZone:           source.noaaZone ?? null,
+    noaaZone:           zoneSource.noaaZone ?? null,
+    alerts:             alertsResult.status === "fulfilled" ? alertsResult.value : [],
     sun,
   };
 }
@@ -319,8 +559,20 @@ async function fetchAll(location) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function useMarineForecast(selectedLocation) {
   const [state, setState] = useState({ data: null, loading: false, error: null });
+  const [zoneMode, setZoneModeState] = useState(getStoredZoneMode);
 
-  const isAvailable = !!(selectedLocation?.label && NOAA_SOURCES[selectedLocation.label]);
+  const source = selectedLocation?.label ? NOAA_SOURCES[selectedLocation.label] : null;
+  const isAvailable = !!source;
+  const hasNearshore = !!source?.nearshore;
+  // Locations without a nearshore option always show offshore, regardless of
+  // the user's stored preference — the toggle is hidden but the preference
+  // itself is untouched, so it's restored when they pick an open-ocean location again.
+  const effectiveZoneMode = hasNearshore ? zoneMode : "offshore";
+
+  const setZoneMode = useCallback((mode) => {
+    setZoneModeState(mode);
+    storeZoneMode(mode);
+  }, []);
 
   useEffect(() => {
     if (!selectedLocation || !isAvailable) {
@@ -329,8 +581,9 @@ export function useMarineForecast(selectedLocation) {
     }
 
     const label = selectedLocation.label;
+    const cacheKey = `${label}::${effectiveZoneMode}`;
 
-    const cached = cache.get(label);
+    const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
       setState({ data: cached.data, loading: false, error: null });
       return;
@@ -339,10 +592,10 @@ export function useMarineForecast(selectedLocation) {
     let cancelled = false;
     setState(s => ({ ...s, loading: true, error: null }));
 
-    fetchAll(selectedLocation)
+    fetchAll(selectedLocation, effectiveZoneMode)
       .then(data => {
         if (cancelled) return;
-        cache.set(label, { data, fetchedAt: Date.now() });
+        cache.set(cacheKey, { data, fetchedAt: Date.now() });
         setState({ data, loading: false, error: null });
       })
       .catch(error => {
@@ -352,7 +605,7 @@ export function useMarineForecast(selectedLocation) {
       });
 
     return () => { cancelled = true; };
-  }, [selectedLocation?.label, isAvailable]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedLocation?.label, isAvailable, effectiveZoneMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { ...state, isAvailable };
+  return { ...state, isAvailable, hasNearshore, zoneMode: effectiveZoneMode, setZoneMode };
 }

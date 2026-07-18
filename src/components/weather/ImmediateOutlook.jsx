@@ -11,8 +11,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, HelpCircle, X } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import ForecastCard from "@/components/weather/ForecastCard";
+import NearshoreOffshoreToggle from "@/components/weather/NearshoreOffshoreToggle";
 
-export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sunData, locationLabel, forecastTimestamp, forecastHourlyUrl, noaaZone }) {
+export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sunData, locationLabel, forecastTimestamp, forecastHourlyUrl, noaaZone, hasNearshore, zoneMode, onZoneModeChange, alerts }) {
   if (!forecasts?.length) return null;
 
   const cards = forecasts.slice(0, 3);
@@ -32,6 +33,9 @@ export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sun
 
       <CollapsibleContent>
         <div className="space-y-3">
+          {hasNearshore && (
+            <NearshoreOffshoreToggle zoneMode={zoneMode} onChange={onZoneModeChange} />
+          )}
           {cards.map((forecast, index) => (
             <ForecastCard
               key={index}
@@ -44,6 +48,7 @@ export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, sun
               locationLabel={locationLabel}
               forecastHourlyUrl={forecastHourlyUrl}
               noaaZone={noaaZone}
+              alerts={alerts}
             />
           ))}
         </div>

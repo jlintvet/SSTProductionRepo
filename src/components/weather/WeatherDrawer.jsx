@@ -32,7 +32,7 @@ const W_COLLAPSED = 52;
 
 export default function WeatherDrawer() {
   const { selectedLocation, weatherPanel, setWeatherPanel } = useAppContext();
-  const { data, loading, error, isAvailable } = useMarineForecast(selectedLocation);
+  const { data, loading, error, isAvailable, hasNearshore, zoneMode, setZoneMode } = useMarineForecast(selectedLocation);
 
   if (weatherPanel === "hidden") return null;
 
@@ -61,6 +61,9 @@ export default function WeatherDrawer() {
           loading={loading}
           error={error}
           isAvailable={isAvailable}
+          hasNearshore={hasNearshore}
+          zoneMode={zoneMode}
+          setZoneMode={setZoneMode}
           onCollapse={() => setWeatherPanel("collapsed")}
           onHide={() => setWeatherPanel("hidden")}
         />
@@ -72,7 +75,7 @@ export default function WeatherDrawer() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Expanded — full forecast panel
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpandedView({ location, data, loading, error, isAvailable, onCollapse, onHide }) {
+function ExpandedView({ location, data, loading, error, isAvailable, hasNearshore, zoneMode, setZoneMode, onCollapse, onHide }) {
   return (
     <>
       <header className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-slate-200 bg-slate-50">
@@ -117,6 +120,10 @@ function ExpandedView({ location, data, loading, error, isAvailable, onCollapse,
               locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
               noaaZone={data.noaaZone}
+              hasNearshore={hasNearshore}
+              zoneMode={zoneMode}
+              onZoneModeChange={setZoneMode}
+              alerts={data.alerts}
             />
             <ExtendedOutlook
               forecasts={data.forecast?.forecasts}
@@ -126,6 +133,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, onCollapse,
               locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
               noaaZone={data.noaaZone}
+              alerts={data.alerts}
             />
             {data.forecast?.timestamp && (
               <p className="text-[10px] text-slate-400 text-center pt-2 border-t border-slate-100">

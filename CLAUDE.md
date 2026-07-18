@@ -4,7 +4,20 @@ Read this file at the start of every session and before any multi-step task.
 
 ---
 
-## 1. Dropbox Truncation — CRITICAL
+## 1. Architecture Rule — No Frontend Hacks for Backend Problems
+
+**Never fix a backend data quality issue with a frontend workaround.** If data is wrong, corrupt, or missing, fix it at the source (Python backend, GitHub Actions workflow, data generation script). Do not add filters, transforms, or compensating logic in JSX/JS to paper over bad data.
+
+Examples of what NOT to do:
+- Filtering bad contour segments in the Leaflet renderer instead of fixing the contour generator
+- Clamping or transforming data values in the frontend instead of fixing the pipeline that produces them
+- Hardcoding fallback values in UI components to hide missing or incorrect backend output
+
+If a backend fix is correct but a CDN or cache delay is preventing it from being visible, **wait** — do not add frontend workarounds as a stopgap.
+
+---
+
+## 2. Dropbox Truncation — CRITICAL
 
 **The core problem:** The Dropbox mount (`/sessions/.../mnt/SST Development/`) is a cloud-synced folder. When Claude writes or copies a large file to it, Dropbox may not have fully synced before the next operation reads it back — resulting in silently truncated files. This has caused repeated Vercel build failures.
 
@@ -34,14 +47,17 @@ Read this file at the start of every session and before any multi-step task.
    git push origin main
    ```
 
-5. **Optionally copy back to Dropbox** after the commit is in git — this is safe because the authoritative copy is already in git.
+5. **Copy back to Dropbox** after the commit is in git — this is **required**, not optional. The workspace must stay in sync with git so Jon can see and publish changes.
+   ```bash
+   cp /tmp/sst_fresh/src/path/to/file.jsx "/sessions/.../mnt/SST Development/src/path/to/file.jsx"
+   ```
+   Do this for every file changed in the commit. For SSTv2 files (e.g. `VIIRSHourlyBundler.py`), copy to the workspace root.
 
 ### Additional rules
 - Always verify the patched file ends with `}` (or the correct closing token) before committing.
 - When multiple files need changes in one commit, patch all of them first, then `git add` all at once.
 - Use `assert OLD in text, "FAIL: <description>"` in every patch script. If an assertion fails, stop and investigate before writing any output.
 - After every push, check the Vercel build result using `list_deployments` + `get_deployment_build_logs`. If the deployment is ERROR, fix the build failure and redeploy before doing any other work. Never leave a broken build unresolved.
-- When testing a branch, ALWAYS give Jon the **deployment-specific immutable URL** (from `list_deployments` → the deploy's `url`, e.g. `production-<hash>-jon-lintvet-s-projects.vercel.app`) for every new deployment — NOT the branch alias. The branch alias (`production-sst-git-<branch>-...vercel.app`) caches stale bundles per-client and has repeatedly served old code on hard-refresh, wasting review cycles. The deployment-specific URL is locked to one exact build and can't go stale. Note: it's a different subdomain, so Jon signs in once on it (it's accessible, just logged-out). Provide the fresh deployment URL each time you push.
 
 ---
 
@@ -68,6 +84,41 @@ Read this file at the start of every session and before any multi-step task.
 
 ---
 
+## 4. Deployment Flow + Vercel MCP
+
+### How deployment actually works
+
+**Deployment is fully automatic — Claude does not trigger it.**
+
+```
+Claude git push → GitHub (jlintvet/SSTProductionRepo main) → Vercel webhook → auto-deploy
+```
+
+As soon as `git push origin main` succeeds, Vercel picks it up via a GitHub webhook and deploys. No manual step needed. The Vercel MCP is **monitoring only** — it lets Claude check whether the build passed or failed. If the MCP is broken, deployment still works fine.
+
+### Vercel MCP — build status check only
+
+Claude uses `list_deployments` + `get_deployment_build_logs` to confirm a build is READY after pushing. If those return `403 Forbidden`, Claude cannot read build status but the deploy still ran.
+
+- `projectId`: `prj_ZgzMKqQ1nFxoKS5nok4RRm2nCmYQ`
+- `teamId`: `team_L2pjSs2qq2rZK00eIAypqE9i`
+
+### Fixing a 403 from the Vercel MCP
+
+The Vercel connector uses **OAuth** (not a manually pasted API token). Tokens created in vercel.com → Settings → Tokens are NOT used here.
+
+To re-authenticate:
+1. In Claude Cowork, click the **Directory** button in the sidebar (grid/apps icon).
+2. Go to **Connectors → Vercel**.
+3. Click the **lock/key icon** next to the Disconnect button to re-auth, OR click **Disconnect** then reconnect to trigger a fresh OAuth login.
+4. No session restart needed — the connector updates immediately.
+
+### If Vercel MCP is broken mid-session
+
+Check the build directly at **vercel.com → SSTProductionRepo → Deployments**. Paste build log text into chat and Claude can diagnose from it.
+
+---
+
 ## 4. Reference Docs — Read Before Related Work
 
 | Topic | File |
@@ -83,6 +134,123 @@ Read this file at the start of every session and before any multi-step task.
 - Anything touching community pins, access gates, leaderboard, tips → read `community-reports-requirements.md`
 - Anything touching weather widget or departure location → read `docs/weather-and-location-display.md`
 - Anything touching `MapControlPanel.jsx` → read `docs/map_control_panel.md`
+
+---
+
+## 5. NOAA Marine Forecast Zones
+
+Nearly every open-ocean location across all 4 regions (mid_atlantic, ga_sc, ne_fl, va_ri) has both a **20-60nm offshore** zone and a paired **0-20nm nearshore** zone — see "Nearshore/offshore toggle" below. Zone IDs and URLs are defined in two places:
+- `src/hooks/useMarineForecast.js` → `NOAA_SOURCES[location]` (frontend footnote display) — either the legacy flat shape (`{ forecastJsonUrl, noaaZone }`, offshore-only — now only the 4 Chesapeake Bay locations and Stonington, CT) or the `{ tideStation, offshore, nearshore? }` shape for locations with both
+- `scraper.py` (NOAAPARSE repo) → `scrape_and_save(url, filename)` calls (backend data fetch)
+
+Both must stay in sync. If adding a location or changing a zone, update both files.
+
+**Never pattern-match a nearshore zone ID from its offshore counterpart.** Nearshore (0-20nm) and offshore (20-60nm) zones are not always the same coastline span or even the same WFO — e.g. Ocean City Inlet MD's offshore zone ANZ485 (Cape May NJ to Fenwick Island DE, issued by KPHI) pairs with nearshore ANZ650 (Fenwick Island DE to Chincoteague VA, issued by KAKQ), which starts where ANZ485 ends. Always verify a new nearshore zone against live NWS zone text (`tgftp.nws.noaa.gov/data/forecasts/marine/coastal/{am,an}/{zoneid}.txt`, or the WFO's rendered CWF product at `forecast.weather.gov/product.php?site=NWS&issuedby={WFO}&product=CWF&format=CI&version=1&glossary=0`) before using it.
+
+### Zone URL patterns
+- **`forecast.weather.gov/MapClick.php?zoneid=XXX`** — used for all MHX (NC), ILM (NC/SC), CHS (SC/GA), AKQ (VA), PHI (NJ/DE), and OKX (NY) zones
+- **`marine.weather.gov/MapClick.php?zoneid=XXX`** — used for JAX (GA/FL), MLB (east-central FL), MFL (south FL), and BOX (RI) zones
+
+### Zone reference table (20-60nm offshore)
+
+| Location(s) | Zone | Description | WFO | URL base |
+|---|---|---|---|---|
+| Oregon Inlet NC | AMZ180 | Currituck Beach Light to Oregon Inlet NC, 20-60nm | MHX | forecast.weather.gov |
+| Hatteras Inlet NC | AMZ184 | Cape Hatteras to Ocracoke Inlet NC, 20-60nm | MHX | forecast.weather.gov |
+| Beaufort Inlet NC | AMZ186 | Ocracoke Inlet to Cape Lookout NC, 20-60nm | MHX | forecast.weather.gov |
+| Wrightsville Beach NC, Carolina Beach NC, Southport NC | AMZ280 | Surf City NC to Little River Inlet SC, 20-60nm | ILM | forecast.weather.gov |
+| Little River Inlet SC, Myrtle Beach SC, Murrells Inlet SC, Georgetown SC | AMZ284 | Little River Inlet to S. Santee River SC, 20-60nm | ILM | forecast.weather.gov |
+| Charleston SC | AMZ380 | S. Santee River to Edisto Beach SC, 20-60nm | CHS | forecast.weather.gov |
+| Beaufort SC, Hilton Head SC | AMZ382 | Edisto Beach SC to Savannah GA, 20-60nm | CHS | forecast.weather.gov |
+| Tybee Island GA, Darien GA | AMZ384 | Savannah GA to Altamaha Sound GA, 20-60nm | CHS | forecast.weather.gov |
+| St. Simons Island GA, Jekyll Island GA, Fernandina Beach FL | AMZ470 | Altamaha Sound GA to Fernandina Beach FL, 20-60nm | JAX | marine.weather.gov |
+| Mayport FL | AMZ472 | Fernandina Beach to St. Augustine FL, 20-60nm | JAX | marine.weather.gov |
+| St. Augustine FL | AMZ474 | St. Augustine to Flagler Beach FL, 20-60nm | JAX | marine.weather.gov |
+| Ponce Inlet FL | AMZ570 | Flagler Beach to Volusia-Brevard County Line FL, 20-60nm | MLB | marine.weather.gov |
+| Port Canaveral FL | AMZ572 | Volusia-Brevard County Line to Sebastian Inlet FL, 20-60nm | MLB | marine.weather.gov |
+| Sebastian Inlet FL, Fort Pierce FL, Stuart FL | AMZ575 | Sebastian Inlet to Jupiter Inlet FL, 20-60nm | MLB | marine.weather.gov |
+| Lake Worth Inlet FL | AMZ670 | Jupiter Inlet to Deerfield Beach FL, 20-60nm | MFL | marine.weather.gov |
+| Fort Lauderdale FL | AMZ671 | Deerfield Beach to Ocean Reef FL, 20-60nm | MFL | marine.weather.gov |
+| Virginia Beach VA | ANZ686 | Cape Charles Light to VA-NC border, 20-60nm | AKQ | forecast.weather.gov |
+| Wachapreague VA | ANZ684 | Parramore Island VA to Cape Charles Light, 20-60nm | AKQ | forecast.weather.gov |
+| Chincoteague VA | ANZ682 | Chincoteague VA to Parramore Island VA, 20-60nm | AKQ | forecast.weather.gov |
+| Ocean City Inlet MD, Indian River Inlet DE, Cape May NJ | ANZ485 | Cape May NJ to Fenwick Island DE, 20-60nm | AKQ/PHI | forecast.weather.gov |
+| Atlantic City NJ | ANZ482 | Little Egg Inlet NJ to Great Egg Inlet NJ, 20-60nm | PHI | forecast.weather.gov |
+| Barnegat Light NJ | ANZ481 | Manasquan Inlet NJ to Little Egg Inlet NJ, 20-60nm | PHI | forecast.weather.gov |
+| Manasquan NJ | ANZ480 | Sandy Hook NJ to Manasquan Inlet NJ, 20-40nm | PHI | forecast.weather.gov |
+| Sandy Hook NJ, Freeport NY, Captree NY | ANZ385 | Sandy Hook NJ to Fire Island Inlet NY, 20-60nm | OKX | forecast.weather.gov |
+| Shinnecock Inlet NY, Montauk NY | ANZ380 | Moriches Inlet NY to Montauk Point NY, 20-60nm | OKX | forecast.weather.gov |
+| Point Judith RI, Newport RI | ANZ283 | Montauk NY to Martha's Vineyard, 25-60nm | BOX | marine.weather.gov |
+
+**Note the AKQ/PHI split on ANZ485:** Ocean City Inlet MD, Indian River Inlet DE, and Cape May NJ all share the same *offshore* zone (ANZ485, issued by PHI) but land on three different *nearshore* zones from two different offices — see the toggle table below.
+
+### Chesapeake Bay + bay-only locations (no 20-60nm offshore equivalent)
+
+| Location(s) | Zone | Description |
+|---|---|---|
+| Poquoson VA | ANZ632 | Chesapeake Bay, New Point Comfort to Little Creek VA |
+| Bay Bridge Tunnel VA | ANZ634 | Chesapeake Bay, Little Creek to Cape Henry VA incl. CBBT |
+| Horn Harbor VA, Cape Charles VA | ANZ631 | Chesapeake Bay, Windmill Point to New Point Comfort VA |
+| Stonington CT | ANZ237 | Block Island Sound, bay waters (BOX) |
+
+### Nearshore/offshore toggle (shipped 2026-07-18, all 4 regions)
+
+Every open-ocean location above has a paired 0-20nm nearshore zone, letting the user switch between it and the 20-60nm offshore forecast in the weather panel (`NearshoreOffshoreToggle.jsx`, rendered in `ImmediateOutlook`). The user's last-chosen mode persists globally via `localStorage` (`sst_zoneMode`), not reset per location. The Chesapeake Bay locations and Stonington, CT above have no offshore equivalent, so they're out of scope and show no toggle.
+
+**mid_atlantic:**
+
+| Location(s) | Offshore (20-60nm) | Nearshore (0-20nm) | WFO (nearshore) |
+|---|---|---|---|
+| Oregon Inlet NC | AMZ180 | AMZ150 — S of Currituck Beach Light to Oregon Inlet NC, 0-20nm | MHX |
+| Hatteras Inlet NC | AMZ184 | AMZ154 — S of Cape Hatteras to Ocracoke Inlet NC, 0-20nm | MHX |
+| Beaufort Inlet NC | AMZ186 | AMZ156 — S of Ocracoke Inlet to Cape Lookout NC, 0-20nm | MHX |
+| Virginia Beach VA | ANZ686 | ANZ656 — Cape Charles Light to VA-NC border, 0-20nm | AKQ |
+| Ocean City Inlet MD | ANZ485 | ANZ650 — Fenwick Island DE to Chincoteague VA, 0-20nm | AKQ |
+
+**ga_sc:** two offshore zones each split into two nearshore zones depending on where the port sits within the offshore span.
+
+| Location(s) | Offshore (20-60nm) | Nearshore (0-20nm) | WFO (nearshore) |
+|---|---|---|---|
+| Wrightsville Beach NC, Carolina Beach NC | AMZ280 | AMZ250 — Surf City to Cape Fear NC, 0-20nm | ILM |
+| Southport NC | AMZ280 | AMZ252 — Cape Fear to Little River Inlet SC, 0-20nm | ILM |
+| Little River Inlet SC, Myrtle Beach SC | AMZ284 | AMZ254 — Little River Inlet to Murrells Inlet SC, 0-20nm | ILM |
+| Murrells Inlet SC, Georgetown SC | AMZ284 | AMZ256 — Murrells Inlet to S. Santee River SC, 0-20nm | ILM |
+| Charleston SC | AMZ380 | AMZ360 — S. Santee River to Edisto Beach SC, 0-20nm | CHS |
+| Beaufort SC, Hilton Head SC | AMZ382 | AMZ362 — Edisto Beach SC to Savannah GA, 0-20nm | CHS |
+| Tybee Island GA, Darien GA | AMZ384 | AMZ364 — Savannah GA to Altamaha Sound GA, 0-20nm | CHS |
+| St. Simons Island GA, Jekyll Island GA, Fernandina Beach FL | AMZ470 | AMZ450 — Altamaha Sound GA to Fernandina Beach FL, 0-20nm | JAX |
+| Mayport FL | AMZ472 | AMZ452 — Fernandina Beach to St. Augustine FL, 0-20nm | JAX |
+| St. Augustine FL | AMZ474 | AMZ454 — St. Augustine to Flagler Beach FL, 0-20nm | JAX |
+
+**ne_fl:** (Mayport FL and St. Augustine FL reuse the ga_sc rows above — same ports, same zones)
+
+| Location(s) | Offshore (20-60nm) | Nearshore (0-20nm) | WFO (nearshore) |
+|---|---|---|---|
+| Ponce Inlet FL | AMZ570 | AMZ550 — Flagler Beach to Volusia-Brevard County Line FL, 0-20nm | MLB |
+| Port Canaveral FL | AMZ572 | AMZ552 — Volusia-Brevard County Line to Sebastian Inlet FL, 0-20nm | MLB |
+| Sebastian Inlet FL, Fort Pierce FL, Stuart FL | AMZ575 | AMZ555 — Sebastian Inlet to Jupiter Inlet FL, 0-20nm | MLB |
+| Lake Worth Inlet FL | AMZ670 | AMZ650 — Jupiter Inlet to Deerfield Beach FL, 0-20nm | MFL |
+| Fort Lauderdale FL | AMZ671 | AMZ651 — Deerfield Beach to Ocean Reef FL, 0-20nm | MFL |
+
+**va_ri:** (Virginia Beach VA and Ocean City Inlet MD reuse the mid_atlantic rows above). Cape May NJ and Indian River Inlet DE share the same offshore zone (ANZ485) but get **different** nearshore zones from the same PHI office — do not assume shared-offshore implies shared-nearshore.
+
+| Location(s) | Offshore (20-60nm) | Nearshore (0-20nm) | WFO (nearshore) |
+|---|---|---|---|
+| Wachapreague VA | ANZ684 | ANZ654 — Parramore Island to Cape Charles Light VA, 0-20nm | AKQ |
+| Chincoteague VA | ANZ682 | ANZ652 — Chincoteague to Parramore Island VA, 0-20nm | AKQ |
+| Indian River Inlet DE | ANZ485 | ANZ455 — Cape Henlopen to Fenwick Island DE, 0-20nm | PHI |
+| Cape May NJ | ANZ485 | ANZ454 — Cape May NJ to Cape Henlopen DE, 0-20nm | PHI |
+| Atlantic City NJ | ANZ482 | ANZ452 — Little Egg Inlet to Great Egg Inlet NJ, 0-20nm | PHI |
+| Barnegat Light NJ | ANZ481 | ANZ451 — Manasquan Inlet to Little Egg Inlet NJ, 0-20nm | PHI |
+| Manasquan NJ | ANZ480 | ANZ450 — Sandy Hook to Manasquan Inlet NJ, 0-20nm | PHI |
+| Sandy Hook NJ, Freeport NY, Captree NY | ANZ385 | ANZ355 — Sandy Hook NJ to Fire Island Inlet NY, 0-20nm | OKX |
+| Shinnecock Inlet NY, Montauk NY | ANZ380 | ANZ350 — Moriches Inlet NY to Montauk Point NY, 0-20nm | OKX |
+| Point Judith RI, Newport RI | ANZ283 | ANZ256 — Montauk NY to Martha's Vineyard, 0-20nm | BOX |
+
+Stonington CT (ANZ237, bay-only) has no offshore equivalent and shows no toggle, same as the 4 Chesapeake Bay locations.
+
+### noaaZone footnote
+The `noaaZone: { id, description }` field in `NOAA_SOURCES` flows through `useMarineForecast` → `WeatherDrawer`/`WeatherBottomSheet` → `ImmediateOutlook`/`ExtendedOutlook` → `ForecastCard`, where it renders as a small footnote below the NOAA Narrative collapsible. All locations must have this field — `null` suppresses the footnote.
 
 ---
 
@@ -108,4 +276,4 @@ Read this file at the start of every session and before any multi-step task.
 - DB column is `is_flagged` (not `flagged`) on `community_locations`.
 - Access gate: post within 30 days OR isPro → `hasAccess: true`.
 - Pin types: `live` (5000 pts, 24h expiry) and `report` (1000 pts, 7d expiry).
-- 
+- When `onPostCommunityReport` is called **without** lat/lon (from control panel), enter `communityPinDrop` mode — show banner, crosshair cursor, intercept next map click
