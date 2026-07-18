@@ -293,7 +293,13 @@ async function fetchAlerts(zoneId) {
         headline:    p.headline ?? null,
         severity:    p.severity ?? null,
         onset:       p.onset ?? p.effective ?? null,
-        expires:     p.expires ?? p.ends ?? null,
+        // `ends` is the forecast hazard's actual end time (matches the headline,
+        // e.g. "...until July 19 at 8:00AM EDT"). `expires` is unrelated — it's
+        // when this alert *message* rolls off the active-alerts feed (often a
+        // much earlier, unrelated technical timestamp) and was wrongly
+        // preferred here, producing a bogus "until" time. Prefer `ends`; only
+        // fall back to `expires` for open-ended hazards with no defined end.
+        expires:     p.ends ?? p.expires ?? null,
         description: p.description ?? null,
         instruction: p.instruction ?? null,
       };
