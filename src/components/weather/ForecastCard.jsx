@@ -14,7 +14,7 @@ import ReactDOM from "react-dom";
 import moment from "moment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare } from "lucide-react";
+import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { fetchHourlyForecast } from "@/hooks/useMarineForecast";
 import ShareForecastDialog from "@/components/weather/ShareForecastDialog";
@@ -42,6 +42,32 @@ function tempColor(t) {
   if (t < 90) return "#f59e0b";
   if (t < 110) return "#ef4444";
   return "#dc2626";
+}
+
+// Does an alert's onset/expires window overlap the given calendar day
+// ("YYYY-MM-DD")? Missing onset is treated as "already in effect"; missing
+// expires is treated as "open-ended" (NWS alerts sometimes omit one bound).
+function alertOverlapsDate(alert, dateStr) {
+  if (!alert.onset && !alert.expires) return false;
+  const dayStart = moment(dateStr, "YYYY-MM-DD").startOf("day");
+  const dayEnd   = moment(dateStr, "YYYY-MM-DD").endOf("day");
+  const start = alert.onset   ? moment(alert.onset)   : moment(0);
+  const end   = alert.expires ? moment(alert.expires) : moment("2100-01-01");
+  return start.isSameOrBefore(dayEnd) && end.isSameOrAfter(dayStart);
+}
+
+function formatAlertTime(iso) {
+  if (!iso) return null;
+  return moment(iso).format("ddd h:mm A");
+}
+
+// Amber for routine hazards (Small Craft Advisory etc.), red for the more
+// severe NWS severity tiers (Gale/Storm Warning and similar).
+function alertSeverityClasses(severity) {
+  if (severity === "Severe" || severity === "Extreme") {
+    return { box: "bg-red-50 border-red-200", icon: "text-red-600", title: "text-red-800", body: "text-red-700" };
+  }
+  return { box: "bg-amber-50 border-amber-200", icon: "text-amber-600", title: "text-amber-800", body: "text-amber-700" };
 }
 
 // ── Hourly popup ──────────────────────────────────────────────────────────────
@@ -185,6 +211,7 @@ export default function ForecastCard({
   locationLabel,
   forecastHourlyUrl,   // from data.forecastHourlyUrl via useMarineForecast
   noaaZone,            // { id, description } from NOAA_SOURCES — shown as footnote
+  alerts,              // full data.alerts array from useMarineForecast — filtered below by date
 }) {
   const [showNarrative, setShowNarrative] = useState(false);
   const [showHourly,    setShowHourly]    = useState(false);
@@ -196,6 +223,8 @@ export default function ForecastCard({
   const forecastDate = dateMatch
     ? moment(`${moment().year()}-${dateMatch[1]}-${dateMatch[2]}`, "YYYY-M-D").format("YYYY-MM-DD")
     : moment().add(dayOffset, "days").format("YYYY-MM-DD");
+
+  const cardAlerts = (alerts ?? []).filter(a => alertOverlapsDate(a, forecastDate));
 
   const nws = nwsForecast?.[forecastDate];
   const dailyTides = (tideData?.[forecastDate] ?? [])
@@ -225,6 +254,30 @@ export default function ForecastCard({
         </CardHeader>
 
         <CardContent className="space-y-3">
+          {/* Hazardous weather alerts (Small Craft Advisory, Gale Warning, etc.) */}
+          {cardAlerts.length > 0 && (
+            <div className="space-y-1.5">
+              {cardAlerts.map((alert, idx) => {
+                const c = alertSeverityClasses(alert.severity);
+                const from = formatAlertTime(alert.onset);
+                const until = formatAlertTime(alert.expires);
+                return (
+                  <div key={idx} className={`flex items-start gap-2 p-2 rounded-lg border ${c.box}`}>
+                    <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${c.icon}`} />
+                    <div className="text-xs">
+                      <p className={`font-semibold ${c.title}`}>{alert.event ?? "Hazardous Weather"}</p>
+                      {(from || until) && (
+                        <p className={c.body}>
+                          {from && `From ${from}`}{from && until ? " " : ""}{until && `until ${until}`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* NWS Weather — click to open hourly popup */}
           {nws && (
             <div

@@ -123,6 +123,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, hasNearshor
               hasNearshore={hasNearshore}
               zoneMode={zoneMode}
               onZoneModeChange={setZoneMode}
+              alerts={data.alerts}
             />
             <ExtendedOutlook
               forecasts={data.forecast?.forecasts}
@@ -132,6 +133,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, hasNearshor
               locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
               noaaZone={data.noaaZone}
+              alerts={data.alerts}
             />
             {data.forecast?.timestamp && (
               <p className="text-[10px] text-slate-400 text-center pt-2 border-t border-slate-100">

@@ -189,6 +189,7 @@ export default function WeatherBottomSheet() {
                 hasNearshore={hasNearshore}
                 zoneMode={zoneMode}
                 onZoneModeChange={setZoneMode}
+                alerts={data.alerts}
               />
             </div>
             {snap === "full" && (
@@ -200,6 +201,7 @@ export default function WeatherBottomSheet() {
                 locationLabel={selectedLocation?.label}
                 forecastHourlyUrl={data.forecastHourlyUrl}
                 noaaZone={data.noaaZone}
+                alerts={data.alerts}
               />
             )}
             {data.forecast?.timestamp && snap === "full" && (

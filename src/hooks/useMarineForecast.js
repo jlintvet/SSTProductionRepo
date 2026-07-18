@@ -271,6 +271,39 @@ async function fetchNws(lat, lon) {
   return { map, forecastHourlyUrl };
 }
 
+// Active hazardous-weather alerts (Small Craft Advisory, Gale Warning, etc.)
+// for a NOAA marine zone. Same live-fetch pattern as fetchTides/fetchNws
+// (api.weather.gov) — not baked into the scraped JSON because alerts have
+// precise onset/expires timestamps that change throughout the day, unlike
+// the scraper's periodic snapshot.
+async function fetchAlerts(zoneId) {
+  if (!zoneId) return [];
+  try {
+    const res = await fetch(
+      `https://api.weather.gov/alerts/active/zone/${zoneId}`,
+      { headers: { "Accept": "application/geo+json" } }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    const features = json?.features ?? [];
+    return features.map(f => {
+      const p = f.properties ?? {};
+      return {
+        event:       p.event ?? null,
+        headline:    p.headline ?? null,
+        severity:    p.severity ?? null,
+        onset:       p.onset ?? p.effective ?? null,
+        expires:     p.expires ?? p.ends ?? null,
+        description: p.description ?? null,
+        instruction: p.instruction ?? null,
+      };
+    });
+  } catch (e) {
+    console.warn("[useMarineForecast] alerts fetch failed:", e);
+    return [];
+  }
+}
+
 function computeSun(lat, lon, numDays = 7) {
   const sunMap = {};
   for (let i = 0; i < numDays; i++) {
@@ -335,10 +368,11 @@ async function fetchAll(location, zoneMode) {
 
   const sun = computeSun(location.lat, location.lon, 7);
 
-  const [forecastResult, tidesResult, nwsResult] = await Promise.allSettled([
+  const [forecastResult, tidesResult, nwsResult, alertsResult] = await Promise.allSettled([
     fetchMarineForecast(zoneSource.forecastJsonUrl),
     fetchTides(source.tideStation),
     fetchNws(location.lat, location.lon),
+    fetchAlerts(zoneSource.noaaZone?.id),
   ]);
 
   if (forecastResult.status === "rejected") {
@@ -353,6 +387,7 @@ async function fetchAll(location, zoneMode) {
     nws:                nwsValue.map,
     forecastHourlyUrl:  nwsValue.forecastHourlyUrl,
     noaaZone:           zoneSource.noaaZone ?? null,
+    alerts:             alertsResult.status === "fulfilled" ? alertsResult.value : [],
     sun,
   };
 }
