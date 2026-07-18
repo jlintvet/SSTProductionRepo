@@ -324,8 +324,19 @@ function TipFlow({ pin, userId, onClose }) {
     if (finalAmount <= 0) return;
     const handle = platform === "venmo" ? pin.venmo_handle : pin.cashapp_handle;
     if (!handle) {
-      console.warn("[tip] recipient has no", platform, "handle:", pin.user_id);
       setTipError(true);
+      // Best-effort, non-blocking: log the attempt and (at most once per 24h,
+      // see notify-tip-missing-handle) notify the poster + admin that this
+      // report's payment handle is missing.
+      supabase.functions.invoke("notify-tip-missing-handle", {
+        body: {
+          location_id:       pin.id,
+          recipient_user_id: pin.user_id,
+          tipper_user_id:    userId || null,
+          platform,
+          amount_cents:      Math.round(finalAmount * 100),
+        },
+      }).catch(() => {});
       return;
     }
     recordAndOpen(platform);

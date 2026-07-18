@@ -44,6 +44,15 @@ export default function UserMenu({ onUpgrade }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Opened by TipNotificationModal's "Add Payment Info" CTA (SSTLive.jsx) via
+  // the same custom-event pattern UserSettingsModal already uses for
+  // riploc:start-tour.
+  useEffect(() => {
+    function handleOpenSettings() { setShowSettings(true); }
+    document.addEventListener("riploc:open-settings", handleOpenSettings);
+    return () => document.removeEventListener("riploc:open-settings", handleOpenSettings);
+  }, []);
+
   // A region change forces a full page reload (region drives which data
   // pipeline the whole app uses -- see UserSettingsModal.handleSave). That
   // reload wipes all React state, including this open modal. Without this,

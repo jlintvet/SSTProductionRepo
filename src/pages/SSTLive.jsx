@@ -16,6 +16,7 @@ import TripSummaryModal from "@/components/TripSummaryModal";
 import CommunityReportForm from "@/components/CommunityReportForm";
 import OnboardingCarousel from "@/components/OnboardingCarousel";
 import LeaderboardModal from "@/components/LeaderboardModal";
+import TipNotificationModal from "@/components/TipNotificationModal";
 
 // ── Deploy diagnostic ─────────────────────────────────────────────────────────
 if (typeof window !== "undefined") console.log("SST deploy check: 2026-06-11T01");
@@ -467,6 +468,7 @@ function SSTPageBody() {
   const [showLeaderboard,     setShowLeaderboard]     = useState(false);
   const [communityPinDrop,    setCommunityPinDrop]    = useState(null); // "live" | "report" | null
   const [showOnboarding,      setShowOnboarding]      = useState(false);
+  const [tipNotifications,   setTipNotifications]   = useState([]);
 
   // Re-launch tour from HelpReportModal or UserSettingsModal via custom event
   useEffect(() => {
@@ -491,6 +493,62 @@ function SSTPageBody() {
       .catch(() => {}); // Silently ignore — don't block map on onboarding check failure
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, userId]);
+
+  // Check for unseen tip_notifications (someone tried to tip this user's report
+  // but the pin had no venmo/cashapp handle) after login. Mirrors the
+  // has_seen_onboarding check above. Skipped entirely if the user has muted
+  // these nudges (tip_notifications_muted) -- checked first so a muted user
+  // never even issues the tip_notifications query. See notify-tip-missing-handle
+  // edge function for the email side of this same flow (it also respects the
+  // mute flag independently, so muting still works if this client-side check
+  // is ever bypassed).
+  useEffect(() => {
+    if (loading || !userId) return;
+    supabase
+      .from("user_profiles")
+      .select("tip_notifications_muted")
+      .eq("id", userId)
+      .single()
+      .then(({ data }) => {
+        if (data?.tip_notifications_muted) return;
+        return supabase
+          .from("tip_notifications")
+          .select("id, platform, amount_cents, created_at")
+          .eq("recipient_user_id", userId)
+          .is("seen_at", null)
+          .order("created_at", { ascending: false });
+      })
+      .then((res) => {
+        if (res?.data && res.data.length) setTipNotifications(res.data);
+      })
+      .catch(() => {}); // Silently ignore — don't block map on this check failing
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, userId]);
+
+  function dismissTipNotifications() {
+    const ids = tipNotifications.map(n => n.id);
+    setTipNotifications([]);
+    if (ids.length) {
+      supabase.from("tip_notifications").update({ seen_at: new Date().toISOString() }).in("id", ids)
+        .then(() => {}).catch(() => {});
+    }
+  }
+
+  function openSettingsFromTipNotification() {
+    document.dispatchEvent(new CustomEvent("riploc:open-settings"));
+    dismissTipNotifications();
+  }
+
+  // "Don't show this again" -- dismiss the current batch AND persist the
+  // opt-out so future tip attempts on this user's pins don't re-notify them
+  // (a plain Dismiss would otherwise just come back on the next attempt).
+  function muteTipNotifications() {
+    dismissTipNotifications();
+    if (userId) {
+      supabase.from("user_profiles").update({ tip_notifications_muted: true }).eq("id", userId)
+        .then(() => {}).catch(() => {});
+    }
+  }
 
   async function handleOnboardingComplete() {
     setShowOnboarding(false);
@@ -1257,6 +1315,14 @@ function SSTPageBody() {
 
           {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
           {showOnboarding && <OnboardingCarousel onComplete={handleOnboardingComplete} />}
+          {tipNotifications.length > 0 && (
+            <TipNotificationModal
+              notifications={tipNotifications}
+              onDismiss={dismissTipNotifications}
+              onOpenSettings={openSettingsFromTipNotification}
+              onMute={muteTipNotifications}
+            />
+          )}
 
           <div className="hidden sm:block flex-shrink-0" style={{ overflow: "visible" }}>
             {isWindMap
