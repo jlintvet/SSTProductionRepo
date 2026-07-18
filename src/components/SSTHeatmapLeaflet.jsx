@@ -352,8 +352,9 @@ function TipFlow({ pin, userId, onClose }) {
       )}
       {tipError ? (
         <div className="text-sm text-slate-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-3 text-center leading-snug">
-          Sorry — there’s an error preventing this tip from processing right now.
-          We’ve notified the admin and are working to resolve it.
+          Sorry. The user that contributed this content has not setup their venmo / cashapp
+          information in user settings. They've been notified. Thank you for attempting to
+          make this tip. Please try again in the future. Hopefully they will resolve this shortly.
         </div>
       ) : (
         <div className="flex flex-col gap-2">
