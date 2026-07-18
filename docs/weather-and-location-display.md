@@ -298,7 +298,7 @@ Runs `scraper.py` on a schedule and commits updated JSON files to the repo. The 
 **Steps:**
 1. Checkout NOAAPARSE repo
 2. Install `requests`, `beautifulsoup4`
-3. Run `scraper.py` — outputs 7 JSON files
+3. Run `scraper.py` — outputs 92 JSON files (one per location/zone `scrape_and_save()` call, including a nearshore file for every location with a nearshore/offshore toggle — see §6a)
 4. Commit and push changed files
 
 ### `fishing-hotspot-analysis.yml` (in `jlintvet/SSTv2` repo)
@@ -319,22 +319,24 @@ Runs `FishingHotspotAnalyzer.py` after the VIIRS bundler workflow completes.
 
 ---
 
-## 6a. Nearshore/Offshore Toggle (mid_atlantic pilot, shipped 2026-07-18)
+## 6a. Nearshore/Offshore Toggle (shipped 2026-07-18, all 4 regions)
 
-Five open-ocean mid_atlantic locations (Oregon Inlet, Hatteras Inlet, Beaufort Inlet, Virginia Beach, Ocean City Inlet) let the user switch between a 0-20nm nearshore forecast and the 20-60nm offshore forecast. The 4 Chesapeake Bay locations have no offshore equivalent and are out of scope — see `CLAUDE.md` §5 for the full zone reference table.
+Every open-ocean location across all 4 regions (mid_atlantic, ga_sc, ne_fl, va_ri) lets the user switch between a 0-20nm nearshore forecast and the 20-60nm offshore forecast. Bay-only locations have no offshore equivalent and are out of scope: the 4 Chesapeake Bay locations (mid_atlantic) and Stonington, CT (va_ri) — see `CLAUDE.md` §5 for the full zone reference tables.
 
-**Data:** each of the 5 locations has a second scraped JSON file (`*_nearshore.json`) from a second `scrape_and_save()` call in `scraper.py`, hitting a distinct NOAA zone ID. Nearshore and offshore zones are not always the same coastline span or WFO — always verify a new zone against live NWS zone text before wiring it up (see `CLAUDE.md` §5).
+**Data:** every open-ocean location has a second scraped JSON file (`*_nearshore.json`) from a second `scrape_and_save()` call in `scraper.py`, hitting a distinct NOAA zone ID. Nearshore and offshore zones are not always the same coastline span or WFO, and an offshore zone doesn't always map 1:1 to one nearshore zone — always verify a new zone against live NWS zone text before wiring it up (see `CLAUDE.md` §5). Two patterns worth knowing before extending this further:
+- **One offshore zone splitting into two nearshore zones**, with different locations in the same offshore zone landing on different nearshore zones depending on where they sit within that span (e.g. ga_sc's AMZ284 → AMZ254 north / AMZ256 south).
+- **Two locations sharing one offshore zone but getting different nearshore zones** from the same WFO (va_ri's Cape May NJ and Indian River Inlet DE both use offshore ANZ485 but split into nearshore ANZ454 and ANZ455 respectively).
 
 **Hook (`useMarineForecast.js`):**
-- `resolveZoneSource(source, zoneMode)` picks `source.offshore` or `source.nearshore` (falling back to `offshore` if `nearshore` doesn't exist), or returns the entry as-is for legacy flat-shape sources.
+- `resolveZoneSource(source, zoneMode)` picks `source.offshore` or `source.nearshore` (falling back to `offshore` if `nearshore` doesn't exist), or returns the entry as-is for legacy flat-shape sources (now only the 4 Chesapeake Bay locations and Stonington, CT).
 - `zoneMode` (`"offshore" | "nearshore"`) is hook-local state, initialized from `localStorage["sst_zoneMode"]` and updated via the hook's `setZoneMode`. It persists across locations and sessions — **not** reset when switching locations.
 - For locations without a nearshore zone, `effectiveZoneMode` is forced to `"offshore"` regardless of the stored preference; the stored preference itself is left untouched.
 - Cache key is `${locationLabel}::${effectiveZoneMode}`, so switching modes doesn't stale into the other zone's cached data.
 - Hook returns `hasNearshore`, `zoneMode`, `setZoneMode` alongside the existing `data`/`loading`/`error`/`isAvailable`.
 
-**UI (`NearshoreOffshoreToggle.jsx`):** a small segmented control ("Nearshore · 0-20nm" / "Offshore · 20-60nm"), rendered by `ImmediateOutlook` only when `hasNearshore` is true. No emojis/icons, per `CLAUDE.md` design rules. The `noaaZone` footnote on `ForecastCard` automatically reflects whichever zone is active since it just reads `data.noaaZone`.
+**UI (`NearshoreOffshoreToggle.jsx`):** a small segmented control ("Nearshore · 0-20nm" / "Offshore · 20-60nm"), rendered by `ImmediateOutlook` only when `hasNearshore` is true, full-width to match the `ForecastCard` below it. No emojis/icons, per `CLAUDE.md` design rules. The `noaaZone` footnote on `ForecastCard` automatically reflects whichever zone is active since it just reads `data.noaaZone`.
 
-**Extending to other regions:** ga_sc, ne_fl, and va_ri are not yet migrated — each region's nearshore zone IDs must be individually researched and verified before adding the toggle there (do not pattern-match from the offshore zone ID).
+**Hazard alerts:** `useMarineForecast.js` also live-fetches active NWS alerts (Small Craft Advisory, Gale Warning, etc.) per zone via `fetchAlerts(zoneId)` hitting `api.weather.gov/alerts/active/zone/{zoneId}`, exposed as `data.alerts`. `ForecastCard` matches each alert's onset/end window against the card's date and renders a banner. Note the CAP field priority: use `ends` (the actual forecast hazard end time, matches the human-authored headline) over `expires` (when the alert message rolls off the active feed — a different, often earlier, technical timestamp) — this was a real bug caught in production.
 
 ---
 
