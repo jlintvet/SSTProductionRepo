@@ -120,6 +120,14 @@ export default function AnnouncementCarousel({ announcements, onDismiss, onReact
           </button>
         </div>
 
+        {/* Media + slide content + feedback scroll as a unit -- header,
+            progress dots, and the nav footer (Next/Got it) stay pinned so
+            the primary action is always reachable even when a tall video +
+            long body + feedback UI together exceed the modal's max height
+            on a short mobile viewport (previously everything was
+            flex-shrink-0 inside an overflow-hidden card, so overflow was
+            silently clipped with no way to scroll to it). */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
         {/* ── Media (image or video, only if present) ────────────────── */}
         {current.media_type === "video" && current.media_url && (
           <div className="relative bg-slate-900 flex-shrink-0" style={{ aspectRatio: "16/9" }}>
@@ -216,6 +224,7 @@ export default function AnnouncementCarousel({ announcements, onDismiss, onReact
           ) : (
             <p className="text-[11px] text-cyan-600 mb-2">Thanks — comment sent.</p>
           )}
+        </div>
         </div>
 
         {/* ── Progress dots ───────────────────────────────────────────── */}
