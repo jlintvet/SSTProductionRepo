@@ -195,6 +195,7 @@ const REGION_OPTIONS = [
   { value: "mid_atlantic", label: "Mid-Atlantic (MD / VA / NC)" },
   { value: "ga_sc",        label: "Georgia & South Carolina" },
   { value: "ne_fl",        label: "Northeast Florida" },
+  { value: "s_fl",         label: "Southern Florida" },
   { value: "va_ri",        label: "Virginia to Rhode Island" },
 ];
 

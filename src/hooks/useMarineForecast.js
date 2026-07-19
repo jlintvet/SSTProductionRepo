@@ -215,6 +215,42 @@ const NOAA_SOURCES = {
     offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa.json", noaaZone: { id: "AMZ671", description: "Deerfield Beach to Ocean Reef FL, 20-60nm" } },
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fortlauderdalefl_noaa_nearshore.json", noaaZone: { id: "AMZ651", description: "Deerfield Beach to Ocean Reef FL, 0-20nm" } },
   },
+    // ── Southern Florida Region ──────────────────────────────────────────────
+    // "Fort Pierce, FL", "Stuart, FL", "Lake Worth Inlet, FL", and
+    // "Fort Lauderdale, FL" reuse the ne_fl entries above (same labels, same
+    // physical ports/zones). Only the 7 new ports below need entries here.
+    // Offshore only (20-60nm) -- no nearshore/offshore toggle for this region
+    // yet; all 5 new zone IDs (AMZ671 reused, GMZ072/073/074/676/876)
+    // verified live against marine.weather.gov 2026-07-19, not pattern-matched.
+  "Miami, FL": {
+    tideStation: "8723178",   // Miami Beach, Government Cut, FL
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/miamifl_noaa.json", noaaZone: { id: "AMZ671", description: "Deerfield Beach to Ocean Reef FL, 20-60nm" } },
+  },
+  "Islamorada, FL": {
+    tideStation: "8723797",   // Whale Harbor Channel, Windley Key, FL
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/islamoradafl_noaa.json", noaaZone: { id: "GMZ072", description: "Straits of Florida from Ocean Reef to Craig Key, 20-60nm" } },
+  },
+  "Marathon, FL": {
+    tideStation: "8723970",   // Vaca Key, Florida Bay, FL
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/marathonfl_noaa.json", noaaZone: { id: "GMZ073", description: "Straits of Florida from Craig Key to west end of Seven Mile Bridge, 20-60nm" } },
+  },
+  "Key West, FL": {
+    tideStation: "8724580",   // Key West, FL
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/keywestfl_noaa.json", noaaZone: { id: "GMZ074", description: "Straits of Florida from west end of Seven Mile Bridge to south of Halfmoon Shoal, 20-60nm" } },
+  },
+  "Naples, FL": {
+    tideStation: "8725110",   // Naples, FL
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/naplesfl_noaa.json", noaaZone: { id: "GMZ676", description: "Waters from Chokoloskee to Bonita Beach FL, 20-60nm" } },
+  },
+  "Marco Island, FL": {
+    tideStation: "8724967",   // Marco Island, Caxambas Pass, FL
+    // Same zone as Naples -- both fall in MFL's Gulf-side GMZ676 strip.
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/marcoislandfl_noaa.json", noaaZone: { id: "GMZ676", description: "Waters from Chokoloskee to Bonita Beach FL, 20-60nm" } },
+  },
+  "Fort Myers Beach, FL": {
+    tideStation: "8725366",   // Matanzas Pass, Estero Island, FL
+    offshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/ftmyersbeachfl_noaa.json", noaaZone: { id: "GMZ876", description: "Waters from Bonita Beach to Englewood FL, 20-60nm" } },
+  },
     // ── Virginia to Rhode Island Region ──────────────────────────────────────
     // "Virginia Beach, VA" reuses the mid_atlantic entry above (same label,
     // same physical port/zone). "Ocean City Inlet, MD" also reuses the

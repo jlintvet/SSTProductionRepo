@@ -121,6 +121,53 @@ export const REGION_CONFIGS = {
     ],
   },
 
+  s_fl: {
+    label: "Southern Florida",
+    bounds: {
+      north:  27.47,  // northern limit: Fort Pierce, FL
+      south:  22.15,  // southern limit: Cienfuegos, Cuba (map extent only -- no Cuba content)
+      west:  -83.16,  // western limit:  Bahia Honda, Cuba (map extent only -- no Cuba content)
+      east:  -76.14,  // eastern limit:  same as ne_fl
+    },
+    minZoom:         6,
+    maxZoom:         11,
+    defaultCenter:   { lat: 24.80, lon: -79.65 },
+    defaultZoom:     6.5,
+    defaultLocation: "Islamorada, FL",
+    // Sub-path under SSTv2 repo where backend writes Southern FL data files.
+    // e.g. DailySSTData/MUR/s_fl/mur_YYYYMMDD.csv
+    // Leave "" for mid_atlantic (uses root paths for backward compat).
+    dataPathSuffix:  "s_fl",
+    // Warmest region yet -- Florida Straits/Gulf Stream runs close to the
+    // Keys year-round; Gulf-side ports (Naples/Marco Island/Ft Myers Beach)
+    // sit on a shallower shelf that swings colder in winter than the
+    // Atlantic/Straits side. These are best-guess estimates.
+    sstSeasonalDefaults: {
+      summer: { min: 76, max: 90 }, // Jun-Sep: nearshore 84-88, Gulf Stream close to the Keys
+      fall:   { min: 72, max: 87 },
+      winter: { min: 66, max: 84 }, // Gulf-side shelf runs cooler than the Straits side
+      spring: { min: 72, max: 86 },
+    },
+    locations: [
+      // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
+      // Fort Pierce, Stuart, Lake Worth Inlet, and Fort Lauderdale are the
+      // same physical ports as in ne_fl -- deliberately duplicated here
+      // (each region keeps its own independent ports array), same wreckRegion
+      // keys reused since it's the same physical bottom-feature data pool.
+      { label: "Fort Pierce, FL",      lat: 27.4700, lon: -80.2883, wreckRegion: "FortPierceFL",     noaaCoverage: true, noaaZone: "AMZ575" },
+      { label: "Stuart, FL",           lat: 27.1661, lon: -80.1567, wreckRegion: "StuartFL",          noaaCoverage: true, noaaZone: "AMZ575" },
+      { label: "Lake Worth Inlet, FL", lat: 26.7723, lon: -80.0373, wreckRegion: "LakeWorthFL",       noaaCoverage: true, noaaZone: "AMZ670" },
+      { label: "Fort Lauderdale, FL",  lat: 26.0860, lon: -80.1160, wreckRegion: "FortLauderdaleFL",  noaaCoverage: true, noaaZone: "AMZ671" },
+      { label: "Miami, FL",            lat: 25.7658, lon: -80.1300, wreckRegion: "MiamiFL",           noaaCoverage: true, noaaZone: "AMZ671" },
+      { label: "Islamorada, FL",       lat: 24.9383, lon: -80.6100, wreckRegion: "IslamoradaFL",      noaaCoverage: true, noaaZone: "GMZ072" },
+      { label: "Marathon, FL",         lat: 24.7117, lon: -81.1050, wreckRegion: "MarathonFL",        noaaCoverage: true, noaaZone: "GMZ073" },
+      { label: "Key West, FL",         lat: 24.5533, lon: -81.8083, wreckRegion: "KeyWestFL",         noaaCoverage: true, noaaZone: "GMZ074" },
+      { label: "Naples, FL",           lat: 26.1317, lon: -81.8075, wreckRegion: "NaplesFL",          noaaCoverage: true, noaaZone: "GMZ676" },
+      { label: "Marco Island, FL",     lat: 25.9083, lon: -81.7283, wreckRegion: "MarcoIslandFL",     noaaCoverage: true, noaaZone: "GMZ676" },
+      { label: "Fort Myers Beach, FL", lat: 26.4567, lon: -81.9533, wreckRegion: "FtMyersBeachFL",    noaaCoverage: true, noaaZone: "GMZ876" },
+    ],
+  },
+
   va_ri: {
     label: "Virginia to Rhode Island",
     bounds: {

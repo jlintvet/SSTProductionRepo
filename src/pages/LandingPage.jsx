@@ -685,6 +685,14 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         ports: ["Mayport","St. Augustine","Ponce Inlet","Port Canaveral","Sebastian Inlet","Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale"],
       },
       {
+        key: "s_fl",
+        label: "Southern Florida",
+        mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-83.16,22.15,-76.14,27.47]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
+        desc: "Fort Pierce to the Florida Keys and Gulf coast offshore — Florida Straits, Gulf Stream against the reef, Keys backcountry",
+        bounds: "N 27.47°  ·  S 22.15°  ·  W 83.16°  ·  E 76.14°",
+        ports: ["Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale","Miami","Islamorada","Marathon","Key West","Naples","Marco Island","Fort Myers Beach"],
+      },
+      {
         key: "va_ri",
         label: "Virginia to Rhode Island",
         mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-77.46,37.26,-68.97,41.51]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
@@ -995,7 +1003,7 @@ function HeroCarousel({ open, heroBoatImg, featureMahiImg, ctaBillfishImg }) {
             <PlayIcon /> Watch How It Works
           </button>
         </div>
-        <p className="rl-hero-note">No credit card required &middot; Mid-Atlantic &middot; Georgia &amp; South Carolina &middot; Northeast Florida &middot; Virginia to Rhode Island &middot; More regions coming</p>
+        <p className="rl-hero-note">No credit card required &middot; Mid-Atlantic &middot; Georgia &amp; South Carolina &middot; Northeast Florida &middot; Southern Florida &middot; Virginia to Rhode Island &middot; More regions coming</p>
       </div>
       <div className="rl-carousel-dots">
         {HERO_SLIDES.map((_, i) => (

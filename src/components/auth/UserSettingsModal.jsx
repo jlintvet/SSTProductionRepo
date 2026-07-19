@@ -739,6 +739,14 @@ const REGION_PICKER_DATA = [
     ports: ["Mayport","St. Augustine","Ponce Inlet","Port Canaveral","Sebastian Inlet","Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale"],
   },
   {
+    key: "s_fl",
+    label: "Southern Florida",
+    desc: "Fort Pierce to the Florida Keys and Gulf coast offshore — Florida Straits, Gulf Stream against the reef, Keys backcountry",
+    bounds: "N 27.47°  ·  S 22.15°  ·  W 83.16°  ·  E 76.14°",
+    bbox: "[-83.16,22.15,-76.14,27.47]",
+    ports: ["Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale","Miami","Islamorada","Marathon","Key West","Naples","Marco Island","Fort Myers Beach"],
+  },
+  {
     key: "va_ri",
     label: "Virginia to Rhode Island",
     desc: "Chesapeake Bay mouth to Rhode Island Sound offshore — Delmarva, Jersey Shore, Long Island, Block Island Sound",
