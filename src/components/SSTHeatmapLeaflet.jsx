@@ -1250,6 +1250,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [savedCommunityPins,   setSavedCommunityPins]   = useState(new Set()); // set of pin ids saved this session
   const [communityTipModal,    setCommunityTipModal]    = useState(null); // { pin }
   const [thankingId,           setThankingId]           = useState(null);
+  const [imageLightbox,        setImageLightbox]        = useState(null); // { urls: string[], index: number }
   const communityCardElRef = useRef(null);
   // Position the community pin card using its *actual* rendered height. Text content is
   // synchronous, but an attached photo loads asynchronously (can take several seconds on a
@@ -4482,24 +4483,50 @@ export default function SSTHeatmapLeaflet(props) {
                   </div>
                 )}
 
-                {/* Photo — object-contain (not cover) so portrait photos aren't
-                    center-cropped; max-height caps how tall the card can grow */}
-                {pin.image_url && (
-                  <img
-                    src={pin.image_url}
-                    alt=""
-                    className="w-full max-h-48 object-contain rounded-lg mb-2 border border-slate-100 bg-slate-50"
-                    onLoad={repositionCommunityCard}
-                    onError={repositionCommunityCard}
-                  />
-                )}
+                {/* Photos — up to 10. A single photo keeps the old full-width
+                    hero treatment (object-contain so portrait photos aren't
+                    center-cropped); 2+ photos show as a horizontal thumbnail
+                    strip instead, since the 252px card can't show more than
+                    one full-size image at once. Either way, clicking opens
+                    the full-screen lightbox with prev/next through the set. */}
+                {(() => {
+                  const imgs = (pin.image_urls?.length ? pin.image_urls : (pin.image_url ? [pin.image_url] : []));
+                  if (imgs.length === 0) return null;
+                  if (imgs.length === 1) {
+                    return (
+                      <img
+                        src={imgs[0]}
+                        alt=""
+                        className="w-full max-h-48 object-contain rounded-lg mb-2 border border-slate-100 bg-slate-50 cursor-zoom-in"
+                        onClick={() => setImageLightbox({ urls: imgs, index: 0 })}
+                        onLoad={repositionCommunityCard}
+                        onError={repositionCommunityCard}
+                      />
+                    );
+                  }
+                  return (
+                    <div className="flex gap-1.5 mb-2 overflow-x-auto pb-0.5">
+                      {imgs.map((src, i) => (
+                        <img
+                          key={i}
+                          src={src}
+                          alt=""
+                          className="h-14 w-14 flex-shrink-0 object-cover rounded-lg border border-slate-100 bg-slate-50 cursor-zoom-in"
+                          onClick={() => setImageLightbox({ urls: imgs, index: i })}
+                          onLoad={repositionCommunityCard}
+                          onError={repositionCommunityCard}
+                        />
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Temp + notes */}
                 {pin.water_temp != null && (
                   <div className="text-cyan-600 font-semibold mb-1">{pin.water_temp.toFixed(1)}°F</div>
                 )}
                 {pin.notes && (
-                  <div className="text-slate-500 mb-2 line-clamp-2">{pin.notes}</div>
+                  <div className="text-slate-500 mb-2 whitespace-pre-wrap break-words">{pin.notes}</div>
                 )}
 
                 {/* Real-time inspector: bearing / distance / depth from departure */}
@@ -4578,6 +4605,49 @@ export default function SSTHeatmapLeaflet(props) {
                 </div>
                 <TipFlow pin={communityTipModal.pin} userId={userId} onClose={() => setCommunityTipModal(null)} />
               </div>
+            </div>,
+            document.body
+          )}
+
+          {imageLightbox && createPortal(
+            <div
+              className="fixed inset-0 flex items-center justify-center bg-black/85 p-4"
+              style={{ zIndex: 9700 }}
+              onClick={() => setImageLightbox(null)}
+            >
+              <button
+                onClick={() => setImageLightbox(null)}
+                className="absolute top-4 right-4 text-white/80 hover:text-white p-2"
+              >
+                <svg width="24" height="24" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+              {imageLightbox.urls.length > 1 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setImageLightbox(lb => ({ ...lb, index: (lb.index - 1 + lb.urls.length) % lb.urls.length })); }}
+                  className="absolute left-2 sm:left-6 text-white/80 hover:text-white p-2"
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
+              )}
+              <img
+                src={imageLightbox.urls[imageLightbox.index]}
+                alt=""
+                className="max-w-full max-h-full object-contain rounded-lg"
+                onClick={e => e.stopPropagation()}
+              />
+              {imageLightbox.urls.length > 1 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setImageLightbox(lb => ({ ...lb, index: (lb.index + 1) % lb.urls.length })); }}
+                  className="absolute right-2 sm:right-6 text-white/80 hover:text-white p-2"
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+              )}
+              {imageLightbox.urls.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-xs font-medium">
+                  {imageLightbox.index + 1} / {imageLightbox.urls.length}
+                </div>
+              )}
             </div>,
             document.body
           )}

@@ -250,12 +250,11 @@ tr:hover td{background:#1e293b}
           <textarea id="eNotes" class="finput" rows="3" style="resize:vertical"></textarea>
         </div>
         <div>
-          <div class="flabel">Photo</div>
-          <img id="eImagePreview" style="display:none;width:100%;max-height:140px;object-fit:cover;border-radius:6px;border:1px solid #334155;margin-bottom:6px"/>
+          <div class="flabel">Photos (up to 10)</div>
+          <div id="eImageGallery" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px"></div>
           <div style="display:flex;gap:5px;align-items:center">
-            <input type="file" id="eImageFile" accept="image/*" style="display:none" onchange="uploadPinImage()"/>
-            <button class="btn btn-slate btn-sm" onclick="document.getElementById('eImageFile').click()">Upload / replace</button>
-            <button id="eImageRemoveBtn" class="btn btn-red btn-sm" style="display:none" onclick="removePinImage()">Remove</button>
+            <input type="file" id="eImageFile" accept="image/*" multiple style="display:none" onchange="uploadPinImages()"/>
+            <button id="eImageAddBtn" class="btn btn-slate btn-sm" onclick="document.getElementById('eImageFile').click()">Add photo(s)</button>
           </div>
           <div id="eImageStatus" style="font-size:11px;min-height:14px;margin-top:3px"></div>
         </div>
@@ -949,10 +948,7 @@ function renderEditPanel(pin) {
   document.getElementById('eAnonBadge').style.display = pin.is_anonymous ? 'inline-block' : 'none';
   document.getElementById('eNotes').value   = pin.notes || '';
   document.getElementById('eCoords').textContent = pin.lat ? `${pin.lat.toFixed(5)}° N, ${Math.abs(pin.lon).toFixed(5)}° W` : '—';
-  const imgPreview = document.getElementById('eImagePreview');
-  const imgRemoveBtn = document.getElementById('eImageRemoveBtn');
-  if (pin.image_url) { imgPreview.src = pin.image_url; imgPreview.style.display = 'block'; imgRemoveBtn.style.display = 'inline-block'; }
-  else { imgPreview.style.display = 'none'; imgPreview.src = ''; imgRemoveBtn.style.display = 'none'; }
+  buildImageGallery(pin);
   document.getElementById('eImageStatus').textContent = '';
   loadPinTips(pin);
   // type toggle
@@ -1176,45 +1172,84 @@ async function toggleFlag() {
   if (!error) { pin.is_flagged = newVal; renderEditPanel(pin); renderPinList(); loadStats(); }
 }
 
-// ── Photo management (append/replace or remove) ──────────────────────────────
-async function uploadPinImage() {
-  const pin = allPins.find(p => p.id === selectedPinId);
-  const fileInput = document.getElementById('eImageFile');
-  const file = fileInput.files?.[0];
-  fileInput.value = '';
-  if (!pin || !file) return;
-  const statusEl = document.getElementById('eImageStatus');
-  if (!file.type.startsWith('image/')) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Please choose an image file.'; return; }
-  if (file.size > 8 * 1024 * 1024) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Image must be 8 MB or smaller.'; return; }
-  statusEl.style.color = '#67e8f9'; statusEl.textContent = 'Uploading…';
-  try {
-    const path = `community/${pin.id}-${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]/g, '_')}`;
-    const { error: upErr } = await sb.storage.from('share-images').upload(path, file, { contentType: file.type, upsert: false });
-    if (upErr) throw upErr;
-    const { data: pub } = sb.storage.from('share-images').getPublicUrl(path);
-    const imageUrl = pub?.publicUrl;
-    if (!imageUrl) throw new Error('Upload succeeded but no public URL was returned.');
-    const { error: updErr } = await sb.from('community_locations').update({ image_url: imageUrl }).eq('id', pin.id);
-    if (updErr) throw updErr;
-    pin.image_url = imageUrl;
-    renderEditPanel(pin);
-    statusEl.style.color = '#86efac'; statusEl.textContent = 'Photo updated';
-    setTimeout(() => { statusEl.textContent = ''; }, 2000);
-  } catch (e) {
-    statusEl.style.color = '#f87171'; statusEl.textContent = 'Upload failed: ' + e.message;
-  }
+// ── Photo management (up to 10 per pin) ───────────────────────────────────────
+const MAX_PIN_IMAGES = 10;
+
+function storagePathFromPublicUrl(url) {
+  const marker = '/storage/v1/object/public/share-images/';
+  const idx = url.indexOf(marker);
+  return idx === -1 ? null : url.slice(idx + marker.length);
 }
 
-async function removePinImage() {
+function buildImageGallery(pin) {
+  const urls = pin.image_urls || (pin.image_url ? [pin.image_url] : []);
+  const gallery = document.getElementById('eImageGallery');
+  gallery.innerHTML = urls.map((url, i) => `
+    <div style="position:relative;width:64px;height:64px">
+      <img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #334155"/>
+      <button onclick="removePinImageAt(${i})" title="Remove"
+        style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:#7f1d1d;color:#fca5a5;border:none;font-size:11px;line-height:18px;cursor:pointer">×</button>
+    </div>
+  `).join('');
+  document.getElementById('eImageAddBtn').disabled = urls.length >= MAX_PIN_IMAGES;
+  document.getElementById('eImageAddBtn').textContent = urls.length >= MAX_PIN_IMAGES ? `Max ${MAX_PIN_IMAGES} photos` : 'Add photo(s)';
+}
+
+async function uploadPinImages() {
   const pin = allPins.find(p => p.id === selectedPinId);
-  if (!pin || !pin.image_url) return;
+  const fileInput = document.getElementById('eImageFile');
+  const files = Array.from(fileInput.files || []);
+  fileInput.value = '';
+  if (!pin || files.length === 0) return;
+  const statusEl = document.getElementById('eImageStatus');
+  const current = pin.image_urls || (pin.image_url ? [pin.image_url] : []);
+  const remaining = MAX_PIN_IMAGES - current.length;
+  if (remaining <= 0) { statusEl.style.color = '#f87171'; statusEl.textContent = `Already at the ${MAX_PIN_IMAGES}-photo limit.`; return; }
+
+  statusEl.style.color = '#67e8f9'; statusEl.textContent = 'Uploading…';
+  const uploaded = [];
+  for (const file of files.slice(0, remaining)) {
+    if (!file.type.startsWith('image/')) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Skipped a non-image file.'; continue; }
+    if (file.size > 8 * 1024 * 1024) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Skipped a file over 8 MB.'; continue; }
+    try {
+      const path = `community/${pin.id}-${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]/g, '_')}`;
+      const { error: upErr } = await sb.storage.from('share-images').upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      const { data: pub } = sb.storage.from('share-images').getPublicUrl(path);
+      if (pub?.publicUrl) uploaded.push(pub.publicUrl);
+    } catch (e) {
+      statusEl.style.color = '#f87171'; statusEl.textContent = 'Upload failed: ' + e.message;
+    }
+  }
+  if (uploaded.length === 0) return;
+
+  const newUrls = [...current, ...uploaded];
+  const { error: updErr } = await sb.from('community_locations').update({ image_urls: newUrls }).eq('id', pin.id);
+  if (updErr) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Error: ' + updErr.message; return; }
+  pin.image_urls = newUrls;
+  buildImageGallery(pin);
+  statusEl.style.color = '#86efac'; statusEl.textContent = `${uploaded.length} photo(s) added`;
+  setTimeout(() => { statusEl.textContent = ''; }, 2000);
+}
+
+async function removePinImageAt(i) {
+  const pin = allPins.find(p => p.id === selectedPinId);
+  const current = pin.image_urls || (pin.image_url ? [pin.image_url] : []);
+  if (!pin || !current[i]) return;
   if (!confirm('Remove this photo from the pin?')) return;
   const statusEl = document.getElementById('eImageStatus');
   statusEl.style.color = '#67e8f9'; statusEl.textContent = 'Removing…';
-  const { error } = await sb.from('community_locations').update({ image_url: null }).eq('id', pin.id);
+
+  const removedUrl = current[i];
+  const newUrls = current.filter((_, idx) => idx !== i);
+  const { error } = await sb.from('community_locations').update({ image_urls: newUrls }).eq('id', pin.id);
   if (error) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Error: ' + error.message; return; }
-  pin.image_url = null;
-  renderEditPanel(pin);
+  pin.image_urls = newUrls;
+  buildImageGallery(pin);
+
+  const path = storagePathFromPublicUrl(removedUrl);
+  if (path) sb.storage.from('share-images').remove([path]).catch(() => {}); // best-effort, row update already succeeded
+
   statusEl.style.color = '#86efac'; statusEl.textContent = 'Photo removed';
   setTimeout(() => { statusEl.textContent = ''; }, 2000);
 }

@@ -44,8 +44,8 @@ export default function CommunityReportForm({
   const [gpsCoords,   setGpsCoords]   = useState(null);   // {lat, lon}
   const [gpsLoading,  setGpsLoading]  = useState(false);
   const [gpsError,    setGpsError]    = useState(null);
-  const [photo,       setPhoto]       = useState(null);   // File
-  const [photoPreview,setPhotoPreview]= useState(null);   // object URL for preview
+  const [photos,      setPhotos]      = useState([]);     // File[], max 10
+  const [photoPreviews,setPhotoPreviews]=useState([]);     // object URL[] for preview, same index as photos
   const [photoError,  setPhotoError]  = useState(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [profile,     setProfile]     = useState(null);  // { display_name, venmo_handle, cashapp_handle, post_anonymously_default }
@@ -95,19 +95,32 @@ export default function CommunityReportForm({
     );
   }
 
+  const MAX_PHOTOS = 10;
+
   function handlePhotoPick(e) {
-    const f = e.target.files?.[0];
+    const picked = Array.from(e.target.files || []);
     e.target.value = "";
-    if (!f) return;
-    if (!f.type.startsWith("image/")) { setPhotoError("Please choose an image file."); return; }
-    if (f.size > 8 * 1024 * 1024) { setPhotoError("Image must be 8 MB or smaller."); return; }
-    setPhotoError(null);
-    setPhoto(f);
-    setPhotoPreview(URL.createObjectURL(f));
+    if (picked.length === 0) return;
+
+    const remaining = MAX_PHOTOS - photos.length;
+    if (remaining <= 0) { setPhotoError(`You can add up to ${MAX_PHOTOS} photos.`); return; }
+
+    const accepted = [];
+    let err = null;
+    for (const f of picked) {
+      if (accepted.length >= remaining) { err = `Only added ${remaining} — you can add up to ${MAX_PHOTOS} photos.`; break; }
+      if (!f.type.startsWith("image/")) { err = "Please choose image files only."; continue; }
+      if (f.size > 8 * 1024 * 1024) { err = "Each image must be 8 MB or smaller."; continue; }
+      accepted.push(f);
+    }
+    setPhotoError(err);
+    if (accepted.length === 0) return;
+    setPhotos(prev => [...prev, ...accepted]);
+    setPhotoPreviews(prev => [...prev, ...accepted.map(f => URL.createObjectURL(f))]);
   }
-  function removePhoto() {
-    setPhoto(null);
-    setPhotoPreview(null);
+  function removePhotoAt(i) {
+    setPhotos(prev => prev.filter((_, idx) => idx !== i));
+    setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i));
     setPhotoError(null);
   }
 
@@ -119,18 +132,21 @@ export default function CommunityReportForm({
     const effectiveLon = (useGpsLoc && gpsCoords) ? gpsCoords.lon : lon;
 
     try {
-      // Optional photo: upload to the existing share-images bucket (same
-      // pattern as HelpReportModal) before inserting the row.
-      let imageUrl = null;
-      if (photo) {
-        const path = `community/${crypto.randomUUID()}-${photo.name.replace(/[^\w.\-]/g, "_")}`;
+      // Optional photos (up to 10): upload each to the existing share-images
+      // bucket (same pattern as HelpReportModal), sequentially -- these are
+      // full-size phone photos up to 8MB each, uploading all 10 in parallel
+      // would be a lot of simultaneous bandwidth on a boat's connection.
+      const imageUrls = [];
+      for (const f of photos) {
+        const path = `community/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]/g, "_")}`;
         const { error: upErr } = await supabase.storage.from("share-images")
-          .upload(path, photo, { contentType: photo.type, upsert: false });
+          .upload(path, f, { contentType: f.type, upsert: false });
         if (!upErr) {
           const { data: pub } = supabase.storage.from("share-images").getPublicUrl(path);
-          imageUrl = pub?.publicUrl || null;
+          if (pub?.publicUrl) imageUrls.push(pub.publicUrl);
         }
-        // Non-fatal: if the upload fails, still post the report without a photo.
+        // Non-fatal per photo: if one upload fails, still post the report
+        // with whichever photos succeeded.
       }
       const { data: authData } = await supabase.auth.getUser();
       const displayName =
@@ -163,7 +179,7 @@ export default function CommunityReportForm({
           quantity:       qty,
           water_temp:     waterTemp,
           notes:          notes.trim() || null,
-          image_url:      imageUrl,
+          image_urls:     imageUrls,
           venmo_handle:   profile?.venmo_handle   || null,
           cashapp_handle: profile?.cashapp_handle || null,
           is_anonymous:   isAnonymous,
@@ -352,27 +368,30 @@ export default function CommunityReportForm({
           />
         </div>
 
-        {/* Photo */}
+        {/* Photos — up to 10 */}
         <div className="px-4 pt-1 pb-2">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
-            Photo (optional)
+            Photos (optional, up to {MAX_PHOTOS})
           </p>
-          {photoPreview ? (
-            <div className="relative inline-block">
-              <img src={photoPreview} alt="" className="h-20 w-20 object-cover rounded-lg border border-slate-200" />
-              <button
-                onClick={removePhoto}
-                className="absolute -top-1.5 -right-1.5 bg-slate-700 text-white rounded-full w-5 h-5 flex items-center justify-center shadow"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ) : (
-            <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 text-xs text-slate-500 cursor-pointer hover:border-cyan-400 hover:text-cyan-600">
-              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoPick} />
-              Add a photo
-            </label>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {photoPreviews.map((src, i) => (
+              <div key={i} className="relative">
+                <img src={src} alt="" className="h-20 w-20 object-cover rounded-lg border border-slate-200" />
+                <button
+                  onClick={() => removePhotoAt(i)}
+                  className="absolute -top-1.5 -right-1.5 bg-slate-700 text-white rounded-full w-5 h-5 flex items-center justify-center shadow"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {photos.length < MAX_PHOTOS && (
+              <label className="h-20 w-20 flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-[10px] text-slate-500 cursor-pointer hover:border-cyan-400 hover:text-cyan-600 text-center px-1">
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoPick} />
+                Add photo{photos.length > 0 ? "s" : ""}
+              </label>
+            )}
+          </div>
           {photoError && <p className="text-[10px] text-red-500 mt-1">{photoError}</p>}
         </div>
 
