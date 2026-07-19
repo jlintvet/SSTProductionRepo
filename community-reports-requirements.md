@@ -72,6 +72,7 @@ The location is the valuable asset — no pin positions are revealed to users wi
 |---|---|---|
 | **Location** | Auto-pulled from map tap | Lat/lon + nearest bathymetry depth auto-appended |
 | **Type** | Toggle: Live / Report | Determines expiry |
+| **Trip date** | Native date picker, next to the Type toggle (added 2026-07-19) | Defaults to today, capped at today (no future dates). See Section 20. |
 | **Species** | Multi-select dropdown | See species list below |
 | **Quantity** | Stepper per species selected | e.g., "3 Yellowfin, 1 Mahi" |
 
@@ -90,13 +91,20 @@ Yellowfin tuna · Blackfin tuna · Bluefin tuna · Mahi-mahi · White marlin · 
 
 > **UX note:** Pre-select species based on the fishing hotspot layer's predictions for that location if available. User confirms or changes.
 
-### Photo (implemented 2026-06-21)
-- One optional photo per Live pin or Report, uploaded via the existing `share-images`
+### Photos (implemented 2026-06-21, extended to up to 10 on 2026-07-18)
+- Up to 10 optional photos per Live pin or Report, uploaded via the existing `share-images`
   storage bucket (same upload pattern as the Help & Report Issues form).
-- 8 MB cap, validated client-side before upload.
-- Stored as `image_url` on the `community_locations` row (nullable).
-- Displayed in the pin detail popup card on the map, and manageable (replace/remove)
-  from the admin panel (`admin/community_admin.html`).
+- 8 MB cap per photo, validated client-side before upload (unchanged from the original 1-photo
+  version — a deliberate call not to lower it just because the count went up).
+- Stored as `image_urls` (`text[]`) on the `community_locations` row — see Section 19. The
+  original single `image_url` column is left in place, unused, rather than dropped.
+- Displayed in the pin detail popup card on the map (single photo = full-width hero image; 2+
+  = horizontal thumbnail strip), clicking any photo opens a full-screen lightbox with prev/next
+  through the set (Section 19). Manageable (add/remove any individual photo) from the admin panel
+  (`admin/community_admin.html`).
+- Storage cleanup: a daily scheduled job deletes the underlying storage objects once a pin
+  expires — see Section 19, this didn't exist before 2026-07-18 and photos from expired pins
+  accumulated in the bucket forever.
 
 ---
 
@@ -120,6 +128,21 @@ Posted by: @captainmike  ·  4 hours ago
 - **Tip**: Opens Stripe payment sheet. Suggested amounts: $3 / $5 / $10 / Custom.
 - **Flag**: Reports bad/fake report for manual review.
 
+**Anonymous posts (implemented 2026-07-18 — see Section 18):** if the poster chose to post
+anonymously, "Posted by:" shows **"Anonymous Contributor"** instead of their real name — everything
+else on the card (species, notes, photo, temp, Tip button) is unchanged. Jon can always see the
+real identity in the admin panel; other users cannot.
+
+**Backdated trip date (implemented 2026-07-19 — see Section 20):** the "posted X ago" line only
+ever reflects `created_at` (when the post hit the database). If the poster picked a trip date
+other than today, an amber **"· Trip: Jul 15"** badge appears right after it, in both the sidebar
+list row and the pin popup. No badge for the common case (same-day post) — nothing changes for
+most reports.
+
+**Delete (implemented 2026-07-19 — see Section 20):** a pin's creator sees a trash icon next to
+the popup's close (×) button, visible only to them — nobody else, including other logged-in users
+viewing the same pin, sees it.
+
 ---
 
 ## 6. Tipping (Venmo / CashApp / Zelle deep link)
@@ -132,12 +155,17 @@ No payment processing in-app. Tips go peer-to-peer via the user's preferred paym
   - **CashApp** $cashtag (e.g. `$captainmike`)
 - No PII collected or displayed. Venmo/CashApp handles are chosen by the user and are already public on those platforms.
 - At least one handle must be set for the Tip button to appear on their reports.
+- **Anonymous posts still show the handle.** Posting anonymously (Section 18) hides the poster's
+  display name, not their payment handle — the handle was already treated as non-PII above, and
+  hiding it too would break tipping entirely (a captain going anonymous still wants tips). This
+  was an explicit trade-off Jon confirmed rather than building a heavier in-app payment mediation
+  layer.
 
 ### Tipper Flow
 1. User taps **Tip** on a report card.
 2. App shows a tip amount input (suggested: $3 / $5 / $10 / custom) and the available payment apps for that author.
 3. User enters amount and selects platform.
-4. App **records the tip intent** in `community_tips` (tipper, recipient, location, amount, platform, timestamp).
+4. App **records the tip intent** in `community_tips` (tipper, recipient, location, amount, platform, timestamp) — as of 2026-07-18 this goes through the `record_community_tip` RPC rather than a direct client insert, so the client never needs the poster's real `user_id` (see Section 18).
 5. App opens the deep link — payment app launches with amount and recipient pre-filled where supported:
    - Venmo: `venmo://paycharge?txn=pay&recipients=USERNAME&amount=5&note=riploc`
    - CashApp: `cashapp://cash.app/$USERNAME` (amount filled in app)
@@ -269,7 +297,10 @@ water_temp      float4           -- auto-populated from SST at creation
 water_color     text
 technique       text
 notes           text
-image_url       text             -- optional photo, added 2026-06-21 (share-images bucket)
+image_url       text             -- optional photo, added 2026-06-21 (share-images bucket).
+                                  -- Left in place unused as of 2026-07-18 -- see image_urls below.
+image_urls      text[] default '{}'  -- added 2026-07-18, replaces image_url, up to 10 (CHECK
+                                      -- constraint), see Section 19
 tip_count       int default 0
 tip_total       float8 default 0
 thank_count     int default 0
@@ -278,6 +309,41 @@ expires_at      timestamptz      -- now() + 7d for BOTH live and report (changed
                                   -- live pins additionally render with pulsing styling for
                                   -- the first 48h only, computed from created_at -- see Sec. 2a)
 is_flagged      bool default false
+is_anonymous    bool default false  -- added 2026-07-18, see Section 18
+trip_date       date not null default current_date  -- added 2026-07-19, see Section 20
+```
+
+**Note (2026-07-18):** `water_color` and `technique` above were never actually implemented as
+real columns — they were part of the original schema sketch but the shipped form (Section 4)
+never wrote to them. The real column is `tip_total_cents` (integer), not `tip_total` (float8) as
+sketched above; there's also a `points_awarded` column (integer) recording per-post points at
+insert time. Treat this block as historical intent, not current truth — see `community-schema.sql`
+in the repo for what's actually live.
+
+### `community_locations_public` (view, added 2026-07-18 — see Sections 18 & 19)
+```sql
+-- The map reads pins from THIS view, not the raw table above. Masks
+-- display_name to "Anonymous Contributor" for is_anonymous rows and drops
+-- user_id entirely for every row (not just anonymous ones — the client
+-- never legitimately needs it; see Section 18 for why). Exposes image_urls
+-- (array), not the legacy single image_url column -- see Section 19.
+-- trip_date and is_own added 2026-07-19 (Section 20) -- trip_date was
+-- originally missed from this explicit column list when the column was
+-- added, so backdated posts silently showed "Just now" on the map for a
+-- window until this was caught and fixed. is_own is computed server-side
+-- per requesting user (auth.uid() = user_id) so a viewer can tell which
+-- pins are their own without user_id itself ever reaching the client.
+CREATE VIEW community_locations_public
+WITH (security_invoker = true) AS
+SELECT
+  id, type, lat, lon, species, quantity, water_temp, notes, image_urls,
+  points_awarded, tip_count, tip_total_cents, thank_count, created_at, expires_at,
+  is_flagged, is_anonymous,
+  CASE WHEN is_anonymous THEN 'Anonymous Contributor' ELSE display_name END AS display_name,
+  venmo_handle, cashapp_handle, trip_date,
+  (user_id = auth.uid()) AS is_own
+FROM community_locations
+WHERE is_flagged = false AND expires_at > now();
 ```
 
 ### `community_tips`
@@ -289,6 +355,32 @@ recipient_user_id     uuid references auth.users
 amount_cents          int              -- logged at tip intent, peer-to-peer via Venmo/CashApp
 platform          text check (platform in ('venmo', 'cashapp'))
 created_at            timestamptz default now()
+```
+
+### `record_community_tip` (RPC, added 2026-07-18 — see Section 18)
+```sql
+-- All tips go through this RPC now, not a direct community_tips insert.
+-- Resolves recipient_user_id server-side from location_id (the client
+-- doesn't have user_id -- see community_locations_public above) and
+-- increments tip_count/tip_total_cents, fixing a pre-existing bug where
+-- that counter update ran as the tipper and was silently RLS-blocked
+-- (cl_update requires auth.uid() = user_id, which a tipper never is).
+CREATE OR REPLACE FUNCTION record_community_tip(
+  p_location_id uuid, p_amount_cents integer, p_platform text
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE v_recipient uuid;
+BEGIN
+  SELECT user_id INTO v_recipient FROM community_locations WHERE id = p_location_id;
+  IF v_recipient IS NULL THEN RAISE EXCEPTION 'location not found'; END IF;
+  INSERT INTO community_tips (location_id, tipper_user_id, recipient_user_id, amount_cents, platform)
+  VALUES (p_location_id, auth.uid(), v_recipient, p_amount_cents, p_platform);
+  UPDATE community_locations
+  SET tip_count = tip_count + 1, tip_total_cents = tip_total_cents + p_amount_cents
+  WHERE id = p_location_id;
+END;
+$$;
 ```
 
 ### `community_flags`
@@ -407,6 +499,8 @@ This keeps all community functionality in one logical place in the existing UI p
 - [x] Photo attachment on Live pins/Reports (2026-06-21 — not originally in this phase list)
 - [x] Expanded species list (2026-06-21 — not originally in this phase list)
 - [x] Live pin 48h pulse-then-revert instead of 24h hard expiry (2026-06-21)
+- [x] Anonymous posting toggle, account default + per-post override (2026-07-18 — see Section 18;
+      not originally in this phase list)
 
 ---
 
@@ -556,3 +650,221 @@ otherwise.
    stored (misleading: looked like the GPS *feature* was broken, when
    really location access had just never been granted). Fixed by alerting
    specifically on `PERMISSION_DENIED` and un-toggling GPS back off.
+
+---
+
+## 18. Anonymous Posting (Implemented 2026-07-18)
+
+Lets a user hide their identity on a community report/live pin while still earning leaderboard
+credit and receiving tips. Motivation: commercial charter captains post real, valuable catch
+reports but don't want their identity publicly linked to a specific spot/catch. Full design
+writeup: `community-reports-anonymous-posting-plan.md`.
+
+### Scope decisions
+- **Toggle scope: account-level default + per-post override.** A "Post reports anonymously by
+  default" toggle lives in User Settings → Community Profile
+  (`user_profiles.post_anonymously_default`). The report form's own "Post anonymously" checkbox
+  is pre-filled from that default each time but is independently editable per post — a captain
+  who defaults to anonymous can un-check it for one report, and vice versa. Only the per-post
+  checkbox value is written to `community_locations.is_anonymous`; the account default itself is
+  never silently changed by a one-off override.
+- **Leaderboard credit: still counts under the real name.** Anonymous posts earn points and
+  contribute to the poster's leaderboard total exactly as normal — `LeaderboardModal.jsx`
+  deliberately queries the raw `community_locations` table (not the masking view below) as an
+  authenticated user, so real names keep showing there. Only the map pin card hides identity; the
+  leaderboard never reveals *which* specific report was posted anonymously.
+- **Tip handle stays visible.** See the "Anonymous posts still show the handle" note in Section 6
+  — hiding the handle too would require real in-app payment processing (Stripe Connect), which is
+  a separate, larger project already tracked as unbuilt "Phase 2" work above.
+- **Admin always sees the real identity.** `admin/community_admin.html` queries the raw
+  `community_locations` table directly, unaffected by any of this — an "anonymous" badge is shown
+  next to the pin's real name in the list and edit panel so it's visually obvious which posts are
+  masked for the public, but the real `display_name`/`user_id` are always visible to Jon.
+
+### Architecture: the core problem this had to solve
+Before this feature, `fetchCommunityLocations()` in `SSTLive.jsx` did `select("*")` on
+`community_locations` and shipped the **entire row** — including `user_id`, `display_name`,
+`venmo_handle`, `cashapp_handle` — to every logged-in browser tab; the pin card just picked which
+fields to *display*. That's fine when nothing is private, but hiding `display_name` only in the
+React component would still leave the real `user_id` and name sitting in the network response,
+visible to anyone who opens devtools. Per this doc's parent `CLAUDE.md` architecture rule (fix
+data problems at the source, not with a frontend workaround), this needed a server-side masking
+layer, not a client-side hide.
+
+- **`community_locations_public` view** (schema in Section 9) — the map now reads from this view
+  instead of the raw table. It replaces `display_name` with `"Anonymous Contributor"` for
+  `is_anonymous` rows and drops `user_id` **entirely, for every row** (not just anonymous ones —
+  the client never had a legitimate reason to hold another user's raw `user_id`, so this closes a
+  small privacy gap for non-anonymous posts too, for free).
+- **`record_community_tip` RPC** (schema in Section 9) — since the client no longer has
+  `user_id`, tipping can't insert into `community_tips` with `recipient_user_id: pin.user_id`
+  client-side anymore. This `SECURITY DEFINER` RPC resolves the real recipient server-side from
+  `location_id` instead. One code path for anonymous and non-anonymous posts, no branching.
+- **Bug fixed as a byproduct:** the old client-side tip flow also did a separate
+  `community_locations.update({ tip_count, tip_total_cents })` call as the *tipper* — but the
+  `cl_update` RLS policy only allows `auth.uid() = user_id`, and the tipper is never the row
+  owner, so that update was silently matching zero rows on every tip (Supabase JS doesn't throw
+  on a zero-row RLS-filtered update). Pin tip counters had likely never actually incremented in
+  production. Folding the increment into `record_community_tip` (which bypasses RLS via
+  `SECURITY DEFINER`) fixes this as a side effect of routing tips through it for this feature.
+- **`notify-tip-missing-handle` edge function updated (v4):** this function — fired when a tipper
+  hits a pin with no payment handle set — previously took `recipient_user_id` straight from the
+  client. Once the client stopped receiving `user_id` for any pin, that field would always be
+  missing. Redeployed to resolve `recipient_user_id` server-side from `location_id` via its
+  existing service-role lookup instead — a security improvement independent of this feature, since
+  a client could previously have asserted an arbitrary `recipient_user_id` in that payload.
+
+### Known minor side effect (not fixed)
+The "Save Location" bookmark feature (saving a community pin into your own private
+`saved_locations`) used to write `pin.user_id` into a `source_user_id` metadata column. Since the
+client no longer receives `user_id` for any community pin, this column is now always `null` for
+new community-sourced saves — anonymous or not. Low-stakes (that row is private to the saving
+user and nothing currently reads the field back out), but it's a real scope-creep side effect of
+dropping `user_id` for all rows rather than only anonymous ones. Flagging for awareness only.
+
+### Files changed
+`src/components/CommunityReportForm.jsx` (checkbox), `src/pages/SSTLive.jsx` (public view read),
+`src/components/SSTHeatmapLeaflet.jsx` (`TipFlow` → RPC), `src/components/auth/UserSettingsModal.jsx`
+(account default toggle), `admin/community_admin.html` (anonymous badge). Supabase migration and
+the `notify-tip-missing-handle` redeploy were applied directly against the live project, not
+repo-tracked — same pattern as this app's other backend changes (see Section 17's push
+notification architecture for precedent). Jon confirmed working in prod same day.
+
+---
+
+## 19. Multi-Photo, Lightbox, Notes Fix, Photo Cleanup (Implemented 2026-07-18)
+
+Bundled fix + two feature requests from the same conversation, same day as Section 18.
+
+### Bug fixed: notes hard-truncated with no way to read the rest
+The pin card rendered notes with Tailwind's `line-clamp-2` — anything past 2 lines was silently
+cut off, no "read more," no visual cue there was more text. Removed entirely; the card already
+measures its own height dynamically (see the two 2026-07 mobile-mispositioning fixes), so it just
+grows to fit the full note now.
+
+### Click-to-enlarge
+No lightbox pattern existed anywhere in the app. New full-screen overlay in
+`SSTHeatmapLeaflet.jsx` (`imageLightbox` state): click any pin photo, image opens at full size on
+a dark backdrop with a close button; prev/next arrows and a position counter (`2 / 5`) appear
+whenever the pin has more than one photo.
+
+### Photos: 1 → up to 10 per pin
+- **Schema**: `community_locations.image_urls text[] default '{}'` replaces the single
+  `image_url` column (left in place, unused — not dropped, to avoid a destructive migration on a
+  solo-dev app with no staging environment). Backfilled from existing `image_url` on migration.
+  `CHECK (array_length(image_urls,1) IS NULL OR array_length(image_urls,1) <= 10)` enforces the
+  cap server-side, not just in the UI.
+- **Per-photo cap unchanged at 8MB** — a deliberate call (see scoping discussion) not to shrink
+  the cap just because the count went up; a worst-case pin is now up to ~80MB across 10 photos,
+  accepted as reasonable for phone photos.
+- **`CommunityReportForm.jsx`**: file input takes multiple files (`<input type="file" multiple>`),
+  thumbnail grid with individual per-photo remove before posting, uploads sequentially (not
+  parallel — 10 concurrent uploads of full-size phone photos on a boat's connection was judged a
+  bad idea) to the existing `share-images` bucket, same path convention as before.
+- **Pin card display**: a single photo keeps the original full-width "hero" treatment
+  (`object-contain`, so portrait photos aren't center-cropped); 2+ photos render as a horizontal
+  scrollable thumbnail strip instead, since the 252px-wide card can't show more than one full-size
+  image. Either way, clicking opens the lightbox above.
+- **Admin (`admin/community_admin.html`)**: edit panel's Photo field became a full gallery —
+  add multiple photos at once (up to the remaining slots under 10), remove any individual photo.
+  Removing a photo now also deletes the underlying storage object, which the old single-image
+  `removePinImage()` never did (it only nulled the DB column, leaving the file orphaned in
+  `share-images` forever). Full per-image management was an explicit scope decision over a
+  simpler view-only/remove-all gallery.
+
+### Storage cleanup (new — closes a gap this feature made worse)
+Nothing had ever deleted a pin's photo(s) from the `share-images` bucket once the pin expired —
+`community_locations` rows past `expires_at` just stop being queried, their storage objects sit
+there forever. Going from 1 photo/pin to up to 10 made that unbounded growth meaningfully worse,
+so a cleanup job was added as part of this change (an explicit scope decision — the alternative
+was shipping the 10-photo feature and leaving the gap for later):
+- **`cleanup-expired-community-photos`** edge function (`verify_jwt: false` — not user-facing,
+  pg_cron has no JWT to present). Scans `community_locations` rows past `expires_at` still holding
+  `image_urls`, deletes the underlying storage objects (parsed from the public URLs), clears
+  `image_urls` so the row isn't reprocessed. Batched at 500 rows/run, oldest-`expires_at`-first so
+  a backlog makes steady progress across daily runs rather than re-scanning the same rows.
+- **Auth**: a shared-secret header (`x-cron-secret`) checked against a `CRON_SECRET` function
+  secret, since there's no MCP tool that can set Edge Function secrets programmatically — **this
+  requires a one-time manual step**: paste the generated secret value into Supabase Dashboard →
+  Edge Functions → `cleanup-expired-community-photos` → Secrets as `CRON_SECRET`. Until that's
+  done, the daily cron call gets a harmless 401 and nothing is cleaned up.
+- **Schedule**: `pg_cron` (newly enabled on this project) + `pg_net`, daily at 09:17 UTC (off the
+  hour to avoid herd effects), calling the function via `net.http_post`. The secret value is
+  stored in plaintext inside the `cron.job` SQL definition (`cron.job` table, readable only via
+  elevated DB access, not exposed to any client) — a pragmatic call for a solo-dev app rather than
+  the more involved Supabase Vault indirection.
+
+### Files changed
+`src/components/CommunityReportForm.jsx`, `src/components/SSTHeatmapLeaflet.jsx`,
+`admin/community_admin.html` — one commit. Supabase migration (`community_multi_image_support`),
+the new `cleanup-expired-community-photos` edge function, and the `pg_cron` schedule
+(`community_photo_cleanup_cron`) were applied directly against the live project, not repo-tracked.
+
+---
+
+## 20. Trip Date + Self-Delete (Implemented 2026-07-19)
+
+Two separate requests from the same conversation, bundled here since both touch
+`community_locations_public` and shipped together.
+
+### Trip date — problem being solved
+Jon: reports were being posted well after the trip actually happened, but the map only ever
+showed `created_at` (the posting timestamp) — a report about a catch from days ago read
+identically to a fresh one ("2h ago"), with no way for a viewer to tell stale intel from current.
+
+- **`CommunityReportForm.jsx`**: native `<input type="date">` next to the Live Pin / Post-Trip
+  Report toggle (Section 4). Defaults to today, computed in the poster's **local** time (not
+  `toISOString()`, which is UTC and can read as yesterday late in the evening) and capped at today
+  via the `max` attribute — a trip can't be dated in the future.
+- **Schema**: `community_locations.trip_date date not null default current_date` (migration
+  `add_trip_date_to_community_locations`). Default backfills every pre-existing row as same-day,
+  no explicit backfill statement needed.
+- **Display**: `SSTHeatmapLeaflet.jsx` compares `trip_date` to the local calendar date of
+  `created_at`; when they differ (a genuinely backdated post), an amber "· Trip: Jul 15" badge
+  renders next to the existing time-since-posted text, in both the sidebar list row and the pin
+  popup (Section 5). Same-day posts — the common case — show no badge, so this adds no visual
+  noise to normal usage.
+- **Bug caught same day**: `trip_date` was added to the raw table but not to
+  `community_locations_public`'s explicit column list (the view the map actually reads — see
+  Section 18 for why that view exists). Every backdated post kept showing "Just now" until this
+  was noticed and the view updated to include it (Section 9). Lesson for future columns: adding a
+  column to `community_locations` is not sufficient by itself if the frontend reads the `_public`
+  view — both need updating together.
+
+### Self-delete — problem being solved
+Jon: "users need to be able to remove/delete a report they created. The delete/trash option should
+only be available to the user that created the report when viewing the pin."
+
+- **The blocker**: `community_locations_public` drops `user_id` for every row (Section 18's
+  privacy design), so the client had no way to know which pins the current viewer actually owned.
+- **Fix**: added `is_own` to the view — `(user_id = auth.uid())`, evaluated per requesting user.
+  Each viewer's own query sees `is_own = true` only on their own rows; nobody else's identity is
+  ever exposed, preserving the Section 18 guarantee.
+- **UI**: pin popup shows a trash icon next to the close (×) button, only when `pin.is_own`.
+  Confirms via `window.confirm` before deleting (same pattern as the existing "delete all saved
+  locations/routes" confirms elsewhere in the app).
+- **Delete = soft delete, not a hard `DELETE`**: sets `expires_at` to `now()`. Deliberately reuses
+  the existing self-serve `cl_update` RLS policy (`auth.uid() = user_id`) instead of adding a new
+  DELETE policy, disappears from every read instantly via the existing `cl_read` expiry filter, and
+  lets the Section 19 `cleanup-expired-community-photos` cron job pick up and remove any attached
+  photos on its normal daily schedule — exactly like a naturally-expired pin. A hard `DELETE` would
+  skip that cron path and leak the photos in storage forever, since the cleanup job only ever scans
+  for rows past `expires_at`, not deleted rows (which wouldn't exist to scan).
+
+### Unrelated bug fixed in the same pass
+While building the trip-date UI, a pre-existing cursor bug got fixed: hovering a wreck/bottom-
+feature marker while in report-posting or route-planning mode left the map cursor stuck on a
+"grab" hand icon after moving off, instead of returning to the active crosshair. Root cause: the
+wreck marker's `mouseout` handler only knew how to restore the Inspect-tool's crosshair
+(`interactionMode === "crosshair"`), with no awareness that `communityPinDrop` (report posting)
+and `tripMode` (route planning) each set their own crosshair independently. Not a
+`community_locations` schema/UX change, just noted here since it was found and fixed while working
+this section — see `SSTHeatmapLeaflet.jsx` git history for the fix itself.
+
+### Files changed
+`src/components/CommunityReportForm.jsx`, `src/components/SSTHeatmapLeaflet.jsx`,
+`src/pages/SSTLive.jsx` (`onCommunityDeleted` wiring) — two commits (trip date; then self-delete +
+cursor fix). Three Supabase migrations applied directly against the live project, not
+repo-tracked: `add_trip_date_to_community_locations`,
+`add_trip_date_to_community_locations_public_view`, `add_is_own_to_community_locations_public_view`.
+Jon confirmed all working in prod same day.
