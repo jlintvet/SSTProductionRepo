@@ -18,29 +18,31 @@ Topbar also has, left to right: a **Bathy on/off** toggle and an **SST on/off** 
 
 ---
 
-## Region Toggle (Mid-Atlantic / GA/SC)
+## Region Toggle (Mid-Atlantic / GA & SC / NE FL / VA-RI)
 
-Two buttons in the topbar (`regionBtnMA` / `regionBtnGS`) switch the whole tool between the two live regions. Selection persists in `localStorage` (`admin_region`) across reloads. Switching region:
+Four buttons in the topbar (`regionBtnMA` / `regionBtnGS` / `regionBtnNEFL` / `regionBtnVARI`) switch the whole tool between the four live regions. Selection persists in `localStorage` (`admin_region`) across reloads. Switching region:
 
-- Re-centers the **Pins** map and **Zones** map to that region's bounds (`REGIONS[region].center/zoom` — Mid-Atlantic `[35.5,-75.5]` zoom 7, GA/SC `[32.4,-78.6]` zoom 7).
-- Reloads the **bathy contour** overlay from the region's file (`bathymetry_contours.json` vs `bathymetry_contours_ga_sc.json`) and the **SST** overlay from the region's VIIRS composite (`DailySSTData/VIIRS/Bundled/viirs_composite.json` vs `.../ga_sc/viirs_composite.json`).
+- Re-centers the **Pins** map and **Zones** map to that region's bounds (`REGIONS[region].center/zoom` — Mid-Atlantic `[35.5,-75.5]` zoom 7, GA/SC `[32.4,-78.6]` zoom 7, NE FL `[28.25,-79.06]` zoom 7, VA-RI `[39.39,-73.22]` zoom 6.5).
+- Reloads the **bathy contour** overlay from the region's file (`bathymetry_contours.json`, `bathymetry_contours_ga_sc.json`, `bathymetry_contours_ne_fl.json`, or `bathymetry_contours_va_ri.json`) and the **SST** overlay from the region's VIIRS composite (`DailySSTData/VIIRS/Bundled/viirs_composite.json`, or the `ga_sc/`, `ne_fl/`, `va_ri/` subpaths).
 - **Filters the Pins tab** (both the list and the map markers) to only pins whose `lat/lon` fall inside the selected region's bounding box (`REGIONS[region].bounds`). Pins are stored in one shared `community_locations` table with no region column — this filter is purely a lat/lon bounds check done client-side in the admin tool, not a DB-level distinction.
 - **Filters the Zones tab** (list + drawn circles) to zones tagged with the selected region (`seed_zones.region`), and any zone saved while a region is selected is stamped with that region.
 - Any active overlay toggles (Bathy/SST on either map) are turned off and must be re-enabled after switching, so stale cached data for the old region is never shown silently.
 
-This is an **admin-UI-only distinction** — `community_seed.py` still picks a zone to post to from all active `seed_zones` regardless of region, weighted by `weight`. Drawing zones in GA/SC waters is what actually causes seed pins to start appearing there; the region toggle just makes it possible to see/draw in the right water and to review each region's pins/zones without them mixing together in the same view.
+This is an **admin-UI-only distinction** — `community_seed.py` still picks a zone to post to from all active `seed_zones` regardless of region, weighted by `weight`. Drawing zones in a given region's waters is what actually causes seed pins to start appearing there; the region toggle just makes it possible to see/draw in the right water and to review each region's pins/zones without them mixing together in the same view.
 
 ---
 
 ## Tab 1 — Pins
 
 ### List (left panel, scrollable)
-Each row shows: color dot (lime=live, blue=report), display name, species summary, time since posted, expiry countdown, flag badge if `is_flagged`.
+Each row shows: color dot (lime=live, blue=report), display name, species summary, time since posted, expiry countdown, and badges for flagged (`is_flagged`), expired, anonymous (`is_anonymous` — the public map shows "Anonymous Captain" for this pin; the admin tool always shows the real name), and seed (posted by a `seed_users` account).
 
-Filters: type (all / live / report), status (all / flagged / expired), search by name.
+Filters (all combine with `AND`): type (all / live / report), flag status (all / flagged / not flagged), expiry (any / active / expired — **defaults to Active on page load**), source (all / real users / seed — **defaults to Real users on page load**, checked against the `seed_users` table). Search box matches display name or species.
+
+Changing any filter or the search box rebuilds **both** the sidebar list and the map markers, so they always show the same filtered set.
 
 ### Map (center)
-All pins plotted. Clicking a map marker selects it in the list and opens the edit panel.
+Filtered pins plotted (same filter set as the list — see above). Clicking a map marker selects it in the list and opens the edit panel.
 
 ### Edit panel (right)
 Opens when a pin is selected. Fields:
@@ -179,10 +181,11 @@ Array ordered newest-first. Only the first entry is the "current" prize displaye
 Uses the public anon key (same as frontend — already in the codebase). Reads and writes directly from the browser. All operations gated behind the auth guard.
 
 Tables touched:
-- `community_locations` — read, update, delete
+- `community_locations` — read, update, delete. Admin queries the raw table directly, not the `community_locations_public` view the app's map uses — always sees the real `display_name`/`user_id`, anonymous posting included.
 - `community_tips` — read, update, delete (per-pin tips editor)
 - `user_points` — read, update (re-synced when tips are edited/deleted)
 - `user_profiles` — read only (display names)
+- `seed_users` — read only (Pins tab Source filter/badge — set of `user_id`s treated as "seed")
 - `seed_zones` — read, insert, update, delete (Zones tab) — RLS policy `admin_zones_all`
 - `seed_config` — read, update (Seed tab) — RLS policy `admin_seed_config_all` (added by `community-seed-region-and-volume.sql`; previously this table had no policies at all and was service-role only)
 
