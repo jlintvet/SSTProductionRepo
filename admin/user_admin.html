@@ -27,6 +27,7 @@ th,td { text-align:left; padding:7px 10px; border-bottom:1px solid #1e293b; whit
 th { position:sticky; top:0; background:#0f172a; color:#94a3b8; font-size:11px; cursor:pointer; user-select:none; z-index:1; }
 tbody tr { cursor:pointer; } tbody tr:hover { background:#1e293b; } tbody tr.sel { background:#243049; }
 .tier { padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; color:#fff; }
+.seed-badge { padding:1px 6px; border-radius:5px; font-size:9px; font-weight:700; background:#3f3f1d; color:#d9d97a; margin-left:5px; }
 .finput, .finput-sm, select { background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px; padding:7px 9px; width:100%; }
 .finput-sm { width:auto; padding:5px 7px; font-size:12px; }
 .flabel { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; margin-top:10px; }
@@ -79,6 +80,11 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
     <select id="fRegion" class="finput-sm" onchange="render()">
       <option value="">All regions</option><option value="mid_atlantic">Mid-Atlantic</option><option value="ga_sc">GA &amp; SC</option><option value="ne_fl">NE FL</option><option value="va_ri">VA-RI</option>
     </select>
+    <select id="fSource" class="finput-sm" onchange="render()">
+      <option value="">All (real + seed)</option>
+      <option value="real" selected>Real users</option>
+      <option value="seed">Seed only</option>
+    </select>
     <span id="shownCount" class="note"></span>
   </div>
   <div id="main">
@@ -92,6 +98,7 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
           <th onclick="sortBy('trial_end')">Trial end</th>
           <th onclick="sortBy('region')">Region</th>
           <th onclick="sortBy('created_at')">Signed up</th>
+          <th onclick="sortBy('report_count')">Reports</th>
         </tr></thead>
         <tbody id="tbody"></tbody>
       </table>
@@ -190,6 +197,7 @@ const sb = supabase.createClient(SB_URL, SB_ANON);
 const TIER_COLORS = { trial:'#d97706', standard:'#64748b', pro:'#16a34a', ambassador:'#7c3aed' };
 
 let me = null, allUsers = [], selectedId = null, sortKey = 'created_at', sortAsc = false;
+let seedUserIds = new Set(); // populated in loadUsers() from the seed_users table
 let ambReferred = [], selectedReferredIds = new Set();
 
 // ── Auth ──
@@ -216,12 +224,29 @@ function showApp() {
 
 // ── Load + counts ──
 async function loadUsers() {
-  const { data, error } = await sb.from('user_profiles')
-    .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code,ambassador_status')
-    .order('created_at', { ascending:false });
+  const [{ data, error }, seedRes] = await Promise.all([
+    sb.from('user_profiles')
+      .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code,ambassador_status')
+      .order('created_at', { ascending:false }),
+    sb.from('seed_users').select('user_id'),
+  ]);
   if (error) { document.getElementById('shownCount').textContent = 'Error: ' + error.message; return; }
   allUsers = data || [];
+  seedUserIds = new Set((seedRes.data || []).map(r => r.user_id));
+  await loadReportCounts();
   render();
+}
+// Counts each user's fishing reports (community_locations rows with type='report').
+// Queried directly from community_locations rather than user_points.report_count
+// since there's no confirmed trigger keeping that column in sync — this counts
+// the actual source rows, including expired/flagged ones (admin_cl_select RLS
+// policy grants the admin account full visibility, unlike the public cl_read policy).
+async function loadReportCounts() {
+  const { data, error } = await sb.from('community_locations').select('user_id').eq('type', 'report');
+  if (error) { console.error('report count load failed', error.message); return; }
+  const counts = {};
+  (data || []).forEach(r => { counts[r.user_id] = (counts[r.user_id] || 0) + 1; });
+  allUsers.forEach(u => { u.report_count = counts[u.id] || 0; });
 }
 function counts() {
   const now = new Date();
@@ -248,13 +273,17 @@ function render() {
   counts();
   const q = document.getElementById('q').value.toLowerCase();
   const ft = document.getElementById('fTier').value, fs = document.getElementById('fStatus').value;
+  const src = document.getElementById('fSource').value;
   let rows = allUsers.filter(u =>
     (!q || (u.email||'').toLowerCase().includes(q) || (u.display_name||'').toLowerCase().includes(q)) &&
     (!ft || u.tier===ft) && (!fs || u.subscription_status===fs) &&
-    (!document.getElementById('fRegion').value || u.region===document.getElementById('fRegion').value));
+    (!document.getElementById('fRegion').value || u.region===document.getElementById('fRegion').value) &&
+    (src !== 'real' || !seedUserIds.has(u.id)) &&
+    (src !== 'seed' || seedUserIds.has(u.id)));
   rows.sort((a,b) => {
     let x=a[sortKey], y=b[sortKey];
     if (sortKey==='created_at'||sortKey==='trial_end') { x=x?new Date(x).getTime():0; y=y?new Date(y).getTime():0; }
+    else if (sortKey==='report_count') { x=x||0; y=y||0; }
     else { x=(x||'').toString().toLowerCase(); y=(y||'').toString().toLowerCase(); }
     return (x<y?-1:x>y?1:0) * (sortAsc?1:-1);
   });
@@ -262,10 +291,11 @@ function render() {
   const fmt = d => d ? new Date(d).toLocaleDateString() : '—';
   document.getElementById('tbody').innerHTML = rows.map(u => `
     <tr class="${u.id===selectedId?'sel':''}" onclick="selectUser('${u.id}')">
-      <td>${u.email||'—'}</td><td>${u.display_name||'—'}</td>
+      <td>${u.email||'—'}${(src==='' && seedUserIds.has(u.id)) ? '<span class="seed-badge">seed</span>' : ''}</td><td>${u.display_name||'—'}</td>
       <td><span class="tier" style="background:${TIER_COLORS[u.tier]||'#475569'}">${u.tier||'—'}</span></td>
       <td>${u.subscription_status||'—'}</td><td>${fmt(u.trial_end)}</td>
       <td>${u.region||'—'}</td><td>${fmt(u.created_at)}</td>
+      <td>${u.report_count||0}</td>
     </tr>`).join('');
 }
 
