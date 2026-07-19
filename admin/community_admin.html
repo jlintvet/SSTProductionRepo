@@ -79,6 +79,7 @@ select.finput option{background:#1e293b}
 .badge-flag{background:#7f1d1d;color:#fca5a5}
 .badge-exp{background:#1c1917;color:#78716c}
 .badge-anon{background:#312e81;color:#a5b4fc}
+.badge-seed{background:#3f3f1d;color:#d9d97a}
 #pinsMap{flex:1;min-width:0;position:relative}
 #leafletMap{width:100%;height:100%}
 #pinsEdit{width:290px;flex-shrink:0;background:#1e293b;border-left:1px solid #334155;display:flex;flex-direction:column;overflow:hidden}
@@ -207,8 +208,15 @@ tr:hover td{background:#1e293b}
           </select>
           <select id="fExpiry" class="pins-filter-sel">
             <option value="">Any</option>
-            <option value="active">Active</option>
+            <option value="active" selected>Active</option>
             <option value="expired">Expired</option>
+          </select>
+        </div>
+        <div class="pins-filter-row">
+          <select id="fSource" class="pins-filter-sel">
+            <option value="">All (real + seed)</option>
+            <option value="real" selected>Real users</option>
+            <option value="seed">Seed only</option>
           </select>
         </div>
       </div>
@@ -629,6 +637,7 @@ async function loadStats() {
 
 // ── PINS TAB ─────────────────────────────────────────────────────────────────
 let allPins = [], selectedPinId = null, map, markers = {};
+let seedUserIds = new Set(); // populated in loadPins() from the seed_users table
 
 function initMap() {
   map = L.map('leafletMap', { center: REGIONS[currentRegion].center, zoom: REGIONS[currentRegion].zoom });
@@ -745,11 +754,13 @@ async function toggleZonesSst() {
 
 async function loadPins(silent = false) {
   if (!silent) document.getElementById('pinsCountText').textContent = 'Loading...';
-  const { data, error } = await sb.from('community_locations')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const [{ data, error }, seedRes] = await Promise.all([
+    sb.from('community_locations').select('*').order('created_at', { ascending: false }),
+    sb.from('seed_users').select('user_id'),
+  ]);
   if (error) { document.getElementById('pinsCountText').textContent = 'Error: ' + error.message; return; }
   allPins = data || [];
+  seedUserIds = new Set((seedRes.data || []).map(r => r.user_id));
   buildPinMarkers();
   renderPinList();
 }
@@ -762,7 +773,7 @@ function pinColor(p) { return isPinLiveActive(p) ? '#84cc16' : '#00d4ff'; }
 function buildPinMarkers() {
   Object.values(markers).forEach(m => map.removeLayer(m));
   markers = {};
-  allPins.forEach(p => {
+  getFilteredPins().forEach(p => {
     if (!p.lat || !p.lon) return;
     if (!inRegion(p.lat, p.lon, currentRegion)) return;
     const color = pinColor(p);
@@ -787,11 +798,12 @@ function buildPinMarkers() {
 }
 
 function getFilteredPins() {
-  const q    = document.getElementById('pinsSearchInput').value.toLowerCase();
-  const type = document.getElementById('fType').value;
-  const flag = document.getElementById('fFlag').value;
-  const exp  = document.getElementById('fExpiry').value;
-  const now  = new Date();
+  const q      = document.getElementById('pinsSearchInput').value.toLowerCase();
+  const type   = document.getElementById('fType').value;
+  const flag   = document.getElementById('fFlag').value;
+  const exp    = document.getElementById('fExpiry').value;
+  const source = document.getElementById('fSource').value;
+  const now    = new Date();
   return allPins.filter(p => {
     if (p.lat != null && p.lon != null && !inRegion(p.lat, p.lon, currentRegion)) return false;
     if (type && p.type !== type) return false;
@@ -799,6 +811,8 @@ function getFilteredPins() {
     if (flag === 'ok' && p.is_flagged) return false;
     if (exp === 'active' && new Date(p.expires_at) <= now) return false;
     if (exp === 'expired' && new Date(p.expires_at) > now) return false;
+    if (source === 'real' && seedUserIds.has(p.user_id)) return false;
+    if (source === 'seed' && !seedUserIds.has(p.user_id)) return false;
     if (q) {
       const name = (p.display_name || '').toLowerCase();
       const spp  = (p.species || []).join(' ').toLowerCase();
@@ -821,6 +835,7 @@ function renderPinList() {
     // Real display_name is always shown to admin -- this badge just flags
     // that the PUBLIC map shows "Anonymous Captain" instead for this pin.
     const anonLabel = p.is_anonymous ? `<span class="pin-badge badge-anon">anonymous</span>` : '';
+    const seedLabel = seedUserIds.has(p.user_id) ? `<span class="pin-badge badge-seed">seed</span>` : '';
     const expiry   = expired ? 'Expired' : 'Exp ' + timeUntil(p.expires_at);
     const specStr  = (p.species || []).map(s => SPECIES[s] || s).join(', ') || 'No species';
     return `<div class="pin-item${sel}" data-id="${p.id}">
@@ -829,7 +844,7 @@ function renderPinList() {
         <div class="pin-item-name">${esc(p.display_name || 'Unknown')}</div>
         <div class="pin-item-sub">${esc(specStr)} &middot; ${expiry}</div>
       </div>
-      ${flagLabel}${expLabel}${anonLabel}
+      ${flagLabel}${expLabel}${anonLabel}${seedLabel}
     </div>`;
   }).join('');
 }
@@ -838,8 +853,9 @@ document.getElementById('pinsListBody').addEventListener('click', e => {
   const item = e.target.closest('[data-id]');
   if (item) selectPin(item.dataset.id, true);
 });
-['fType','fFlag','fExpiry'].forEach(id => document.getElementById(id).addEventListener('change', renderPinList));
-document.getElementById('pinsSearchInput').addEventListener('input', renderPinList);
+function applyPinFilters() { buildPinMarkers(); renderPinList(); }
+['fType','fFlag','fExpiry','fSource'].forEach(id => document.getElementById(id).addEventListener('change', applyPinFilters));
+document.getElementById('pinsSearchInput').addEventListener('input', applyPinFilters);
 
 function selectPin(id, flyTo) {
   selectedPinId = id;
