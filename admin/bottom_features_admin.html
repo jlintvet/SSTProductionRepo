@@ -107,17 +107,6 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
       <div class="filter-row">
         <select id="fRegion" class="filter-sel">
           <option value="">All regions</option>
-          <optgroup label="NC (Hatteras / Morehead)">
-            <option value="HatterasNC">Hatteras NC</option>
-            <option value="MoreheadNC">Morehead City NC</option>
-          </optgroup>
-          <optgroup label="VA - RI (va_ri region)">
-            <option value="VaToRI">VA to RI (all va_ri ports share this)</option>
-          </optgroup>
-          <optgroup label="Legacy">
-            <option value="OceanCityMD">Ocean City MD (mid_atlantic)</option>
-            <option value="ChesapeakeMD">Chesapeake MD (mid_atlantic)</option>
-          </optgroup>
         </select>
         <select id="fSymbol" class="filter-sel">
           <option value="">All types</option>
@@ -212,12 +201,35 @@ const BATHY_URL='https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/
 const REPO='jlintvet/SSTv2';
 const API='https://api.github.com';
 
-const REGION_LABEL={
+// Hand-written copy for the original 5 regions (reads better than the
+// auto-formatter below); every other region key -- and there are 18 more in
+// the live data as of July 2026 (GA/SC + NE FL ports) -- falls back to an
+// auto-formatted label. REGION_KEYS is populated from the actually-loaded
+// wrecks.json in loadFeatures(), not hardcoded, so new regions show up here
+// automatically instead of silently being unfilterable.
+const REGION_LABEL_OVERRIDES={
   HatterasNC:'Hatteras, NC', MoreheadNC:'Morehead City, NC',
   ChesapeakeMD:'Chesapeake, MD (mid_atlantic)', OceanCityMD:'Ocean City, MD (mid_atlantic)',
   VaToRI:'VA to RI (shared across all va_ri ports)',
 };
-const REGION_KEYS=Object.keys(REGION_LABEL);
+function prettyRegion(key){
+  if(!key)return'(no region)';
+  if(REGION_LABEL_OVERRIDES[key])return REGION_LABEL_OVERRIDES[key];
+  return key.replace(/([a-z])([A-Z])/g,'$1 $2');
+}
+let REGION_KEYS=[];
+function computeRegionKeys(feats){
+  const keys=new Set();
+  feats.forEach(f=>{const r=f.properties?.region;if(r)keys.add(r);});
+  return[...keys].sort();
+}
+function populateRegionFilter(){
+  const sel=document.getElementById('fRegion');
+  const current=sel.value;
+  sel.innerHTML='<option value="">All regions</option>'+
+    REGION_KEYS.map(k=>'<option value="'+k+'">'+prettyRegion(k)+'</option>').join('');
+  if(REGION_KEYS.includes(current))sel.value=current;
+}
 
 const STORE_KEY='bf_admin_decisions_v2';
 const NEW_STORE_KEY='bf_admin_new_features_v1';
@@ -505,7 +517,7 @@ function renderList(){
     const k=item.k,sel=k===selKey?' selected':'';
     if(item.kind==='new'){
       const n=item.n;
-      const rl=REGION_LABEL[n.region]??n.region??'(no region)';
+      const rl=prettyRegion(n.region);
       return '<div class="feat-item'+sel+'" data-key="'+encodeURIComponent(k)+'">'
         +'<div class="feat-dot" style="background:#60a5fa"></div>'
         +'<div class="feat-name" title="'+(n.name||'').replace(/"/g,'&quot;')+'">'+(n.name||'(unnamed)').replace(/</g,'&lt;')+' &#9998;</div>'
@@ -516,7 +528,7 @@ function renderList(){
     const name=getName(k,f)||'(unnamed)';
     const dc=dispColor(k),op=dec==='remove'?0.35:1;
     const strike=dec==='remove'?' strike':'';
-    const rl=REGION_LABEL[getRegionOverride(k,f)]??getRegionOverride(k,f);
+    const rl=prettyRegion(getRegionOverride(k,f));
     return '<div class="feat-item'+sel+'" data-key="'+encodeURIComponent(k)+'">'
       +'<div class="feat-dot" style="background:'+dc+';opacity:'+op+'"></div>'
       +'<div class="feat-name'+strike+'" title="'+name.replace(/"/g,'&quot;')+'">'+name.replace(/</g,'&lt;')+'</div>'
@@ -530,7 +542,7 @@ document.getElementById('featureList').addEventListener('click',e=>{
 });
 
 function fillRegionSelect(sel,current){
-  sel.innerHTML=REGION_KEYS.map(k=>'<option value="'+k+'"'+(k===current?' selected':'')+'>'+REGION_LABEL[k]+'</option>').join('');
+  sel.innerHTML=REGION_KEYS.map(k=>'<option value="'+k+'"'+(k===current?' selected':'')+'>'+prettyRegion(k)+'</option>').join('');
 }
 
 function renderPanel(){
@@ -597,6 +609,8 @@ async function loadFeatures(){
     if(!res.ok)throw new Error('HTTP '+res.status);
     const data=await res.json();
     features=data.features??[];
+    REGION_KEYS=computeRegionKeys(features);
+    populateRegionFilter();
     spatialOrder=buildSpatialOrder(features);
     loadD();loadN();
     buildAllMarkers();
