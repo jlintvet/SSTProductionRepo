@@ -8,6 +8,28 @@ import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
 import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 import { SPECIES_LABELS } from "@/components/CommunityReportForm";
+
+// loc.trip_date (a plain "YYYY-MM-DD", poster-chosen) vs. loc.created_at
+// (posting timestamp) -- when they differ, the report was backdated (posted
+// after the trip actually happened) and both the sidebar list and the pin
+// popup show a small "Trip: <date>" badge so viewers can tell a backdated
+// report from a genuinely fresh one instead of everything just reading
+// "2h ago" regardless of how old the underlying catch actually is.
+function localDateFromTimestamp(ts) {
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function fmtTripDate(tripDateStr) {
+  const [y, m, d] = tripDateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+function tripDateBadge(loc) {
+  if (!loc.trip_date || loc.trip_date === localDateFromTimestamp(loc.created_at)) return null;
+  return `Trip: ${fmtTripDate(loc.trip_date)}`;
+}
 import HelpReportModal from "@/components/HelpReportModal";
 
 // ── SavedPanel: tabbed Locations + Routes panel ───────────────────────────────
@@ -139,6 +161,7 @@ function SavedPanel({
                 const h = Math.floor(diff/3600000);
                 const timeAgo = h < 1 ? `${Math.floor(diff/60000)}m ago` : h < 24 ? `${h}h ago` : `${Math.floor(h/24)}d ago`;
                 const speciesLabel = (loc.species||[]).map(s => SPECIES_LABELS[s] || s).join(", ");
+                const tripBadge = tripDateBadge(loc);
                 return (
                   <div
                     key={loc.id}
@@ -157,7 +180,10 @@ function SavedPanel({
                       <div style={{width:10,height:10,borderRadius:"50%",background:isLiveActive?"#84cc16":"#00d4ff",flexShrink:0}} />
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-slate-800 truncate">{loc.display_name}</div>
-                        <div className="text-[10px] text-slate-400">{speciesLabel||"Unknown"} · {timeAgo}</div>
+                        <div className="text-[10px] text-slate-400">
+                          {speciesLabel||"Unknown"} · {timeAgo}
+                          {tripBadge && <span className="text-amber-600 font-semibold"> · {tripBadge}</span>}
+                        </div>
                       </div>
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isLiveActive?"bg-lime-100 text-lime-700":"bg-cyan-100 text-cyan-700"}`}>
                         {isLiveActive?"LIVE":"RPT"}
@@ -4397,6 +4423,7 @@ export default function SSTHeatmapLeaflet(props) {
             const qty = pin.quantity || {};
             const hoursAgo = Math.round((Date.now() - new Date(pin.created_at).getTime()) / 3600000);
             const timeStr = hoursAgo < 1 ? "Just now" : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo/24)}d ago`;
+            const pinTripBadge = tripDateBadge(pin);
 
             // Real-time inspector values (live from departure + bathy, NOT from stored pin data)
             const refLoc = selectedLocation;
@@ -4466,7 +4493,10 @@ export default function SSTHeatmapLeaflet(props) {
                       )}
                       <span className="font-semibold text-slate-700">{pin.display_name}</span>
                     </div>
-                    <div className="text-slate-400">{timeStr}</div>
+                    <div className="text-slate-400">
+                      {timeStr}
+                      {pinTripBadge && <span className="text-amber-600 font-semibold"> · {pinTripBadge}</span>}
+                    </div>
                   </div>
                   <button onClick={() => setSelectedCommunityPin(null)} className="text-slate-400 hover:text-slate-700 flex-shrink-0 ml-1">
                     <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>

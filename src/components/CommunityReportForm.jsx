@@ -25,6 +25,19 @@ const SPECIES = [
 // Exported so map/popup rendering elsewhere can show full labels instead of raw keys.
 export const SPECIES_LABELS = SPECIES.reduce((m, s) => { m[s.key] = s.label; return m; }, {});
 
+// Local (not UTC) YYYY-MM-DD -- used to default/cap the trip-date picker so
+// "today" is the poster's actual today, not UTC's, which can be off by a
+// day in the evening. Exported so SSTHeatmapLeaflet.jsx can reuse the same
+// "is this trip_date actually today" comparison when deciding whether to
+// show a trip-date badge on a pin.
+export function todayLocalISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function CommunityReportForm({
   userId,
   initialType = "report",  // "live" | "report"
@@ -35,6 +48,12 @@ export default function CommunityReportForm({
   onPosted,                 // (newLocation) => void
 }) {
   const [type,       setType]       = useState(initialType);
+  // Date the trip/catch actually happened, as chosen by the poster --
+  // defaults to today. Distinct from created_at (the posting timestamp),
+  // which is set server-side at insert time. Added so reports posted well
+  // after the trip (a common source of stale-looking-fresh intel on the
+  // map) carry their real date instead of always reading as "just now".
+  const [tripDate,   setTripDate]   = useState(todayLocalISO);
   const [species,    setSpecies]    = useState(new Set());
   const [quantities, setQuantities] = useState({});
   const [notes,      setNotes]      = useState("");
@@ -178,6 +197,7 @@ export default function CommunityReportForm({
           species:        Array.from(species),
           quantity:       qty,
           water_temp:     waterTemp,
+          trip_date:      tripDate,
           notes:          notes.trim() || null,
           image_urls:     imageUrls,
           venmo_handle:   profile?.venmo_handle   || null,
@@ -234,9 +254,9 @@ export default function CommunityReportForm({
         className="bg-white w-full sm:w-[380px] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header — type toggle */}
+        {/* Header — type toggle + trip date */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100">
-          <div className="flex gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setType("report")}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
@@ -262,6 +282,14 @@ export default function CommunityReportForm({
               />
               Live Pin
             </button>
+            <input
+              type="date"
+              value={tripDate}
+              max={todayLocalISO()}
+              onChange={e => setTripDate(e.target.value)}
+              title="Date of the trip/catch"
+              className="text-[11px] font-semibold text-slate-600 bg-slate-100 border border-transparent rounded-full px-2 py-1 focus:outline-none focus:border-cyan-500 focus:bg-white"
+            />
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1">
             <X className="w-4 h-4" />
