@@ -93,7 +93,7 @@ const NOAA_SOURCES = {
   },
     // ── GA/SC Region ───────────────────────────────────────────────────────────
   "Beaufort, SC": {
-    tideStation: "8670659",
+    tideStation: "8667999",   // corrected 2026-07-18: prior ID did not exist in NOAA's system
     offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa.json", noaaZone: { id: "AMZ382", description: "Edisto Beach SC to Savannah GA, 20-60nm" } },
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/beaufortsc_noaa_nearshore.json", noaaZone: { id: "AMZ362", description: "Edisto Beach SC to Savannah GA, 0-20nm" } },
   },
@@ -113,7 +113,7 @@ const NOAA_SOURCES = {
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/darienga_noaa_nearshore.json", noaaZone: { id: "AMZ364", description: "Savannah GA to Altamaha Sound GA, 0-20nm" } },
   },
   "Fernandina Beach, FL": {
-    tideStation: "8720197",
+    tideStation: "8720030",   // corrected 2026-07-18: prior ID did not exist in NOAA's system
     offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fernandinafl_noaa.json", noaaZone: { id: "AMZ470", description: "Altamaha Sound GA to Fernandina Beach FL, 20-60nm" } },
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/fernandinafl_noaa_nearshore.json", noaaZone: { id: "AMZ450", description: "Altamaha Sound GA to Fernandina Beach FL, 0-20nm" } },
   },
@@ -123,7 +123,7 @@ const NOAA_SOURCES = {
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/georgetownsc_noaa_nearshore.json", noaaZone: { id: "AMZ256", description: "Murrells Inlet to S. Santee River SC, 0-20nm" } },
   },
   "Hilton Head, SC": {
-    tideStation: "8670659",
+    tideStation: "8667999",   // corrected 2026-07-18: prior ID did not exist in NOAA's system
     offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hiltonheadsc_noaa.json", noaaZone: { id: "AMZ382", description: "Edisto Beach SC to Savannah GA, 20-60nm" } },
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/hiltonheadsc_noaa_nearshore.json", noaaZone: { id: "AMZ362", description: "Edisto Beach SC to Savannah GA, 0-20nm" } },
   },
