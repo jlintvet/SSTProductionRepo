@@ -1241,6 +1241,7 @@ function SSTPageBody() {
                 if (userId !== null) checkCommunityAccess(userId, isPro);
                 setShowCommunityLayer(true);
               }}
+              onCommunityDeleted={fetchCommunityLocations}
               onStartNavFromMap={handleStartNavFromMap}
               onEndNavFromMap={handleEndNavFromMap}
             />

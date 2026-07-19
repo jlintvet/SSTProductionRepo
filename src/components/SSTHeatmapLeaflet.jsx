@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
-import { Crosshair, Move, Wind, LifeBuoy } from "lucide-react";
+import { Crosshair, Move, Wind, LifeBuoy, Trash2 } from "lucide-react";
 import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
@@ -1048,7 +1048,7 @@ export default function SSTHeatmapLeaflet(props) {
     communityAccess, communityCount,
     onOpenLeaderboard, onPostCommunityReport,
     onCommunityPosted,
-    communityPinDrop, onCommunityPinDropped, onCancelPinDrop,
+    communityPinDrop, onCommunityPinDropped, onCancelPinDrop, onCommunityDeleted,
     onStartNavFromMap, onEndNavFromMap,
   } = props;
 
@@ -1273,7 +1273,38 @@ export default function SSTHeatmapLeaflet(props) {
     if (el) el.style.cursor = communityPinDrop ? 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23000\' stroke-width=\'3\'/%3E%3Cline x1=\'10\' y1=\'0\' x2=\'10\' y2=\'20\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3Cline x1=\'0\' y1=\'10\' x2=\'20\' y2=\'10\' stroke=\'%23fff\' stroke-width=\'1.5\'/%3E%3C/svg%3E") 10 10, crosshair' : "";
   }, [communityPinDrop]);
   const [selectedCommunityPin, setSelectedCommunityPin] = useState(null); // { pin, px, py }
+  const [deletingPinId,        setDeletingPinId]        = useState(null); // pin.id currently being deleted (disables the button mid-request)
   const [savedCommunityPins,   setSavedCommunityPins]   = useState(new Set()); // set of pin ids saved this session
+
+  // Soft-delete: sets expires_at to now() rather than a hard DELETE. Reuses
+  // the existing self-serve "cl_update" RLS policy (auth.uid() = user_id) --
+  // no new DELETE policy needed -- and plugs straight into infrastructure
+  // that already exists for normal expiry: cl_read's SELECT policy already
+  // excludes expires_at <= now(), and the daily cleanup-expired-community-
+  // photos cron job will pick up and remove any attached photos on its next
+  // run, exactly like a naturally-expired pin. A hard DELETE would skip
+  // that cron path and leak the photos in storage. Only ever reachable from
+  // the UI when pin.is_own is true (server-computed per-viewer by the
+  // community_locations_public view, since it never exposes user_id itself).
+  async function handleDeletePin(pin) {
+    if (!pin?.is_own) return;
+    if (!window.confirm("Delete this report? This can't be undone.")) return;
+    setDeletingPinId(pin.id);
+    try {
+      const { error } = await supabase
+        .from("community_locations")
+        .update({ expires_at: new Date().toISOString() })
+        .eq("id", pin.id);
+      if (error) throw error;
+      setSelectedCommunityPin(null);
+      onCommunityDeleted?.();
+    } catch (err) {
+      console.error("[SSTHeatmapLeaflet] delete report failed:", err);
+      window.alert("Couldn't delete this report. Please try again.");
+    } finally {
+      setDeletingPinId(null);
+    }
+  }
   const [communityTipModal,    setCommunityTipModal]    = useState(null); // { pin }
   const [thankingId,           setThankingId]           = useState(null);
   const [imageLightbox,        setImageLightbox]        = useState(null); // { urls: string[], index: number }
@@ -2969,7 +3000,19 @@ export default function SSTHeatmapLeaflet(props) {
         }
         showPopup(e);
       });
-      m.on("mouseout", () => { setHoveredWreck(null); try{ const XHAIR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cline x1='8' y1='0' x2='8' y2='16' stroke='%23111' stroke-width='1.2'/%3E%3Cline x1='0' y1='8' x2='16' y2='8' stroke='%23111' stroke-width='1.2'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='none' stroke='%23111' stroke-width='1.2'/%3E%3C/svg%3E") 8 8, crosshair`; map.getContainer().style.cursor=interactionModeRef.current==="crosshair"?XHAIR:"grab";}catch(_){} });
+      m.on("mouseout", () => {
+        setHoveredWreck(null);
+        try {
+          const XHAIR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cline x1='8' y1='0' x2='8' y2='16' stroke='%23111' stroke-width='1.2'/%3E%3Cline x1='0' y1='8' x2='16' y2='8' stroke='%23111' stroke-width='1.2'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='none' stroke='%23111' stroke-width='1.2'/%3E%3C/svg%3E") 8 8, crosshair`;
+          // Priority matches whichever mode's own effect last set the base
+          // cursor (communityPinDropRef: report-posting pin-drop crosshair;
+          // tripModeRef: route-planning crosshair; interactionModeRef: the
+          // Inspect-tool toggle) -- previously only the last of these was
+          // checked, so the other two modes' crosshair never got restored.
+          const wantCrosshair = communityPinDropRef.current || tripModeRef.current || interactionModeRef.current === "crosshair";
+          map.getContainer().style.cursor = wantCrosshair ? XHAIR : "grab";
+        } catch(_) {}
+      });
       m.addTo(lyr);
     });
     lyr.addTo(map); wreckLayerRef.current = lyr;
@@ -4498,9 +4541,21 @@ export default function SSTHeatmapLeaflet(props) {
                       {pinTripBadge && <span className="text-amber-600 font-semibold"> · {pinTripBadge}</span>}
                     </div>
                   </div>
-                  <button onClick={() => setSelectedCommunityPin(null)} className="text-slate-400 hover:text-slate-700 flex-shrink-0 ml-1">
-                    <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  </button>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                    {pin.is_own && (
+                      <button
+                        onClick={() => handleDeletePin(pin)}
+                        disabled={deletingPinId === pin.id}
+                        title="Delete this report"
+                        className="text-slate-400 hover:text-red-600 disabled:opacity-40 p-0.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button onClick={() => setSelectedCommunityPin(null)} className="text-slate-400 hover:text-slate-700">
+                      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Species + qty */}
