@@ -58,7 +58,24 @@ textarea { resize:vertical; }
 .preview-media img, .preview-media video { width:100%; height:100%; object-fit:contain; }
 .preview-body { padding:14px; }
 .preview-title { font-size:13px; font-weight:700; color:#1e293b; margin-bottom:4px; }
-.preview-text { font-size:11px; color:#64748b; line-height:1.5; white-space:pre-wrap; }
+.preview-text { font-size:11px; color:#64748b; line-height:1.5; }
+.preview-text p { margin:0 0 8px; }
+.preview-text p:last-child { margin-bottom:0; }
+.preview-text ul { list-style:disc; padding-left:18px; margin:0 0 8px; }
+.preview-text ol { list-style:decimal; padding-left:18px; margin:0 0 8px; }
+.preview-text li { margin-bottom:4px; }
+.preview-text strong { font-weight:700; color:#1e293b; }
+.preview-text em { font-style:italic; }
+
+/* ── Rich text editor (body field) ── */
+.rte-toolbar { display:flex; gap:4px; margin-bottom:4px; flex-wrap:wrap; }
+.rte-toolbar button { background:#334155; border:1px solid #475569; border-radius:6px; color:#e2e8f0; font-size:11px; padding:4px 9px; cursor:pointer; }
+.rte-toolbar button:hover { background:#475569; }
+.rte-editable { min-height:120px; max-height:280px; overflow-y:auto; line-height:1.5; }
+.rte-editable ul { list-style:disc; padding-left:18px; margin:4px 0; }
+.rte-editable ol { list-style:decimal; padding-left:18px; margin:4px 0; }
+.rte-editable p { margin:0 0 6px; }
+.rte-editable:empty:before { content:attr(data-placeholder); color:#475569; }
 
 /* ── Feedback ── */
 .feedback-wrap { margin-top:16px; padding-top:14px; border-top:1px solid #334155; }
@@ -108,7 +125,15 @@ textarea { resize:vertical; }
       <input id="fTitle" class="finput" type="text" placeholder="e.g. New nearshore/offshore forecast toggle"/>
 
       <div class="flabel">Body</div>
-      <textarea id="fBody" rows="5" placeholder="What changed and why it matters to the angler."></textarea>
+      <div class="rte-toolbar">
+        <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('bold')"><b>B</b></button>
+        <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('italic')"><i>I</i></button>
+        <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('insertUnorderedList')">&bull; List</button>
+        <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('insertOrderedList')">1. List</button>
+        <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('formatBlock', 'P')">&para; Paragraph</button>
+        <button type="button" onmousedown="event.preventDefault()" onclick="rteClear()">Clear formatting</button>
+      </div>
+      <div id="fBody" class="finput rte-editable" contenteditable="true" data-placeholder="What changed and why it matters to the angler." oninput="updatePreview()"></div>
 
       <div class="flabel">Media</div>
       <div class="row2">
@@ -311,7 +336,7 @@ function newAnnouncement() {
   document.getElementById('feedbackWrap').style.display = 'none';
   document.getElementById('deleteBtn').style.display = 'none';
   document.getElementById('fTitle').value = '';
-  document.getElementById('fBody').value = '';
+  document.getElementById('fBody').innerHTML = '';
   document.getElementById('fMediaType').value = 'none';
   document.getElementById('fMediaUrl').value = '';
   document.getElementById('fPosterUrl').value = '';
@@ -335,7 +360,7 @@ function selectAnnouncement(id) {
   document.getElementById('edit').style.display = 'block';
   document.getElementById('deleteBtn').style.display = 'inline-block';
   document.getElementById('fTitle').value = a.title || '';
-  document.getElementById('fBody').value = a.body || '';
+  document.getElementById('fBody').innerHTML = a.body || '';
   document.getElementById('fMediaType').value = a.media_type || 'none';
   document.getElementById('fMediaUrl').value = a.media_url || '';
   document.getElementById('fPosterUrl').value = a.poster_url || '';
@@ -359,13 +384,30 @@ function onMediaTypeChange() {
   updatePreview();
 }
 
-['fTitle','fBody','fMediaType','fMediaUrl','fPosterUrl'].forEach(id => {
+// ── Rich text editor (body field) ────────────────────────────────────────
+// Lightweight contenteditable + execCommand toolbar -- deliberately not a
+// full WYSIWYG library, just enough to get real <ul>/<strong>/<p> structure
+// out of admin-authored release notes instead of raw newlines/dashes.
+function rteCmd(cmd, val) {
+  document.getElementById('fBody').focus();
+  document.execCommand(cmd, false, val || null);
+  updatePreview();
+}
+function rteClear() {
+  document.getElementById('fBody').focus();
+  document.execCommand('removeFormat');
+  updatePreview();
+}
+
+['fTitle','fMediaType','fMediaUrl','fPosterUrl'].forEach(id => {
   document.getElementById(id).addEventListener('input', updatePreview);
 });
 
 function updatePreview() {
   document.getElementById('previewTitle').textContent = document.getElementById('fTitle').value || 'Title';
-  document.getElementById('previewBody').textContent = document.getElementById('fBody').value || 'Body text will appear here.';
+  const bodyEl = document.getElementById('fBody');
+  const bodyIsEmpty = !bodyEl.textContent.trim();
+  document.getElementById('previewBody').innerHTML = bodyIsEmpty ? 'Body text will appear here.' : bodyEl.innerHTML;
   const type = document.getElementById('fMediaType').value;
   const url = document.getElementById('fMediaUrl').value;
   const poster = document.getElementById('fPosterUrl').value;
@@ -399,9 +441,13 @@ async function saveAnnouncement() {
     return;
   }
 
+  const bodyEl = document.getElementById('fBody');
+  const bodyHtml = bodyEl.innerHTML.trim();
+  const bodyText = bodyEl.textContent.trim();
+
   const payload = {
     title: document.getElementById('fTitle').value.trim(),
-    body: document.getElementById('fBody').value.trim(),
+    body: bodyHtml,
     media_type: mediaType,
     media_url: document.getElementById('fMediaUrl').value.trim() || null,
     poster_url: posterUrl,
@@ -415,6 +461,7 @@ async function saveAnnouncement() {
   };
 
   if (!payload.title) { status.className = 'err'; status.textContent = 'Title is required.'; return; }
+  if (!bodyText) { status.className = 'err'; status.textContent = 'Body is required.'; return; }
 
   let result;
   if (selectedId) {

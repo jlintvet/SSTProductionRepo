@@ -156,7 +156,16 @@ export default function AnnouncementCarousel({ announcements, onDismiss, onReact
         {/* ── Slide content ───────────────────────────────────────────── */}
         <div className="px-5 pt-4 pb-2 flex-shrink-0 overflow-y-auto">
           <p className="text-sm font-semibold text-slate-800 mb-1">{current.title}</p>
-          <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{current.body}</p>
+          {/* body is admin-authored HTML (rich text editor in announcements_admin.html),
+              not user-generated content -- RLS restricts app_announcements writes to the
+              admin email allowlist (see migration app_announcements_and_receipts), same
+              trust boundary as everything else in the admin tools. Arbitrary child
+              selectors give the nested tags real formatting without the Tailwind
+              typography plugin. */}
+          <div
+            className="text-xs text-slate-500 leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-1 [&_strong]:font-semibold [&_strong]:text-slate-700 [&_em]:italic [&_a]:text-cyan-600 [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: current.body }}
+          />
         </div>
 
         {/* ── Feedback: thumbs + optional comment, tied to this message ── */}
