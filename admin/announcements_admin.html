@@ -109,6 +109,7 @@ textarea { resize:vertical; }
     <div class="pill green">Active <span id="statActive">—</span></div>
     <div class="pill">Draft <span id="statDraft">—</span></div>
     <div class="pill amber">Expired <span id="statExpired">—</span></div>
+    <div class="pill cyan" id="sessionPill" style="display:none">Signed in as <span id="sessionEmail"></span></div>
     <div style="margin-left:auto;display:flex;gap:6px">
       <button class="btn btn-blue btn-sm" onclick="newAnnouncement()">+ New</button>
       <button class="btn btn-slate btn-sm" onclick="loadAnnouncements()">Refresh</button>
@@ -259,10 +260,35 @@ async function checkExistingSession() {
 async function doSignOut() { await sb.auth.signOut(); location.reload(); }
 document.getElementById('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-function showApp() {
+async function showApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  const { data: { user } } = await sb.auth.getUser();
+  if (user) {
+    document.getElementById('sessionEmail').textContent = user.email;
+    document.getElementById('sessionPill').style.display = '';
+  }
   loadAnnouncements();
+}
+
+// ── Session guard ────────────────────────────────────────────────────────────
+// getSession() (unlike getUser()) transparently refreshes a near/fully-expired
+// access token before returning, so calling this right before a write is a
+// cheap way to avoid the confusing "new row violates row-level security
+// policy" error a stale token in a long-lived tab would otherwise produce.
+// The RLS policies themselves were verified correct directly against
+// Postgres (impersonating an authenticated jlintvet@gmail.com session) --
+// this guard is about making sure the *request* that reaches Postgres is
+// actually still authenticated, since a browser tab left open a while can
+// end up with an expired token if auto-refresh didn't get to run (e.g. the
+// tab was backgrounded and its timers got throttled).
+async function ensureAdminSession() {
+  const { data: { session }, error } = await sb.auth.getSession();
+  if (error || !session || !ADMIN_EMAILS.includes(session.user?.email)) {
+    alert('Your session has expired or is no longer valid. Please sign out and sign back in, then retry.');
+    return false;
+  }
+  return true;
 }
 
 // ── State ───────────────────────────────────────────────────────────────────
@@ -426,6 +452,7 @@ function updatePreview() {
 
 // ── Save / delete ────────────────────────────────────────────────────────────
 async function saveAnnouncement() {
+  if (!(await ensureAdminSession())) return;
   const status = document.getElementById('saveStatus');
   status.className = ''; status.textContent = 'Saving...';
 
@@ -472,7 +499,11 @@ async function saveAnnouncement() {
     result = await sb.from('app_announcements').insert(payload).select().single();
   }
   if (result.error) {
-    status.className = 'err'; status.textContent = result.error.message;
+    const isRls = result.error.code === '42501' || /row-level security/i.test(result.error.message || '');
+    status.className = 'err';
+    status.textContent = isRls
+      ? 'Session expired mid-save -- sign out, sign back in, and try again.'
+      : result.error.message;
     return;
   }
   status.className = 'ok'; status.textContent = 'Saved.';
@@ -483,6 +514,7 @@ async function saveAnnouncement() {
 
 async function deleteAnnouncement() {
   if (!selectedId) return;
+  if (!(await ensureAdminSession())) return;
   if (!confirm('Delete this announcement? This cannot be undone.')) return;
   const { error } = await sb.from('app_announcements').delete().eq('id', selectedId);
   if (error) { alert(error.message); return; }
