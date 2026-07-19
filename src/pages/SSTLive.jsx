@@ -860,7 +860,7 @@ function SSTPageBody() {
   // ── Community data functions ──────────────────────────────────────────────
   async function fetchCommunityLocations() {
     // Reads from the masking view, not the raw table — it drops user_id
-    // entirely and replaces display_name with "Anonymous Captain" for
+    // entirely and replaces display_name with "Anonymous Contributor" for
     // is_anonymous rows, so the client never holds another user's real
     // identity for anonymous posts. See record_community_tip RPC for how
     // tipping still works without the client needing user_id.

@@ -833,7 +833,7 @@ function renderPinList() {
     const expLabel = expired ? `<span class="pin-badge badge-exp">expired</span>` : '';
     const flagLabel = p.is_flagged ? `<span class="pin-badge badge-flag">flagged</span>` : '';
     // Real display_name is always shown to admin -- this badge just flags
-    // that the PUBLIC map shows "Anonymous Captain" instead for this pin.
+    // that the PUBLIC map shows "Anonymous Contributor" instead for this pin.
     const anonLabel = p.is_anonymous ? `<span class="pin-badge badge-anon">anonymous</span>` : '';
     const seedLabel = seedUserIds.has(p.user_id) ? `<span class="pin-badge badge-seed">seed</span>` : '';
     const expiry   = expired ? 'Expired' : 'Exp ' + timeUntil(p.expires_at);
