@@ -17,6 +17,7 @@ import CommunityReportForm from "@/components/CommunityReportForm";
 import OnboardingCarousel from "@/components/OnboardingCarousel";
 import LeaderboardModal from "@/components/LeaderboardModal";
 import TipNotificationModal from "@/components/TipNotificationModal";
+import AnnouncementCarousel from "@/components/AnnouncementCarousel";
 
 // ── Deploy diagnostic ─────────────────────────────────────────────────────────
 if (typeof window !== "undefined") console.log("SST deploy check: 2026-06-11T01");
@@ -469,6 +470,9 @@ function SSTPageBody() {
   const [communityPinDrop,    setCommunityPinDrop]    = useState(null); // "live" | "report" | null
   const [showOnboarding,      setShowOnboarding]      = useState(false);
   const [tipNotifications,   setTipNotifications]   = useState([]);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [announcements,     setAnnouncements]     = useState([]);
+  const [announcementsChecked, setAnnouncementsChecked] = useState(false);
 
   // Re-launch tour from HelpReportModal or UserSettingsModal via custom event
   useEffect(() => {
@@ -490,20 +494,77 @@ function SSTPageBody() {
           setShowOnboarding(true);
         }
       })
-      .catch(() => {}); // Silently ignore — don't block map on onboarding check failure
+      .catch(() => {}) // Silently ignore — don't block map on onboarding check failure
+      .finally(() => setOnboardingChecked(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, userId]);
 
+  // Check for unseen app_announcements (admin-authored "what's new" messages)
+  // after login. Sequenced strictly behind onboarding: only runs once
+  // onboardingChecked is true AND showOnboarding is false, so a brand-new
+  // user only ever sees the onboarding carousel this session -- announcements
+  // and tip nudges wait until onboarding is fully resolved (including later
+  // in the same session, if onboarding just finished). Scoped to
+  // announcements created on/after this user's signup date so a new user's
+  // first login never gets a backlog of old update messages. RLS on
+  // app_announcements already restricts to active/published rows within
+  // their start/end window and matching target_tier/target_region, so this
+  // query only needs to add the signup-date floor and exclude
+  // already-dismissed (seen_at set) receipts.
+  useEffect(() => {
+    if (loading || !userId || !onboardingChecked || showOnboarding) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("created_at")
+          .eq("id", userId)
+          .single();
+        if (cancelled) return;
+        const signupAt = profile?.created_at || null;
+
+        const { data: receipts } = await supabase
+          .from("announcement_receipts")
+          .select("announcement_id")
+          .eq("user_id", userId)
+          .not("seen_at", "is", null);
+        if (cancelled) return;
+        const seenIds = (receipts || []).map(r => r.announcement_id);
+
+        let q = supabase
+          .from("app_announcements")
+          .select("id, title, body, media_type, media_url, poster_url, priority, start_date")
+          .order("priority", { ascending: true })
+          .order("start_date", { ascending: true });
+        if (signupAt) q = q.gte("start_date", signupAt);
+        if (seenIds.length) q = q.not("id", "in", `(${seenIds.join(",")})`);
+
+        const { data: rows } = await q;
+        if (cancelled) return;
+        if (rows && rows.length) setAnnouncements(rows);
+      } catch {
+        // Silently ignore — don't block map on this check failing
+      } finally {
+        if (!cancelled) setAnnouncementsChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, userId, onboardingChecked, showOnboarding]);
+
   // Check for unseen tip_notifications (someone tried to tip this user's report
   // but the pin had no venmo/cashapp handle) after login. Mirrors the
-  // has_seen_onboarding check above. Skipped entirely if the user has muted
-  // these nudges (tip_notifications_muted) -- checked first so a muted user
-  // never even issues the tip_notifications query. See notify-tip-missing-handle
-  // edge function for the email side of this same flow (it also respects the
-  // mute flag independently, so muting still works if this client-side check
-  // is ever bypassed).
+  // has_seen_onboarding check above. Sequenced behind the announcement check
+  // above (announcementsChecked && no pending announcements) so the two
+  // post-login modals never race for the screen. Skipped entirely if the
+  // user has muted these nudges (tip_notifications_muted) -- checked first
+  // so a muted user never even issues the tip_notifications query. See
+  // notify-tip-missing-handle edge function for the email side of this same
+  // flow (it also respects the mute flag independently, so muting still
+  // works if this client-side check is ever bypassed).
   useEffect(() => {
-    if (loading || !userId) return;
+    if (loading || !userId || !announcementsChecked || announcements.length > 0) return;
     supabase
       .from("user_profiles")
       .select("tip_notifications_muted")
@@ -523,7 +584,7 @@ function SSTPageBody() {
       })
       .catch(() => {}); // Silently ignore — don't block map on this check failing
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, userId]);
+  }, [loading, userId, announcementsChecked, announcements.length]);
 
   function dismissTipNotifications() {
     const ids = tipNotifications.map(n => n.id);
@@ -548,6 +609,32 @@ function SSTPageBody() {
       supabase.from("user_profiles").update({ tip_notifications_muted: true }).eq("id", userId)
         .then(() => {}).catch(() => {});
     }
+  }
+
+  // ── Announcement carousel handlers ──────────────────────────────────────
+  // Each writes/merges a single receipt row (unique on announcement_id+user_id)
+  // via upsert -- PostgREST upsert only overwrites the columns included in
+  // the payload, so calling dismiss/react/comment separately for the same
+  // announcement progressively fills one row instead of clobbering it.
+  function dismissAnnouncement(id) {
+    if (!userId) return;
+    supabase.from("announcement_receipts")
+      .upsert({ user_id: userId, announcement_id: id, seen_at: new Date().toISOString() }, { onConflict: "announcement_id,user_id" })
+      .then(() => {}).catch(() => {});
+  }
+
+  function reactToAnnouncement(id, reaction) {
+    if (!userId) return;
+    supabase.from("announcement_receipts")
+      .upsert({ user_id: userId, announcement_id: id, reaction, reacted_at: new Date().toISOString() }, { onConflict: "announcement_id,user_id" })
+      .then(() => {}).catch(() => {});
+  }
+
+  function commentOnAnnouncement(id, text) {
+    if (!userId) return;
+    supabase.from("announcement_receipts")
+      .upsert({ user_id: userId, announcement_id: id, comment: text }, { onConflict: "announcement_id,user_id" })
+      .then(() => {}).catch(() => {});
   }
 
   async function handleOnboardingComplete() {
@@ -1321,6 +1408,15 @@ function SSTPageBody() {
 
           {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
           {showOnboarding && <OnboardingCarousel onComplete={handleOnboardingComplete} />}
+          {!showOnboarding && announcements.length > 0 && (
+            <AnnouncementCarousel
+              announcements={announcements}
+              onDismiss={dismissAnnouncement}
+              onReact={reactToAnnouncement}
+              onComment={commentOnAnnouncement}
+              onComplete={() => setAnnouncements([])}
+            />
+          )}
           {tipNotifications.length > 0 && (
             <TipNotificationModal
               notifications={tipNotifications}

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Announcements Admin — SST</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:#0f172a; color:#e2e8f0; }
+#authScreen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0f172a; z-index:9999; }
+.auth-box { background:#1e293b; border:1px solid #334155; border-radius:14px; padding:28px; width:340px; }
+.auth-box h2 { margin:0 0 4px; font-size:18px; }
+.auth-box p { margin:0 0 16px; font-size:12px; color:#94a3b8; }
+.auth-err { color:#f87171; font-size:12px; min-height:16px; margin-top:8px; text-align:center; }
+#app { display:none; flex-direction:column; height:100vh; }
+#topbar { display:flex; align-items:center; gap:8px; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155; flex-wrap:wrap; flex-shrink:0; }
+#topbar h1 { font-size:14px; font-weight:700; margin:0 8px 0 0; }
+.pill { background:#334155; border-radius:999px; padding:4px 11px; font-size:11px; font-weight:600; color:#cbd5e1; }
+.pill.green { background:#14532d; color:#bbf7d0; } .pill.amber { background:#78350f; color:#fde68a; } .pill.cyan { background:#155e75; color:#cffafe; }
+#main { flex:1; display:flex; overflow:hidden; }
+#list { width:320px; flex-shrink:0; background:#1e293b; border-right:1px solid #334155; display:flex; flex-direction:column; overflow:hidden; }
+#listBody { flex:1; overflow-y:auto; }
+.item { padding:9px 12px; border-bottom:1px solid #0f172a; cursor:pointer; transition:background .08s; }
+.item:hover { background:#243049; }
+.item.sel { background:#1d3a5c; border-left:2px solid #38bdf8; }
+.item-title { font-size:12px; font-weight:600; color:#e2e8f0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.item-sub { font-size:10px; color:#64748b; margin-top:2px; display:flex; gap:6px; align-items:center; }
+.badge { padding:1px 6px; border-radius:5px; font-size:9px; font-weight:700; }
+.badge-active { background:#14532d; color:#bbf7d0; } .badge-draft { background:#334155; color:#94a3b8; } .badge-expired { background:#78350f; color:#fde68a; }
+#edit { flex:1; overflow-y:auto; padding:16px 20px; max-width:640px; }
+#editEmpty { flex:1; display:flex; align-items:center; justify-content:center; color:#475569; font-size:12px; }
+.finput, textarea, select { width:100%; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px; padding:7px 9px; font-family:inherit; }
+textarea { resize:vertical; }
+.flabel { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; margin-top:12px; }
+.row2 { display:flex; gap:10px; }
+.row2 > div { flex:1; }
+.btn { border:none; border-radius:8px; padding:7px 15px; font-size:12px; font-weight:600; cursor:pointer; }
+.btn:disabled { opacity:.35; cursor:not-allowed; }
+.btn-blue { background:#2563eb; color:#fff; } .btn-blue:hover:not(:disabled) { background:#1d4ed8; }
+.btn-green { background:#16a34a; color:#fff; } .btn-green:hover:not(:disabled) { background:#15803d; }
+.btn-red { background:#dc2626; color:#fff; } .btn-red:hover:not(:disabled) { background:#b91c1c; }
+.btn-slate { background:#334155; color:#e2e8f0; } .btn-slate:hover { background:#475569; }
+.btn-sm { padding:4px 10px; font-size:11px; }
+.action-row { display:flex; gap:8px; padding-top:14px; margin-top:16px; border-top:1px solid #334155; align-items:center; }
+.note { font-size:10px; color:#64748b; line-height:1.5; margin-top:4px; }
+.check-row { display:flex; align-items:center; gap:7px; margin-top:12px; }
+.check-row input { accent-color:#38bdf8; }
+.check-row label { font-size:12px; color:#cbd5e1; cursor:pointer; }
+#saveStatus { font-size:11px; min-height:14px; }
+#saveStatus.ok { color:#86efac; } #saveStatus.err { color:#f87171; }
+
+/* ── Preview ── */
+.preview-wrap { margin-top:16px; padding-top:14px; border-top:1px solid #334155; }
+.preview-card { background:#fff; color:#1e293b; border-radius:14px; overflow:hidden; max-width:340px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+.preview-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid #f1f5f9; font-size:11px; color:#94a3b8; font-weight:600; }
+.preview-media { background:#0f172a; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; }
+.preview-media img, .preview-media video { width:100%; height:100%; object-fit:contain; }
+.preview-body { padding:14px; }
+.preview-title { font-size:13px; font-weight:700; color:#1e293b; margin-bottom:4px; }
+.preview-text { font-size:11px; color:#64748b; line-height:1.5; white-space:pre-wrap; }
+
+/* ── Feedback ── */
+.feedback-wrap { margin-top:16px; padding-top:14px; border-top:1px solid #334155; }
+.fb-stats { display:flex; gap:8px; margin-bottom:10px; }
+.fb-list { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+.fb-item { background:#0f172a; border-radius:8px; padding:7px 10px; font-size:11px; }
+.fb-item-head { display:flex; justify-content:space-between; color:#94a3b8; margin-bottom:2px; }
+.fb-item .up { color:#86efac; } .fb-item .down { color:#f87171; }
+.fb-empty { font-size:11px; color:#475569; padding:10px 0; text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="authScreen">
+  <div class="auth-box">
+    <h2>RipLoc Announcements Admin</h2>
+    <p>Sign in with your admin account.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div><div class="flabel" style="margin-top:0">Email</div><input id="authEmail" class="finput" type="email" autocomplete="email"/></div>
+      <div><div class="flabel" style="margin-top:0">Password</div><input id="authPass" class="finput" type="password" autocomplete="current-password"/></div>
+      <button class="btn btn-blue" onclick="doLogin()" style="margin-top:8px">Sign In</button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <h1>Announcements Admin</h1>
+    <div class="pill">Total <span id="statTotal">—</span></div>
+    <div class="pill green">Active <span id="statActive">—</span></div>
+    <div class="pill">Draft <span id="statDraft">—</span></div>
+    <div class="pill amber">Expired <span id="statExpired">—</span></div>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn btn-blue btn-sm" onclick="newAnnouncement()">+ New</button>
+      <button class="btn btn-slate btn-sm" onclick="loadAnnouncements()">Refresh</button>
+      <button class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+  <div id="main">
+    <div id="list">
+      <div id="listBody"></div>
+    </div>
+    <div id="editEmpty">Select a message, or click + New.</div>
+    <div id="edit" style="display:none">
+      <div class="flabel" style="margin-top:0">Title</div>
+      <input id="fTitle" class="finput" type="text" placeholder="e.g. New nearshore/offshore forecast toggle"/>
+
+      <div class="flabel">Body</div>
+      <textarea id="fBody" rows="5" placeholder="What changed and why it matters to the angler."></textarea>
+
+      <div class="flabel">Media</div>
+      <div class="row2">
+        <div>
+          <select id="fMediaType" onchange="onMediaTypeChange()">
+            <option value="none">None</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+          </select>
+        </div>
+      </div>
+      <div id="mediaUrlRow" style="display:none">
+        <div class="flabel">Media URL</div>
+        <input id="fMediaUrl" class="finput" type="text" placeholder="https://..."/>
+      </div>
+      <div id="posterUrlRow" style="display:none">
+        <div class="flabel">Poster image URL (shown before play, required for video)</div>
+        <input id="fPosterUrl" class="finput" type="text" placeholder="https://..."/>
+      </div>
+      <div class="note">Upload the file to S3/Supabase Storage yourself first, then paste the resulting URL(s) here. Same workflow as onboarding videos.</div>
+
+      <div class="row2">
+        <div>
+          <div class="flabel">Start date</div>
+          <input id="fStart" class="finput" type="datetime-local"/>
+        </div>
+        <div>
+          <div class="flabel">End date (optional)</div>
+          <input id="fEnd" class="finput" type="datetime-local"/>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <div class="flabel">Priority (lower shows first)</div>
+          <input id="fPriority" class="finput" type="number" value="0"/>
+        </div>
+        <div>
+          <div class="flabel">Target tier</div>
+          <select id="fTier">
+            <option value="">All tiers</option>
+            <option value="trial">Trial</option>
+            <option value="standard">Standard</option>
+            <option value="pro">Pro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flabel">Target region</div>
+      <select id="fRegion">
+        <option value="">All regions</option>
+        <option value="mid_atlantic">Mid-Atlantic</option>
+        <option value="ga_sc">GA &amp; SC</option>
+        <option value="ne_fl">NE FL</option>
+        <option value="va_ri">VA-RI</option>
+      </select>
+
+      <div class="check-row">
+        <input type="checkbox" id="fActive"/>
+        <label for="fActive">Active (published — visible to matching users once start date arrives)</label>
+      </div>
+      <div class="note">Leave unchecked while drafting so it can't go live the moment the start date passes.</div>
+
+      <div class="action-row">
+        <button class="btn btn-green" onclick="saveAnnouncement()">Save</button>
+        <button id="deleteBtn" class="btn btn-red" onclick="deleteAnnouncement()">Delete</button>
+        <span id="saveStatus"></span>
+      </div>
+
+      <div class="preview-wrap">
+        <div class="flabel" style="margin-top:0">Preview — what the user sees</div>
+        <div class="preview-card">
+          <div class="preview-header"><span>What's New</span><span>✕</span></div>
+          <div class="preview-media" id="previewMedia"></div>
+          <div class="preview-body">
+            <div class="preview-title" id="previewTitle">Title</div>
+            <div class="preview-text" id="previewBody">Body text will appear here.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback-wrap" id="feedbackWrap" style="display:none">
+        <div class="flabel" style="margin-top:0">Feedback</div>
+        <div class="fb-stats">
+          <div class="pill">Seen <span id="fbSeen">0</span></div>
+          <div class="pill green">👍 <span id="fbUp">0</span></div>
+          <div class="pill amber">👎 <span id="fbDown">0</span></div>
+        </div>
+        <div class="fb-list" id="fbList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const SB_URL   = 'https://upxerlzdgdbjkbjpuktn.supabase.co';
+const SB_ANON  = 'sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
+const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
+
+const { createClient } = supabase;
+const sb = createClient(SB_URL, SB_ANON);
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPass').value;
+  const err   = document.getElementById('authErr');
+  err.textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error || !data.user) { err.textContent = error?.message || 'Sign-in failed.'; return; }
+  if (!ADMIN_EMAILS.includes(data.user.email)) {
+    await sb.auth.signOut();
+    err.textContent = 'Not authorized as admin.';
+    return;
+  }
+  showApp();
+}
+async function checkExistingSession() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (user && ADMIN_EMAILS.includes(user.email)) showApp();
+}
+async function doSignOut() { await sb.auth.signOut(); location.reload(); }
+document.getElementById('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  loadAnnouncements();
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+let announcements = [];
+let selectedId = null; // null = new/unsaved
+
+// ── List + stats ────────────────────────────────────────────────────────────
+async function loadAnnouncements() {
+  const { data, error } = await sb.from('app_announcements')
+    .select('*')
+    .order('priority', { ascending: true })
+    .order('start_date', { ascending: false });
+  if (error) { console.error(error); return; }
+  announcements = data || [];
+  renderList();
+  renderStats();
+}
+
+function renderStats() {
+  const now = new Date();
+  let active = 0, draft = 0, expired = 0;
+  announcements.forEach(a => {
+    if (!a.is_active) { draft++; return; }
+    if (a.end_date && new Date(a.end_date) < now) { expired++; return; }
+    active++;
+  });
+  document.getElementById('statTotal').textContent = announcements.length;
+  document.getElementById('statActive').textContent = active;
+  document.getElementById('statDraft').textContent = draft;
+  document.getElementById('statExpired').textContent = expired;
+}
+
+function statusBadge(a) {
+  const now = new Date();
+  if (!a.is_active) return '<span class="badge badge-draft">Draft</span>';
+  if (a.end_date && new Date(a.end_date) < now) return '<span class="badge badge-expired">Expired</span>';
+  if (new Date(a.start_date) > now) return '<span class="badge badge-draft">Scheduled</span>';
+  return '<span class="badge badge-active">Active</span>';
+}
+
+function renderList() {
+  const body = document.getElementById('listBody');
+  if (!announcements.length) {
+    body.innerHTML = '<div class="fb-empty">No announcements yet.</div>';
+    return;
+  }
+  body.innerHTML = announcements.map(a => `
+    <div class="item ${a.id === selectedId ? 'sel' : ''}" onclick="selectAnnouncement('${a.id}')">
+      <div class="item-title">${escapeHtml(a.title || '(untitled)')}</div>
+      <div class="item-sub">${statusBadge(a)} <span>${new Date(a.start_date).toLocaleDateString()}</span></div>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ── Edit form ────────────────────────────────────────────────────────────────
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function newAnnouncement() {
+  selectedId = null;
+  document.getElementById('editEmpty').style.display = 'none';
+  document.getElementById('edit').style.display = 'block';
+  document.getElementById('feedbackWrap').style.display = 'none';
+  document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fBody').value = '';
+  document.getElementById('fMediaType').value = 'none';
+  document.getElementById('fMediaUrl').value = '';
+  document.getElementById('fPosterUrl').value = '';
+  document.getElementById('fStart').value = toLocalInput(new Date().toISOString());
+  document.getElementById('fEnd').value = '';
+  document.getElementById('fPriority').value = 0;
+  document.getElementById('fTier').value = '';
+  document.getElementById('fRegion').value = '';
+  document.getElementById('fActive').checked = false;
+  document.getElementById('saveStatus').textContent = '';
+  onMediaTypeChange();
+  updatePreview();
+  renderList();
+}
+
+function selectAnnouncement(id) {
+  const a = announcements.find(x => x.id === id);
+  if (!a) return;
+  selectedId = id;
+  document.getElementById('editEmpty').style.display = 'none';
+  document.getElementById('edit').style.display = 'block';
+  document.getElementById('deleteBtn').style.display = 'inline-block';
+  document.getElementById('fTitle').value = a.title || '';
+  document.getElementById('fBody').value = a.body || '';
+  document.getElementById('fMediaType').value = a.media_type || 'none';
+  document.getElementById('fMediaUrl').value = a.media_url || '';
+  document.getElementById('fPosterUrl').value = a.poster_url || '';
+  document.getElementById('fStart').value = toLocalInput(a.start_date);
+  document.getElementById('fEnd').value = toLocalInput(a.end_date);
+  document.getElementById('fPriority').value = a.priority ?? 0;
+  document.getElementById('fTier').value = a.target_tier || '';
+  document.getElementById('fRegion').value = a.target_region || '';
+  document.getElementById('fActive').checked = !!a.is_active;
+  document.getElementById('saveStatus').textContent = '';
+  onMediaTypeChange();
+  updatePreview();
+  renderList();
+  loadFeedback(id);
+}
+
+function onMediaTypeChange() {
+  const type = document.getElementById('fMediaType').value;
+  document.getElementById('mediaUrlRow').style.display = type === 'none' ? 'none' : 'block';
+  document.getElementById('posterUrlRow').style.display = type === 'video' ? 'block' : 'none';
+  updatePreview();
+}
+
+['fTitle','fBody','fMediaType','fMediaUrl','fPosterUrl'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePreview);
+});
+
+function updatePreview() {
+  document.getElementById('previewTitle').textContent = document.getElementById('fTitle').value || 'Title';
+  document.getElementById('previewBody').textContent = document.getElementById('fBody').value || 'Body text will appear here.';
+  const type = document.getElementById('fMediaType').value;
+  const url = document.getElementById('fMediaUrl').value;
+  const poster = document.getElementById('fPosterUrl').value;
+  const media = document.getElementById('previewMedia');
+  if (type === 'video' && url) {
+    media.innerHTML = `<video src="${escapeHtml(url)}" poster="${escapeHtml(poster)}" controls muted></video>`;
+  } else if (type === 'image' && url) {
+    media.innerHTML = `<img src="${escapeHtml(url)}"/>`;
+  } else {
+    media.innerHTML = '';
+    media.style.display = 'none';
+    return;
+  }
+  media.style.display = 'flex';
+}
+
+// ── Save / delete ────────────────────────────────────────────────────────────
+async function saveAnnouncement() {
+  const status = document.getElementById('saveStatus');
+  status.className = ''; status.textContent = 'Saving...';
+
+  const mediaType = document.getElementById('fMediaType').value;
+  const posterUrl = document.getElementById('fPosterUrl').value.trim() || null;
+  if (mediaType === 'video' && !posterUrl) {
+    status.className = 'err'; status.textContent = 'Video requires a poster image URL.';
+    return;
+  }
+  const startVal = document.getElementById('fStart').value;
+  if (!startVal) {
+    status.className = 'err'; status.textContent = 'Start date is required.';
+    return;
+  }
+
+  const payload = {
+    title: document.getElementById('fTitle').value.trim(),
+    body: document.getElementById('fBody').value.trim(),
+    media_type: mediaType,
+    media_url: document.getElementById('fMediaUrl').value.trim() || null,
+    poster_url: posterUrl,
+    start_date: new Date(startVal).toISOString(),
+    end_date: document.getElementById('fEnd').value ? new Date(document.getElementById('fEnd').value).toISOString() : null,
+    priority: parseInt(document.getElementById('fPriority').value, 10) || 0,
+    target_tier: document.getElementById('fTier').value || null,
+    target_region: document.getElementById('fRegion').value || null,
+    is_active: document.getElementById('fActive').checked,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!payload.title) { status.className = 'err'; status.textContent = 'Title is required.'; return; }
+
+  let result;
+  if (selectedId) {
+    result = await sb.from('app_announcements').update(payload).eq('id', selectedId).select().single();
+  } else {
+    const { data: { user } } = await sb.auth.getUser();
+    payload.created_by = user?.id || null;
+    result = await sb.from('app_announcements').insert(payload).select().single();
+  }
+  if (result.error) {
+    status.className = 'err'; status.textContent = result.error.message;
+    return;
+  }
+  status.className = 'ok'; status.textContent = 'Saved.';
+  selectedId = result.data.id;
+  await loadAnnouncements();
+  selectAnnouncement(selectedId);
+}
+
+async function deleteAnnouncement() {
+  if (!selectedId) return;
+  if (!confirm('Delete this announcement? This cannot be undone.')) return;
+  const { error } = await sb.from('app_announcements').delete().eq('id', selectedId);
+  if (error) { alert(error.message); return; }
+  selectedId = null;
+  document.getElementById('edit').style.display = 'none';
+  document.getElementById('editEmpty').style.display = 'flex';
+  await loadAnnouncements();
+}
+
+// ── Feedback ─────────────────────────────────────────────────────────────────
+async function loadFeedback(announcementId) {
+  const wrap = document.getElementById('feedbackWrap');
+  wrap.style.display = 'block';
+  const { data, error } = await sb.from('announcement_receipts')
+    .select('user_id, seen_at, reaction, comment, reacted_at, created_at')
+    .eq('announcement_id', announcementId);
+  if (error) { console.error(error); return; }
+  const rows = data || [];
+  const seen = rows.filter(r => r.seen_at).length;
+  const up = rows.filter(r => r.reaction === 'up').length;
+  const down = rows.filter(r => r.reaction === 'down').length;
+  document.getElementById('fbSeen').textContent = seen;
+  document.getElementById('fbUp').textContent = up;
+  document.getElementById('fbDown').textContent = down;
+
+  const withFeedback = rows.filter(r => r.reaction || r.comment);
+  const list = document.getElementById('fbList');
+  if (!withFeedback.length) {
+    list.innerHTML = '<div class="fb-empty">No reactions or comments yet.</div>';
+    return;
+  }
+  list.innerHTML = withFeedback.map(r => `
+    <div class="fb-item">
+      <div class="fb-item-head">
+        <span class="${r.reaction === 'up' ? 'up' : r.reaction === 'down' ? 'down' : ''}">${r.reaction === 'up' ? '👍' : r.reaction === 'down' ? '👎' : '—'}</span>
+        <span>${r.reacted_at ? new Date(r.reacted_at).toLocaleString() : ''}</span>
+      </div>
+      ${r.comment ? `<div>${escapeHtml(r.comment)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+checkExistingSession();
+</script>
+</body>
+</html>
