@@ -1252,7 +1252,7 @@ function SSTPageBody() {
               goesCompData={goesCompData} goesCompDateIndex={goesCompDateIndex} setGoesCompDateIndex={setGoesCompDateIndex} activeGoesCompDay={activeGoesCompDay}
               highlightedLocation={highlightedLocation} setHighlightedLocation={setHighlightedLocation}
               savedLocations={savedLocations} fetchSavedLocations={fetchSavedLocations}
-              regionConfig={regionConfig} selectedLocation={selectedLocation}
+              regionConfig={regionConfig} regionKey={regionKey} selectedLocation={selectedLocation}
               windData={windData} windLoading={windLoading}
               windHourIndex={windHourIndex} setWindHourIndex={setWindHourIndex}
               showWindOverlay={showWindOverlay} setShowWindOverlay={setShowWindOverlay}

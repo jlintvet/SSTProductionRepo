@@ -1023,7 +1023,7 @@ export default function SSTHeatmapLeaflet(props) {
     murData, murDateIndex, setMurDateIndex,
     goesCompData, goesCompDateIndex, setGoesCompDateIndex, activeGoesCompDay,
     highlightedLocation, setHighlightedLocation,
-    regionConfig, selectedLocation,
+    regionConfig, regionKey, selectedLocation,
     savedLocations, fetchSavedLocations,
     windData, windLoading, windHourIndex, setWindHourIndex,
     showWindOverlay, setShowWindOverlay,
@@ -3032,10 +3032,17 @@ export default function SSTHeatmapLeaflet(props) {
     if (!showBuoys || !buoysData?.buoys?.length) return;
     const loc = selectedLocationRef.current;
     const RADIUS_NM = 75;   // only show buoys within this range of the departure location
+    // VA-RI spans a long, port-sparse coastline (Chincoteague to Rhode Island) where a
+    // 75nm departure-location radius hides buoys that are still clearly relevant to the
+    // region (e.g. 44009 off Cape May). Show every buoy in the region's bounds instead.
+    const showAllInRegion = regionKey === "va_ri";
     const lyr = L.layerGroup();
     buoysData.buoys.forEach(b => {
       if (b.lat == null || b.lon == null) return;
-      if (loc && distanceNm(loc.lat, loc.lon, b.lat, b.lon) > RADIUS_NM) return;
+      if (showAllInRegion) {
+        if (regionBounds && (b.lat < regionBounds.south || b.lat > regionBounds.north ||
+            b.lon < regionBounds.west || b.lon > regionBounds.east)) return;
+      } else if (loc && distanceNm(loc.lat, loc.lon, b.lat, b.lon) > RADIUS_NM) return;
       // Uniform navy buoy dot with a white center, identical for every buoy.
       const icon = L.divIcon({
         className: "",
@@ -3065,7 +3072,7 @@ export default function SSTHeatmapLeaflet(props) {
       if (buoyLayerRef.current) { map.removeLayer(buoyLayerRef.current); buoyLayerRef.current = null; }
       setBuoyPopup(null);
     };
-  }, [mapReady, showBuoys, buoysData, selectedLocation]);
+  }, [mapReady, showBuoys, buoysData, selectedLocation, regionKey, regionBounds]);
 
   // ── Fish hotspots ──────────────────────────────────────────────────────────
   useEffect(() => {
