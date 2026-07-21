@@ -30,6 +30,35 @@ function tripDateBadge(loc) {
   if (!loc.trip_date || loc.trip_date === localDateFromTimestamp(loc.created_at)) return null;
   return `Trip: ${fmtTripDate(loc.trip_date)}`;
 }
+
+// Whole calendar days between a "YYYY-MM-DD" trip_date and today (local).
+// Positive = trip_date is in the past. Parsed as local (not UTC) components,
+// same as fmtTripDate above, to avoid a timezone off-by-one.
+function daysSinceTripDate(tripDateStr) {
+  const [y, m, d] = tripDateStr.split("-").map(Number);
+  const tripMs  = new Date(y, m - 1, d).getTime();
+  const now     = new Date();
+  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.round((todayMs - tripMs) / 86400000);
+}
+
+// Unified "time ago" label for community pins/reports. Previously this was
+// always computed from created_at (posting time), which could read as
+// contradictory next to the "Trip: <date>" badge -- e.g. "6d ago" alongside
+// "Trip: Jul 19" when today is Jul 21 mixes two different clocks (posting
+// time vs. trip time) into one number. When trip_date is set and isn't
+// today, anchor the "ago" label to trip_date instead so the two numbers
+// always agree. `style` picks the sub-day wording used at each call site.
+function agoLabel(createdAt, tripDateStr, style) {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const hours  = Math.floor(diffMs / 3600000);
+  const tripDays = tripDateStr ? daysSinceTripDate(tripDateStr) : null;
+  if (tripDays != null && tripDays > 0) return `${tripDays}d ago`;
+  if (style === "sidebar") {
+    return hours < 1 ? `${Math.floor(diffMs / 60000)}m ago` : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
+  }
+  return hours < 1 ? "Just now" : hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
+}
 import HelpReportModal from "@/components/HelpReportModal";
 
 // ── SavedPanel: tabbed Locations + Routes panel ───────────────────────────────
@@ -157,9 +186,7 @@ function SavedPanel({
                 // reads identically to a Post-Trip Report even though the
                 // row's `type` stays "live" as a permanent record.
                 const isLiveActive = isLivePin && (Date.now() - new Date(loc.created_at).getTime()) < 48 * 3600000;
-                const diff = Date.now() - new Date(loc.created_at);
-                const h = Math.floor(diff/3600000);
-                const timeAgo = h < 1 ? `${Math.floor(diff/60000)}m ago` : h < 24 ? `${h}h ago` : `${Math.floor(h/24)}d ago`;
+                const timeAgo = agoLabel(loc.created_at, loc.trip_date, "sidebar");
                 const speciesLabel = (loc.species||[]).map(s => SPECIES_LABELS[s] || s).join(", ");
                 const tripBadge = tripDateBadge(loc);
                 return (
@@ -1005,7 +1032,7 @@ function makeHandCircleSVG(pts, map, color) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function SSTHeatmapLeaflet(props) {
   const {
-    data, sstMin, sstMax, date, onLocationSaved, clearMarkersRef, flyToRef,
+    data, shareHeatmapData, sstMin, sstMax, date, onLocationSaved, clearMarkersRef, flyToRef,
     onHoverSst, dataSource, setDataSource, activeDataLayer, setActiveDataLayer,
     wreckRemovedKeys,
     hotspotData, hotspotLoading,
@@ -3671,7 +3698,7 @@ export default function SSTHeatmapLeaflet(props) {
               tripMode={tripMode}
               onAddWaypoint={onAddWaypoint}
               communityLocations={communityLocations}
-              heatmapDataForShare={data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
+              heatmapDataForShare={shareHeatmapData ?? data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
               className="sm:hidden"
             />
           )}
@@ -4481,8 +4508,7 @@ export default function SSTHeatmapLeaflet(props) {
             const isLiveActive = isPulsing;
             const speciesList = (pin.species || []).map(s => SPECIES_LABELS[s] || s).join(", ");
             const qty = pin.quantity || {};
-            const hoursAgo = Math.round((Date.now() - new Date(pin.created_at).getTime()) / 3600000);
-            const timeStr = hoursAgo < 1 ? "Just now" : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo/24)}d ago`;
+            const timeStr = agoLabel(pin.created_at, pin.trip_date, "popup");
             const pinTripBadge = tripDateBadge(pin);
 
             // Real-time inspector values (live from departure + bathy, NOT from stored pin data)
@@ -4796,7 +4822,7 @@ export default function SSTHeatmapLeaflet(props) {
           {shareLocation && (
             <ShareLocationDialog key={shareLocation?.id ?? shareLocation?.lat} location={shareLocation} userId={userId} onClose={() => setShareLocation(null)}
               onNotesUpdated={(id, newNotes) => { onNotesUpdated?.(id, newNotes); }}
-              heatmapData={data} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}/>
+              heatmapData={shareHeatmapData ?? data} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}/>
           )}
 
           {/* Desktop saved panel */}
@@ -4813,7 +4839,7 @@ export default function SSTHeatmapLeaflet(props) {
               tripMode={tripMode}
               onAddWaypoint={onAddWaypoint}
               communityLocations={communityLocations}
-              heatmapDataForShare={data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
+              heatmapDataForShare={shareHeatmapData ?? data} sstMinForShare={sstMin} sstMaxForShare={sstMax} sstRangeForShare={sstRange}
               className="hidden sm:flex"
             />
           ):(

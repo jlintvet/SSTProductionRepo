@@ -1086,6 +1086,11 @@ function SSTPageBody() {
   async function fetchVIIRSNpp(){setLoading(true);setError(null);try{const res=await fetchVIIRSSST(_bounds, _pathSuffix);const result=normalizeSSTResponse(res,"VIIRSSNPP","sst");applyResult("VIIRSSNPP",result,setViirsNppState);}catch(e){console.error("[SST:VIIRSSNPP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,VIIRSSNPP:"error"}));}setLoading(false);}
   async function fetchGOESComp(){setLoading(true);setError(null);try{const res=await fetchGOESComposite(_bounds, _pathSuffix);const result=normalizeSSTResponse(res,"GOESCOMP","sst");applyResult("GOESCOMP",result,setGoesCompState);}catch(e){console.error("[SST:GOESCOMP] fetch failed:",e);setError(e.message);setSourceStatus(s=>({...s,GOESCOMP:"error"}));}setLoading(false);}
   useEffect(()=>{if(dataSource==="MUR")fetchMUR();else if(dataSource==="VIIRS")fetchVIIRS();else if(dataSource==="VIIRSSNPP")fetchVIIRSNpp();else if(dataSource==="GOESCOMP")fetchGOESComposite();},[dataSource]);
+  // Share images always render from the cloud-free MUR composite regardless of
+  // the active on-screen source (see shareHeatmapData below), so make sure MUR
+  // data gets fetched at least once even if the user never selects it as their
+  // active layer.
+  useEffect(()=>{ if(dataSource!=="MUR" && !murState.data) fetchMUR(); },[]); // eslint-disable-line react-hooks/exhaustive-deps
   // Persist chosen SST source across sessions
   useEffect(()=>{ localStorage.setItem("sst_source", dataSource); },[dataSource]);
   useEffect(()=>{ localStorage.setItem("sst_active_layer", activeDataLayer); },[activeDataLayer]);
@@ -1169,6 +1174,16 @@ function SSTPageBody() {
   // User sstRange override continues to work as a zoom into this reference range.
   const sstMin = 50, sstMax = 90;
 
+  const shareHeatmapData = useMemo(() => {
+    const latestMurDay = murData?.days?.[murData.days.length - 1];
+    if (!latestMurDay?.grid?.length) return null; // MUR not loaded yet -- caller falls back to on-screen data
+    const grid = {};
+    latestMurDay.grid.forEach(d => { grid[`${d.lat}_${d.lon}`] = d.sst; });
+    const latSet = [...new Set(latestMurDay.grid.map(d => d.lat))].sort((a, b) => b - a);
+    const lonSet = [...new Set(latestMurDay.grid.map(d => d.lon))].sort((a, b) => a - b);
+    return { latSet, lonSet, grid };
+  }, [murData]);
+
   const heatmapData = useMemo(() => {
     if (!activeGrid?.length) return { latSet: [], lonSet: [], grid: {} };
     const grid = {};
@@ -1235,7 +1250,7 @@ function SSTPageBody() {
             )}
             <SSTErrorBoundary>
             <SSTHeatmapLeaflet
-              data={heatmapData} sstMin={sstMin} sstMax={sstMax}
+              data={heatmapData} shareHeatmapData={shareHeatmapData} sstMin={sstMin} sstMax={sstMax}
               date={selectedDate} dataSource={dataSource} setDataSource={setDataSource}
               onLocationSaved={fetchSavedLocations} clearMarkersRef={clearMarkersRef} flyToRef={flyToRef}
               onHoverSst={setLegendHoverSst}
