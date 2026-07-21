@@ -6,6 +6,7 @@
 <title>Bottom Features Admin</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -82,6 +83,13 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+.stat-pill.cyan{background:#083344;cursor:pointer;user-select:none}
+.stat-pill.cyan span{color:#67e8f9}
+#photoSection{border-top:1px solid #334155;padding-top:10px;margin-top:2px}
+.photo-add-label{display:block;text-align:center;padding:6px;border-radius:6px;background:#155e63;color:#a5f3fc;font-size:11px;cursor:pointer;font-weight:600}
+#authModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center}
+#authModal.show{display:flex}
+#authModalBox{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px;width:280px}
 </style>
 </head>
 <body>
@@ -93,6 +101,7 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
   <div class="stat-pill red">Remove <span id="sRemove">&#8212;</span></div>
   <div class="stat-pill">Edited <span id="sEdited">&#8212;</span></div>
   <div class="stat-pill" style="background:#1e3a5c"><span style="color:#93c5fd">New <span id="sNew">0</span></span></div>
+  <div class="stat-pill cyan" id="photoPill" onclick="onPhotoPillClick()" title="Click to sign in / filter to wrecks with a pending photo">Photos <span id="sPhotos">Sign in</span></div>
   <button id="bathyBtn" onclick="toggleBathy()">Bathy off</button>
   <button id="addBtn" onclick="toggleAddMode()">+ Add Feature</button>
   <div id="tokenWrap">
@@ -184,6 +193,20 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
         <div class="plabel">Notes</div>
         <textarea id="eNotes" class="notes-ta" placeholder="Optional notes..."></textarea>
       </div>
+      <div id="photoSection" style="display:none">
+        <div class="plabel">Photos</div>
+        <div id="photoSignedOut">
+          <button class="dec-btn keep" style="padding:6px 10px;font-size:11px;width:100%" onclick="openPhotoAuthModal()">Sign in to view/manage</button>
+        </div>
+        <div id="photoSignedIn" style="display:none">
+          <div id="photoApproved" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
+          <div id="photoPending" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+          <label id="photoAddLabel" class="photo-add-label">
+            <span id="photoAddLabelText">+ Add Photo</span>
+            <input id="photoFileInput" type="file" accept="image/*" style="display:none" onchange="onAdminPhotoFileChosen(event)"/>
+          </label>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -192,6 +215,18 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
     <div class="modal-title" id="modalTitle">Committing to GitHub...</div>
     <div id="modalLines"></div>
     <button id="modalClose" style="display:none" onclick="closeModal()">Close</button>
+  </div>
+</div>
+<div id="authModal">
+  <div id="authModalBox">
+    <div class="modal-title">Sign in for photo review</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <input id="paEmail" class="pinput" type="email" placeholder="you@email.com" autocomplete="email"/>
+      <input id="paPass" class="pinput" type="password" placeholder="Password" autocomplete="current-password"/>
+      <button class="dec-btn keep" style="width:100%;padding:8px" onclick="doPhotoAuthLogin()">Sign In</button>
+      <div id="paErr" style="color:#fca5a5;font-size:11px;min-height:14px"></div>
+      <button style="background:#334155;color:#e2e8f0;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px" onclick="closePhotoAuthModal()">Cancel</button>
+    </div>
   </div>
 </div>
 <script>
@@ -238,6 +273,7 @@ const TO_RAW_SYM=s=>s==='Structure'?'Rocks':(s||'Rocks');
 
 let features=[],decisions={},newFeatures=[],selKey=null,spatialOrder=[],spatialPos=0,addMode=false,nextTempId=1;
 let map,markersMap={},bathyLayer=null,bathyOn=false,lastCommitSucceeded=false;
+let photoAuthed=false,photoAdminUserId=null,photoAdminEmail=null,wreckPhotosAll=[],pendingPhotoKeys=new Set(),photoFilterOn=false;
 
 const fKey=f=>{const[lo,la]=f.geometry.coordinates;return`${(f.properties?.name??'').trim()}_${la.toFixed(4)}_${lo.toFixed(4)}`;};
 const nKey=n=>'NEW::'+n.tempId;
@@ -491,9 +527,11 @@ function getFiltered(){
     if(sym&&getSym(k,f)!==sym)return false;
     if(dec&&getDec(k)!==dec)return false;
     if(q&&!getName(k,f).toLowerCase().includes(q))return false;
+    if(photoFilterOn&&!pendingPhotoKeys.has(k))return false;
     return true;
   }).map(f=>({kind:'existing',f,k:fKey(f)}));
   const newFiltered=newFeatures.filter(n=>{
+    if(photoFilterOn)return false;
     if(reg&&n.region!==reg)return false;
     if(sym&&NORM_SYM(n.symbol)!==sym)return false;
     if(dec&&dec!=='pending')return false;
@@ -549,12 +587,14 @@ function renderPanel(){
   const empty=document.getElementById('panelEmpty');
   const content=document.getElementById('panelContent');
   const isNew=isNewKey(selKey);
-  if(!selKey||!findF(selKey)){empty.style.display='flex';content.style.display='none';return;}
+  if(!selKey||!findF(selKey)){empty.style.display='flex';content.style.display='none';document.getElementById('photoSection').style.display='none';return;}
   empty.style.display='none';content.style.display='flex';
   document.getElementById('dispWrap').style.display=isNew?'none':'block';
   document.getElementById('newModeWrap').style.display=isNew?'block':'none';
   document.getElementById('coordWrap').style.display=isNew?'none':'block';
   document.getElementById('latLonEditWrap').style.display=isNew?'block':'none';
+  document.getElementById('photoSection').style.display=isNew?'none':'block';
+  renderPhotoSection();
 
   if(isNew){
     const n=findF(selKey);
@@ -716,10 +756,156 @@ function closeModal(){
   if(lastCommitSucceeded){lastCommitSucceeded=false;selKey=null;loadFeatures();}
 }
 
+// ── Wreck photo moderation (Supabase) ───────────────────────────────────────
+// Separate from the GitHub-PAT commit flow above -- photos live in a
+// Supabase table (wreck_photos), not in wrecks.json, and are fetched live
+// by the map/admin rather than baked into a data-pipeline commit. Scoped
+// behind its own lightweight login (not the whole tool) so the primary
+// curation workflow above needs no auth change.
+const SB_URL='https://upxerlzdgdbjkbjpuktn.supabase.co';
+const SB_ANON='sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
+const PHOTO_ADMIN_EMAILS=['jlintvet@gmail.com','jlintvet@butterpayments.com'];
+const { createClient } = supabase;
+const sb = createClient(SB_URL, SB_ANON);
+
+async function checkPhotoAuth(){
+  const { data:{ user } } = await sb.auth.getUser();
+  if(user && PHOTO_ADMIN_EMAILS.includes((user.email||'').toLowerCase())){
+    photoAuthed=true;photoAdminUserId=user.id;photoAdminEmail=user.email.toLowerCase();
+    await reloadWreckPhotos();updatePhotoPill();renderPhotoSection();
+  }
+}
+function openPhotoAuthModal(){document.getElementById('authModal').classList.add('show');}
+function closePhotoAuthModal(){document.getElementById('authModal').classList.remove('show');document.getElementById('paErr').textContent='';}
+async function doPhotoAuthLogin(){
+  const email=document.getElementById('paEmail').value.trim();
+  const pass=document.getElementById('paPass').value;
+  const err=document.getElementById('paErr');
+  err.textContent='';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(error||!data.user){err.textContent=error?.message||'Sign-in failed.';return;}
+  if(!PHOTO_ADMIN_EMAILS.includes((data.user.email||'').toLowerCase())){
+    await sb.auth.signOut();err.textContent='Not authorized as admin.';return;
+  }
+  photoAuthed=true;photoAdminUserId=data.user.id;photoAdminEmail=data.user.email.toLowerCase();
+  closePhotoAuthModal();
+  await reloadWreckPhotos();updatePhotoPill();renderPhotoSection();
+}
+document.getElementById('paPass').addEventListener('keydown',e=>{if(e.key==='Enter')doPhotoAuthLogin();});
+
+function storagePathFromPublicUrl(url){
+  const marker='/share-images/';
+  const idx=(url||'').indexOf(marker);
+  return idx>=0?url.slice(idx+marker.length):null;
+}
+
+async function reloadWreckPhotos(){
+  if(!photoAuthed)return;
+  const { data, error } = await sb.from('wreck_photos')
+    .select('id,wreck_key,user_id,image_url,status,submitted_at')
+    .order('submitted_at',{ascending:true});
+  if(!error){
+    wreckPhotosAll=data||[];
+    pendingPhotoKeys=new Set(wreckPhotosAll.filter(p=>p.status==='pending').map(p=>p.wreck_key));
+  }else console.error('[BFAdmin] wreck_photos load failed:',error.message);
+}
+
+function updatePhotoPill(){
+  const el=document.getElementById('sPhotos');
+  if(!photoAuthed){el.textContent='Sign in';return;}
+  el.textContent=pendingPhotoKeys.size+' pending';
+}
+
+function onPhotoPillClick(){
+  if(!photoAuthed){openPhotoAuthModal();return;}
+  photoFilterOn=!photoFilterOn;
+  document.getElementById('photoPill').style.boxShadow=photoFilterOn?'0 0 0 2px #22d3ee':'none';
+  renderList();updateStats();
+}
+
+async function approveAdminPhoto(photo){
+  if(!photoAuthed||!photo)return;
+  const approvedCount=wreckPhotosAll.filter(p=>p.wreck_key===photo.wreck_key&&p.status==='approved').length;
+  if(approvedCount>=3){alert('This wreck already has 3 approved photos -- remove one first.');return;}
+  const { error } = await sb.from('wreck_photos')
+    .update({status:'approved',reviewed_at:new Date().toISOString(),reviewed_by:photoAdminEmail})
+    .eq('id',photo.id);
+  if(error)alert('Approve failed: '+error.message);
+  await reloadWreckPhotos();updatePhotoPill();renderPhotoSection();renderList();
+}
+
+// Used both to reject a pending submission and to remove a previously
+// approved photo (e.g. to make room under the 3-photo cap).
+async function deleteAdminPhoto(photo){
+  if(!photoAuthed||!photo)return;
+  const path=storagePathFromPublicUrl(photo.image_url);
+  if(path)await sb.storage.from('share-images').remove([path]);
+  const { error } = await sb.from('wreck_photos').delete().eq('id',photo.id);
+  if(error)alert('Delete failed: '+error.message);
+  await reloadWreckPhotos();updatePhotoPill();renderPhotoSection();renderList();
+}
+
+// Admin adding a photo directly. RLS (wp_insert policy) forces status=
+// 'pending' on every direct insert with no privileged-insert exception,
+// so this inserts then immediately self-approves -- two calls, one
+// action from the UI's perspective.
+async function onAdminPhotoFileChosen(e){
+  const file=e.target.files[0];e.target.value='';
+  if(!file||!selKey||isNewKey(selKey)||!photoAuthed)return;
+  const label=document.getElementById('photoAddLabelText');
+  label.textContent='Uploading…';
+  const path='wrecks/'+selKey+'/'+crypto.randomUUID()+'-'+file.name.replace(/[^\w.\-]/g,'_');
+  const { error: upErr } = await sb.storage.from('share-images').upload(path,file,{contentType:file.type,upsert:false});
+  if(upErr){alert('Upload failed: '+upErr.message);label.textContent='+ Add Photo';return;}
+  const { data: pub } = sb.storage.from('share-images').getPublicUrl(path);
+  const { data: inserted, error: insErr } = await sb.from('wreck_photos')
+    .insert({wreck_key:selKey,user_id:photoAdminUserId,image_url:pub?.publicUrl,status:'pending'})
+    .select().single();
+  if(insErr||!inserted){alert('Submit failed: '+(insErr?.message??'unknown error'));label.textContent='+ Add Photo';return;}
+  await approveAdminPhoto(inserted);
+  label.textContent='+ Add Photo';
+}
+
+function renderPhotoSection(){
+  const wrap=document.getElementById('photoSection');
+  if(!wrap)return;
+  if(!selKey||isNewKey(selKey)){wrap.style.display='none';return;}
+  document.getElementById('photoSignedOut').style.display=photoAuthed?'none':'block';
+  document.getElementById('photoSignedIn').style.display=photoAuthed?'block':'none';
+  if(!photoAuthed)return;
+  const photos=wreckPhotosAll.filter(p=>p.wreck_key===selKey);
+  const approved=photos.filter(p=>p.status==='approved');
+  const pending=photos.filter(p=>p.status==='pending');
+  document.getElementById('photoApproved').innerHTML=approved.map(p=>
+    '<div style="position:relative">'+
+      '<img src="'+p.image_url+'" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid #475569"/>'+
+      '<button data-photo-id="'+p.id+'" data-action="remove-approved" title="Remove" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:#dc2626;color:white;border:none;font-size:10px;line-height:16px;cursor:pointer;padding:0">&times;</button>'+
+    '</div>'
+  ).join('');
+  document.getElementById('photoPending').innerHTML=pending.map(p=>
+    '<div style="display:flex;align-items:center;gap:6px;background:#0f172a;border-radius:6px;padding:5px">'+
+      '<img src="'+p.image_url+'" style="width:40px;height:40px;object-fit:cover;border-radius:5px;border:1px solid #475569;flex-shrink:0"/>'+
+      '<div style="display:flex;flex-direction:column;gap:3px;flex:1">'+
+        '<button data-photo-id="'+p.id+'" data-action="approve" style="font-size:10px;font-weight:600;padding:3px;border-radius:4px;background:#166534;color:white;border:none;cursor:pointer">Approve</button>'+
+        '<button data-photo-id="'+p.id+'" data-action="reject" style="font-size:10px;font-weight:600;padding:3px;border-radius:4px;background:#7f1d1d;color:white;border:none;cursor:pointer">Reject</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+  document.getElementById('photoAddLabel').style.display=(approved.length>=3)?'none':'block';
+}
+document.getElementById('photoSection').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-action]');
+  if(!btn)return;
+  const photo=wreckPhotosAll.find(p=>p.id===btn.dataset.photoId);
+  if(!photo)return;
+  if(btn.dataset.action==='approve')approveAdminPhoto(photo);
+  else deleteAdminPhoto(photo);
+});
+
 initMap();
 loadFeatures();
 loadBathy();
+checkPhotoAuth();
 </script>
 </body>
 </html>
-                                                      
