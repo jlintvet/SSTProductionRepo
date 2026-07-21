@@ -133,6 +133,7 @@ export default function WreckReviewAdmin() {
   const [authChecked,   setAuthChecked]   = useState(false);
   const [isAdmin,       setIsAdmin]       = useState(false);
   const [adminEmail,    setAdminEmail]    = useState(null);
+  const [adminUserId,   setAdminUserId]   = useState(null);
 
   // Raw data
   const [wrecks,        setWrecks]        = useState([]);
@@ -166,6 +167,7 @@ export default function WreckReviewAdmin() {
       const email = (data?.user?.email ?? "").toLowerCase();
       setIsAdmin(ADMIN_EMAILS.includes(email));
       setAdminEmail(email || null);
+      setAdminUserId(data?.user?.id ?? null);
       setAuthChecked(true);
     });
   }, []);
@@ -239,13 +241,38 @@ export default function WreckReviewAdmin() {
     setPhotoActionId(null);
   }
 
+  // Admin adding a photo directly, e.g. an official/curated shot rather
+  // than moderating a user submission. The wp_insert RLS policy forces
+  // status='pending' on every direct insert (no privileged-insert path,
+  // even for admin), so this inserts then immediately calls
+  // approveWreckPhoto -- two DB calls, but reads as one action in the UI.
+  async function addWreckPhotoAsAdmin(wreckKeyStr, file) {
+    if (!file || !adminUserId) return;
+    setPhotoActionId("admin-upload");
+    const path = `wrecks/${wreckKeyStr}/${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+    const { error: upErr } = await supabase.storage.from("share-images")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) { alert("Upload failed: " + upErr.message); setPhotoActionId(null); return; }
+    const { data: pub } = supabase.storage.from("share-images").getPublicUrl(path);
+    const { data: inserted, error: insErr } = await supabase.from("wreck_photos")
+      .insert({ wreck_key: wreckKeyStr, user_id: adminUserId, image_url: pub?.publicUrl, status: "pending" })
+      .select()
+      .single();
+    if (insErr || !inserted) { alert("Submit failed: " + (insErr?.message ?? "unknown error")); setPhotoActionId(null); return; }
+    await approveWreckPhoto(inserted);
+  }
+
   const pendingPhotoCount = wreckPhotosAll.filter(p => p.status === "pending").length;
 
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => wrecks.filter(f => {
     if (filter === "all") return true;
+    if (filter === "photos") {
+      const key = wreckKey(f);
+      return wreckPhotosAll.some(ph => ph.wreck_key === key && ph.status === "pending");
+    }
     return (reviews[wreckKey(f)]?.decision ?? "pending") === filter;
-  }), [wrecks, reviews, filter]);
+  }), [wrecks, reviews, filter, wreckPhotosAll]);
 
   // ── Spatial order (nearest-neighbor) — recomputed when filtered set changes
   const spatialOrder = useMemo(() => computeSpatialOrder(filtered), [filtered]);
@@ -520,7 +547,7 @@ export default function WreckReviewAdmin() {
         <div className="flex-shrink-0 w-60 flex flex-col border-r border-slate-800 bg-slate-900">
           {/* Filter tabs */}
           <div className="flex border-b border-slate-800 flex-shrink-0">
-            {[["all","All"],["pending","Pending"],["keep","Kept"],["remove","Flagged"]].map(([v, label]) => (
+            {[["all","All"],["pending","Pending"],["keep","Kept"],["remove","Flagged"],["photos",`Photos${pendingPhotoCount ? ` (${pendingPhotoCount})` : ""}`]].map(([v, label]) => (
               <button key={v}
                 onClick={() => { setFilter(v); setSpatialPos(0); setSelectedKey(null); }}
                 className={`flex-1 text-[10px] font-semibold py-1.5 border-b-2 transition-colors ${
@@ -629,12 +656,13 @@ export default function WreckReviewAdmin() {
                   ))}
                 </div>
 
-                {/* Wreck photos -- submitted by users, moderated here */}
+                {/* Wreck photos -- submitted by users, moderated here.
+                    Admin can also add one directly (Add Photo below). */}
                 {(() => {
                   const photos = wreckPhotosAll.filter(ph => ph.wreck_key === selKey);
                   const approved = photos.filter(ph => ph.status === "approved");
                   const pending  = photos.filter(ph => ph.status === "pending");
-                  if (!photos.length) return null;
+                  const atCap = approved.length >= 3;
                   return (
                     <div className="space-y-2">
                       {approved.length > 0 && (
@@ -683,6 +711,26 @@ export default function WreckReviewAdmin() {
                           </div>
                         </div>
                       )}
+                      <div>
+                        {atCap ? (
+                          <div className="text-slate-500 text-[10px] italic">3 photos already added</div>
+                        ) : (
+                          <label className="block text-center py-1.5 rounded-lg bg-cyan-800 hover:bg-cyan-700 text-white font-semibold text-[10px] cursor-pointer transition-colors">
+                            {photoActionId === "admin-upload" ? "Uploading…" : "+ Add Photo"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={photoActionId === "admin-upload"}
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (file) addWreckPhotoAsAdmin(selKey, file);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
                     </div>
                   );
                 })()}
