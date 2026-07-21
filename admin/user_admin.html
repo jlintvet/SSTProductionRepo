@@ -28,6 +28,9 @@ th { position:sticky; top:0; background:#0f172a; color:#94a3b8; font-size:11px; 
 tbody tr { cursor:pointer; } tbody tr:hover { background:#1e293b; } tbody tr.sel { background:#243049; }
 .tier { padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; color:#fff; }
 .seed-badge { padding:1px 6px; border-radius:5px; font-size:9px; font-weight:700; background:#3f3f1d; color:#d9d97a; margin-left:5px; }
+.issue-badge { padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; background:#7f1d1d; color:#fecaca; cursor:help; white-space:nowrap; }
+.issue-alert { background:#450a0a; border:1px solid #b91c1c; border-radius:8px; padding:8px 10px; margin:10px 0; font-size:11px; color:#fecaca; line-height:1.5; }
+.issue-alert div + div { margin-top:6px; padding-top:6px; border-top:1px solid #7f1d1d; }
 .finput, .finput-sm, select { background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px; padding:7px 9px; width:100%; }
 .finput-sm { width:auto; padding:5px 7px; font-size:12px; }
 .flabel { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; margin-top:10px; }
@@ -62,6 +65,7 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
     <div class="pill cyan">Today <span id="cToday">—</span></div>
     <div class="pill green">Last 30d <span id="c30">—</span></div>
     <div class="pill amber">In range <span id="cRange">—</span></div>
+    <div class="pill" id="issuesPill" style="background:#7f1d1d;color:#fecaca;display:none">Data issues <span id="cIssues">—</span></div>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <input id="rangeFrom" type="date" class="finput-sm"/><span style="color:#64748b">→</span><input id="rangeTo" type="date" class="finput-sm"/>
       <button class="btn btn-slate btn-sm" onclick="render()">Apply range</button>
@@ -85,6 +89,9 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
       <option value="real" selected>Real users</option>
       <option value="seed">Seed only</option>
     </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#fecaca;cursor:pointer">
+      <input type="checkbox" id="fIssuesOnly" onchange="render()"/> Only issues
+    </label>
     <span id="shownCount" class="note"></span>
   </div>
   <div id="main">
@@ -99,6 +106,7 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
           <th onclick="sortBy('region')">Region</th>
           <th onclick="sortBy('created_at')">Signed up</th>
           <th onclick="sortBy('report_count')">Reports</th>
+          <th>Issues</th>
         </tr></thead>
         <tbody id="tbody"></tbody>
       </table>
@@ -108,6 +116,7 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
       <div id="editForm" style="display:none">
         <div style="font-size:13px;font-weight:700" id="eEmail"></div>
         <div class="note" id="eMeta"></div>
+        <div class="issue-alert" id="eIssues" style="display:none"></div>
 
         <div class="flabel">Display name</div>
         <input id="eName" class="finput"/>
@@ -197,6 +206,27 @@ const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
 const sb = supabase.createClient(SB_URL, SB_ANON);
 const TIER_COLORS = { trial:'#d97706', standard:'#64748b', pro:'#16a34a', ambassador:'#7c3aed' };
 
+// -- Data-integrity checks --
+// These catch cases where two fields that are supposed to move together
+// (tier vs ambassador_status, referral_code vs tier) have drifted apart.
+// The frontend access gate (useRegionAccess.js) only reads `tier` -- it has
+// no idea ambassador_status exists -- so a user can have ambassador_status
+// = 'active' and still get shown the "trial has ended" paywall if tier
+// isn't literally 'ambassador'. Nothing on this page surfaced that before.
+function computeIssues(u) {
+  const issues = [];
+  if (u.ambassador_status === 'active' && u.tier !== 'ambassador') {
+    issues.push(`Ambassador status is Active but Tier is "${u.tier || 'standard'}", not "ambassador" -- this user is NOT getting ambassador access. They will be treated as tier "${u.tier || 'standard'}" by the map (and will see the "trial has ended" paywall if subscription_status is cancelled). Fix: open this user and click "Set Ambassador", then Save.`);
+  }
+  if (u.tier === 'ambassador' && u.ambassador_status && u.ambassador_status !== 'active') {
+    issues.push(`Tier is ambassador but Ambassador status is "${u.ambassador_status}" -- their referral code will NOT redeem for new users while status isn't Active.`);
+  }
+  if (u.referral_code && u.tier !== 'ambassador') {
+    issues.push(`Has referral code "${u.referral_code}" saved but Tier isn't ambassador -- this code is dead and will fail for anyone who tries to redeem it.`);
+  }
+  return issues;
+}
+
 let me = null, allUsers = [], selectedId = null, sortKey = 'created_at', sortAsc = false;
 let seedUserIds = new Set(); // populated in loadUsers() from the seed_users table
 let ambReferred = [], selectedReferredIds = new Set();
@@ -275,12 +305,18 @@ function render() {
   const q = document.getElementById('q').value.toLowerCase();
   const ft = document.getElementById('fTier').value, fs = document.getElementById('fStatus').value;
   const src = document.getElementById('fSource').value;
+  const issuesOnly = document.getElementById('fIssuesOnly').checked;
   let rows = allUsers.filter(u =>
     (!q || (u.email||'').toLowerCase().includes(q) || (u.display_name||'').toLowerCase().includes(q)) &&
     (!ft || u.tier===ft) && (!fs || u.subscription_status===fs) &&
     (!document.getElementById('fRegion').value || u.region===document.getElementById('fRegion').value) &&
     (src !== 'real' || !seedUserIds.has(u.id)) &&
-    (src !== 'seed' || seedUserIds.has(u.id)));
+    (src !== 'seed' || seedUserIds.has(u.id)) &&
+    (!issuesOnly || computeIssues(u).length));
+  const totalIssueCount = allUsers.reduce((n,u) => n + (computeIssues(u).length ? 1 : 0), 0);
+  const issuesPill = document.getElementById('issuesPill');
+  if (totalIssueCount) { issuesPill.style.display='inline-block'; document.getElementById('cIssues').textContent = totalIssueCount; }
+  else { issuesPill.style.display='none'; }
   rows.sort((a,b) => {
     let x=a[sortKey], y=b[sortKey];
     if (sortKey==='created_at'||sortKey==='trial_end') { x=x?new Date(x).getTime():0; y=y?new Date(y).getTime():0; }
@@ -297,6 +333,7 @@ function render() {
       <td>${u.subscription_status||'—'}</td><td>${fmt(u.trial_end)}</td>
       <td>${u.region||'—'}</td><td>${fmt(u.created_at)}</td>
       <td>${u.report_count||0}</td>
+      <td>${(() => { const iss = computeIssues(u); return iss.length ? `<span class="issue-badge" title="${iss.join(' | ').replace(/"/g,'&quot;')}">\u26a0 ${iss.length}</span>` : ''; })()}</td>
     </tr>`).join('');
 }
 
@@ -312,6 +349,10 @@ function selectUser(id) {
   document.getElementById('eTier').value = u.tier || 'standard';
   document.getElementById('eRegion').value = u.region || 'mid_atlantic';
   document.getElementById('eTrial').value = toLocal(u.trial_end);
+  const issBox = document.getElementById('eIssues');
+  const iss = computeIssues(u);
+  if (iss.length) { issBox.style.display='block'; issBox.innerHTML = iss.map(m => `<div>\u26a0 ${m}</div>`).join(''); }
+  else { issBox.style.display='none'; issBox.innerHTML=''; }
   onTierChange();
   render(); loadAudit(u);
 }
