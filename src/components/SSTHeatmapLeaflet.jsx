@@ -1029,6 +1029,31 @@ function makeHandCircleSVG(pts, map, color) {
   return { pathD: catmullRomToBezier(wobbly), pathD2: catmullRomToBezier(wobbly2), minX, minY, W, H };
 }
 
+// Friendly display labels for each wreckRegion key (used in the wreck hover
+// tooltip and click-to-open detail card). Keep in sync with the wreckRegion
+// keys used in wrecks.json properties.region and in regionConfig.js's port
+// list -- a new port/region needs an entry here too, or its raw key (e.g.
+// "FortLauderdaleFL") shows up verbatim in the UI instead of a friendly name.
+// This previously lived as an inline object literal in the tooltip JSX and
+// was missing every s_fl region key added since -- factored out here once.
+const WRECK_REGION_LABELS = {
+  HatterasNC: "Hatteras, NC", MoreheadNC: "Morehead City, NC",
+  ChesapeakeMD: "Chesapeake, MD", OceanCityMD: "Ocean City, MD",
+  WilmingtonNC: "Wilmington, NC", MyrtleBeachSC: "Myrtle Beach, SC",
+  GeorgetownSC: "Georgetown, SC", CharlestonSC: "Charleston, SC",
+  BeaufortSC: "Beaufort, SC", HiltonHeadSC: "Hilton Head, SC",
+  SavannahGA: "Savannah, GA", BrunswickGA: "Brunswick, GA",
+  FernandinaFL: "Fernandina Beach, FL", JacksonvilleFL: "Jacksonville, FL",
+  StAugustineFL: "St. Augustine, FL", VaToRI: "VA to RI",
+  PonceInletFL: "Ponce Inlet, FL", PortCanaveralFL: "Port Canaveral, FL",
+  SebastianInletFL: "Sebastian Inlet, FL", FortPierceFL: "Fort Pierce, FL",
+  StuartFL: "Stuart, FL", LakeWorthFL: "Lake Worth Inlet, FL",
+  FortLauderdaleFL: "Fort Lauderdale, FL", MiamiFL: "Miami, FL",
+  IslamoradaFL: "Islamorada, FL", MarathonFL: "Marathon, FL",
+  KeyWestFL: "Key West, FL", NaplesFL: "Naples, FL",
+  MarcoIslandFL: "Marco Island, FL", FtMyersBeachFL: "Ft. Myers Beach, FL",
+};
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function SSTHeatmapLeaflet(props) {
   const {
@@ -1264,6 +1289,11 @@ export default function SSTHeatmapLeaflet(props) {
   const [selectedMarker,   setSelectedMarker]   = useState(null);
   const [savedWreckKeys,   setSavedWreckKeys]   = useState(new Set());
   const [hoveredWreck,     setHoveredWreck]     = useState(null);
+  const [selectedWreck,      setSelectedWreck]      = useState(null); // { props, lat, lon, fKey, px, py }
+  const [wreckPhotos,        setWreckPhotos]        = useState([]);   // approved photo URLs for selectedWreck
+  const [wreckPhotosLoading, setWreckPhotosLoading] = useState(false);
+  const [wreckPhotoSubmitting, setWreckPhotoSubmitting] = useState(false);
+  const [wreckPhotoMsg,      setWreckPhotoMsg]      = useState(null); // transient status text under Add-a-Photo
   const [buoyPopup,        setBuoyPopup]        = useState(null);
   const [mapReady,         setMapReady]         = useState(false);
   const [sstReady,         setSstReady]         = useState(false);
@@ -3027,7 +3057,11 @@ export default function SSTHeatmapLeaflet(props) {
           onAddWaypoint?.(lat, lon, props.name || (props.symbol === "Wreck" ? "Wreck" : "Structure"));
           return;
         }
-        showPopup(e);
+        // Click opens a persistent detail card (coordinates + up to 3
+        // moderated photos); hover keeps the lightweight preview tooltip.
+        setHoveredWreck(null);
+        const containerPt = map.latLngToContainerPoint(e.latlng);
+        setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
       });
       m.on("mouseout", () => {
         setHoveredWreck(null);
@@ -3046,6 +3080,27 @@ export default function SSTHeatmapLeaflet(props) {
     });
     lyr.addTo(map); wreckLayerRef.current = lyr;
   }, [mapReady, showWrecks, wrecksData, selectedLocation, regionBounds, wreckRemovedKeys]);
+
+  // Approved photos for the currently-open wreck detail card, fetched lazily
+  // on open rather than prefetched for all ~700+ wrecks on map load.
+  useEffect(() => {
+    if (!selectedWreck) { setWreckPhotos([]); return; }
+    let cancelled = false;
+    setWreckPhotosLoading(true);
+    supabase
+      .from("wreck_photos")
+      .select("image_url")
+      .eq("wreck_key", selectedWreck.fKey)
+      .eq("status", "approved")
+      .order("submitted_at", { ascending: true })
+      .limit(3)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setWreckPhotos(!error && data ? data.map(r => r.image_url) : []);
+        setWreckPhotosLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedWreck?.fKey]);
 
   // ── Weather Buoys ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -4465,7 +4520,7 @@ export default function SSTHeatmapLeaflet(props) {
             );
           })()}
 
-          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:Math.min(hoveredWreck.px+12,(mapDivRef.current?.clientWidth??800)-172),top:Math.max(8,hoveredWreck.py-10),zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{{HatterasNC:"Hatteras, NC",MoreheadNC:"Morehead City, NC",ChesapeakeMD:"Chesapeake, MD",OceanCityMD:"Ocean City, MD",WilmingtonNC:"Wilmington, NC",MyrtleBeachSC:"Myrtle Beach, SC",GeorgetownSC:"Georgetown, SC",CharlestonSC:"Charleston, SC",BeaufortSC:"Beaufort, SC",HiltonHeadSC:"Hilton Head, SC",SavannahGA:"Savannah, GA",BrunswickGA:"Brunswick, GA",FernandinaFL:"Fernandina Beach, FL",JacksonvilleFL:"Jacksonville, FL",StAugustineFL:"St. Augustine, FL",VaToRI:"VA to RI"}[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
+          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:Math.min(hoveredWreck.px+12,(mapDivRef.current?.clientWidth??800)-172),top:Math.max(8,hoveredWreck.py-10),zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{WRECK_REGION_LABELS[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
 
           {buoyPopup && (
             <div className="absolute bg-white rounded-lg shadow-xl border border-slate-200"
@@ -4717,6 +4772,116 @@ export default function SSTHeatmapLeaflet(props) {
                   >
                     Tip
                   </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Wreck / bottom-feature detail card ──────────────────────
+              Opens on marker click (hover keeps the lightweight preview
+              tooltip). Shows coordinates plus up to 3 admin-approved
+              photos; submission is open to any signed-in user and goes
+              through moderation before appearing here (wreck_photos table,
+              status='pending' until an admin approves it). */}
+          {selectedWreck && (() => {
+            const { props: wp, lat, lon, fKey, px, py } = selectedWreck;
+            const CARD_W = 232;
+            const CARD_H_ESTIMATE = 260;
+            const mapW = mapDivRef.current?.clientWidth ?? 800;
+            const mapH = mapDivRef.current?.clientHeight ?? 600;
+            const rawL = px + 14;
+            const popL = Math.max(8, rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL);
+            const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H_ESTIMATE - 8);
+            const coordStr = `${lat.toFixed(4)}°N  ${Math.abs(lon).toFixed(4)}°${lon < 0 ? "W" : "E"}`;
+            const atPhotoCap = wreckPhotos.length >= 3;
+
+            async function handleAddWreckPhoto(e) {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file || !userId) return;
+              if (!file.type.startsWith("image/")) { setWreckPhotoMsg("Please choose an image file."); return; }
+              if (file.size > 8 * 1024 * 1024) { setWreckPhotoMsg("Image must be 8 MB or smaller."); return; }
+              setWreckPhotoSubmitting(true);
+              setWreckPhotoMsg(null);
+              const path = `wrecks/${fKey}/${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+              const { error: upErr } = await supabase.storage.from("share-images")
+                .upload(path, file, { contentType: file.type, upsert: false });
+              if (upErr) {
+                setWreckPhotoMsg("Upload failed — try again.");
+                setWreckPhotoSubmitting(false);
+                return;
+              }
+              const { data: pub } = supabase.storage.from("share-images").getPublicUrl(path);
+              const { error: insErr } = await supabase.from("wreck_photos").insert({
+                wreck_key: fKey,
+                user_id: userId,
+                image_url: pub?.publicUrl,
+              });
+              setWreckPhotoSubmitting(false);
+              setWreckPhotoMsg(insErr ? "Couldn't submit — try again." : "Submitted — pending review.");
+            }
+
+            return (
+              <div
+                className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs"
+                style={{ left: popL, top: popT, zIndex: 9500, width: CARD_W }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="font-semibold text-slate-700 pr-2">
+                    {wp.symbol === "Wreck" ? "Wreck" : "Structure"}: {wp.name || "Unknown"}
+                  </div>
+                  <button onClick={() => setSelectedWreck(null)} className="text-slate-400 hover:text-slate-700 flex-shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
+
+                {wp.region && (
+                  <div className="text-slate-500 text-[10px] mb-1">{WRECK_REGION_LABELS[wp.region] || wp.region}</div>
+                )}
+                <div className="font-mono text-slate-600 mb-1">{coordStr}</div>
+                {wp.depth_ft != null && <div className="text-blue-600 font-medium mb-1">{Math.round(wp.depth_ft)} ft</div>}
+                {wp.year_sunk && <div className="text-slate-500 mb-1">Sunk: {wp.year_sunk}</div>}
+                {wp.notes && <div className="text-slate-500 mb-2 whitespace-pre-wrap break-words">{wp.notes}</div>}
+
+                {/* Photos -- up to 3, admin-moderated. Same thumbnail-strip
+                    + lightbox pattern as community pins; empty state shows
+                    nothing (no placeholder), per product decision. */}
+                {wreckPhotosLoading ? (
+                  <div className="text-slate-300 text-[10px] mb-2 italic">Loading photos…</div>
+                ) : wreckPhotos.length === 1 ? (
+                  <img
+                    src={wreckPhotos[0]}
+                    alt=""
+                    className="w-full max-h-40 object-contain rounded-lg mb-2 border border-slate-100 bg-slate-50 cursor-zoom-in"
+                    onClick={() => setImageLightbox({ urls: wreckPhotos, index: 0 })}
+                  />
+                ) : wreckPhotos.length > 1 ? (
+                  <div className="flex gap-1.5 mb-2 overflow-x-auto pb-0.5">
+                    {wreckPhotos.map((src, i) => (
+                      <img
+                        key={i}
+                        src={src}
+                        alt=""
+                        className="h-14 w-14 flex-shrink-0 object-cover rounded-lg border border-slate-100 bg-slate-50 cursor-zoom-in"
+                        onClick={() => setImageLightbox({ urls: wreckPhotos, index: i })}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="pt-1 border-t border-slate-100">
+                  {!userId ? (
+                    <div className="text-slate-400 text-[10px] text-center italic">Sign in to add a photo</div>
+                  ) : atPhotoCap ? (
+                    <div className="text-slate-400 text-[10px] text-center italic">3 photos already added</div>
+                  ) : (
+                    <label className="block text-center py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs cursor-pointer transition-colors">
+                      {wreckPhotoSubmitting ? "Uploading…" : "Add a Photo"}
+                      <input type="file" accept="image/*" className="hidden" disabled={wreckPhotoSubmitting} onChange={handleAddWreckPhoto} />
+                    </label>
+                  )}
+                  {wreckPhotoMsg && <div className="text-slate-500 text-[10px] mt-1 text-center">{wreckPhotoMsg}</div>}
                 </div>
               </div>
             );

@@ -132,6 +132,7 @@ function makeIcon(decision, isSelected) {
 export default function WreckReviewAdmin() {
   const [authChecked,   setAuthChecked]   = useState(false);
   const [isAdmin,       setIsAdmin]       = useState(false);
+  const [adminEmail,    setAdminEmail]    = useState(null);
 
   // Raw data
   const [wrecks,        setWrecks]        = useState([]);
@@ -146,6 +147,12 @@ export default function WreckReviewAdmin() {
   const [saving,      setSaving]      = useState(false);
   const [saveFlash,   setSaveFlash]   = useState(null);
 
+  // Wreck photo moderation (wreck_photos table -- open to any signed-in
+  // user to submit, admin-approved here before it appears on the map).
+  const [wreckPhotosAll, setWreckPhotosAll] = useState([]); // all rows; admin sees pending+approved+rejected via RLS
+  const [photosLoading,  setPhotosLoading]  = useState(false);
+  const [photoActionId,  setPhotoActionId]  = useState(null); // row id currently being approved/rejected
+
   // Map
   const mapDivRef     = useRef(null);
   const mapRef        = useRef(null);
@@ -156,7 +163,9 @@ export default function WreckReviewAdmin() {
   // ── Auth ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      setIsAdmin(ADMIN_EMAILS.includes((data?.user?.email ?? "").toLowerCase()));
+      const email = (data?.user?.email ?? "").toLowerCase();
+      setIsAdmin(ADMIN_EMAILS.includes(email));
+      setAdminEmail(email || null);
       setAuthChecked(true);
     });
   }, []);
@@ -181,6 +190,56 @@ export default function WreckReviewAdmin() {
       })
       .catch(e => console.error("[WreckAdmin] reviews load failed:", e));
   }, [isAdmin]);
+
+  // ── Load + moderate wreck photos ────────────────────────────────────────
+  const reloadWreckPhotos = useCallback(async () => {
+    setPhotosLoading(true);
+    const { data, error } = await supabase
+      .from("wreck_photos")
+      .select("id, wreck_key, user_id, image_url, status, submitted_at")
+      .order("submitted_at", { ascending: true });
+    if (!error) setWreckPhotosAll(data ?? []);
+    else console.error("[WreckAdmin] wreck_photos load failed:", error.message);
+    setPhotosLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    reloadWreckPhotos();
+  }, [isAdmin, reloadWreckPhotos]);
+
+  function storagePathFromPublicUrl(url) {
+    const marker = "/share-images/";
+    const idx = (url || "").indexOf(marker);
+    return idx >= 0 ? url.slice(idx + marker.length) : null;
+  }
+
+  async function approveWreckPhoto(photo) {
+    const approvedCount = wreckPhotosAll.filter(p => p.wreck_key === photo.wreck_key && p.status === "approved").length;
+    if (approvedCount >= 3) { alert("This wreck already has 3 approved photos -- remove one first."); return; }
+    setPhotoActionId(photo.id);
+    const { error } = await supabase.from("wreck_photos")
+      .update({ status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: adminEmail })
+      .eq("id", photo.id);
+    if (error) alert("Approve failed: " + error.message);
+    await reloadWreckPhotos();
+    setPhotoActionId(null);
+  }
+
+  // Used both to reject a pending submission and to remove a previously
+  // approved photo (e.g. to make room under the 3-photo cap) -- same
+  // action either way: delete the row and its storage object.
+  async function deleteWreckPhoto(photo) {
+    setPhotoActionId(photo.id);
+    const path = storagePathFromPublicUrl(photo.image_url);
+    if (path) await supabase.storage.from("share-images").remove([path]);
+    const { error } = await supabase.from("wreck_photos").delete().eq("id", photo.id);
+    if (error) alert("Delete failed: " + error.message);
+    await reloadWreckPhotos();
+    setPhotoActionId(null);
+  }
+
+  const pendingPhotoCount = wreckPhotosAll.filter(p => p.status === "pending").length;
 
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => wrecks.filter(f => {
@@ -432,6 +491,9 @@ export default function WreckReviewAdmin() {
             <span className="text-amber-400">{nPending} pending</span>&nbsp;·&nbsp;
             <span className="text-green-400">{nKeep} kept</span>&nbsp;·&nbsp;
             <span className="text-red-400">{nRemove} flagged</span>
+            {pendingPhotoCount > 0 && (
+              <>&nbsp;·&nbsp;<span className="text-cyan-400">{pendingPhotoCount} photo{pendingPhotoCount === 1 ? "" : "s"} pending</span></>
+            )}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -566,6 +628,64 @@ export default function WreckReviewAdmin() {
                     </div>
                   ))}
                 </div>
+
+                {/* Wreck photos -- submitted by users, moderated here */}
+                {(() => {
+                  const photos = wreckPhotosAll.filter(ph => ph.wreck_key === selKey);
+                  const approved = photos.filter(ph => ph.status === "approved");
+                  const pending  = photos.filter(ph => ph.status === "pending");
+                  if (!photos.length) return null;
+                  return (
+                    <div className="space-y-2">
+                      {approved.length > 0 && (
+                        <div>
+                          <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1">
+                            Approved photos ({approved.length}/3)
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {approved.map(ph => (
+                              <div key={ph.id} className="relative">
+                                <img src={ph.image_url} alt="" className="w-14 h-14 object-cover rounded border border-slate-700"/>
+                                <button
+                                  onClick={() => deleteWreckPhoto(ph)}
+                                  disabled={photoActionId === ph.id}
+                                  title="Remove this photo"
+                                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[10px] leading-4 disabled:opacity-40"
+                                >×</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {pending.length > 0 && (
+                        <div>
+                          <div className="text-[10px] text-cyan-400 font-semibold uppercase tracking-wide mb-1">
+                            Pending review ({pending.length})
+                          </div>
+                          <div className="space-y-1.5">
+                            {pending.map(ph => (
+                              <div key={ph.id} className="flex items-center gap-2 bg-slate-800/50 rounded-lg p-1.5">
+                                <img src={ph.image_url} alt="" className="w-12 h-12 object-cover rounded border border-slate-700 flex-shrink-0"/>
+                                <div className="flex flex-col gap-1 flex-1">
+                                  <button
+                                    onClick={() => approveWreckPhoto(ph)}
+                                    disabled={photoActionId === ph.id}
+                                    className="text-[10px] font-semibold py-1 rounded bg-green-700 hover:bg-green-600 text-white disabled:opacity-40"
+                                  >Approve</button>
+                                  <button
+                                    onClick={() => deleteWreckPhoto(ph)}
+                                    disabled={photoActionId === ph.id}
+                                    className="text-[10px] font-semibold py-1 rounded bg-red-800 hover:bg-red-700 text-white disabled:opacity-40"
+                                  >Reject</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className={`text-center text-xs font-bold py-1.5 rounded-lg border ${
                   decision === "keep"   ? "bg-green-950 border-green-800 text-green-400" :
