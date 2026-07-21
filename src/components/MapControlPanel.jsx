@@ -688,20 +688,16 @@ export default function MapControlPanel({
                 </ToolBtn>
               </ProGate>
             </div>
+            {showLoranGrid && regionKey === "mid_atlantic" && (
+              <button onClick={() => setShowLoranWFamily(v => !v)}
+                className={`px-2 text-[10px] font-semibold rounded-lg border flex-shrink-0 transition-colors ${
+                  showLoranWFamily ? "bg-amber-50 text-amber-700 border-amber-400" : "bg-white text-slate-400 border-slate-300 hover:bg-slate-50"
+                }`}>
+                W Lines
+              </button>
+            )}
             {hbtn("loran")}
           </div>
-          {showLoranGrid && regionKey === "mid_atlantic" && (
-            <div className="flex gap-1 items-stretch">
-              <div className="flex-1">
-                <button onClick={() => setShowLoranWFamily(v => !v)}
-                  className={`w-full text-[11px] font-semibold px-2 py-1.5 rounded-lg border text-left transition-colors ${
-                    showLoranWFamily ? "bg-amber-700 text-white border-amber-700" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-                  }`}>
-                  Show W Lines (full grid)
-                </button>
-              </div>
-            </div>
-          )}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
