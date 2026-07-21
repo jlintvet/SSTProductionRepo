@@ -1402,7 +1402,7 @@ function SSTPageBody() {
             <ShareLocationDialog key={shareLocation?.id ?? shareLocation?.lat}
               location={shareLocation} userId={userId} onClose={() => setShareLocation(null)}
               onNotesUpdated={(id, newNotes) => { setSavedLocations(prev => prev.map(l => l.id === id ? { ...l, notes: newNotes } : l)); }}
-              heatmapData={heatmapData} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}
+              heatmapData={shareHeatmapData ?? heatmapData} sstMin={sstMin} sstMax={sstMax} sstRange={sstRange}
             />
           )}
 
