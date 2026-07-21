@@ -734,7 +734,7 @@ function computeLoranTD_Y(lat, lon) {
   return LORAN_Y_SEC.ed + (loranHaversineKm(lat, lon, LORAN_Y_SEC.lat, LORAN_Y_SEC.lon)
     - loranHaversineKm(lat, lon, LORAN_Y_MASTER.lat, LORAN_Y_MASTER.lon)) / 0.299709;
 }
-function buildLoranGrid(map, waterMask, regionBounds) {
+function buildLoranGrid(map, waterMask, regionBounds, includeWFamily) {
   const LSTEP = 0.1;
   // Clip to region + padding instead of full US coast — the full extent
   // (~49k points x ~1000 isoline levels) freezes the main thread.
@@ -788,8 +788,8 @@ function buildLoranGrid(map, waterMask, regionBounds) {
       }
     }
   }
-  // W family lines hidden — not used offshore fishing
   drawLL(yLL, "rgba(140,140,140,1.0)", "rgba(140,140,140,1.0)");
+  if (includeWFamily) drawLL(wLL, "rgba(180,120,60,1.0)", "rgba(180,120,60,1.0)");
 
   const lbl = { layer: null };
   function buildLoranLabels() {
@@ -823,8 +823,8 @@ function buildLoranGrid(map, waterMask, regionBounds) {
         }
       }
     }
-    // W labels hidden
     addLbls(yLL, "Y", "#444444");
+    if (includeWFamily) addLbls(wLL, "W", "#8a5a2a");
     lg.addTo(map); lbl.layer = lg;
   }
   buildLoranLabels();
@@ -1252,6 +1252,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [showIsotherm,         setShowIsotherm]         = useState(false);
   const [showAltimetryOverlay, setShowAltimetryOverlay] = useState(false);
   const [showLoranGrid, setShowLoranGrid] = useState(() => localStorage.getItem("show_loran_grid") === "true");
+  const [showLoranWFamily, setShowLoranWFamily] = useState(() => localStorage.getItem("show_loran_w_family") === "true");
   const [loranHelpOpen, setLoranHelpOpen] = useState(false);
   const [showCanyonLabels, setShowCanyonLabels] = useState(true);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(76);
@@ -2647,6 +2648,7 @@ export default function SSTHeatmapLeaflet(props) {
 
   // ── Persist Loran toggle ─────────────────────────────────────────────────────
   useEffect(() => { localStorage.setItem("show_loran_grid", showLoranGrid); }, [showLoranGrid]);
+  useEffect(() => { localStorage.setItem("show_loran_w_family", showLoranWFamily); }, [showLoranWFamily]);
 
   // ── Loran-C phantom grid overlay ────────────────────────────────────────────
   useEffect(() => {
@@ -2654,9 +2656,9 @@ export default function SSTHeatmapLeaflet(props) {
     if (!mapReady || !map) return;
     if (loranLayerRef.current) { loranLayerRef.current._loranCleanup?.(); map.removeLayer(loranLayerRef.current); loranLayerRef.current = null; }
     if (!showLoranGrid) return;
-    const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds);
+    const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds, showLoranWFamily && regionKey === "mid_atlantic");
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
-  }, [mapReady, showLoranGrid, waterMaskVersion]);
+  }, [mapReady, showLoranGrid, showLoranWFamily, waterMaskVersion, regionKey]);
 
   // ── Canyon name labels (standalone overlay) ──────────────────────────────────────
   useEffect(() => {
@@ -3469,6 +3471,8 @@ export default function SSTHeatmapLeaflet(props) {
             chlPlaying={chlPlaying} setChlPlaying={setChlPlaying}
             seaColorPlaying={seaColorPlaying} setSeaColorPlaying={setSeaColorPlaying}
             showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
+            showLoranWFamily={showLoranWFamily} setShowLoranWFamily={setShowLoranWFamily}
+            regionKey={regionKey}
             showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showBathyRaster={showBathyRaster} setShowBathyRaster={setShowBathyRaster}
@@ -4189,6 +4193,12 @@ export default function SSTHeatmapLeaflet(props) {
                           className={`w-8 py-2 rounded-lg border text-[12px] font-bold flex-shrink-0 transition-colors ${loranHelpOpen ? "bg-slate-200 border-slate-400 text-slate-700" : "bg-white border-slate-300 text-slate-500 hover:bg-slate-50"}`}
                           title="About Loran-C">?</button>
                       </div>
+                      {showLoranGrid && regionKey === "mid_atlantic" && (
+                        <button onClick={() => setShowLoranWFamily(v => !v)}
+                          className={`col-span-2 text-[10px] font-semibold py-1.5 rounded-lg border transition-colors ${showLoranWFamily ? "bg-amber-700 text-white border-amber-700" : "bg-white text-slate-600 border-slate-300"}`}>
+                          Show W Lines (full grid)
+                        </button>
+                      )}
                       {loranHelpOpen && createPortal(
                         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 p-4"
                              onClick={() => setLoranHelpOpen(false)}>
@@ -4203,7 +4213,7 @@ export default function SSTHeatmapLeaflet(props) {
                                  className="w-full object-cover" style={{maxHeight:200}}
                                  onError={e => { e.currentTarget.style.display="none"; }} />
                             <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
-                              The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: &ldquo;The bite&apos;s been hot in 100 fathoms at the 580&rdquo; (&lsquo;The Point&rsquo; off Oregon Inlet).<br/><br/>Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that&apos;s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.
+                              The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: &ldquo;The bite&apos;s been hot in 100 fathoms at the 580&rdquo; (&lsquo;The Point&rsquo; off Oregon Inlet).<br/><br/>Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that&apos;s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.<br/><br/>In the mid-Atlantic, a second crossing set of lines (the &ldquo;W&rdquo; family) can be toggled on to show the full LORAN grid.
                             </div>
                           </div>
                         </div>,
