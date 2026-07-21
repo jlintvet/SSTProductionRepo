@@ -16,7 +16,6 @@ import ResetPassword from "@/pages/ResetPassword";
 import SharedLocationLanding from "@/pages/SharedLocationLanding";
 import SharedRouteLanding from "@/pages/SharedRouteLanding";
 import MapTest from "@/pages/MapTest";
-import WreckReviewAdmin from "@/pages/WreckReviewAdmin";
 import UpgradePage from "@/pages/UpgradePage";
 import TermsPage from "@/pages/TermsPage";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
@@ -182,9 +181,6 @@ function AppRoot() {
         <Route path="/maptest" element={<MapTest />} />
 
         {/* Protected routes */}
-        <Route path="/wreck-review" element={
-          <ProtectedRoute authed={authed}><WreckReviewAdmin /></ProtectedRoute>
-        } />
         <Route path="/app" element={
           <ProtectedRoute authed={authed}><SSTLive /></ProtectedRoute>
         } />
