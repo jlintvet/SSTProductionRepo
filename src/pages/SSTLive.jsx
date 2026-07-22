@@ -1512,12 +1512,19 @@ function SSTLiveGate() {
     </div>
   );
 
-  if (isExpired) return <TrialExpiredWall />;
-
+  // Trial-expired users are no longer fully blocked -- Standard-tier
+  // features already work at this point (isPro is false, same as a real
+  // standard user; only Pro features are gated via ProGate/MobileProGate).
+  // The app renders normally and TrialExpiredWall overlays it as a
+  // forced-choice modal (Confirm Standard or Upgrade to Pro) instead of
+  // replacing the whole page.
   return (
-    <AppShell region={userRegion} onUpgrade={() => window.location.href = "/upgrade"}>
-      <SSTPageBody />
-    </AppShell>
+    <>
+      <AppShell region={userRegion} onUpgrade={() => window.location.href = "/upgrade"}>
+        <SSTPageBody />
+      </AppShell>
+      {isExpired && <TrialExpiredWall />}
+    </>
   );
 }
 
