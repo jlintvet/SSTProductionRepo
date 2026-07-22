@@ -309,6 +309,16 @@ export function AppProvider({ region, children }) {
               const days = Math.max(0, Math.ceil(msLeft / 86400000));
               setDaysLeft(days);
               if (days === 0) pro = false;
+            } else if (profileTier === "ambassador") {
+              // Ambassadors get permanent pro access -- no expiry, and
+              // subscription_status (which can still read "cancelled" from a
+              // prior Stripe subscription that predates becoming an ambassador)
+              // must never downgrade them. useRegionAccess.js already has this
+              // branch; this file didn't, which is exactly what left a freshly
+              // -promoted ambassador (tier=ambassador, ambassador_status=active)
+              // seeing "Ambassador" in the UserMenu label (driven by tier from
+              // useRegionAccess) while still being pro-gated to standard
+              // features everywhere that reads isPro from this context instead.
             } else if (profile.subscription_status === "cancelled") {
               pro = false;
             }
