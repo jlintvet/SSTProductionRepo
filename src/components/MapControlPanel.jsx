@@ -6,11 +6,14 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { ChevronDown } from "lucide-react";
 import SSTRangeControl from "@/components/SSTRangeControl";
+import riplocIcon from "@/public/Branding/riplocB text w icon.png";
+import { startProCheckout } from "@/lib/checkout";
 
 // ── ProGate ───────────────────────────────────────────────────────────────────
 function ProGate({ isPro, children, label }) {
   const [open, setOpen] = useState(false);
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+  const [checkingOut, setCheckingOut] = useState(false);
   const wrapRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +32,12 @@ function ProGate({ isPro, children, label }) {
     setOpen(o => !o);
   }
 
+  function handleUpgradeClick(e) {
+    e.stopPropagation();
+    setCheckingOut(true);
+    startProCheckout();
+  }
+
   if (isPro) return <>{children}</>;
 
   const popup = open && ReactDOM.createPortal(
@@ -41,16 +50,16 @@ function ProGate({ isPro, children, label }) {
       padding: "1.1rem 1.25rem", minWidth: 220,
       textAlign: "center", border: "1px solid #e2e8f0",
     }}>
-      <div style={{ fontSize: 22, marginBottom: 6 }}>🔒</div>
+      <img src={riplocIcon} alt="RipLoc" style={{ height: 26, width: "auto", margin: "0 auto 8px", display: "block" }} />
       <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 4 }}>Pro Feature</div>
       <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
         {label || "This feature is available on the Pro plan."}
       </div>
-      <a href="/" style={{ display: "inline-block", background: "#0e7490", color: "#fff",
-        borderRadius: 8, padding: "6px 16px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}
-        onClick={() => setOpen(false)}>
-        Upgrade to Pro — $69/yr
-      </a>
+      <button onClick={handleUpgradeClick} disabled={checkingOut} style={{ display: "inline-block", background: "#0e7490", color: "#fff",
+        borderRadius: 8, padding: "6px 16px", fontSize: 13, fontWeight: 600, border: "none",
+        cursor: checkingOut ? "not-allowed" : "pointer", opacity: checkingOut ? 0.7 : 1 }}>
+        {checkingOut ? "Redirecting…" : "Upgrade to Pro"}
+      </button>
       <button onClick={() => setOpen(false)} style={{ display: "block", margin: "8px auto 0",
         background: "none", border: "none", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}>
         Dismiss

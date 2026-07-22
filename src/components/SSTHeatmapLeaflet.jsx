@@ -9,6 +9,7 @@ import SavedLocations from "@/components/SavedLocations";
 import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 import { SPECIES_LABELS } from "@/components/CommunityReportForm";
 import riplocIcon from "@/public/Branding/riplocB text w icon.png";
+import { startProCheckout } from "@/lib/checkout";
 
 // loc.trip_date (a plain "YYYY-MM-DD", poster-chosen) vs. loc.created_at
 // (posting timestamp) -- when they differ, the report was backdated (posted
@@ -484,6 +485,7 @@ const KD_GRADIENT  = "linear-gradient(to right, rgb(10,60,160), rgb(0,140,170), 
 // ── MobileProGate — locks Pro features in the mobile bottom drawer ────────────
 function MobileProGate({ isPro, children, label }) {
   const [open, setOpen] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   if (isPro) return <>{children}</>;
   return (
     <div style={{ position: "relative" }}>
@@ -507,10 +509,14 @@ function MobileProGate({ isPro, children, label }) {
             <div style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>
               {label || "This feature is available on the Pro plan."}
             </div>
-            <a href="/" style={{ display: "inline-block", background: "#0e7490", color: "#fff",
-              borderRadius: 8, padding: "8px 20px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-              Upgrade to Pro — $49/yr in 2026
-            </a>
+            <button
+              onClick={e => { e.stopPropagation(); setCheckingOut(true); startProCheckout(); }}
+              disabled={checkingOut}
+              style={{ display: "inline-block", background: "#0e7490", color: "#fff",
+                borderRadius: 8, padding: "8px 20px", fontSize: 14, fontWeight: 600, border: "none",
+                cursor: checkingOut ? "not-allowed" : "pointer", opacity: checkingOut ? 0.7 : 1 }}>
+              {checkingOut ? "Redirecting…" : "Upgrade to Pro"}
+            </button>
             <button onClick={() => setOpen(false)} style={{ display: "block", margin: "10px auto 0",
               background: "none", border: "none", color: "#94a3b8", fontSize: 13, cursor: "pointer" }}>
               Dismiss

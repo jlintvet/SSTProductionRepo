@@ -9,9 +9,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import riplocIcon from "@/public/Branding/riplocB text w icon.png";
+import { startProCheckout } from "@/lib/checkout";
 
 export default function ProGate({ isPro, children, label }) {
   const [open, setOpen] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const ref = useRef(null);
 
   // Close popup on outside click
@@ -68,17 +70,18 @@ export default function ProGate({ isPro, children, label }) {
           <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
             {label || "This feature is available on the Pro plan."}
           </div>
-          <a
-            href="/"
+          <button
+            onClick={e => { e.stopPropagation(); setCheckingOut(true); startProCheckout(); }}
+            disabled={checkingOut}
             style={{
               display: "inline-block", background: "#0e7490", color: "#fff",
               borderRadius: 8, padding: "6px 16px", fontSize: 13, fontWeight: 600,
-              textDecoration: "none",
+              border: "none", cursor: checkingOut ? "not-allowed" : "pointer",
+              opacity: checkingOut ? 0.7 : 1,
             }}
-            onClick={() => setOpen(false)}
           >
-            Upgrade to Pro — $49/yr in 2026
-          </a>
+            {checkingOut ? "Redirecting…" : "Upgrade to Pro"}
+          </button>
           <button
             onClick={() => setOpen(false)}
             style={{
