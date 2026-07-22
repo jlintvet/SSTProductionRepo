@@ -8,6 +8,7 @@
 //   </ProGate>
 
 import React, { useState, useRef, useEffect } from "react";
+import riplocIcon from "@/public/Branding/riplocB text w icon.png";
 
 export default function ProGate({ isPro, children, label }) {
   const [open, setOpen] = useState(false);
@@ -60,7 +61,7 @@ export default function ProGate({ isPro, children, label }) {
           padding: "1.1rem 1.25rem", minWidth: 220, textAlign: "center",
           border: "1px solid #e2e8f0",
         }}>
-          <div style={{ fontSize: 22, marginBottom: 6 }}>🔒</div>
+          <img src={riplocIcon} alt="RipLoc" style={{ height: 26, width: "auto", margin: "0 auto 8px", display: "block" }} />
           <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 4 }}>
             Pro Feature
           </div>

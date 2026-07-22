@@ -8,6 +8,7 @@ import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
 import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 import { SPECIES_LABELS } from "@/components/CommunityReportForm";
+import riplocIcon from "@/public/Branding/riplocB text w icon.png";
 
 // loc.trip_date (a plain "YYYY-MM-DD", poster-chosen) vs. loc.created_at
 // (posting timestamp) -- when they differ, the report was backdated (posted
@@ -486,7 +487,7 @@ function MobileProGate({ isPro, children, label }) {
   if (isPro) return <>{children}</>;
   return (
     <div style={{ position: "relative" }}>
-      <div style={{ opacity: 0.4, pointerEvents: "none", userSelect: "none" }}>{children}</div>
+      <div style={{ opacity: 0.4, pointerEvents: "none", userSelect: "none", display: "grid" }}>{children}</div>
       <div onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
         style={{ position: "absolute", inset: 0, cursor: "pointer", zIndex: 5 }} />
       <span onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
@@ -501,7 +502,7 @@ function MobileProGate({ isPro, children, label }) {
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16,
             boxShadow: "0 8px 32px rgba(0,0,0,0.22)", padding: "1.5rem 1.5rem 1.25rem",
             minWidth: 260, textAlign: "center", border: "1px solid #e2e8f0", margin: "0 1rem" }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
+            <img src={riplocIcon} alt="RipLoc" style={{ height: 30, width: "auto", margin: "0 auto 12px", display: "block" }} />
             <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", marginBottom: 6 }}>Pro Feature</div>
             <div style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>
               {label || "This feature is available on the Pro plan."}
