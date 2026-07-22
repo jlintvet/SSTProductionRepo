@@ -5140,6 +5140,8 @@ export default function SSTHeatmapLeaflet(props) {
             const popL = Math.max(8, rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL);
             const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H_ESTIMATE - 8);
             const coordStr = `${lat.toFixed(4)}°N  ${Math.abs(lon).toFixed(4)}°${lon < 0 ? "W" : "E"}`;
+            const wreckDistNm = selectedLocation ? distanceNm(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
+            const wreckBrgDeg = selectedLocation ? bearingDeg(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
             const atPhotoCap = wreckPhotos.length >= 3;
 
             async function handleAddWreckPhoto(e) {
@@ -5187,6 +5189,12 @@ export default function SSTHeatmapLeaflet(props) {
                   <div className="text-slate-500 text-[10px] mb-1">{WRECK_REGION_LABELS[wp.region] || wp.region}</div>
                 )}
                 <div className="font-mono text-slate-600 mb-1">{coordStr}</div>
+                {wreckDistNm != null && (
+                  <div className="text-slate-500 mb-1">
+                    {wreckDistNm.toFixed(1)} nm &middot; {Math.round(wreckBrgDeg)}&deg; {bearingLabel(wreckBrgDeg)}
+                    {selectedLocation?.label && <span className="text-slate-400"> from {selectedLocation.label}</span>}
+                  </div>
+                )}
                 {wp.depth_ft != null && <div className="text-blue-600 font-medium mb-1">{Math.round(wp.depth_ft)} ft</div>}
                 {wp.year_sunk && <div className="text-slate-500 mb-1">Sunk: {wp.year_sunk}</div>}
                 {wp.notes && <div className="text-slate-500 mb-2 whitespace-pre-wrap break-words">{wp.notes}</div>}
