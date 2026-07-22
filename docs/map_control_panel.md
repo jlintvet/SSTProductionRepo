@@ -161,11 +161,25 @@ Community button shows active pin count: `Community (${communityCount ?? 0})`.
 | Temp break | `showIsotherm` | `isotherm` | Yes | Only shown when `isSST` (not composite/CHL/alt) |
 | Hot spots | `showHotspots` | `hotspots` | Yes | Species chip row appears when active |
 | Wind overlay | `showWindOverlay` | `windoverlay` | Yes | Hidden entirely when `isWindMap` active |
-| Bottom Features | `showWrecks` | `bottomfeat` | Yes | |
+| Bottom Features | `showWrecks` | `bottomfeat` | Yes | Toggles the wrecks/structures overlay. The popup shown on clicking a feature is documented separately below (not part of `MapControlPanel.jsx` itself). |
 | Shaded Relief | `showBathyRaster` | `shadedrelief` | Yes | Full basemap-replace mode — fully hides SST/CHL/composite/seacolor/altimetry rendering while active (see `SST_RENDERING.md`). Mutually exclusive with Radar in both directions. Auto-dismissed by every data-source `onClick` in the Data layer section (desktop `MapControlPanel.jsx`) and, as of `b360530`, by every mobile data-source control in `SSTHeatmapLeaflet.jsx` too — the mobile icons/sub-source buttons previously only called `setActiveDataLayer`/`setDataSource` and left Radar/Shaded Relief tiles on screen after switching sources. |
 | Radar | `showRadarOverlay` | `radar` | Yes | Same full basemap-replace pattern as Shaded Relief (mutually exclusive with it). Live RainViewer tiles, all regions, desktop + mobile (mobile button added `82b2006`). Renders a bottom time-scrub bar (`TimeScrubber.jsx`, shared with Wind) when frames are loaded — see `SST_RENDERING.md` for the fetch/crossfade/pane details and the mobile weather-sheet z-index fix (`5ad7c57`). |
 | Plan Trip | `tripMode` (via `onToggleTripMode`) | `trip` | Yes | |
 | Real Time (GPS) | `gpsActive` (via `onToggleGps`) | `gps` | Yes | |
+
+---
+
+## Bottom feature (wreck/structure) popup
+
+**File:** `src/components/SSTHeatmapLeaflet.jsx` (`selectedWreck` state), not `MapControlPanel.jsx` -- clicking a wreck/structure marker on the map (only possible when `showWrecks` is on) opens this popup, independent of the panel.
+
+**Fields shown:** type (`Wreck` or `Structure`, from `wp.symbol`) + name, region label (`WRECK_REGION_LABELS[wp.region]`), coordinates, distance/bearing from the departure point (below), depth in feet, year sunk (if known), and free-text notes.
+
+**Distance/bearing from departure (`ce82aec`, 2026-07-22):** the popup computes `wreckDistNm`/`wreckBrgDeg` from `selectedLocation` (the departure point prop, already threaded through this whole component) to the wreck's own `lat`/`lon`, using the same `distanceNm`/`bearingDeg`/`bearingLabel` helpers used for saved-location markers and the click-info popup. Renders as `"{dist} nm · {bearing}° {cardinal} from {departure label}"` under the coordinates; `null` (no row) when no departure point is selected. This was previously missing -- wreck popups showed coordinates but no distance/bearing, unlike saved locations and community/fishing reports which already had it.
+
+**Photo carousel (`c38fbea`, 2026-07-21):** up to 3 approved photos per wreck, admin-moderated via `wreck_photos` (table has a `status` column; the popup only ever fetches `status = "approved"`, ordered by `submitted_at`, `limit(3)`). Fetched lazily on open (`selectedWreck?.fKey` dependency), not prefetched for all ~700+ wrecks at map load. Zero photos renders no placeholder -- the photo strip/`Add a Photo` section just doesn't show a thumbnail. One photo renders full-width; 2-3 render as a horizontally-scrollable thumbnail strip; clicking any thumbnail opens the shared `imageLightbox`.
+
+Signed-in users can submit a photo (image files only, 8 MB cap) via the "Add a Photo" button, which uploads to the `share-images` storage bucket under `wrecks/{fKey}/` and inserts a pending row into `wreck_photos` (status defaults to pending -- admin approval required before it's visible in this popup). The button is replaced with a "3 photos already added" message once the 3-photo cap is hit, or "Sign in to add a photo" when signed out.
 
 ---
 

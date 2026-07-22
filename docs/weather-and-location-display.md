@@ -42,7 +42,7 @@ locations: [
 | `label` | Must match exactly the key in `NOAA_SOURCES` in `useMarineForecast.js` |
 | `lat` / `lon` | Used for NWS API calls, sun calculation, distance/bearing from map pins |
 | `noaaCoverage` | When `true`, the weather panel shows forecast data for this location |
-| `wreckRegion` | Controls which wrecks/bottom features are displayed on the map |
+| `wreckRegion` | Organizational tag only (used by the `sst-bottom-features` skill to bucket research/CSV data by port) -- **does not gate which bottom features are visible.** Since 2026-07-17 (`d4b651c`) the wrecks overlay shows every feature within the loaded map region's bounds regardless of the selected port's `wreckRegion`; see `docs/adding_a_new_region.md`. |
 
 Locations are listed alphabetically. The `defaultLocation` for the region is `"Oregon Inlet, NC"`.
 
