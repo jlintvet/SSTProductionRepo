@@ -4480,10 +4480,10 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Compact day/hour nav (desktop) — shown when the sidebar is collapsed so the user isn't forced to reopen the full 168px panel just to change date/hour. Docked bottom-left, above the Locations button. */}
+          {/* Compact day/hour nav (desktop) — shown when the sidebar is collapsed so the user isn't forced to reopen the full 168px panel just to change date/hour. Centered across the map/data display at the bottom -- wide enough that VIIRS mode's 5 buttons + 2 date/hour labels don't truncate (was fixed 240px docked left, which cut the date label down to "J..."). */}
           {panelCollapsed && dayNavContent.content && (
-            <div className="hidden sm:flex absolute left-2 bg-white rounded-2xl border border-slate-200 shadow-xl items-center gap-1 px-2 py-1.5"
-                 style={{ bottom: sliderHeight + 52, zIndex: 900, width: 240 }}>
+            <div className="hidden sm:flex absolute bg-white rounded-2xl border border-slate-200 shadow-xl items-center gap-1.5 px-3 py-2"
+                 style={{ bottom: sliderHeight + 52, left: "50%", transform: "translateX(-50%)", zIndex: 900, width: 480, maxWidth: "calc(100% - 96px)" }}>
               {dayNavContent.content}
               <button onClick={() => setPanelCollapsed(false)}
                 title="Show controls"
