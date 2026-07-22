@@ -301,6 +301,9 @@ export default function MapControlPanel({
   jsonContoursLoading,
   showWrecks, setShowWrecks,
   wrecksLoading,
+  wreckSearchTerm, setWreckSearchTerm,
+  wreckSearchResults, wreckSearchIndex, wreckSearchMsg,
+  onWreckSearchSubmit, onWreckSearchCycle,
   showBuoys, setShowBuoys, buoysLoading,
   showCanyonLabels, setShowCanyonLabels,
   showRadarOverlay, setShowRadarOverlay,
@@ -812,6 +815,37 @@ export default function MapControlPanel({
             </div>
             {hbtn("bottomfeat")}
           </div>
+
+          {showWrecks && (
+            <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
+              <div className="flex flex-col gap-1">
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={wreckSearchTerm}
+                    onChange={e => setWreckSearchTerm(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") onWreckSearchSubmit(); }}
+                    placeholder="Search name…"
+                    className="flex-1 min-w-0 text-[11px] px-2 py-1 rounded border border-slate-300"
+                  />
+                  <button onClick={onWreckSearchSubmit}
+                    className="text-[11px] font-semibold px-2 rounded border border-slate-300 bg-white text-slate-600">
+                    Go
+                  </button>
+                </div>
+                {wreckSearchResults.length > 1 && (
+                  <div className="flex items-center justify-center gap-2 text-[11px] text-slate-600">
+                    <button onClick={() => onWreckSearchCycle(-1)} className="px-1 font-bold">‹</button>
+                    <span>{wreckSearchIndex + 1} of {wreckSearchResults.length}</span>
+                    <button onClick={() => onWreckSearchCycle(1)} className="px-1 font-bold">›</button>
+                  </div>
+                )}
+                {wreckSearchMsg && (
+                  <div className="text-[10px] text-slate-500 text-center px-1">{wreckSearchMsg}</div>
+                )}
+              </div>
+            </ProGate>
+          )}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">

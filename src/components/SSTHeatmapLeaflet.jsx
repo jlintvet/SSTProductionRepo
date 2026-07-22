@@ -10,6 +10,7 @@ import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 import { SPECIES_LABELS } from "@/components/CommunityReportForm";
 import riplocIcon from "@/public/Branding/riplocB text w icon.png";
 import { startProCheckout } from "@/lib/checkout";
+import { REGION_CONFIGS } from "@/config/regionConfig";
 
 // loc.trip_date (a plain "YYYY-MM-DD", poster-chosen) vs. loc.created_at
 // (posting timestamp) -- when they differ, the report was backdated (posted
@@ -1302,6 +1303,12 @@ export default function SSTHeatmapLeaflet(props) {
   const [wreckPhotosLoading, setWreckPhotosLoading] = useState(false);
   const [wreckPhotoSubmitting, setWreckPhotoSubmitting] = useState(false);
   const [wreckPhotoMsg,      setWreckPhotoMsg]      = useState(null); // transient status text under Add-a-Photo
+  const [wreckSearchTerm,    setWreckSearchTerm]    = useState("");
+  const [wreckSearchResults, setWreckSearchResults] = useState([]); // in-bounds matches for the current search
+  const [wreckSearchIndex,   setWreckSearchIndex]   = useState(0);
+  const [wreckSearchMsg,     setWreckSearchMsg]     = useState(null); // shown when no in-bounds match found
+  const wreckHighlightRef        = useRef(null); // transient pulsing marker over a found feature
+  const wreckHighlightTimeoutRef = useRef(null);
   const [buoyPopup,        setBuoyPopup]        = useState(null);
   const [mapReady,         setMapReady]         = useState(false);
   const [sstReady,         setSstReady]         = useState(false);
@@ -3128,6 +3135,109 @@ export default function SSTHeatmapLeaflet(props) {
     lyr.addTo(map); wreckLayerRef.current = lyr;
   }, [mapReady, showWrecks, wrecksData, selectedLocation, regionBounds, wreckRemovedKeys]);
 
+  // ── Bottom-feature name search ─────────────────────────────────────────
+  // Searches the already-loaded global wrecks.json in memory (no new
+  // fetch). Matches inside the current region's bounds get selected +
+  // highlighted; matches that exist only elsewhere surface which app
+  // region(s) they fall in, checked geographically against every
+  // REGION_CONFIGS bounding box -- the data's own `region` field is a
+  // port-level key that's organizational only (see WRECK_REGION_LABELS
+  // comment above), so it can't be used to name the app region directly.
+  function showWreckHighlight(lat, lon) {
+    const map = mapRef.current; if (!map) return;
+    if (wreckHighlightRef.current) { map.removeLayer(wreckHighlightRef.current); wreckHighlightRef.current = null; }
+    if (wreckHighlightTimeoutRef.current) { clearTimeout(wreckHighlightTimeoutRef.current); wreckHighlightTimeoutRef.current = null; }
+    const icon = L.divIcon({
+      className: "",
+      html: '<div class="wreck-search-pulse"></div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    });
+    const m = L.marker([lat, lon], { icon, interactive: false, zIndexOffset: 1000 });
+    m.addTo(map);
+    wreckHighlightRef.current = m;
+    wreckHighlightTimeoutRef.current = setTimeout(() => {
+      if (wreckHighlightRef.current) { map.removeLayer(wreckHighlightRef.current); wreckHighlightRef.current = null; }
+    }, 5000);
+  }
+
+  function selectWreckSearchResult(f) {
+    const map = mapRef.current; if (!map) return;
+    const [lon, lat] = f.geometry.coordinates;
+    const props = f.properties || {};
+    const fKey = `${(props.name ?? "").trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
+    showWreckHighlight(lat, lon);
+    map.once("moveend", () => {
+      const containerPt = map.latLngToContainerPoint([lat, lon]);
+      setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
+    });
+    map.flyTo([lat, lon], Math.max(map.getZoom(), 9), { duration: 0.6 });
+  }
+
+  function runWreckSearch(term) {
+    const q = term.trim().toLowerCase();
+    setWreckSearchIndex(0);
+    if (!q) { setWreckSearchResults([]); setWreckSearchMsg(null); return; }
+    if (!wrecksData) { setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading — try again in a moment."); return; }
+    const matches = wrecksData.features.filter(f => {
+      const props = f.properties || {};
+      const name = (props.name ?? "").trim();
+      if (!name) return false;
+      const [lon, lat] = f.geometry.coordinates;
+      const fKey = `${name}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
+      if (wreckRemovedKeys?.has(fKey)) return false;
+      return name.toLowerCase().includes(q);
+    });
+    const inBounds = [];
+    const outOfBounds = [];
+    matches.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      if (lat >= regionBounds.south && lat <= regionBounds.north && lon >= regionBounds.west && lon <= regionBounds.east) {
+        inBounds.push(f);
+      } else {
+        outOfBounds.push(f);
+      }
+    });
+    if (inBounds.length > 0) {
+      setWreckSearchResults(inBounds);
+      setWreckSearchMsg(null);
+      selectWreckSearchResult(inBounds[0]);
+    } else if (outOfBounds.length > 0) {
+      setWreckSearchResults([]);
+      const regionLabels = new Set();
+      outOfBounds.forEach(f => {
+        const [lon, lat] = f.geometry.coordinates;
+        Object.values(REGION_CONFIGS).forEach(cfg => {
+          const b = cfg.bounds;
+          if (lat >= b.south && lat <= b.north && lon >= b.west && lon <= b.east) regionLabels.add(cfg.label);
+        });
+      });
+      const labelText = regionLabels.size ? [...regionLabels].join(", ") : "another region";
+      setWreckSearchMsg(`Not found in this region — found in ${labelText}.`);
+    } else {
+      setWreckSearchResults([]);
+      setWreckSearchMsg(`No bottom feature found matching "${term.trim()}".`);
+    }
+  }
+
+  function cycleWreckSearch(dir) {
+    if (wreckSearchResults.length < 2) return;
+    const next = (wreckSearchIndex + dir + wreckSearchResults.length) % wreckSearchResults.length;
+    setWreckSearchIndex(next);
+    selectWreckSearchResult(wreckSearchResults[next]);
+  }
+
+  // Clear search state + highlight when Bottom Features is toggled off.
+  useEffect(() => {
+    if (showWrecks) return;
+    setWreckSearchTerm("");
+    setWreckSearchResults([]);
+    setWreckSearchIndex(0);
+    setWreckSearchMsg(null);
+    if (wreckHighlightTimeoutRef.current) { clearTimeout(wreckHighlightTimeoutRef.current); wreckHighlightTimeoutRef.current = null; }
+    if (wreckHighlightRef.current && mapRef.current) { mapRef.current.removeLayer(wreckHighlightRef.current); wreckHighlightRef.current = null; }
+  }, [showWrecks]);
+
   // Approved photos for the currently-open wreck detail card, fetched lazily
   // on open rather than prefetched for all ~700+ wrecks on map load.
   useEffect(() => {
@@ -3815,6 +3925,11 @@ export default function SSTHeatmapLeaflet(props) {
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showBathyRaster={showBathyRaster} setShowBathyRaster={setShowBathyRaster}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
+            wreckSearchTerm={wreckSearchTerm} setWreckSearchTerm={setWreckSearchTerm}
+            wreckSearchResults={wreckSearchResults} wreckSearchIndex={wreckSearchIndex}
+            wreckSearchMsg={wreckSearchMsg}
+            onWreckSearchSubmit={() => runWreckSearch(wreckSearchTerm)}
+            onWreckSearchCycle={cycleWreckSearch}
             showRadarOverlay={showRadarOverlay}
             setShowRadarOverlay={v => { setShowRadarOverlay(v); if (v) setShowBathyRaster(false); }}
             showBuoys={showBuoys} setShowBuoys={setShowBuoys} buoysLoading={buoysLoading}
@@ -4507,6 +4622,36 @@ export default function SSTHeatmapLeaflet(props) {
                         </button>
                       </MobileProGate>
                     </div>
+                    {showWrecks && (
+                      <MobileProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
+                        <div className="flex flex-col gap-1 mt-1">
+                          <div className="flex gap-1">
+                            <input
+                              type="text"
+                              value={wreckSearchTerm}
+                              onChange={e => setWreckSearchTerm(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") runWreckSearch(wreckSearchTerm); }}
+                              placeholder="Search bottom feature name…"
+                              className="flex-1 min-w-0 text-[11px] px-2 py-1.5 rounded-lg border border-slate-300"
+                            />
+                            <button onClick={() => runWreckSearch(wreckSearchTerm)}
+                              className="text-[11px] font-semibold px-3 rounded-lg border border-slate-300 bg-white text-slate-600">
+                              Go
+                            </button>
+                          </div>
+                          {wreckSearchResults.length > 1 && (
+                            <div className="flex items-center justify-center gap-3 text-[11px] text-slate-600">
+                              <button onClick={() => cycleWreckSearch(-1)} className="px-2 font-bold">‹</button>
+                              <span>{wreckSearchIndex + 1} of {wreckSearchResults.length}</span>
+                              <button onClick={() => cycleWreckSearch(1)} className="px-2 font-bold">›</button>
+                            </div>
+                          )}
+                          {wreckSearchMsg && (
+                            <div className="text-[10px] text-slate-500 text-center px-1">{wreckSearchMsg}</div>
+                          )}
+                        </div>
+                      </MobileProGate>
+                    )}
                     <div className="grid grid-cols-2 gap-1 mt-1">
                       <button onClick={() => setShowBuoys(v => !v)}
                         className={`text-[11px] font-semibold py-2 rounded-lg border transition-colors ${showBuoys ? "bg-cyan-700 text-white border-cyan-700" : "bg-white text-slate-600 border-slate-300"}`}>
@@ -4685,6 +4830,18 @@ export default function SSTHeatmapLeaflet(props) {
             );
           })()}
 
+          <style>{`
+            @keyframes wreckSearchPulse {
+              0%   { transform: scale(0.6); opacity: 1; }
+              70%  { transform: scale(1.8); opacity: 0; }
+              100% { transform: scale(1.8); opacity: 0; }
+            }
+            .wreck-search-pulse {
+              width: 16px; height: 16px; margin: 6px; border-radius: 50%;
+              border: 3px solid #f59e0b; box-sizing: border-box;
+              animation: wreckSearchPulse 1.1s ease-out infinite;
+            }
+          `}</style>
           {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:Math.min(hoveredWreck.px+12,(mapDivRef.current?.clientWidth??800)-172),top:Math.max(8,hoveredWreck.py-10),zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{WRECK_REGION_LABELS[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
 
           {buoyPopup && (
