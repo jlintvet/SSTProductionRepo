@@ -3783,17 +3783,17 @@ export default function SSTHeatmapLeaflet(props) {
                 style={{ width:32, height:32, padding:0, background: activeDataLayer==="seacolor"?"#0d9488":"rgba(255,255,255,0.9)", borderColor: activeDataLayer==="seacolor"?"#0d9488":"#e2e8f0" }}>
                 <span style={{ fontSize:9, fontWeight:700, color: activeDataLayer==="seacolor"?"#fff":"#64748b", lineHeight:1 }}>SC</span>
               </button>
-              {/* Wind */}
-              <button onClick={() => { setActiveDataLayer("windmap"); setPanelCollapsed(false); }} title="Wind"
-                className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
-                style={{ width:32, height:32, padding:0, background: activeDataLayer==="windmap"?"#0284c7":"rgba(255,255,255,0.9)", borderColor: activeDataLayer==="windmap"?"#0284c7":"#e2e8f0" }}>
-                <Wind style={{ width:14, height:14, color: activeDataLayer==="windmap"?"#fff":"#64748b" }}/>
-              </button>
               {/* Altimetry */}
               <button onClick={() => { setActiveDataLayer("altimetry"); setPanelCollapsed(false); }} title="Altimetry"
                 className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
                 style={{ width:32, height:32, padding:0, background: activeDataLayer==="altimetry"?"#7c3aed":"rgba(255,255,255,0.9)", borderColor: activeDataLayer==="altimetry"?"#7c3aed":"#e2e8f0" }}>
                 <span style={{ fontSize:9, fontWeight:700, color: activeDataLayer==="altimetry"?"#fff":"#64748b", lineHeight:1 }}>ALT</span>
+              </button>
+              {/* Wind */}
+              <button onClick={() => { setActiveDataLayer("windmap"); setPanelCollapsed(false); }} title="Wind"
+                className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
+                style={{ width:32, height:32, padding:0, background: activeDataLayer==="windmap"?"#0284c7":"rgba(255,255,255,0.9)", borderColor: activeDataLayer==="windmap"?"#0284c7":"#e2e8f0" }}>
+                <Wind style={{ width:14, height:14, color: activeDataLayer==="windmap"?"#fff":"#64748b" }}/>
               </button>
               {/* Currents */}
               <button onClick={() => setShowCurrents(p => !p)} title="Currents"
@@ -3802,10 +3802,23 @@ export default function SSTHeatmapLeaflet(props) {
                 <span style={{ fontSize:9, fontWeight:700, color: showCurrents?"#fff":"#64748b", lineHeight:1 }}>CUR</span>
               </button>
               {/* Tools */}
-              <button onClick={() => setPanelCollapsed(false)} title="Tools"
+              <button onClick={() => {
+                  setPanelCollapsed(false);
+                  setTimeout(() => { controlPanelRef.current?.querySelector("#mcp-tools-section")?.scrollIntoView({ block: "start" }); }, 50);
+                }} title="Tools"
                 className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
                 style={{ width:32, height:32, padding:0 }}>
                 <span style={{ fontSize:9, fontWeight:700, color:"#64748b", lineHeight:1 }}>TLS</span>
+              </button>
+              {/* Plan Trip */}
+              <button
+                onClick={onToggleTripMode}
+                title={tripMode ? "Exit trip planning" : "Plan trip"}
+                className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                style={{ width:32, height:32, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
+                </svg>
               </button>
               {/* divider */}
               <div style={{ height:1, background:"#e2e8f0", margin:"2px 4px" }}/>
@@ -3850,16 +3863,6 @@ export default function SSTHeatmapLeaflet(props) {
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
               </button>
-              {/* Plan Trip */}
-              <button
-                onClick={onToggleTripMode}
-                title={tripMode ? "Exit trip planning" : "Plan trip"}
-                className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
-                style={{ width:32, height:32, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
-                </svg>
-              </button>
               {/* Real Time GPS */}
               <button
                 onClick={onToggleGps}
@@ -3873,12 +3876,6 @@ export default function SSTHeatmapLeaflet(props) {
                   fontSize: 8, fontWeight: 700, letterSpacing: "0.02em",
                 }}>
                 GPS
-              </button>
-              {/* Help & feedback */}
-              <button onClick={() => setShowMobileHelp(true)} title="Help & report an issue"
-                className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
-                style={{ width: 32, height: 32, padding: 0 }}>
-                <LifeBuoy className="w-4 h-4 text-slate-500" />
               </button>
             </div>
           )}
@@ -4037,6 +4034,16 @@ export default function SSTHeatmapLeaflet(props) {
                 borderColor: mobilePanel==="tools" ? "#475569" : "#e2e8f0" }}>
               <span style={{ fontSize:9, fontWeight:700, color: mobilePanel==="tools" ? "#fff" : "#64748b", lineHeight:1 }}>TLS</span>
             </button>
+            {/* Plan Trip */}
+            <button
+              onClick={onToggleTripMode}
+              title={tripMode ? "Exit trip planning" : "Plan trip"}
+              className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
+              style={{ width:30, height:30, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
+              </svg>
+            </button>
             {/* Divider */}
             <div style={{ height:1, background:"#e2e8f0", margin:"2px 4px" }}/>
             {/* Inspect */}
@@ -4079,16 +4086,6 @@ export default function SSTHeatmapLeaflet(props) {
               style={{ width:30, height:30, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-            </button>
-            {/* Plan Trip */}
-            <button
-              onClick={onToggleTripMode}
-              title={tripMode ? "Exit trip planning" : "Plan trip"}
-              className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
-              style={{ width:30, height:30, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
               </svg>
             </button>
             {/* Real Time GPS */}

@@ -108,9 +108,10 @@ const HELP_CONFIG = {
 
 // ── Tiny helpers ───────────────────────────────────────────────────────────────
 
-function SectionHeader({ title, open, onToggle }) {
+function SectionHeader({ title, open, onToggle, id }) {
   return (
     <button
+      id={id}
       onClick={onToggle}
       className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
       style={{ background: "none", border: "none", cursor: "pointer" }}
@@ -399,7 +400,7 @@ export default function MapControlPanel({
       }}
     >
       {/* ── Header ────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-2.5 py-2 border-b border-slate-100">
+      <div className="flex items-center justify-between px-2.5 py-2 border-b border-slate-100 sticky top-0 z-10 bg-white/95 backdrop-blur-sm">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Controls</span>
         <button
           onClick={() => setCollapsed(true)}
@@ -408,7 +409,7 @@ export default function MapControlPanel({
           style={{ width: 20, height: 20, padding: 0 }}
         >
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-            <path d="M8.5 2L4.5 6L8.5 10" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4.5 2L8.5 6L4.5 10" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
       </div>
@@ -756,7 +757,7 @@ export default function MapControlPanel({
       <Divider />
 
       {/* ── Tools ─────────────────────────────────────────────────────── */}
-      <SectionHeader title="Tools" open={openSections.tools} onToggle={() => toggleSection("tools")} />
+      <SectionHeader id="mcp-tools-section" title="Tools" open={openSections.tools} onToggle={() => toggleSection("tools")} />
       {openSections.tools && (
         <div className="flex flex-col gap-1 px-2 pb-2">
           {isSSTGroup && (
