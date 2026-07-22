@@ -4455,7 +4455,7 @@ export default function SSTHeatmapLeaflet(props) {
 
             return (
               <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
-                   style={{ bottom: "calc(104px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
+                   style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
                 {content}
                 <button onClick={() => setMobilePanel(reopenPanel)}
                   title="More options"
@@ -5219,7 +5219,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {!tripMode && !showBathyRaster && !showRadarOverlay && (
+          {!tripMode && !showBathyRaster && !showRadarOverlay && !(showMobileSourceNav && !mobilePanel) && (
           <div className="sm:hidden absolute left-0 px-2" style={{ right: 44, bottom: 64, zIndex: 600, pointerEvents: "auto" }}>
             {isWindMap
               ? null
