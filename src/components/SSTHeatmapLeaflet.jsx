@@ -1312,6 +1312,8 @@ export default function SSTHeatmapLeaflet(props) {
   const [wreckSearchMsg,     setWreckSearchMsg]     = useState(null); // shown when no in-bounds match found
   const wreckHighlightRef        = useRef(null); // transient pulsing marker over a found feature
   const wreckHighlightTimeoutRef = useRef(null);
+  const wreckSearchInputRef      = useRef(null); // mobile search box, blurred programmatically on submit so the keyboard doesn't linger
+  const [showWreckSearchBar, setShowWreckSearchBar] = useState(false); // mobile: collapses the full Tools drawer into a compact result bar after a search
   const [buoyPopup,        setBuoyPopup]        = useState(null);
   const [mapReady,         setMapReady]         = useState(false);
   const [sstReady,         setSstReady]         = useState(false);
@@ -3196,13 +3198,15 @@ export default function SSTHeatmapLeaflet(props) {
       const containerPt = map.latLngToContainerPoint([lat, lon]);
       setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
     });
-    map.flyTo([lat, lon], Math.max(map.getZoom(), 9), { duration: 0.6 });
+    map.flyTo([lat, lon], map.getMaxZoom(), { duration: 0.6 });
   }
 
   function runWreckSearch(term) {
     const q = term.trim().toLowerCase();
     setWreckSearchIndex(0);
     if (!q) { setWreckSearchResults([]); setWreckSearchMsg(null); return; }
+    setMobilePanel(null);
+    setShowWreckSearchBar(true);
     if (!wrecksData) { setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading — try again in a moment."); return; }
     const matches = wrecksData.features.filter(f => {
       const props = f.properties || {};
@@ -3252,15 +3256,22 @@ export default function SSTHeatmapLeaflet(props) {
     selectWreckSearchResult(wreckSearchResults[next]);
   }
 
-  // Clear search state + highlight when Bottom Features is toggled off.
-  useEffect(() => {
-    if (showWrecks) return;
+  // Shared reset for both "Bottom Features toggled off" and the compact
+  // search bar's own dismiss (X) button.
+  function clearWreckSearch() {
     setWreckSearchTerm("");
     setWreckSearchResults([]);
     setWreckSearchIndex(0);
     setWreckSearchMsg(null);
+    setShowWreckSearchBar(false);
     if (wreckHighlightTimeoutRef.current) { clearTimeout(wreckHighlightTimeoutRef.current); wreckHighlightTimeoutRef.current = null; }
     if (wreckHighlightRef.current && mapRef.current) { mapRef.current.removeLayer(wreckHighlightRef.current); wreckHighlightRef.current = null; }
+  }
+
+  // Clear search state + highlight when Bottom Features is toggled off.
+  useEffect(() => {
+    if (showWrecks) return;
+    clearWreckSearch();
   }, [showWrecks]);
 
   // Approved photos for the currently-open wreck detail card, fetched lazily
@@ -3792,6 +3803,12 @@ export default function SSTHeatmapLeaflet(props) {
 
     return { content, reopenPanel };
   })();
+
+  // True whenever the mobile compact wreck-search bar should be showing --
+  // used to hide it, to suppress the (lower-priority) source-nav compact
+  // bar and the mobile legend while it's up, since both would otherwise
+  // occupy the same bottom-pinned strip.
+  const wreckSearchBarVisible = showWreckSearchBar && !mobilePanel && (wreckSearchResults.length > 0 || !!wreckSearchMsg);
 
   return (
     <>
@@ -4677,23 +4694,24 @@ export default function SSTHeatmapLeaflet(props) {
                         <div className="flex flex-col gap-1 mt-1">
                           <div className="flex gap-1">
                             <input
+                              ref={wreckSearchInputRef}
                               type="text"
                               value={wreckSearchTerm}
                               onChange={e => setWreckSearchTerm(e.target.value)}
-                              onKeyDown={e => { if (e.key === "Enter") runWreckSearch(wreckSearchTerm); }}
+                              onKeyDown={e => { if (e.key === "Enter") { e.target.blur(); runWreckSearch(wreckSearchTerm); } }}
                               placeholder="Search bottom feature name…"
                               className="flex-1 min-w-0 text-[11px] px-2 py-1.5 rounded-lg border border-slate-300"
                             />
-                            <button onClick={() => runWreckSearch(wreckSearchTerm)}
+                            <button onClick={() => { wreckSearchInputRef.current?.blur(); runWreckSearch(wreckSearchTerm); }}
                               className="text-[11px] font-semibold px-3 rounded-lg border border-slate-300 bg-white text-slate-600">
                               Go
                             </button>
                           </div>
                           {wreckSearchResults.length > 1 && (
-                            <div className="flex items-center justify-center gap-3 text-[11px] text-slate-600">
-                              <button onClick={() => cycleWreckSearch(-1)} className="px-2 font-bold">‹</button>
+                            <div className="flex items-center justify-center gap-4 text-[11px] text-slate-600">
+                              <button onClick={() => cycleWreckSearch(-1)} className="h-9 w-9 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-300 text-base font-bold">‹</button>
                               <span>{wreckSearchIndex + 1} of {wreckSearchResults.length}</span>
-                              <button onClick={() => cycleWreckSearch(1)} className="px-2 font-bold">›</button>
+                              <button onClick={() => cycleWreckSearch(1)} className="h-9 w-9 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-300 text-base font-bold">›</button>
                             </div>
                           )}
                           {wreckSearchMsg && (
@@ -4762,13 +4780,52 @@ export default function SSTHeatmapLeaflet(props) {
           )}
 
           {/* Compact day/hour nav (mobile) — replaces the full drawer once a secondary source is picked, so it doesn't cover most of the map. Content computed once in dayNavContent above and shared with the desktop bar below. */}
-          {showMobileSourceNav && !mobilePanel && dayNavContent.content && (
+          {showMobileSourceNav && !mobilePanel && dayNavContent.content && !wreckSearchBarVisible && (
             <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
                  style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
               {dayNavContent.content}
               <button onClick={() => setMobilePanel(dayNavContent.reopenPanel)}
                 title="More options"
                 className="h-8 px-2 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-300 text-slate-500 text-xs font-bold flex-shrink-0">&#8942;</button>
+            </div>
+          )}
+
+          {/* Compact wreck-search result bar (mobile) — replaces the full Tools
+              drawer once a bottom-feature search runs, so the keyboard + a
+              45vh drawer + the wreck detail card don't all stack up on top
+              of each other at once. Takes priority over the source-nav bar
+              above (both are the same bottom-pinned strip) per Jon's call
+              2026-07-22. "..." reopens the Tools drawer to search again;
+              "x" clears the search and dismisses the bar entirely. */}
+          {wreckSearchBarVisible && (
+            <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-2 px-3 py-2"
+                 style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
+              {wreckSearchResults.length > 0 ? (
+                <>
+                  <div className="flex-1 min-w-0 text-[12px] font-semibold text-slate-700 truncate">
+                    {wreckSearchResults[wreckSearchIndex]?.properties?.name || "Bottom feature"}
+                    {wreckSearchResults.length > 1 && (
+                      <span className="ml-1.5 text-[10px] font-normal text-slate-400">{wreckSearchIndex + 1} of {wreckSearchResults.length}</span>
+                    )}
+                  </div>
+                  {wreckSearchResults.length > 1 && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button onClick={() => cycleWreckSearch(-1)} title="Previous match"
+                        className="h-9 w-9 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-300 text-slate-600 text-base font-bold">‹</button>
+                      <button onClick={() => cycleWreckSearch(1)} title="Next match"
+                        className="h-9 w-9 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-300 text-slate-600 text-base font-bold">›</button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex-1 min-w-0 text-[11px] text-slate-600">{wreckSearchMsg}</div>
+              )}
+              <button onClick={() => setMobilePanel("tools")}
+                title="Search again"
+                className="h-9 px-2 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-300 text-slate-500 text-xs font-bold flex-shrink-0">&#8942;</button>
+              <button onClick={clearWreckSearch}
+                title="Clear search"
+                className="h-9 w-9 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-300 text-slate-500 text-sm font-bold flex-shrink-0">&times;</button>
             </div>
           )}
 
@@ -5558,7 +5615,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {!tripMode && !showBathyRaster && !showRadarOverlay && !(showMobileSourceNav && !mobilePanel) && (
+          {!tripMode && !showBathyRaster && !showRadarOverlay && !(showMobileSourceNav && !mobilePanel) && !wreckSearchBarVisible && (
           <div className="sm:hidden absolute left-0 px-2" style={{ right: 44, bottom: 64, zIndex: 600, pointerEvents: "auto" }}>
             {isWindMap
               ? null
