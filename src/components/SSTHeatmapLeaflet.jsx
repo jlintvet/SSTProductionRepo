@@ -1312,12 +1312,6 @@ export default function SSTHeatmapLeaflet(props) {
   const maskBuildStartedRef = useRef(false);
   const controlPanelRef  = useRef(null);
   const isOverControlPanel = useRef(false);
-  // Collapsing the panel unmounts it immediately (MapControlPanel returns
-  // null when collapsed), so onPointerLeave never fires if the cursor was
-  // still over it -- isOverControlPanel.current would otherwise stay stuck
-  // `true` forever, permanently suppressing the inspect/hover popup on the
-  // map. Force it back to false the moment the panel collapses.
-  useEffect(() => { if (panelCollapsed) isOverControlPanel.current = false; }, [panelCollapsed]);
   const [hotspotPopup,         setHotspotPopup]         = useState(null); // { html, cloudWarning, x, y }
   const [hotspotWarningOpen,   setHotspotWarningOpen]   = useState(false);
   const [showIsotherm,         setShowIsotherm]         = useState(false);
@@ -1534,6 +1528,12 @@ export default function SSTHeatmapLeaflet(props) {
       .then(({ count }) => { if (count != null) setSavedRoutesCount(count); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [panelCollapsed,  setPanelCollapsed] = useState(false);
+  // Collapsing the panel unmounts it immediately (MapControlPanel returns
+  // null when collapsed), so onPointerLeave never fires if the cursor was
+  // still over it -- isOverControlPanel.current would otherwise stay stuck
+  // `true` forever, permanently suppressing the inspect/hover popup on the
+  // map. Force it back to false the moment the panel collapses.
+  useEffect(() => { if (panelCollapsed) isOverControlPanel.current = false; }, [panelCollapsed]);
   const [mobilePanel,     setMobilePanel]     = useState(null); // null | "sst" | "chl" | "seacolor" | "wind" | "tools"
   const [showMobileSourceNav, setShowMobileSourceNav] = useState(false); // compact day/hour bar shown after picking a secondary source (SST/CHL/Sea Color), replaces the full drawer
   const [showMobileHelp, setShowMobileHelp] = useState(false);
