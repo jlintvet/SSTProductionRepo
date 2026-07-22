@@ -1,7 +1,7 @@
 # MapControlPanel Reference
 
 **File:** `src/components/MapControlPanel.jsx`  
-**Current commit:** `3a5c2ab` (as of 2026-07-14)
+**Current commit:** `7ed241e` (as of 2026-07-22)
 
 ---
 
@@ -46,7 +46,9 @@ Used for all Overlay and Tool toggle buttons. **All active states are the same c
 Collapsible section header with chevron. Takes `title`, `open`, `onToggle`.
 
 ### `DateNav`
-Date navigator with `‹` / `›` arrows. Used beneath layer buttons when multiple dates exist. Takes `label`, `onPrev`, `onNext`, `disablePrev`, `disableNext`, `color`.
+Date navigator with `‹` / `›` arrows. Used beneath layer buttons when multiple dates exist. Takes `label`, `onPrev`, `onNext`, `disablePrev`, `disableNext`, `color`, and (as of `4765190`/`7790ea5`) optional `onPlay`/`playing` -- when `onPlay` is passed, a `Play`/`Pause` icon button (lucide-react, solid fill, not the Unicode ▶/⏸ glyphs -- those render as full-color emoji buttons on some platforms/fonts) renders after the `›` arrow.
+
+`color` is effectively decorative-only: `labelColors` only ever defines a `cyan` entry (`text-cyan-700 bg-cyan-50`), so every DateNav call in this file renders the same cyan pill no matter what `color` value is passed -- the CHL/Sea color sub-sections below explicitly pass `color="cyan"` too, despite what older notes in this doc said about green/teal.
 
 ### `IsothermSubControls`
 Temp range slider + sharpness slider that appears inline when Temp Break is active. The parent `effectiveTargetTemp` value clamps to `[sstMin, sstMax]` before rendering.
@@ -58,7 +60,7 @@ Temp range slider + sharpness slider that appears inline when Temp Break is acti
 
 ## Section order (top to bottom)
 
-1. **Header** — "Controls" label + collapse button (chevron-left SVG)
+1. **Header** — "Controls" label + collapse button. The chevron SVG points **right** (`M4.5 2L8.5 6L4.5 10`), matching the direction the panel collapses (into the icon rail on the right edge) -- it pointed left until `e999790` (2026-07-22), which read backwards. The header div is `sticky top-0 z-10 bg-white/95 backdrop-blur-sm` (same commit) so it stays pinned while the panel body scrolls, instead of scrolling away and forcing a scroll back up just to collapse.
 2. **Mode row** — Pan / Inspect buttons
 3. **Data layer** — collapsible
 4. **Gain** — collapsible, hidden when altimetry or windmap is active
@@ -133,7 +135,7 @@ Both the Chlorophyll and Sea color layer buttons expand to show a Daily / Compos
 
 **Do not show a static badge** (e.g. "N passes · 5d gap-fill") in the composite section. The built date from `DateNav` is the only label. Pass count was deliberately removed.
 
-**Color convention:** CHL sub-source uses `color="green"` DateNav; Sea color uses `color="teal"`.
+**Color convention:** both CHL and Sea color sub-source `DateNav` calls pass `color="cyan"` -- same as every other `DateNav` in this panel (see the `DateNav` note above). There is no green/teal `DateNav` variant; `labelColors` only defines `cyan`. (Green/teal do appear elsewhere -- e.g. `SubSourceBtn`'s own active-state styling -- but not on the date pill itself.)
 
 ---
 
@@ -167,17 +169,38 @@ Community button shows active pin count: `Community (${communityCount ?? 0})`.
 
 ---
 
+## Desktop collapsed icon rail
+
+When `collapsed` is true, `MapControlPanel` itself renders `null` (see Overview), and `SSTHeatmapLeaflet.jsx` shows a `hidden sm:flex` column of 32×32px icon buttons in its place, fixed at `right: 8, top: 8`. This rail was built up incrementally (`aa0b89a` through `e999790`, 2026-07-22) to reach icon parity with the mobile floating rail -- both now expose the same set of layer toggles and action buttons, just in a vertical column instead of mobile's own floating layout.
+
+**Current top-to-bottom order:** Expand (re-open panel), SST, CHL, SC (Sea Color), ALT (Altimetry), Wind, CUR (Currents), TLS (Tools), Plan Trip, divider, Pan, Inspect, Saved, COM (Community), Live Report, Leaderboard, Real Time GPS.
+
+- **TLS** re-opens the panel (`setPanelCollapsed(false)`) and, after a short `setTimeout` (the panel has to remount before the section exists in the DOM), scrolls the reopened panel to `#mcp-tools-section` -- the `id` tagged on the Tools `SectionHeader` call specifically for this purpose. Every other icon here just reopens the panel at the top; TLS is the only one with scroll-to-section behavior.
+- **Plan Trip** sits directly below TLS (both here and in the mobile rail) -- moved there `e999790` per an explicit layout request; it previously sat lower, after Leaderboard, in both rails.
+- **No Help & feedback icon on this desktop rail.** `TopBar.jsx` already renders a `LifeBuoy` Help button that's `hidden sm:flex` -- i.e. visible only at the `sm`+ breakpoint (desktop), the exact inverse of this rail's own `sm:hidden`-complement mobile rail. Duplicating Help here would be redundant on desktop; removed `e999790`. Mobile's floating rail keeps its own Help icon since mobile has no other Help entry point.
+
 ## Mobile Tools icon
 
 The mobile floating Tools icon (`mobilePanel === "tools"` trigger, top-right icon column in `SSTHeatmapLeaflet.jsx`) is a `TLS` text label as of `b360530`, matching the SST/CHL/SC/ALT text-button style. It was previously a circle+arc SVG that read as an ambiguous dot symbol.
 
-## Mobile secondary-source compact nav (`showMobileSourceNav`)
+## Compact day/hour nav bar (`dayNavContent`, shared by mobile + desktop)
 
-As of `f21b9c0` (positioning refined in `7466ec6`), picking a secondary source on mobile — SST's Cloud Free / Hourly / HD Composite, or CHL / Sea Color's Daily / HD Composite — closes the full 45vh drawer (`mobilePanel` → `null`) and shows a single-row compact bar (`showMobileSourceNav` state) instead. The bar shows day prev/next (and hour prev/next for SST Hourly/VIIRS), and a "⋯" button that reopens the full drawer for that layer (source switcher + gain control). Renders nothing (`content` stays `null`) for layer/source combos with no date list to page through (single-day data, Altimetry, Wind). This was a deliberate UX fix — the full drawer stacking source row + date/hour nav + gain slider was covering too much of the map on mobile once a secondary source added its own controls. Only implemented for SST/CHL/Sea Color per Jon's scoping call on 2026-07-14; Altimetry's DateNav still lives inside its full mobile panel only.
+**File:** `src/components/SSTHeatmapLeaflet.jsx`, not `MapControlPanel.jsx` -- this bar is a lightweight alternative to the full panel/drawer, not part of it.
 
-**Positioning (`7466ec6`):** the bar is inset (`left-2 right-2`, rounded corners, `zIndex:1500`) rather than edge-to-edge at `bottom:0` — the original flush placement got clipped by curved device screen corners, sat inside the OS's bottom-edge swipe gesture zone (intercepting taps as system gestures), and fully covered `WeatherBottomSheet`'s 56px peek bar. It now sits at `bottom: calc(104px + env(safe-area-inset-bottom, 0px))`, clearing both the weather peek and the legend/gradient bar at `bottom:64` (~32px tall, see the `MobileGradientBar`/`SSTLegend` block further down this file's source). If you add another bottom-pinned mobile element, check it against this same stack (peek → legend → source-nav, bottom-up) rather than assuming `bottom:0` is safe.
+Originally mobile-only (`f21b9c0`, positioning refined `7466ec6`); as of `5a103e9` (2026-07-17) the prev/date/next content-building logic for every layer (VIIRS+hour, MUR, composite, CHL daily/composite, Sea Color daily/composite, Altimetry) was extracted into a single `dayNavContent` computation (a `useMemo`-less IIFE recomputed each render), so both bars render identical content instead of maintaining two copies:
 
-**Persistence:** `showMobileSourceNav` is only ever set `true` (on picking a secondary source) and never explicitly reset `false` — visibility is derived purely from `!mobilePanel` plus a valid source. Reopening the full drawer via the "⋯" button and closing it again (chevron handle) correctly re-shows the compact bar. Don't add a `setShowMobileSourceNav(false)` call when reopening the drawer — that reintroduces the bug where collapsing the reopened drawer left neither UI visible (fixed `7466ec6`).
+- **Mobile bar** (`showMobileSourceNav && !mobilePanel`): shown after picking a secondary source (SST Cloud Free/Hourly/HD Composite, CHL/Sea Color Daily/HD Composite) closes the full 45vh drawer. Inset (`left-2 right-2`, rounded corners, `zIndex:1500`), sitting at `bottom: calc(60px + env(safe-area-inset-bottom, 0px))` (lowered from an original `104px` offset in `e9ef3c5`, 2026-07-17, to clear the 56px `WeatherBottomSheet` peek bar without floating an extra ~48px above it). `showMobileSourceNav` is only ever set `true` and never explicitly reset -- visibility is derived from `!mobilePanel` plus a valid source. Don't add a `setShowMobileSourceNav(false)` call when reopening the drawer; that reintroduces a bug where collapsing the reopened drawer left neither UI visible (fixed `7466ec6`).
+- **Desktop bar** (`panelCollapsed && dayNavContent.content`, added `5a103e9`, widened/centered `2ec65a9`): shown when the sidebar is collapsed, centered horizontally (`left:50%`, `translateX(-50%)`, width `480` capped at `calc(100% - 96px)`), sitting at `bottom: sliderHeight + 8` -- matching the Locations button's own offset (lowered from `+52` in `aa0b89a`, 2026-07-17).
+
+Both bars end with a "more options" ⋮ button: mobile's reopens the full drawer (`setMobilePanel(dayNavContent.reopenPanel)`); desktop's reopens the full panel (`setPanelCollapsed(false)`). Renders nothing (`content` stays `null`) for layer/source combos with no date list to page through (single-day data, Wind).
+
+**Play/pause (`4765190`/`7790ea5`):** every branch with more than one date/composite gets a play/pause button (lucide-react `Play`/`Pause`, solid-fill SVG -- not the Unicode ▶/⏸ glyphs, which render as full-color emoji buttons on some platforms/fonts), reusing the existing `set{X}Playing` booleans already wired to each layer's autoplay interval in `SSTLive.jsx`.
+
+**VIIRS hour nav rolls into adjacent days (`7ed241e`, 2026-07-22):** the VIIRS branch's hour `‹`/`›` buttons used to clamp against the current day's own `available_hours` array and simply disable at the first/last hour. `SSTLive.jsx`'s autoplay loop (`sstAdvanceFn`) already rolled hours into the next day when playing, but manual clicks never had that logic. `goPrevHour`/`goNextHour` (defined inline in the VIIRS branch) now fall through to the adjacent day's last/first available hour when at an hour boundary; the buttons only disable when there's truly no adjacent day left (`atFirstHour && !hasPrevDay` / `atLastHour && !hasNextDay`).
+
+**Uniform button height (`7ed241e`, 2026-07-22):** every button/pill in the bar used to size itself off `py-1.5` padding plus its own font-size's line-height, and the row uses `items-center` (not `stretch`) -- so a `text-[10px]` pill (Day nav, date/hour labels) rendered visibly shorter than a `text-sm` button (chevrons, play) next to it. Every element is now a fixed `h-8` box: buttons use `flex items-center justify-center` to center content regardless of font size; the truncating date/hour label pills use `leading-8` instead (a flex container on the label itself would break `truncate`'s text-overflow ellipsis). Apply the same `h-8` + centering pattern to any new element added to this bar, rather than relying on padding to size it.
+
+**Color convention:** all date/hour label pills in this bar use `text-cyan-700 bg-cyan-50` (standardized `26b1b3a`, 2026-07-17) -- they used to be ad hoc violet (VIIRS/composite/Altimetry), green (CHL), teal (Sea Color), indigo (GOES), which didn't match the large panel's own uniformly-cyan `DateNav` convention (see the `DateNav` note above).
 
 **Legend top-alignment (`3a5c2ab`):** the mobile legend/gradient wrapper (`right:44, bottom:64, zIndex:600`, further down this file) renders one of three different components depending on `activeDataLayer` — `SSTLegend` (bare text + a `height:20` bar, no card chrome, ~20px total) for SST, or `MobileGradientBar` (bordered/padded card, ~29px) for CHL/Sea Color. Left auto-height, the wrapper's visible top edge landed ~9px higher for SST than for CHL/Sea Color, making the gap to the source-nav bar above it look inconsistent (Jon reported this on 2026-07-14). Fixed by wrapping each branch in its own fixed-height (`32px`), top-aligned (`items-start`) flex box, so all three legends' visible top edges land at the same offset regardless of the underlying component's natural height. If a 4th legend variant is ever added here, wrap it the same way rather than leaving it bare.
 
