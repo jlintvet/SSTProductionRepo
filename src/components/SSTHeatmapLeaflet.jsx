@@ -3649,25 +3649,25 @@ export default function SSTHeatmapLeaflet(props) {
             <button onClick={() => { setMobilePanel(p => p === "sst" ? null : "sst"); if(activeDataLayer!=="sst"&&activeDataLayer!=="composite"){ const s=localStorage.getItem("sst_sub_layer")||"sst"; setActiveDataLayer(s); } setShowRadarOverlay(false); setShowBathyRaster(false); }} title="SST"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
-                background: mobilePanel==="sst" ? "#0891b2" : "rgba(255,255,255,0.9)",
-                borderColor: mobilePanel==="sst" ? "#0891b2" : "#e2e8f0" }}>
-              <span style={{ fontSize:10, fontWeight:700, color: mobilePanel==="sst" ? "#fff" : "#64748b", lineHeight:1 }}>SST</span>
+                background: (mobilePanel==="sst"||activeDataLayer==="sst"||activeDataLayer==="composite") ? "#0891b2" : "rgba(255,255,255,0.9)",
+                borderColor: (mobilePanel==="sst"||activeDataLayer==="sst"||activeDataLayer==="composite") ? "#0891b2" : "#e2e8f0" }}>
+              <span style={{ fontSize:10, fontWeight:700, color: (mobilePanel==="sst"||activeDataLayer==="sst"||activeDataLayer==="composite") ? "#fff" : "#64748b", lineHeight:1 }}>SST</span>
             </button>
             {/* CHL */}
             <button onClick={() => { setMobilePanel(p => p === "chl" ? null : "chl"); setActiveDataLayer("chlorophyll"); setShowRadarOverlay(false); setShowBathyRaster(false); }} title="Chlorophyll"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
-                background: mobilePanel==="chl" ? "#16a34a" : "rgba(255,255,255,0.9)",
-                borderColor: mobilePanel==="chl" ? "#16a34a" : "#e2e8f0" }}>
-              <span style={{ fontSize:10, fontWeight:700, color: mobilePanel==="chl" ? "#fff" : "#64748b", lineHeight:1 }}>CHL</span>
+                background: (mobilePanel==="chl"||activeDataLayer==="chlorophyll") ? "#16a34a" : "rgba(255,255,255,0.9)",
+                borderColor: (mobilePanel==="chl"||activeDataLayer==="chlorophyll") ? "#16a34a" : "#e2e8f0" }}>
+              <span style={{ fontSize:10, fontWeight:700, color: (mobilePanel==="chl"||activeDataLayer==="chlorophyll") ? "#fff" : "#64748b", lineHeight:1 }}>CHL</span>
             </button>
             {/* Sea Color */}
             <button onClick={() => { setMobilePanel(p => p === "seacolor" ? null : "seacolor"); setActiveDataLayer("seacolor"); setShowRadarOverlay(false); setShowBathyRaster(false); }} title="Sea Color"
               className="flex items-center justify-center rounded-lg shadow-sm border"
               style={{ width:30, height:30, padding:0,
-                background: mobilePanel==="seacolor" ? "#0d9488" : "rgba(255,255,255,0.9)",
-                borderColor: mobilePanel==="seacolor" ? "#0d9488" : "#e2e8f0" }}>
-              <span style={{ fontSize:9, fontWeight:700, color: mobilePanel==="seacolor" ? "#fff" : "#64748b", lineHeight:1 }}>SC</span>
+                background: (mobilePanel==="seacolor"||activeDataLayer==="seacolor") ? "#0d9488" : "rgba(255,255,255,0.9)",
+                borderColor: (mobilePanel==="seacolor"||activeDataLayer==="seacolor") ? "#0d9488" : "#e2e8f0" }}>
+              <span style={{ fontSize:9, fontWeight:700, color: (mobilePanel==="seacolor"||activeDataLayer==="seacolor") ? "#fff" : "#64748b", lineHeight:1 }}>SC</span>
             </button>
             {/* Altimetry */}
             <button onClick={() => { setMobilePanel(p => p === "altimetry" ? null : "altimetry"); setActiveDataLayer("altimetry"); setShowRadarOverlay(false); setShowBathyRaster(false); }} title="Altimetry"
@@ -4446,6 +4446,17 @@ export default function SSTHeatmapLeaflet(props) {
                     className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
                   <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1.5 truncate">{fmtDate(seaColorCompositeDates[seaColorCompositeDateIndex])}</span>
                   <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1)); }} disabled={seaColorCompositeDateIndex >= seaColorCompositeDates.length - 1}
+                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+                </>
+              );
+            } else if (activeDataLayer === "altimetry" && altimetryDates?.length > 1) {
+              reopenPanel = "altimetry";
+              content = (
+                <>
+                  <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i - 1)); }} disabled={altimetryDateIndex === 0}
+                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+                  <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(altimetryDates[altimetryDateIndex])}</span>
+                  <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.min(altimetryDates.length - 1, i + 1)); }} disabled={altimetryDateIndex >= altimetryDates.length - 1}
                     className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
                 </>
               );
