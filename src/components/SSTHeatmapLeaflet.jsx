@@ -1088,6 +1088,7 @@ export default function SSTHeatmapLeaflet(props) {
     onNotesUpdated,
     BATHY_CONTOURS_URL, WRECKS_URL, BATHY_URL, BATHY_TILE_URL,
     isPro,
+    profileLoaded,
     currentsData, currentsLoading, showCurrents, setShowCurrents,
     altimetryData, onSlaRange,
   altimetryDates, altimetryDateIndex, setAltimetryDateIndex, altimetryPlaying, setAltimetryPlaying,
@@ -2713,10 +2714,43 @@ export default function SSTHeatmapLeaflet(props) {
     const map = mapRef.current;
     if (!mapReady || !map) return;
     if (loranLayerRef.current) { loranLayerRef.current._loranCleanup?.(); map.removeLayer(loranLayerRef.current); loranLayerRef.current = null; }
-    if (!showLoranGrid) return;
+    // isPro guard is defense in depth: Loran is Pro-gated and showLoranGrid
+    // persists via localStorage across full logout/login, so this must
+    // never actually draw the layer for a non-pro user even if stale state
+    // says otherwise (see the reset effect below, which handles the state
+    // itself once profileLoaded confirms the user is non-pro).
+    if (!showLoranGrid || !isPro) return;
     const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds, showLoranWFamily && regionKey === "mid_atlantic");
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
-  }, [mapReady, showLoranGrid, showLoranWFamily, waterMaskVersion, regionKey]);
+  }, [mapReady, showLoranGrid, showLoranWFamily, waterMaskVersion, regionKey, isPro]);
+
+  // ── Force off any Pro-gated layer whose state survived a downgrade ──────────
+  // Loran Grid persists via localStorage across a full logout/login, so a user
+  // who enables it while Pro/trial and later downgrades to standard would
+  // otherwise keep that layer both "on" in state AND actually rendered on the
+  // map, even though the toggle button shows the Pro lock (bug reported
+  // 2026-07-22: Loran stayed active after downgrading to standard). The other
+  // Pro-gated toggles below don't currently persist past a fresh page load,
+  // but are reset here too as insurance against the same trap recurring.
+  // Gated on profileLoaded so this never fires during the brief window before
+  // AppContext's profile fetch resolves (isPro defaults to false there),
+  // which would otherwise wipe a genuine Pro user's saved Loran preference on
+  // every page load.
+  useEffect(() => {
+    if (!profileLoaded || isPro) return;
+    setShowLoranGrid(false);
+    setShowLoranWFamily(false);
+    localStorage.setItem("show_loran_grid", "false");
+    localStorage.setItem("show_loran_w_family", "false");
+    setShowCurrents(false);
+    setShowWindOverlay(false);
+    setShowHotspots(false);
+    setShowBathyRaster(false);
+    setShowRadarOverlay(false);
+    setShowWrecks(false);
+    setShowAltimetryOverlay(false);
+    setShowIsotherm(false);
+  }, [isPro, profileLoaded]);
 
   // ── Canyon name labels (standalone overlay) ──────────────────────────────────────
   useEffect(() => {

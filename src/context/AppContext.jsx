@@ -83,6 +83,7 @@ export function AppProvider({ region, children }) {
   const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS);
   const [userId, setUserId]             = useState(null);
   const [isPro,  setIsPro]              = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);  // true once the user_profiles fetch settles -- lets consumers tell "isPro not yet known" apart from "confirmed non-pro" (see fetchUser below)
   const [gpsActive, setGpsActive]       = useState(false);
   const [boatPosition, setBoatPosition] = useState(null);
   const [boatTrack, setBoatTrack]       = useState([]);
@@ -293,7 +294,7 @@ export function AppProvider({ region, children }) {
           .select("display_name, tier, trial_end, referral_end, subscription_status")
           .eq("id", uid).single()
           .then(({ data: profile }) => {
-            if (!profile) return;
+            if (!profile) { setProfileLoaded(true); return; }
             if (profile.display_name) setDisplayName(profile.display_name);
             // Compute daysLeft (trial countdown) and isPro
             const profileTier = profile.tier ?? "standard";
@@ -326,10 +327,12 @@ export function AppProvider({ region, children }) {
               pro = false;
             }
             setIsPro(pro);
+            setProfileLoaded(true);
           });
       }).catch(err => {
         console.warn("[AppContext] userId getUser failed" + (isRetry ? " (retry)" : "") + ":", err);
         if (!isRetry) setTimeout(() => fetchUser(true), 1500);
+        else setProfileLoaded(true);  // stop waiting after the retry also failed -- otherwise consumers gated on profileLoaded would hang forever
       });
     }
     fetchUser(false);
@@ -379,6 +382,7 @@ export function AppProvider({ region, children }) {
       userDefault,
       daysLeft,
       isPro,
+      profileLoaded,
       userId,
       userSettings,
       setUserSettings,
@@ -401,7 +405,7 @@ export function AppProvider({ region, children }) {
       smoothedSpeedKts,
       displayName,
     }),
-    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, isPro, userId, userSettings, gpsActive, boatPosition, boatTrack, navigatingRoute, currentWpIndex, tripSharing, displayName]
+    [regionConfig, regionKey, selectedLocation, weatherPanel, userDefault, daysLeft, isPro, profileLoaded, userId, userSettings, gpsActive, boatPosition, boatTrack, navigatingRoute, currentWpIndex, tripSharing, displayName]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

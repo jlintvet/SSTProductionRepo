@@ -331,7 +331,7 @@ function SSTPageBody() {
     // also separately tap the GPS button on the map.
     gpsActive, boatPosition, boatTrack, toggleGps,
     endNavigation, navigatingRoute, startNavigation,
-    isPro, userId,
+    isPro, profileLoaded, userId,
   } = useAppContext();
 
   // Region-aware data paths — backend writes GA/SC files under a subdir.
@@ -1300,6 +1300,7 @@ function SSTPageBody() {
               BATHY_TILE_URL={BATHY_TILE_URL_R}
               WRECKS_URL={WRECKS_URL}
               isPro={isPro}
+              profileLoaded={profileLoaded}
               onNotesUpdated={(id, newNotes) => {
                 setSavedLocations(prev => prev.map(l => l.id === id ? { ...l, notes: newNotes } : l));
               }}
