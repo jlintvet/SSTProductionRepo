@@ -3801,6 +3801,12 @@ export default function SSTHeatmapLeaflet(props) {
                 style={{ width:32, height:32, padding:0, background: showCurrents?"#0284c7":"rgba(255,255,255,0.9)", borderColor: showCurrents?"#0284c7":"#e2e8f0" }}>
                 <span style={{ fontSize:9, fontWeight:700, color: showCurrents?"#fff":"#64748b", lineHeight:1 }}>CUR</span>
               </button>
+              {/* Tools */}
+              <button onClick={() => setPanelCollapsed(false)} title="Tools"
+                className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                style={{ width:32, height:32, padding:0 }}>
+                <span style={{ fontSize:9, fontWeight:700, color:"#64748b", lineHeight:1 }}>TLS</span>
+              </button>
               {/* divider */}
               <div style={{ height:1, background:"#e2e8f0", margin:"2px 4px" }}/>
               {/* Pan */}
