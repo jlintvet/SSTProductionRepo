@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
-import { Crosshair, Move, Wind, LifeBuoy, Trash2 } from "lucide-react";
+import { Crosshair, Move, Wind, LifeBuoy, Trash2, Play, Pause } from "lucide-react";
 import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
@@ -3511,10 +3511,6 @@ export default function SSTHeatmapLeaflet(props) {
           <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(activeViirsDay?.date)}</span>
           <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1)); }} disabled={viirsDateIndex === viirsData.days.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">Day »</button>
-          {viirsData.days.length > 1 && (
-            <button onClick={() => setSstPlaying(v => !v)} title={sstPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{sstPlaying ? "⏸" : "▶"}</button>
-          )}
           {hrs.length >= 1 && (
             <>
               <button onClick={() => setViirsHour(hrs[Math.max(0, hIdx - 1)])} disabled={hIdx <= 0}
@@ -3523,6 +3519,10 @@ export default function SSTHeatmapLeaflet(props) {
               <button onClick={() => setViirsHour(hrs[Math.min(hrs.length - 1, hIdx + 1)])} disabled={hIdx >= hrs.length - 1}
                 className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
             </>
+          )}
+          {viirsData.days.length > 1 && (
+            <button onClick={() => setSstPlaying(v => !v)} title={sstPlaying ? "Pause" : "Play"}
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{sstPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -3537,7 +3537,7 @@ export default function SSTHeatmapLeaflet(props) {
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {murData.days.length > 1 && (
             <button onClick={() => setSstPlaying(v => !v)} title={sstPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{sstPlaying ? "⏸" : "▶"}</button>
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{sstPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -3552,7 +3552,7 @@ export default function SSTHeatmapLeaflet(props) {
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {compositeDates.length > 1 && (
             <button onClick={() => setSstPlaying(v => !v)} title={sstPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{sstPlaying ? "⏸" : "▶"}</button>
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{sstPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -3567,7 +3567,7 @@ export default function SSTHeatmapLeaflet(props) {
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {chlData.days.length > 1 && (
             <button onClick={() => setChlPlaying(v => !v)} title={chlPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{chlPlaying ? "⏸" : "▶"}</button>
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{chlPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -3582,7 +3582,7 @@ export default function SSTHeatmapLeaflet(props) {
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {chlCompositeDates.length > 1 && (
             <button onClick={() => setChlPlaying(v => !v)} title={chlPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{chlPlaying ? "⏸" : "▶"}</button>
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{chlPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -3597,7 +3597,7 @@ export default function SSTHeatmapLeaflet(props) {
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {seaColorData.days.length > 1 && (
             <button onClick={() => setSeaColorPlaying(v => !v)} title={seaColorPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{seaColorPlaying ? "⏸" : "▶"}</button>
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{seaColorPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -3612,7 +3612,7 @@ export default function SSTHeatmapLeaflet(props) {
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {seaColorCompositeDates.length > 1 && (
             <button onClick={() => setSeaColorPlaying(v => !v)} title={seaColorPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{seaColorPlaying ? "⏸" : "▶"}</button>
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{seaColorPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -3627,7 +3627,7 @@ export default function SSTHeatmapLeaflet(props) {
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {altimetryDates.length > 1 && (
             <button onClick={() => setAltimetryPlaying(v => !v)} title={altimetryPlaying ? "Pause" : "Play"}
-              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{altimetryPlaying ? "⏸" : "▶"}</button>
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold flex-shrink-0 leading-none">{altimetryPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
           )}
         </>
       );
@@ -4012,7 +4012,7 @@ export default function SSTHeatmapLeaflet(props) {
                         {compositeDates.length > 1 && (
                           <button onClick={() => setSstPlaying(v => !v)}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                            {sstPlaying ? "⏸" : "▶"}
+                            {sstPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                           </button>
                         )}
                       </div>
@@ -4032,7 +4032,7 @@ export default function SSTHeatmapLeaflet(props) {
                           {viirsData.days.length > 1 && (
                             <button onClick={() => setSstPlaying(v => !v)}
                               className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                              {sstPlaying ? "⏸" : "▶"}
+                              {sstPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                             </button>
                           )}
                         </div>
@@ -4067,7 +4067,7 @@ export default function SSTHeatmapLeaflet(props) {
                         {murData.days.length > 1 && (
                           <button onClick={() => setSstPlaying(v => !v)}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                            {sstPlaying ? "⏸" : "▶"}
+                            {sstPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                           </button>
                         )}
                       </div>
@@ -4086,7 +4086,7 @@ export default function SSTHeatmapLeaflet(props) {
                         {goesCompData.days.length > 1 && (
                           <button onClick={() => setSstPlaying(v => !v)}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                            {sstPlaying ? "⏸" : "▶"}
+                            {sstPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                           </button>
                         )}
                       </div>
@@ -4137,7 +4137,7 @@ export default function SSTHeatmapLeaflet(props) {
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                           <button onClick={() => setChlPlaying(v => !v)}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                            {chlPlaying ? "⏸" : "▶"}
+                            {chlPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                           </button>
                         </div>
                       </>
@@ -4155,7 +4155,7 @@ export default function SSTHeatmapLeaflet(props) {
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                           <button onClick={() => setChlPlaying(v => !v)}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                            {chlPlaying ? "⏸" : "▶"}
+                            {chlPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                           </button>
                         </div>
                       </>
@@ -4204,7 +4204,7 @@ export default function SSTHeatmapLeaflet(props) {
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                           <button onClick={() => setSeaColorPlaying(v => !v)}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                            {seaColorPlaying ? "⏸" : "▶"}
+                            {seaColorPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                           </button>
                         </div>
                       </>
@@ -4222,7 +4222,7 @@ export default function SSTHeatmapLeaflet(props) {
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                           <button onClick={() => setSeaColorPlaying(v => !v)}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold">
-                            {seaColorPlaying ? "⏸" : "▶"}
+                            {seaColorPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                           </button>
                         </div>
                       </>
@@ -4303,7 +4303,7 @@ export default function SSTHeatmapLeaflet(props) {
                               className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
                             <button onClick={() => setWindPlaying(p => !p)}
                               className={`px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${windPlaying ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                              {windPlaying ? "⏸" : "▶"}
+                              {windPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
                             </button>
                           </div>
                         </>
@@ -4356,7 +4356,7 @@ export default function SSTHeatmapLeaflet(props) {
                               style={{ padding:"4px 7px", borderRadius:4, border:"1px solid #cbd5e1", background:"#fff", fontSize:11, fontWeight:700, color:"#475569", opacity: altimetryDateIndex>=altimetryDates.length-1?0.3:1 }}>&#8250;</button>
                             <button onClick={() => setAltimetryPlaying(v => !v)}
                               style={{ padding:"4px 7px", borderRadius:4, border:"1px solid #cbd5e1", background:"#fff", fontSize:11, fontWeight:700, color:"#475569" }}
-                              title={altimetryPlaying ? "Pause" : "Play"}>{altimetryPlaying ? "⏸" : "▶"}</button>
+                              title={altimetryPlaying ? "Pause" : "Play"}>{altimetryPlaying ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}</button>
                           </div>
                         );
                       })()}

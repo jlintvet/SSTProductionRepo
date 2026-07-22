@@ -4,7 +4,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Play, Pause } from "lucide-react";
 import SSTRangeControl from "@/components/SSTRangeControl";
 import riplocIcon from "@/public/Branding/riplocB text w icon.png";
 import { startProCheckout } from "@/lib/checkout";
@@ -249,8 +249,8 @@ function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cya
       </button>
       {onPlay && (
         <button onClick={onPlay} title={playing ? "Pause" : "Play"}
-          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold leading-none">
-          {playing ? "⏸" : "▶"}
+          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold leading-none flex items-center justify-center">
+          {playing ? <Pause className="w-3 h-3" fill="currentColor" stroke="none" /> : <Play className="w-3 h-3" fill="currentColor" stroke="none" />}
         </button>
       )}
     </div>
