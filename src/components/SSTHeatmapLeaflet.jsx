@@ -318,6 +318,9 @@ import SSTRangeControl from "@/components/SSTRangeControl";
 import TimeScrubber, { WindLegend } from "@/components/TimeScrubber";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { MAPBOX_TOKEN, createGlBasemap, gapFillGrid, solidify, blurOverlay, upsertSstImage, removeSstImage, installLandMaskRefresh } from "@/lib/glSandwich";
 
 // ── Community pulse animation (injected once) ─────────────────────────────────
@@ -3092,7 +3095,29 @@ export default function SSTHeatmapLeaflet(props) {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (wreckLayerRef.current) { map.removeLayer(wreckLayerRef.current); wreckLayerRef.current = null; }
     if (!showWrecks || !wrecksData) return;
-    const lyr = L.layerGroup();
+    // Clustered so the layer stays usable as bottom-feature coverage grows
+    // (FWC statewide import will roughly 6x the marker count). Radius/zoom
+    // tuned so clusters break apart well before port-level zoom, and cluster
+    // badges reuse the existing pale wreck-dot palette (#CAD8DB), darkened
+    // and sized up with count so density reads at a glance.
+    const lyr = L.markerClusterGroup({
+      maxClusterRadius: 55,
+      disableClusteringAtZoom: 13,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        const size = count < 10 ? 30 : count < 50 ? 38 : 46;
+        const bg = count < 10 ? "#94A3B8" : count < 50 ? "#64748B" : "#334155";
+        const fontSize = count < 50 ? 12 : 13;
+        return L.divIcon({
+          className: "",
+          html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:${fontSize}px;font-family:inherit;">${count}</div>`,
+          iconSize: [size, size],
+        });
+      },
+    });
     // Bottom features are shown for the whole loaded map region regardless of
     // which departure port is selected -- no per-port wreckRegion filtering.
     wrecksData.features.forEach(f => {
