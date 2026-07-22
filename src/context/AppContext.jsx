@@ -319,7 +319,10 @@ export function AppProvider({ region, children }) {
               // seeing "Ambassador" in the UserMenu label (driven by tier from
               // useRegionAccess) while still being pro-gated to standard
               // features everywhere that reads isPro from this context instead.
-            } else if (profile.subscription_status === "cancelled") {
+            } else if (profileTier === "pro" && profile.subscription_status === "cancelled") {
+              // Same scoping fix as useRegionAccess.js -- only a real Pro
+              // subscriber can be "cancelled"; standard has no subscription to
+              // cancel, so a stale subscription_status must never block them.
               pro = false;
             }
             setIsPro(pro);

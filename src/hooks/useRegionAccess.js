@@ -95,7 +95,12 @@ export function useRegionAccess() {
             setDaysLeft(365);
             setIsExpired(false);
           }
-        } else if (profile.subscription_status === "cancelled") {
+        } else if (profileTier === "pro" && profile.subscription_status === "cancelled") {
+          // Only a real Pro subscriber can be "cancelled" -- standard (and any
+          // other non-billing tier) has no subscription to cancel, so a stale
+          // subscription_status value left over from unrelated testing must
+          // never block them. This scoping is what confirm_standard_tier()
+          // relies on staying correct.
           setIsExpired(true);
           setIsPro(false);
         } else {

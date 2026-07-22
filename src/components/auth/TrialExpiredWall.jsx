@@ -19,6 +19,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
+import riplocLogo from "@/public/Branding/Riploc OFI w Icon.png";
 
 export default function TrialExpiredWall() {
   const [prices, setPrices]         = useState(null);
@@ -98,15 +99,14 @@ export default function TrialExpiredWall() {
         padding: "2rem 1.75rem", maxWidth: 580, width: "100%", textAlign: "center",
         margin: "auto",
       }}>
-        <div style={{ color: "#0e7490", fontSize: 22, fontWeight: 800, letterSpacing: -0.5, marginBottom: "1.25rem" }}>
-          RipLoc
-        </div>
+        <img src={riplocLogo} alt="RipLoc: Offshore Fishing Intelligence"
+          style={{ height: 40, width: "auto", margin: "0 auto 1.5rem", display: "block" }} />
 
         <h1 style={{ color: "#f1f5f9", fontSize: 20, fontWeight: 700, margin: "0 0 0.75rem", lineHeight: 1.3 }}>
           Your free trial has ended
         </h1>
 
-        <p style={{ color: "#94a3b8", fontSize: 13.5, lineHeight: 1.7, margin: "0 0 1.75rem" }}>
+        <p style={{ color: "#94a3b8", fontSize: 13.5, lineHeight: 1.7, margin: "0 0 1.75rem", textAlign: "left" }}>
           We hope you enjoyed exploring the app during your trial. You can continue to use the app
           and the core oceanographic features by confirming your Standard subscription below.
           Or you can complete a Pro subscription and continue using all of the Pro features
