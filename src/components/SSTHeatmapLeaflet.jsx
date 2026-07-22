@@ -3508,14 +3508,14 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.max(0, i - 1)); }} disabled={viirsDateIndex === 0}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">« Day</button>
-          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(activeViirsDay?.date)}</span>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(activeViirsDay?.date)}</span>
           <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1)); }} disabled={viirsDateIndex === viirsData.days.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">Day »</button>
           {hrs.length >= 1 && (
             <>
               <button onClick={() => setViirsHour(hrs[Math.max(0, hIdx - 1)])} disabled={hIdx <= 0}
                 className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-              <span className="text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 px-2 truncate flex-shrink-0">{hrLabel}</span>
+              <span className="text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 px-2 truncate flex-shrink-0">{hrLabel}</span>
               <button onClick={() => setViirsHour(hrs[Math.min(hrs.length - 1, hIdx + 1)])} disabled={hIdx >= hrs.length - 1}
                 className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
             </>
@@ -3547,7 +3547,7 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={compositeDateIndex === 0}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{compositeDates[compositeDateIndex] ?? "—"}</span>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{compositeDates[compositeDateIndex] ?? "—"}</span>
           <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1)); }} disabled={compositeDateIndex === compositeDates.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {compositeDates.length > 1 && (
@@ -3562,7 +3562,7 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.max(0, i - 1)); }} disabled={chlDateIndex === 0}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-          <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1.5 truncate">{fmtDate(chlData.days[chlDateIndex]?.date)}</span>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(chlData.days[chlDateIndex]?.date)}</span>
           <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1)); }} disabled={chlDateIndex === chlData.days.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {chlData.days.length > 1 && (
@@ -3577,7 +3577,7 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={chlCompositeDateIndex === 0}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-          <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1.5 truncate">{fmtDate(chlCompositeDates[chlCompositeDateIndex])}</span>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(chlCompositeDates[chlCompositeDateIndex])}</span>
           <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1)); }} disabled={chlCompositeDateIndex >= chlCompositeDates.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {chlCompositeDates.length > 1 && (
@@ -3592,7 +3592,7 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorDateIndex === 0}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-          <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1.5 truncate">{fmtDate(seaColorData.days[seaColorDateIndex]?.date)}</span>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(seaColorData.days[seaColorDateIndex]?.date)}</span>
           <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1)); }} disabled={seaColorDateIndex === seaColorData.days.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {seaColorData.days.length > 1 && (
@@ -3607,7 +3607,7 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorCompositeDateIndex === 0}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-          <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1.5 truncate">{fmtDate(seaColorCompositeDates[seaColorCompositeDateIndex])}</span>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(seaColorCompositeDates[seaColorCompositeDateIndex])}</span>
           <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1)); }} disabled={seaColorCompositeDateIndex >= seaColorCompositeDates.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {seaColorCompositeDates.length > 1 && (
@@ -3622,7 +3622,7 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i - 1)); }} disabled={altimetryDateIndex === 0}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(altimetryDates[altimetryDateIndex])}</span>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(altimetryDates[altimetryDateIndex])}</span>
           <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.min(altimetryDates.length - 1, i + 1)); }} disabled={altimetryDateIndex >= altimetryDates.length - 1}
             className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {altimetryDates.length > 1 && (
@@ -4047,7 +4047,7 @@ export default function SSTHeatmapLeaflet(props) {
 
                     {/* Composite badge */}
                     {activeDataLayer === "composite" && compositeData && (
-                      <div className="text-[10px] text-violet-700 bg-violet-50 rounded px-2 py-1 text-center font-semibold">
+                      <div className="text-[10px] text-cyan-700 bg-cyan-50 rounded px-2 py-1 text-center font-semibold">
                         {compositeData.generated
                           ? new Date(compositeData.generated).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })
                           : "Latest composite"}
@@ -4061,7 +4061,7 @@ export default function SSTHeatmapLeaflet(props) {
                           <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={compositeDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
                         )}
-                        <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1 truncate">
+                        <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
                           {compositeDates[compositeDateIndex] ?? "—"}
                         </span>
                         {compositeDates.length > 1 && (
@@ -4083,7 +4083,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.max(0, i - 1)); }} disabled={viirsDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
-                          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1 truncate">
+                          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
                             {fmtDate(activeViirsDay?.date)}
                           </span>
                           <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1)); }} disabled={viirsDateIndex === viirsData.days.length - 1}
@@ -4137,7 +4137,7 @@ export default function SSTHeatmapLeaflet(props) {
                       <div className="flex items-center gap-1">
                         <button onClick={() => { setSstPlaying(false); setGoesCompDateIndex(i => Math.max(0, i - 1)); }} disabled={goesCompDateIndex === 0}
                           className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
-                        <span className="flex-1 text-center text-[10px] font-semibold text-indigo-700 bg-indigo-50 rounded py-1 truncate">
+                        <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
                           {fmtDate(activeGoesCompDay?.date)}
                         </span>
                         <button onClick={() => { setSstPlaying(false); setGoesCompDateIndex(i => Math.min(goesCompData.days.length - 1, i + 1)); }} disabled={goesCompDateIndex === goesCompData.days.length - 1}
@@ -4189,7 +4189,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.max(0, i - 1)); }} disabled={chlDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
-                          <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1 truncate">
+                          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
                             {fmtDate(chlData.days[chlDateIndex]?.date)}
                           </span>
                           <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1)); }} disabled={chlDateIndex === chlData.days.length - 1}
@@ -4207,7 +4207,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={chlCompositeDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
-                          <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1 truncate">
+                          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
                             {fmtDate(chlCompositeDates[chlCompositeDateIndex])}
                           </span>
                           <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1)); }} disabled={chlCompositeDateIndex >= chlCompositeDates.length - 1}
@@ -4256,7 +4256,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
-                          <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1 truncate">
+                          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
                             {fmtDate(seaColorData.days[seaColorDateIndex]?.date)}
                           </span>
                           <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1)); }} disabled={seaColorDateIndex === seaColorData.days.length - 1}
@@ -4274,7 +4274,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <div className="flex items-center gap-1">
                           <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorCompositeDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
-                          <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1 truncate">
+                          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
                             {fmtDate(seaColorCompositeDates[seaColorCompositeDateIndex])}
                           </span>
                           <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1)); }} disabled={seaColorCompositeDateIndex >= seaColorCompositeDates.length - 1}
