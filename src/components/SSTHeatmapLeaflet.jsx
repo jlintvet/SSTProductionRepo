@@ -3480,6 +3480,124 @@ export default function SSTHeatmapLeaflet(props) {
   const radarSliderBottom = windActive ? 80 : 0;
   const showRangeControl = activeDataLayer === "sst";
 
+  // Compact prev/date/next control for SST (VIIRS/MUR/composite), CHL,
+  // Sea Color, and Altimetry -- computed once so both the mobile compact
+  // bar (replaces the full drawer once a secondary source is picked) and
+  // the desktop compact bar (shown when the sidebar is collapsed) render
+  // identical content instead of maintaining two copies of this logic.
+  const dayNavContent = (() => {
+    let content = null;
+    let reopenPanel = "sst";
+
+    if (activeDataLayer === "sst" && dataSource === "VIIRS" && viirsData?.days?.length >= 1) {
+      reopenPanel = "sst";
+      const hrs = activeViirsDay?.available_hours || [];
+      const hIdx = hrs.indexOf(viirsHour);
+      const hrLabel = (!activeViirsDay?.date || viirsHour == null) ? "—" : (() => {
+        const d = new Date(new Date(`${activeViirsDay.date}T${String(viirsHour).padStart(2, "0")}:00:00Z`).toLocaleString("en-US", { timeZone: "America/New_York" }));
+        const hr = d.getHours();
+        return hr === 0 ? "12am" : hr < 12 ? `${hr}am` : hr === 12 ? "12pm" : `${hr - 12}pm`;
+      })();
+      content = (
+        <>
+          <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.max(0, i - 1)); }} disabled={viirsDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">« Day</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(activeViirsDay?.date)}</span>
+          <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1)); }} disabled={viirsDateIndex === viirsData.days.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">Day »</button>
+          {hrs.length >= 1 && (
+            <>
+              <button onClick={() => setViirsHour(hrs[Math.max(0, hIdx - 1)])} disabled={hIdx <= 0}
+                className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+              <span className="text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 px-2 truncate flex-shrink-0">{hrLabel}</span>
+              <button onClick={() => setViirsHour(hrs[Math.min(hrs.length - 1, hIdx + 1)])} disabled={hIdx >= hrs.length - 1}
+                className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+            </>
+          )}
+        </>
+      );
+    } else if (activeDataLayer === "sst" && dataSource === "MUR" && murData?.days?.length > 1) {
+      reopenPanel = "sst";
+      content = (
+        <>
+          <button onClick={() => { setSstPlaying(false); setMurDateIndex(i => Math.max(0, i - 1)); }} disabled={murDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(date)}</span>
+          <button onClick={() => { setSstPlaying(false); setMurDateIndex(i => Math.min(murData.days.length - 1, i + 1)); }} disabled={murDateIndex === murData.days.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+        </>
+      );
+    } else if (activeDataLayer === "composite" && compositeDates?.length >= 1) {
+      reopenPanel = "sst";
+      content = (
+        <>
+          <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={compositeDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{compositeDates[compositeDateIndex] ?? "—"}</span>
+          <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1)); }} disabled={compositeDateIndex === compositeDates.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+        </>
+      );
+    } else if (activeDataLayer === "chlorophyll" && chlSource === "daily" && chlData?.days?.length > 1) {
+      reopenPanel = "chl";
+      content = (
+        <>
+          <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.max(0, i - 1)); }} disabled={chlDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1.5 truncate">{fmtDate(chlData.days[chlDateIndex]?.date)}</span>
+          <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1)); }} disabled={chlDateIndex === chlData.days.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+        </>
+      );
+    } else if (activeDataLayer === "chlorophyll" && chlSource === "composite" && chlCompositeDates?.length > 0) {
+      reopenPanel = "chl";
+      content = (
+        <>
+          <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={chlCompositeDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1.5 truncate">{fmtDate(chlCompositeDates[chlCompositeDateIndex])}</span>
+          <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1)); }} disabled={chlCompositeDateIndex >= chlCompositeDates.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+        </>
+      );
+    } else if (activeDataLayer === "seacolor" && seaColorSource === "daily" && seaColorData?.days?.length > 1) {
+      reopenPanel = "seacolor";
+      content = (
+        <>
+          <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1.5 truncate">{fmtDate(seaColorData.days[seaColorDateIndex]?.date)}</span>
+          <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1)); }} disabled={seaColorDateIndex === seaColorData.days.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+        </>
+      );
+    } else if (activeDataLayer === "seacolor" && seaColorSource === "composite" && seaColorCompositeDates?.length > 0) {
+      reopenPanel = "seacolor";
+      content = (
+        <>
+          <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorCompositeDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1.5 truncate">{fmtDate(seaColorCompositeDates[seaColorCompositeDateIndex])}</span>
+          <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1)); }} disabled={seaColorCompositeDateIndex >= seaColorCompositeDates.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+        </>
+      );
+    } else if (activeDataLayer === "altimetry" && altimetryDates?.length > 1) {
+      reopenPanel = "altimetry";
+      content = (
+        <>
+          <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i - 1)); }} disabled={altimetryDateIndex === 0}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
+          <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(altimetryDates[altimetryDateIndex])}</span>
+          <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.min(altimetryDates.length - 1, i + 1)); }} disabled={altimetryDateIndex >= altimetryDates.length - 1}
+            className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
+        </>
+      );
+    }
+
+    return { content, reopenPanel };
+  })();
+
   return (
     <>
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full p-0 overflow-hidden w-full">
@@ -4351,129 +4469,27 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Compact day/hour nav — replaces the full drawer once a secondary source is picked, so it doesn't cover most of the map */}
-          {showMobileSourceNav && !mobilePanel && (() => {
-            let content = null;
-            let reopenPanel = "sst";
+          {/* Compact day/hour nav (mobile) — replaces the full drawer once a secondary source is picked, so it doesn't cover most of the map. Content computed once in dayNavContent above and shared with the desktop bar below. */}
+          {showMobileSourceNav && !mobilePanel && dayNavContent.content && (
+            <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
+                 style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
+              {dayNavContent.content}
+              <button onClick={() => setMobilePanel(dayNavContent.reopenPanel)}
+                title="More options"
+                className="px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-500 text-xs font-bold flex-shrink-0">&#8942;</button>
+            </div>
+          )}
 
-            if (activeDataLayer === "sst" && dataSource === "VIIRS" && viirsData?.days?.length >= 1) {
-              reopenPanel = "sst";
-              const hrs = activeViirsDay?.available_hours || [];
-              const hIdx = hrs.indexOf(viirsHour);
-              const hrLabel = (!activeViirsDay?.date || viirsHour == null) ? "—" : (() => {
-                const d = new Date(new Date(`${activeViirsDay.date}T${String(viirsHour).padStart(2, "0")}:00:00Z`).toLocaleString("en-US", { timeZone: "America/New_York" }));
-                const hr = d.getHours();
-                return hr === 0 ? "12am" : hr < 12 ? `${hr}am` : hr === 12 ? "12pm" : `${hr - 12}pm`;
-              })();
-              content = (
-                <>
-                  <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.max(0, i - 1)); }} disabled={viirsDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">« Day</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(activeViirsDay?.date)}</span>
-                  <button onClick={() => { setSstPlaying(false); setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1)); }} disabled={viirsDateIndex === viirsData.days.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-bold disabled:opacity-30 flex-shrink-0">Day »</button>
-                  {hrs.length >= 1 && (
-                    <>
-                      <button onClick={() => setViirsHour(hrs[Math.max(0, hIdx - 1)])} disabled={hIdx <= 0}
-                        className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                      <span className="text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 px-2 truncate flex-shrink-0">{hrLabel}</span>
-                      <button onClick={() => setViirsHour(hrs[Math.min(hrs.length - 1, hIdx + 1)])} disabled={hIdx >= hrs.length - 1}
-                        className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                    </>
-                  )}
-                </>
-              );
-            } else if (activeDataLayer === "sst" && dataSource === "MUR" && murData?.days?.length > 1) {
-              reopenPanel = "sst";
-              content = (
-                <>
-                  <button onClick={() => { setSstPlaying(false); setMurDateIndex(i => Math.max(0, i - 1)); }} disabled={murDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1.5 truncate">{fmtDate(date)}</span>
-                  <button onClick={() => { setSstPlaying(false); setMurDateIndex(i => Math.min(murData.days.length - 1, i + 1)); }} disabled={murDateIndex === murData.days.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                </>
-              );
-            } else if (activeDataLayer === "composite" && compositeDates?.length >= 1) {
-              reopenPanel = "sst";
-              content = (
-                <>
-                  <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={compositeDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{compositeDates[compositeDateIndex] ?? "—"}</span>
-                  <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1)); }} disabled={compositeDateIndex === compositeDates.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                </>
-              );
-            } else if (activeDataLayer === "chlorophyll" && chlSource === "daily" && chlData?.days?.length > 1) {
-              reopenPanel = "chl";
-              content = (
-                <>
-                  <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.max(0, i - 1)); }} disabled={chlDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1.5 truncate">{fmtDate(chlData.days[chlDateIndex]?.date)}</span>
-                  <button onClick={() => { setChlPlaying(false); setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1)); }} disabled={chlDateIndex === chlData.days.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                </>
-              );
-            } else if (activeDataLayer === "chlorophyll" && chlSource === "composite" && chlCompositeDates?.length > 0) {
-              reopenPanel = "chl";
-              content = (
-                <>
-                  <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={chlCompositeDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1.5 truncate">{fmtDate(chlCompositeDates[chlCompositeDateIndex])}</span>
-                  <button onClick={() => { setChlPlaying(false); setChlCompositeDateIndex(i => Math.min(chlCompositeDates.length - 1, i + 1)); }} disabled={chlCompositeDateIndex >= chlCompositeDates.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                </>
-              );
-            } else if (activeDataLayer === "seacolor" && seaColorSource === "daily" && seaColorData?.days?.length > 1) {
-              reopenPanel = "seacolor";
-              content = (
-                <>
-                  <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1.5 truncate">{fmtDate(seaColorData.days[seaColorDateIndex]?.date)}</span>
-                  <button onClick={() => { setSeaColorPlaying(false); setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1)); }} disabled={seaColorDateIndex === seaColorData.days.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                </>
-              );
-            } else if (activeDataLayer === "seacolor" && seaColorSource === "composite" && seaColorCompositeDates?.length > 0) {
-              reopenPanel = "seacolor";
-              content = (
-                <>
-                  <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={seaColorCompositeDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1.5 truncate">{fmtDate(seaColorCompositeDates[seaColorCompositeDateIndex])}</span>
-                  <button onClick={() => { setSeaColorPlaying(false); setSeaColorCompositeDateIndex(i => Math.min(seaColorCompositeDates.length - 1, i + 1)); }} disabled={seaColorCompositeDateIndex >= seaColorCompositeDates.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                </>
-              );
-            } else if (activeDataLayer === "altimetry" && altimetryDates?.length > 1) {
-              reopenPanel = "altimetry";
-              content = (
-                <>
-                  <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i - 1)); }} disabled={altimetryDateIndex === 0}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-                  <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1.5 truncate">{fmtDate(altimetryDates[altimetryDateIndex])}</span>
-                  <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.min(altimetryDates.length - 1, i + 1)); }} disabled={altimetryDateIndex >= altimetryDates.length - 1}
-                    className="px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
-                </>
-              );
-            }
-
-            if (!content) return null;
-
-            return (
-              <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
-                   style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
-                {content}
-                <button onClick={() => setMobilePanel(reopenPanel)}
-                  title="More options"
-                  className="px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-500 text-xs font-bold flex-shrink-0">&#8942;</button>
-              </div>
-            );
-          })()}
+          {/* Compact day/hour nav (desktop) — shown when the sidebar is collapsed so the user isn't forced to reopen the full 168px panel just to change date/hour. Docked bottom-left, above the Locations button. */}
+          {panelCollapsed && dayNavContent.content && (
+            <div className="hidden sm:flex absolute left-2 bg-white rounded-2xl border border-slate-200 shadow-xl items-center gap-1 px-2 py-1.5"
+                 style={{ bottom: sliderHeight + 52, zIndex: 900, width: 240 }}>
+              {dayNavContent.content}
+              <button onClick={() => setPanelCollapsed(false)}
+                title="Show controls"
+                className="px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-500 text-xs font-bold flex-shrink-0">&#8942;</button>
+            </div>
+          )}
 
           {hoverInfo&&!clickInfo&&(
             <div className="absolute bg-white/95 border border-slate-200 rounded-lg text-xs shadow-lg"
