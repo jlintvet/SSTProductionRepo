@@ -1063,6 +1063,21 @@ const WRECK_REGION_LABELS = {
   IslamoradaFL: "Islamorada, FL", MarathonFL: "Marathon, FL",
   KeyWestFL: "Key West, FL", NaplesFL: "Naples, FL",
   MarcoIslandFL: "Marco Island, FL", FtMyersBeachFL: "Ft. Myers Beach, FL",
+  // Provisional county-based keys added with the FWC statewide bulk import
+  // (2026-07-22) for FL counties with no defined port yet. CharlotteFL and
+  // SarasotaFL already fall inside s_fl's live regionBounds; the rest are
+  // dormant (outside both ne_fl and s_fl bounds) until a future region
+  // covers them -- labeled now so no second frontend patch is needed then.
+  FlaglerFL: "Flagler County, FL", CharlotteFL: "Charlotte Harbor, FL",
+  SarasotaFL: "Sarasota, FL", ManateeFL: "Manatee County, FL",
+  HillsboroughFL: "Tampa, FL", PinellasFL: "St. Petersburg, FL",
+  PascoFL: "Pasco County, FL", HernandoFL: "Hernando County, FL",
+  CitrusFL: "Citrus County, FL", LevyFL: "Levy County, FL",
+  DixieFL: "Dixie County, FL", TaylorFL: "Taylor County, FL",
+  WakullaFL: "Wakulla County, FL", FranklinFL: "Franklin County, FL",
+  GulfCountyFL: "Gulf County, FL", BayFL: "Panama City, FL",
+  WaltonFL: "Walton County, FL", OkaloosaFL: "Fort Walton Beach, FL",
+  SantaRosaFL: "Santa Rosa County, FL", EscambiaFL: "Pensacola, FL",
 };
 
 // ── Main component ─────────────────────────────────────────────────────────────
