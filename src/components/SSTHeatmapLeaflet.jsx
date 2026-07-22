@@ -3679,6 +3679,18 @@ export default function SSTHeatmapLeaflet(props) {
                 style={{ width:32, height:32, padding:0, background: activeDataLayer==="windmap"?"#0284c7":"rgba(255,255,255,0.9)", borderColor: activeDataLayer==="windmap"?"#0284c7":"#e2e8f0" }}>
                 <Wind style={{ width:14, height:14, color: activeDataLayer==="windmap"?"#fff":"#64748b" }}/>
               </button>
+              {/* Altimetry */}
+              <button onClick={() => { setActiveDataLayer("altimetry"); setPanelCollapsed(false); }} title="Altimetry"
+                className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
+                style={{ width:32, height:32, padding:0, background: activeDataLayer==="altimetry"?"#7c3aed":"rgba(255,255,255,0.9)", borderColor: activeDataLayer==="altimetry"?"#7c3aed":"#e2e8f0" }}>
+                <span style={{ fontSize:9, fontWeight:700, color: activeDataLayer==="altimetry"?"#fff":"#64748b", lineHeight:1 }}>ALT</span>
+              </button>
+              {/* Currents */}
+              <button onClick={() => setShowCurrents(p => !p)} title="Currents"
+                className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
+                style={{ width:32, height:32, padding:0, background: showCurrents?"#0284c7":"rgba(255,255,255,0.9)", borderColor: showCurrents?"#0284c7":"#e2e8f0" }}>
+                <span style={{ fontSize:9, fontWeight:700, color: showCurrents?"#fff":"#64748b", lineHeight:1 }}>CUR</span>
+              </button>
               {/* divider */}
               <div style={{ height:1, background:"#e2e8f0", margin:"2px 4px" }}/>
               {/* Pan */}
@@ -3704,6 +3716,53 @@ export default function SSTHeatmapLeaflet(props) {
                 className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
                 style={{ width:32, height:32, padding:0, background:showCommunityLayer?"#84cc16":"rgba(255,255,255,0.9)", borderColor:showCommunityLayer?"#84cc16":"#e2e8f0" }}>
                 <span style={{ fontSize:9, fontWeight:700, color:showCommunityLayer?"#fff":"#64748b", lineHeight:1 }}>COM</span>
+              </button>
+              {/* Live Report */}
+              <button onClick={() => onPostCommunityReport?.({ type: "live" })} title="Live Report"
+                className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
+                style={{ width:32, height:32, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#16a34a" stroke="#16a34a" strokeWidth="1"/>
+                  <circle cx="12" cy="9" r="2.5" fill="#fff"/>
+                </svg>
+              </button>
+              {/* Community Leaders */}
+              <button onClick={() => onOpenLeaderboard?.()} title="Leaderboard"
+                className="flex items-center justify-center rounded-lg shadow-sm border transition-colors"
+                style={{ width:32, height:32, padding:0, background:"rgba(255,255,255,0.9)", borderColor:"#e2e8f0" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </button>
+              {/* Plan Trip */}
+              <button
+                onClick={onToggleTripMode}
+                title={tripMode ? "Exit trip planning" : "Plan trip"}
+                className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                style={{ width:32, height:32, padding:0, borderColor:tripMode?"#0891b2":undefined, background:tripMode?"#0891b2":undefined }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tripMode?"white":"#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/>
+                </svg>
+              </button>
+              {/* Real Time GPS */}
+              <button
+                onClick={onToggleGps}
+                title={gpsActive ? "GPS On — tap to stop" : "GPS"}
+                className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                style={{
+                  width: 32, height: 32, padding: 0,
+                  borderColor: gpsActive ? "#16a34a" : undefined,
+                  background: gpsActive ? "#16a34a" : undefined,
+                  color: gpsActive ? "white" : "#64748b",
+                  fontSize: 8, fontWeight: 700, letterSpacing: "0.02em",
+                }}>
+                GPS
+              </button>
+              {/* Help & feedback */}
+              <button onClick={() => setShowMobileHelp(true)} title="Help & report an issue"
+                className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                style={{ width: 32, height: 32, padding: 0 }}>
+                <LifeBuoy className="w-4 h-4 text-slate-500" />
               </button>
             </div>
           )}
@@ -4521,7 +4580,7 @@ export default function SSTHeatmapLeaflet(props) {
           {/* Compact day/hour nav (desktop) — shown when the sidebar is collapsed so the user isn't forced to reopen the full 168px panel just to change date/hour. Centered across the map/data display at the bottom -- wide enough that VIIRS mode's 5 buttons + 2 date/hour labels don't truncate (was fixed 240px docked left, which cut the date label down to "J..."). */}
           {panelCollapsed && dayNavContent.content && (
             <div className="hidden sm:flex absolute bg-white rounded-2xl border border-slate-200 shadow-xl items-center gap-1.5 px-3 py-2"
-                 style={{ bottom: sliderHeight + 52, left: "50%", transform: "translateX(-50%)", zIndex: 900, width: 480, maxWidth: "calc(100% - 96px)" }}>
+                 style={{ bottom: sliderHeight + 8, left: "50%", transform: "translateX(-50%)", zIndex: 900, width: 480, maxWidth: "calc(100% - 96px)" }}>
               {dayNavContent.content}
               <button onClick={() => setPanelCollapsed(false)}
                 title="Show controls"
