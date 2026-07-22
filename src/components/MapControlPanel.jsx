@@ -248,9 +248,9 @@ function DateNav({ label, onPrev, onNext, disablePrev, disableNext, color = "cya
         &#8250;
       </button>
       {onPlay && (
-        <button onClick={onPlay}
-          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold">
-          {playing ? "||" : ">"}
+        <button onClick={onPlay} title={playing ? "Pause" : "Play"}
+          className="px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 text-xs font-bold leading-none">
+          {playing ? "⏸" : "▶"}
         </button>
       )}
     </div>
