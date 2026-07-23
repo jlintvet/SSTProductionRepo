@@ -34,6 +34,13 @@
 //   import { fetchHourlyForecast } from "@/hooks/useMarineForecast";
 //   const hours = await fetchHourlyForecast(data.forecastHourlyUrl, "2026-06-07");
 //   // hours: array of { hour, temp, precip, wind, forecast } for that date
+//
+// On-demand tide curve fetch (for the tide detail popup):
+//   import { fetchTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
+//   const points = await fetchTideCurve(data.tideStation, "2026-06-07");
+//   // points: array of { t: Date, v: number } — 6-minute-interval water level
+//   const moon = getMoonPhase(new Date());
+//   // moon: { fraction, illumination, waxing }
 
 import { useCallback, useEffect, useState } from "react";
 import moment from "moment";
@@ -373,6 +380,10 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 // Hourly cache: keyed by `${forecastHourlyUrl}::${date}`
 const hourlyCache = new Map();
 
+// Tide curve cache: keyed by `${stationId}::${date}` — 6-minute-interval
+// water-level points for the tide detail popup chart.
+const tideCurveCache = new Map();
+
 // Tide backup: a rolling 60-day window of hi/lo predictions for every
 // departure-location tide station, computed independently of NOAA's live
 // predictions/datagetter service (see tide_predictions_backup.py in the
@@ -602,6 +613,66 @@ export async function fetchHourlyForecast(forecastHourlyUrl, date) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// On-demand tide curve fetch — exported for use in the tide detail popup
+// ─────────────────────────────────────────────────────────────────────────────
+// Returns a full-resolution (6-minute-interval) water-level curve for a single
+// day, used to draw a smooth tide chart. This is deliberately NOT fetched as
+// part of fetchAll()/fetchTides() above — those only need hi/lo turn points
+// for the compact forecast-card summary, and pulling 6-min data for 7 days
+// across every station on every location load would be wasteful. Instead this
+// is called lazily, the same way fetchHourlyForecast() is, when a user opens
+// the popup for a specific day.
+
+export async function fetchTideCurve(stationId, date) {
+  if (!stationId) throw new Error("No tide station available");
+
+  const cacheKey = `${stationId}::${date}`;
+  if (tideCurveCache.has(cacheKey)) return tideCurveCache.get(cacheKey);
+
+  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter` +
+    `?station=${stationId}` +
+    `&begin_date=${date}` +
+    `&end_date=${date}` +
+    `&product=predictions` +
+    `&datum=mllw` +
+    `&time_zone=lst_ldt` +
+    `&interval=6` +
+    `&units=english` +
+    `&format=json`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`tide curve HTTP ${res.status}`);
+  const json = await res.json();
+
+  const points = (json.predictions ?? []).map(p => ({
+    t: new Date(p.t.replace(" ", "T")),
+    v: parseFloat(p.v),
+  }));
+
+  tideCurveCache.set(cacheKey, points);
+  return points;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Moon phase — computed locally via SunCalc (already a dependency for sun
+// times), no separate API call needed.
+// ─────────────────────────────────────────────────────────────────────────────
+// Returns { fraction, illumination, waxing }:
+//   fraction    — 0 = new moon, 0.5 = full moon, 1 = new moon again
+//   illumination — 0-1 fraction of the disk lit (what "7%" in the reference
+//                  design means)
+//   waxing      — true if the illuminated fraction is increasing
+
+export function getMoonPhase(date) {
+  const { phase, fraction } = SunCalc.getMoonIllumination(date);
+  return {
+    fraction,
+    illumination: fraction,
+    waxing: phase < 0.5,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Aggregator
 // ─────────────────────────────────────────────────────────────────────────────
 async function fetchAll(location, zoneMode) {
@@ -627,6 +698,7 @@ async function fetchAll(location, zoneMode) {
   return {
     forecast:           forecastResult.value,
     tides:              tidesResult.status === "fulfilled" ? tidesResult.value : {},
+    tideStation:        source.tideStation ?? null,
     nws:                nwsValue.map,
     forecastHourlyUrl:  nwsValue.forecastHourlyUrl,
     noaaZone:           zoneSource.noaaZone ?? null,

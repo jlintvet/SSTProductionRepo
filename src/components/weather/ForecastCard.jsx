@@ -16,7 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { fetchHourlyForecast } from "@/hooks/useMarineForecast";
+import { ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, ReferenceArea, ReferenceLine } from "recharts";
+import { fetchHourlyForecast, fetchTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
 import ShareForecastDialog from "@/components/weather/ShareForecastDialog";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -199,6 +200,217 @@ function HourlyWeatherPopup({ forecastHourlyUrl, date, label, onClose }) {
   return ReactDOM.createPortal(popup, document.body);
 }
 
+// ── Tide detail popup ─────────────────────────────────────────────────────────
+// Same portal pattern as HourlyWeatherPopup above. Fetches a 6-minute-interval
+// tide curve on demand (not part of the initial location load), draws it with
+// recharts, shades the pre-sunrise/post-sunset hours using that day's sun
+// data, and — for today's card only — marks the current interpolated tide
+// height with a reference line. Low/High tide lists reuse the same
+// dailyTides array ForecastCard already computed for the summary view.
+
+function formatHourTick(ms) {
+  const d = new Date(ms);
+  const h = d.getHours();
+  if (h === 0) return "12A";
+  if (h < 12) return `${h}A`;
+  if (h === 12) return "12P";
+  return `${h - 12}P`;
+}
+
+function interpolateNow(points) {
+  if (!points || points.length < 2) return null;
+  const now = Date.now();
+  const first = points[0].x, last = points[points.length - 1].x;
+  if (now < first || now > last) return null;
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1];
+    if (now >= a.x && now <= b.x) {
+      const frac = b.x === a.x ? 0 : (now - a.x) / (b.x - a.x);
+      return { v: a.v + (b.v - a.v) * frac, rising: b.v > a.v };
+    }
+  }
+  return null;
+}
+
+function TideDetailPopup({ stationId, date, label, locationLabel, isToday, dailyTides, dailySunData, nws, onClose }) {
+  const [points, setPoints]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchTideCurve(stationId, date)
+      .then(p => { if (!cancelled) { setPoints(p); setLoading(false); } })
+      .catch(e => { if (!cancelled) { setError(e.message); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [stationId, date]);
+
+  const moon = getMoonPhase(moment(date, "YYYY-MM-DD").toDate());
+  const chartData = (points ?? []).map(p => ({ x: p.t.getTime(), v: p.v }));
+  const now = isToday ? interpolateNow(chartData) : null;
+
+  const dayStart  = moment(date, "YYYY-MM-DD").startOf("day").valueOf();
+  const dayEnd    = moment(date, "YYYY-MM-DD").endOf("day").valueOf();
+  const sunriseMs = dailySunData?.sunrise ? new Date(dailySunData.sunrise).getTime() : null;
+  const sunsetMs  = dailySunData?.sunset  ? new Date(dailySunData.sunset).getTime()  : null;
+  const hourTicks = Array.from({ length: 12 }, (_, i) => dayStart + i * 2 * 3600000);
+
+  const lowTides  = (dailyTides ?? []).filter(t => t.type === "Low");
+  const highTides = (dailyTides ?? []).filter(t => t.type === "High");
+
+  const popup = (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 99999,
+        background: "rgba(15,23,42,0.55)", backdropFilter: "blur(2px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "16px",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "#fff", borderRadius: 16,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+          width: "100%", maxWidth: 480,
+          maxHeight: "85vh", display: "flex", flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 18px 12px", borderBottom: "1px solid #e2e8f0", flexShrink: 0,
+        }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Tide Details</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>
+              {label}{locationLabel ? ` — ${locationLabel}` : ""}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "#f1f5f9", border: "none", borderRadius: 8,
+              width: 30, height: 30, display: "flex", alignItems: "center",
+              justifyContent: "center", cursor: "pointer",
+            }}
+          >
+            <X size={15} color="#64748b" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: "auto", padding: "16px 18px 20px" }}>
+          {/* Moon phase + weather summary row */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            marginBottom: 12, fontSize: 12, color: "#64748b",
+          }}>
+            <span>{Math.round(moon.illumination * 100)}% {moon.waxing ? "Waxing" : "Waning"}</span>
+            {nws && (
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {getWeatherIcon(nws.dayForecast, 16)}
+                <span style={{ color: "#334155", fontWeight: 600 }}>
+                  {nws.high !== null ? `${nws.high}°` : "--"} / {nws.low !== null ? `${nws.low}°F` : "--"}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {loading && (
+            <div style={{ textAlign: "center", padding: "32px 0", color: "#94a3b8", fontSize: 13 }}>
+              Loading tide curve…
+            </div>
+          )}
+          {error && (
+            <div style={{ textAlign: "center", padding: "24px 0", color: "#ef4444", fontSize: 13 }}>
+              Could not load tide curve.<br /><span style={{ color: "#94a3b8" }}>{error}</span>
+            </div>
+          )}
+          {!loading && !error && chartData.length === 0 && (
+            <div style={{ textAlign: "center", padding: "24px 0", color: "#94a3b8", fontSize: 13 }}>
+              No tide curve data available for this date.
+            </div>
+          )}
+
+          {!loading && !error && chartData.length > 0 && (
+            <div style={{ width: "100%", height: 200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 14, right: 10, left: -18, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="tideFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0891b2" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#0891b2" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  {sunriseMs != null && (
+                    <ReferenceArea x1={dayStart} x2={sunriseMs} fill="#64748b" fillOpacity={0.08} ifOverflow="extendDomain" />
+                  )}
+                  {sunsetMs != null && (
+                    <ReferenceArea x1={sunsetMs} x2={dayEnd} fill="#64748b" fillOpacity={0.08} ifOverflow="extendDomain" />
+                  )}
+                  <XAxis
+                    dataKey="x" type="number" domain={[dayStart, dayEnd]}
+                    ticks={hourTicks}
+                    tickFormatter={formatHourTick}
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={{ stroke: "#e2e8f0" }} tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={false} tickLine={false}
+                    tickFormatter={v => `${v}ft`}
+                    width={40}
+                  />
+                  <Area type="monotone" dataKey="v" stroke="#0891b2" strokeWidth={2} fill="url(#tideFill)" dot={false} isAnimationActive={false} />
+                  {now && (
+                    <ReferenceLine
+                      x={Date.now()} stroke="#ef4444" strokeWidth={1.5}
+                      label={{
+                        value: `${now.v.toFixed(2)} ft ${now.rising ? "↑" : "↓"}`,
+                        position: "top", fill: "#ef4444", fontSize: 11, fontWeight: 700,
+                      }}
+                    />
+                  )}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Low / High tide lists */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16,
+            marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0",
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Low Tides</div>
+              {lowTides.length > 0 ? lowTides.map((t, i) => (
+                <div key={i} style={{ fontSize: 12, color: "#475569" }}>
+                  {t.v.toFixed(2)} ft @ {new Date(t.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </div>
+              )) : <div style={{ fontSize: 12, color: "#94a3b8" }}>N/A</div>}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>High Tides</div>
+              {highTides.length > 0 ? highTides.map((t, i) => (
+                <div key={i} style={{ fontSize: 12, color: "#475569" }}>
+                  {t.v.toFixed(2)} ft @ {new Date(t.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </div>
+              )) : <div style={{ fontSize: 12, color: "#94a3b8" }}>N/A</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return ReactDOM.createPortal(popup, document.body);
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ForecastCard({
@@ -207,15 +419,17 @@ export default function ForecastCard({
   badgeLabel,
   nwsForecast,
   tideData,
+  tideStation,
   sunData,
   locationLabel,
   forecastHourlyUrl,   // from data.forecastHourlyUrl via useMarineForecast
   noaaZone,            // { id, description } from NOAA_SOURCES — shown as footnote
   alerts,              // full data.alerts array from useMarineForecast — filtered below by date
 }) {
-  const [showNarrative, setShowNarrative] = useState(false);
-  const [showHourly,    setShowHourly]    = useState(false);
-  const [showShare,     setShowShare]     = useState(false);
+  const [showNarrative,   setShowNarrative]   = useState(false);
+  const [showHourly,      setShowHourly]      = useState(false);
+  const [showShare,       setShowShare]       = useState(false);
+  const [showTideDetail,  setShowTideDetail]  = useState(false);
 
   // Parse "Tonight 5/4" / "Tue 5/5" → "YYYY-MM-DD" key for joining with the
   // NWS / tide / sun maps. Falls back to dayOffset if the regex misses.
@@ -231,6 +445,7 @@ export default function ForecastCard({
     .slice()
     .sort((a, b) => new Date(a.t) - new Date(b.t));
   const dailySunData = sunData?.[forecastDate];
+  const isToday = forecastDate === moment().format("YYYY-MM-DD");
 
   return (
     <>
@@ -360,9 +575,14 @@ export default function ForecastCard({
 
           {/* Tides + Sun side by side */}
           <div className="grid gap-3" style={{ gridTemplateColumns: "3fr 2fr" }}>
-            <div className="flex items-start gap-1">
+            <div
+              onClick={() => tideStation && setShowTideDetail(true)}
+              className="flex items-start gap-1 -m-1 p-1 rounded-lg transition-colors hover:bg-cyan-50/60"
+              style={{ cursor: tideStation ? "pointer" : "default" }}
+              title={tideStation ? "Tap for tide chart" : undefined}
+            >
               <ArrowUpDown className="h-4 w-4 mt-1 text-cyan-700 flex-shrink-0" />
-              <div className="text-sm">
+              <div className="text-sm min-w-0">
                 <p className="font-semibold text-slate-700">Tides</p>
                 {dailyTides.length > 0 ? (
                   dailyTides.map((tide, idx) => (
@@ -373,6 +593,9 @@ export default function ForecastCard({
                   ))
                 ) : (
                   <p className="text-xs text-slate-500">N/A</p>
+                )}
+                {tideStation && (
+                  <p className="text-[10px] text-sky-500 mt-0.5 font-medium">Tap for more ↗</p>
                 )}
               </div>
             </div>
@@ -420,6 +643,21 @@ export default function ForecastCard({
           date={forecastDate}
           label={forecast.period}
           onClose={() => setShowHourly(false)}
+        />
+      )}
+
+      {/* Tide detail popup portal */}
+      {showTideDetail && tideStation && (
+        <TideDetailPopup
+          stationId={tideStation}
+          date={forecastDate}
+          label={forecast.period.replace(" Of ", " of ")}
+          locationLabel={locationLabel}
+          isToday={isToday}
+          dailyTides={dailyTides}
+          dailySunData={dailySunData}
+          nws={nws}
+          onClose={() => setShowTideDetail(false)}
         />
       )}
 

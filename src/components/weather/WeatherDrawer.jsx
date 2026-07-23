@@ -116,6 +116,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, hasNearshor
               forecasts={data.forecast?.forecasts}
               nwsForecast={data.nws}
               tideData={data.tides}
+              tideStation={data.tideStation}
               sunData={data.sun}
               locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
@@ -129,6 +130,7 @@ function ExpandedView({ location, data, loading, error, isAvailable, hasNearshor
               forecasts={data.forecast?.forecasts}
               nwsForecast={data.nws}
               tideData={data.tides}
+              tideStation={data.tideStation}
               sunData={data.sun}
               locationLabel={location?.label}
               forecastHourlyUrl={data.forecastHourlyUrl}
