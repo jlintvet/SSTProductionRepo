@@ -1861,6 +1861,12 @@ export default function SSTHeatmapLeaflet(props) {
       worldCopyJump: false, preferCanvas: true,
       zoomSnap: 0, zoomDelta: 0.25,
       keyboard: false,
+      // Always finite from creation -- applyFillZoom() below narrows this
+      // to 12 in non-GL mode once it runs, but it can be delayed or (if
+      // sstReadyRef flips true first) skipped entirely, and leaflet.
+      // markercluster throws "Map has no maxZoom specified" if the wreck
+      // cluster layer is built against a map that never got one.
+      maxZoom: 20,
     });
 
     // Layer stacking: keep bathymetry directly above the data raster (SST / CHL /
