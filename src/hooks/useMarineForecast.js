@@ -35,10 +35,11 @@
 //   const hours = await fetchHourlyForecast(data.forecastHourlyUrl, "2026-06-07");
 //   // hours: array of { hour, temp, precip, wind, forecast } for that date
 //
-// On-demand tide curve fetch (for the tide detail popup):
-//   import { fetchTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
-//   const points = await fetchTideCurve(data.tideStation, "2026-06-07");
-//   // points: array of { t: Date, v: number } — 6-minute-interval water level
+// Tide curve for the tide detail popup — synthesized locally from hi/lo
+// points, NOT fetched (see "Tide curve synthesis" section below for why):
+//   import { buildTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
+//   const curve = buildTideCurve(extrema, dayStartMs, dayEndMs);
+//   // curve: array of { x: number (ms epoch), v: number (ft) }
 //   const moon = getMoonPhase(new Date());
 //   // moon: { fraction, illumination, waxing }
 
@@ -380,10 +381,6 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 // Hourly cache: keyed by `${forecastHourlyUrl}::${date}`
 const hourlyCache = new Map();
 
-// Tide curve cache: keyed by `${stationId}::${date}` — 6-minute-interval
-// water-level points for the tide detail popup chart.
-const tideCurveCache = new Map();
-
 // Tide backup: a rolling 60-day window of hi/lo predictions for every
 // departure-location tide station, computed independently of NOAA's live
 // predictions/datagetter service (see tide_predictions_backup.py in the
@@ -613,44 +610,66 @@ export async function fetchHourlyForecast(forecastHourlyUrl, date) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// On-demand tide curve fetch — exported for use in the tide detail popup
+// Tide curve synthesis — exported for use in the tide detail popup
 // ─────────────────────────────────────────────────────────────────────────────
-// Returns a full-resolution (6-minute-interval) water-level curve for a single
-// day, used to draw a smooth tide chart. This is deliberately NOT fetched as
-// part of fetchAll()/fetchTides() above — those only need hi/lo turn points
-// for the compact forecast-card summary, and pulling 6-min data for 7 days
-// across every station on every location load would be wasteful. Instead this
-// is called lazily, the same way fetchHourlyForecast() is, when a user opens
-// the popup for a specific day.
+// NOAA's high-resolution predictions/datagetter endpoint (interval=6, or no
+// interval at all) only returns data for "reference" stations that publish
+// harmonic constituents. Most of this app's departure-point tide stations
+// are "subordinate" stations (offset-derived from a nearby reference
+// station) and that endpoint returns
+// {"error":{"message":"No Predictions data was found..."}} for them even
+// though the station ID and datum are both valid — confirmed against
+// station 8652659 (Oregon Inlet, NC), which the mdapi stations endpoint
+// reports as type "S" (subordinate). A prior version of this function tried
+// that fetch directly and silently produced an empty curve for every
+// subordinate station, which is most of them.
+//
+// Instead, the curve is synthesized locally from the hi/lo points
+// fetchTides() already retrieves, using the standard half-cosine tide
+// approximation between each consecutive pair of extrema:
+//   h(t) = h0 + (h1 - h0) * (1 - cos(pi * frac)) / 2
+// where frac is t's fractional position between the two bounding extrema.
+// This guarantees the curve's peaks/troughs land exactly on the same times
+// and heights as the Low/High Tides list shown under the chart, needs no
+// network call, and works identically regardless of station type.
+//
+// `extrema` must include at least one point before dayStart and one after
+// dayEnd (callers typically pass the prior day's last extremum and the next
+// day's first extremum alongside the day's own hi/lo points) so the curve
+// interpolates correctly across midnight instead of flatlining at the edges.
+// Returns [] if fewer than 2 usable extrema are available.
 
-export async function fetchTideCurve(stationId, date) {
-  if (!stationId) throw new Error("No tide station available");
+export function buildTideCurve(extrema, dayStart, dayEnd, stepMinutes = 10) {
+  const points = (extrema ?? [])
+    .map(p => ({ t: new Date(p.t).getTime(), v: Number(p.v) }))
+    .filter(p => !Number.isNaN(p.t) && !Number.isNaN(p.v))
+    .sort((a, b) => a.t - b.t);
 
-  const cacheKey = `${stationId}::${date}`;
-  if (tideCurveCache.has(cacheKey)) return tideCurveCache.get(cacheKey);
+  if (points.length < 2) return [];
 
-  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter` +
-    `?station=${stationId}` +
-    `&begin_date=${date}` +
-    `&end_date=${date}` +
-    `&product=predictions` +
-    `&datum=mllw` +
-    `&time_zone=lst_ldt` +
-    `&interval=6` +
-    `&units=english` +
-    `&format=json`;
-
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`tide curve HTTP ${res.status}`);
-  const json = await res.json();
-
-  const points = (json.predictions ?? []).map(p => ({
-    t: new Date(p.t.replace(" ", "T")),
-    v: parseFloat(p.v),
-  }));
-
-  tideCurveCache.set(cacheKey, points);
-  return points;
+  const stepMs = stepMinutes * 60000;
+  const curve = [];
+  for (let t = dayStart; t <= dayEnd; t += stepMs) {
+    let before = null, after = null;
+    for (let i = 0; i < points.length - 1; i++) {
+      if (points[i].t <= t && points[i + 1].t >= t) {
+        before = points[i];
+        after = points[i + 1];
+        break;
+      }
+    }
+    if (!before || !after) {
+      // t falls outside the known extrema window — clamp to the nearest one
+      // rather than extrapolate.
+      const nearest = t < points[0].t ? points[0] : points[points.length - 1];
+      curve.push({ x: t, v: nearest.v });
+      continue;
+    }
+    const frac = after.t === before.t ? 0 : (t - before.t) / (after.t - before.t);
+    const v = before.v + (after.v - before.v) * (1 - Math.cos(Math.PI * frac)) / 2;
+    curve.push({ x: t, v });
+  }
+  return curve;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
