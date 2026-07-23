@@ -3145,7 +3145,7 @@ export default function SSTHeatmapLeaflet(props) {
       if (wreckRemovedKeys?.has(fKey)) return;
       const wreckIcon = L.divIcon({ className:"", html:'<div style="width:12px;height:12px;border-radius:50%;background:#CAD8DB;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>', iconSize:[12,12], iconAnchor:[6,6] });
       const m = L.marker([lat, lon], { icon: wreckIcon });
-      const showPopup = e => { const containerPt=map.latLngToContainerPoint(e.latlng); setHoveredWreck({px:containerPt.x,py:containerPt.y,props,lat,lon}); try{map.getContainer().style.cursor="pointer";}catch(_){} };
+      const showPopup = e => { const containerPt=map.latLngToContainerPoint(e.latlng); const wDist=selectedLocation?distanceNm(selectedLocation.lat,selectedLocation.lon,lat,lon):null; const wBrg=selectedLocation?bearingDeg(selectedLocation.lat,selectedLocation.lon,lat,lon):null; setHoveredWreck({px:containerPt.x,py:containerPt.y,props,lat,lon,dist:wDist,bearing:wBrg}); try{map.getContainer().style.cursor="pointer";}catch(_){} };
       m.on("mouseover", showPopup);
       m.on("click", e => {
         L.DomEvent.stopPropagation(e);
@@ -4964,7 +4964,7 @@ export default function SSTHeatmapLeaflet(props) {
               animation: wreckSearchPulse 1.1s ease-out infinite;
             }
           `}</style>
-          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:Math.min(hoveredWreck.px+12,(mapDivRef.current?.clientWidth??800)-172),top:Math.max(8,hoveredWreck.py-10),zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px]">{WRECK_REGION_LABELS[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
+          {hoveredWreck&&(<div className="absolute bg-white border border-cyan-200 rounded-lg px-2.5 py-2 text-xs shadow-lg min-w-40 pointer-events-none" style={{left:Math.min(hoveredWreck.px+12,(mapDivRef.current?.clientWidth??800)-172),top:Math.max(8,hoveredWreck.py-10),zIndex:700}}><div className="font-semibold mb-1 text-slate-700">{hoveredWreck.props.symbol==="Wreck"?"Wreck":"Structure"}: {hoveredWreck.props.name||"Unknown"}</div>{hoveredWreck.props.region&&<div className="text-slate-500 text-[10px] mb-1">{WRECK_REGION_LABELS[hoveredWreck.props.region]||hoveredWreck.props.region}</div>}{hoveredWreck.props.depth_ft!=null&&<div className="text-blue-600 font-medium">{Math.round(hoveredWreck.props.depth_ft)} ft / {Math.round(hoveredWreck.props.depth_ft/6)} fth</div>}{hoveredWreck.dist!=null&&<div className="text-slate-600">{hoveredWreck.dist.toFixed(1)} nm {Math.round(hoveredWreck.bearing)}° {bearingLabel(hoveredWreck.bearing)}</div>}{hoveredWreck.props.year_sunk&&<div className="text-slate-500">Sunk: {hoveredWreck.props.year_sunk}</div>}</div>)}
 
           {buoyPopup && (
             <div className="absolute bg-white rounded-lg shadow-xl border border-slate-200"
@@ -5286,13 +5286,17 @@ export default function SSTHeatmapLeaflet(props) {
                   <div className="text-slate-500 text-[10px] mb-1">{WRECK_REGION_LABELS[wp.region] || wp.region}</div>
                 )}
                 <div className="font-mono text-slate-600 mb-1">{coordStr}</div>
+                {wp.depth_ft != null && (
+                  <div className="text-blue-600 font-medium mb-1">
+                    {Math.round(wp.depth_ft)} ft / {Math.round(wp.depth_ft / 6)} fth
+                  </div>
+                )}
                 {wreckDistNm != null && (
-                  <div className="text-slate-500 mb-1">
-                    {wreckDistNm.toFixed(1)} nm &middot; {Math.round(wreckBrgDeg)}&deg; {bearingLabel(wreckBrgDeg)}
+                  <div className="text-slate-600 mb-1">
+                    {wreckDistNm.toFixed(1)} nm {Math.round(wreckBrgDeg)}&deg; {bearingLabel(wreckBrgDeg)}
                     {selectedLocation?.label && <span className="text-slate-400"> from {selectedLocation.label}</span>}
                   </div>
                 )}
-                {wp.depth_ft != null && <div className="text-blue-600 font-medium mb-1">{Math.round(wp.depth_ft)} ft</div>}
                 {wp.year_sunk && <div className="text-slate-500 mb-1">Sunk: {wp.year_sunk}</div>}
                 {wp.notes && <div className="text-slate-500 mb-2 whitespace-pre-wrap break-words">{wp.notes}</div>}
 
