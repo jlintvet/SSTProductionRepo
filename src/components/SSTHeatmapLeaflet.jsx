@@ -1344,7 +1344,6 @@ export default function SSTHeatmapLeaflet(props) {
   const [hoverInfo,        setHoverInfo]        = useState(null);
   const [markers,          setMarkers]          = useState([]);
   const [selectedMarker,   setSelectedMarker]   = useState(null);
-  const [savedWreckKeys,   setSavedWreckKeys]   = useState(new Set());
   const [pinnedWreckLabels, setPinnedWreckLabels] = useState([]); // [{wreck_key, label, lat, lon}] -- signed-in user's "Pin Label" wrecks, rendered by the Labels overlay
   const [hoveredWreck,     setHoveredWreck]     = useState(null);
   const [selectedWreck,      setSelectedWreck]      = useState(null); // { props, lat, lon, fKey, px, py }
@@ -2863,9 +2862,12 @@ export default function SSTHeatmapLeaflet(props) {
     pinnedWreckLabels.forEach(({ label, lat, lon }) => {
       const icon = L.divIcon({
         className: "",
-        html: `<div style="font-size:9px;font-weight:600;font-family:system-ui,sans-serif;color:#94a3b8;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${label}</div>`,
+        html: `<div style="font-size:11.25px;font-weight:600;font-family:system-ui,sans-serif;color:#94a3b8;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${label}</div>`,
         iconSize: null,
-        iconAnchor: [0, 9],
+        // Offset up + right of the wreck's own 12px marker dot (which sits
+        // centered exactly on this same lat/lon) so the label clears it
+        // instead of sitting on top of / getting painted over by it.
+        iconAnchor: [-8, 24],
       });
       L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(grp);
     });
@@ -5332,7 +5334,11 @@ export default function SSTHeatmapLeaflet(props) {
             }
 
             const wreckLabel = wp.name || (wp.symbol === "Wreck" ? "Wreck" : "Structure");
-            const isWreckSaved = savedWreckKeys.has(fKey);
+            // Derived live from savedLocations (prop, refreshed by fetchSavedLocations
+            // on both save AND delete) rather than a locally-tracked Set -- a Set only
+            // ever grew, so it kept showing "Saved" after the location was deleted from
+            // the sidebar, which has no way to reach into this component's own state.
+            const isWreckSaved = (savedLocations || []).some(l => l.source_key === fKey);
             const isWreckLabelPinned = pinnedWreckLabels.some(p => p.wreck_key === fKey);
 
             async function handleSaveWreckLocation() {
@@ -5354,8 +5360,7 @@ export default function SSTHeatmapLeaflet(props) {
                 source_display_name:  wreckLabel,
               });
               if (!error) {
-                setSavedWreckKeys(prev => new Set([...prev, fKey]));
-                onLocationSaved?.();
+                onLocationSaved?.(); // refetches savedLocations, which isWreckSaved reads live
               } else {
                 console.error("[Wreck] save location failed:", error.message);
               }
@@ -5449,7 +5454,7 @@ export default function SSTHeatmapLeaflet(props) {
                     <button
                       onClick={handleToggleWreckPinLabel}
                       className={`flex-1 flex items-center justify-center text-xs font-semibold py-1.5 rounded-lg transition-colors ${
-                        isWreckLabelPinned ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                        isWreckLabelPinned ? "bg-cyan-700 text-white" : "bg-cyan-600 hover:bg-cyan-500 text-white"
                       }`}
                     >
                       {isWreckLabelPinned ? "Unpin Label" : "Pin Label"}
