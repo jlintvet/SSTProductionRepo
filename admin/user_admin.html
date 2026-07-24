@@ -66,7 +66,7 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
     <div class="pill green">Last 30d <span id="c30">—</span></div>
     <div class="pill amber">In range <span id="cRange">—</span></div>
     <div class="pill" id="issuesPill" style="background:#7f1d1d;color:#fecaca;display:none">Data issues <span id="cIssues">—</span></div>
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <input id="rangeFrom" type="date" class="finput-sm"/><span style="color:#64748b">→</span><input id="rangeTo" type="date" class="finput-sm"/>
       <button class="btn btn-slate btn-sm" onclick="render()">Apply range</button>
       <button class="btn btn-slate btn-sm" onclick="loadUsers()">Refresh</button>
@@ -105,6 +105,7 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
           <th onclick="sortBy('trial_end')">Trial end</th>
           <th onclick="sortBy('region')">Region</th>
           <th onclick="sortBy('created_at')">Signed up</th>
+          <th onclick="sortBy('last_sign_in_at')">Last login</th>
           <th onclick="sortBy('report_count')">Reports</th>
           <th>Issues</th>
         </tr></thead>
@@ -224,6 +225,9 @@ function computeIssues(u) {
   if (u.referral_code && u.tier !== 'ambassador') {
     issues.push(`Has referral code "${u.referral_code}" saved but Tier isn't ambassador -- this code is dead and will fail for anyone who tries to redeem it.`);
   }
+  if (u.tier === 'ambassador' && u.subscription_status === 'cancelled') {
+    issues.push(`Subscription status shows "cancelled" -- this is informational only, not a problem. It's leftover Stripe history from before (or independent of) their ambassador promotion. Ambassadors bypass the cancelled-subscription check entirely (useRegionAccess.js / AppContext.jsx), so this does NOT affect their access.`);
+  }
   return issues;
 }
 
@@ -257,7 +261,7 @@ function showApp() {
 async function loadUsers() {
   const [{ data, error }, seedRes] = await Promise.all([
     sb.from('user_profiles')
-      .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code,ambassador_status')
+      .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code,ambassador_status,last_sign_in_at')
       .order('created_at', { ascending:false }),
     sb.from('seed_users').select('user_id'),
   ]);
@@ -319,19 +323,21 @@ function render() {
   else { issuesPill.style.display='none'; }
   rows.sort((a,b) => {
     let x=a[sortKey], y=b[sortKey];
-    if (sortKey==='created_at'||sortKey==='trial_end') { x=x?new Date(x).getTime():0; y=y?new Date(y).getTime():0; }
+    if (sortKey==='created_at'||sortKey==='trial_end'||sortKey==='last_sign_in_at') { x=x?new Date(x).getTime():0; y=y?new Date(y).getTime():0; }
     else if (sortKey==='report_count') { x=x||0; y=y||0; }
     else { x=(x||'').toString().toLowerCase(); y=(y||'').toString().toLowerCase(); }
     return (x<y?-1:x>y?1:0) * (sortAsc?1:-1);
   });
   document.getElementById('shownCount').textContent = rows.length + ' of ' + allUsers.length + ' shown';
   const fmt = d => d ? new Date(d).toLocaleDateString() : '—';
+  const daysSinceLogin = d => { if (!d) return 'Never'; const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000); return days <= 0 ? 'Today' : days + 'd'; };
   document.getElementById('tbody').innerHTML = rows.map(u => `
     <tr class="${u.id===selectedId?'sel':''}" onclick="selectUser('${u.id}')">
       <td>${u.email||'—'}${(src==='' && seedUserIds.has(u.id)) ? '<span class="seed-badge">seed</span>' : ''}</td><td>${u.display_name||'—'}</td>
       <td><span class="tier" style="background:${TIER_COLORS[u.tier]||'#475569'}">${u.tier||'—'}</span></td>
       <td>${u.subscription_status||'—'}</td><td>${fmt(u.trial_end)}</td>
       <td>${u.region||'—'}</td><td>${fmt(u.created_at)}</td>
+      <td>${daysSinceLogin(u.last_sign_in_at)}</td>
       <td>${u.report_count||0}</td>
       <td>${(() => { const iss = computeIssues(u); return iss.length ? `<span class="issue-badge" title="${iss.join(' | ').replace(/"/g,'&quot;')}">\u26a0 ${iss.length}</span>` : ''; })()}</td>
     </tr>`).join('');
