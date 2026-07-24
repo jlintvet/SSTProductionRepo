@@ -152,6 +152,8 @@ Both the Chlorophyll and Sea color layer buttons expand to show a Daily / Compos
 
 Community button shows active pin count: `Community (${communityCount ?? 0})`.
 
+**Labels button also renders the signed-in user's pinned wreck labels (`ad63f87`, 2026-07-24):** `showCanyonLabels` used to only draw the static `CANYON_LABELS` list. It now also draws whatever's in the user's `wreck_pinned_labels` table (fetched on `userId` change, independent of this toggle), rendered into the same `canyonLabelLayerRef` layer group with a smaller/lighter `divIcon` style (9px, `#94a3b8`) so a pinned wreck reads as a personal annotation, not a basemap feature. This is a deliberate merge into the existing toggle rather than a second Overlays button — see the Bottom feature popup section below for how a label gets pinned in the first place.
+
 ---
 
 ## Tools section (complete list)
@@ -180,6 +182,11 @@ Community button shows active pin count: `Community (${communityCount ?? 0})`.
 **Photo carousel (`c38fbea`, 2026-07-21):** up to 3 approved photos per wreck, admin-moderated via `wreck_photos` (table has a `status` column; the popup only ever fetches `status = "approved"`, ordered by `submitted_at`, `limit(3)`). Fetched lazily on open (`selectedWreck?.fKey` dependency), not prefetched for all ~700+ wrecks at map load. Zero photos renders no placeholder -- the photo strip/`Add a Photo` section just doesn't show a thumbnail. One photo renders full-width; 2-3 render as a horizontally-scrollable thumbnail strip; clicking any thumbnail opens the shared `imageLightbox`.
 
 Signed-in users can submit a photo (image files only, 8 MB cap) via the "Add a Photo" button, which uploads to the `share-images` storage bucket under `wrecks/{fKey}/` and inserts a pending row into `wreck_photos` (status defaults to pending -- admin approval required before it's visible in this popup). The button is replaced with a "3 photos already added" message once the 3-photo cap is hit, or "Sign in to add a photo" when signed out.
+
+**Save Location / Pin Label (`ad63f87`, 2026-07-24), Pro-gated:** a two-button row appears above the photo section for signed-in Pro users (`userId && isPro`); non-pro signed-in users see a "Save Location / Pin Label are Pro features" hint instead, and signed-out users see neither.
+
+- **Save Location** inserts a row into `saved_locations` (`source_type: "wreck"`, `source_key: fKey`) carrying the same name/coords/sst/depth/dist/bearing already computed for the popup display. `source_key` lets the button detect an existing save (tracked client-side in `savedWreckKeys`, a `Set` of fKeys) and switch to a disabled "Saved" state rather than allowing duplicate rows -- unlike the equivalent Save button on community pins, which only dedupes for the current session.
+- **Pin Label** inserts/deletes a row in `wreck_pinned_labels` (`user_id`, `wreck_key`, `label`, `lat`, `lon` -- owner-only RLS, no moderation) and toggles to "Unpin Label" when already pinned. Pinned rows are what the Overlays section's Labels button (`showCanyonLabels`) renders alongside the static canyon names -- see the Overlays table note above.
 
 ---
 
