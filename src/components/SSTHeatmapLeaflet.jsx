@@ -1345,6 +1345,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [markers,          setMarkers]          = useState([]);
   const [selectedMarker,   setSelectedMarker]   = useState(null);
   const [savedWreckKeys,   setSavedWreckKeys]   = useState(new Set());
+  const [pinnedWreckLabels, setPinnedWreckLabels] = useState([]); // [{wreck_key, label, lat, lon}] -- signed-in user's "Pin Label" wrecks, rendered by the Labels overlay
   const [hoveredWreck,     setHoveredWreck]     = useState(null);
   const [selectedWreck,      setSelectedWreck]      = useState(null); // { props, lat, lon, fKey, px, py }
   const [wreckPhotos,        setWreckPhotos]        = useState([]);   // approved photo URLs for selectedWreck
@@ -2827,6 +2828,18 @@ export default function SSTHeatmapLeaflet(props) {
     setShowIsotherm(false);
   }, [isPro, profileLoaded]);
 
+  // ── User's pinned wreck labels (per-user, feeds into the Labels overlay below) ──
+  useEffect(() => {
+    if (!userId) { setPinnedWreckLabels([]); return; }
+    supabase
+      .from("wreck_pinned_labels")
+      .select("wreck_key, label, lat, lon")
+      .eq("user_id", userId)
+      .then(({ data, error }) => {
+        if (!error && data) setPinnedWreckLabels(data);
+      });
+  }, [userId]);
+
   // ── Canyon name labels (standalone overlay) ──────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -2843,9 +2856,22 @@ export default function SSTHeatmapLeaflet(props) {
       });
       L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(grp);
     });
+    // Signed-in user's own "Pin Label" wrecks -- smaller/lighter than the
+    // static canyon names so they read as a personal layer, not a basemap
+    // feature. Rendered into the same group/toggle per product decision
+    // (merge into the existing Labels overlay rather than a second button).
+    pinnedWreckLabels.forEach(({ label, lat, lon }) => {
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="font-size:9px;font-weight:600;font-family:system-ui,sans-serif;color:#94a3b8;text-shadow:1px 1px 0 rgba(255,255,255,0.95),-1px 1px 0 rgba(255,255,255,0.95),1px -1px 0 rgba(255,255,255,0.95),-1px -1px 0 rgba(255,255,255,0.95),0 1px 0 rgba(255,255,255,0.95),0 -1px 0 rgba(255,255,255,0.95);white-space:nowrap;pointer-events:none;line-height:1.2;">${label}</div>`,
+        iconSize: null,
+        iconAnchor: [0, 9],
+      });
+      L.marker([lat, lon], { icon, interactive: false, keyboard: false }).addTo(grp);
+    });
     grp.addTo(map);
     canyonLabelLayerRef.current = grp;
-  }, [mapReady, showCanyonLabels]);
+  }, [mapReady, showCanyonLabels, pinnedWreckLabels]);
 
   // ── Wind raster ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -5305,6 +5331,50 @@ export default function SSTHeatmapLeaflet(props) {
               setWreckPhotoMsg(insErr ? "Couldn't submit — try again." : "Submitted — pending review.");
             }
 
+            const wreckLabel = wp.name || (wp.symbol === "Wreck" ? "Wreck" : "Structure");
+            const isWreckSaved = savedWreckKeys.has(fKey);
+            const isWreckLabelPinned = pinnedWreckLabels.some(p => p.wreck_key === fKey);
+
+            async function handleSaveWreckLocation() {
+              if (!userId || isWreckSaved) return;
+              const { error } = await supabase.from("saved_locations").insert({
+                user_id:              userId,
+                label:                wreckLabel,
+                lat,
+                lon,
+                sst:                  wreckSst ?? null,
+                depth_ft:             wreckDepthFt ?? null,
+                dist_nm:              wreckDistNm != null ? parseFloat(wreckDistNm.toFixed(2)) : null,
+                bearing_deg:          wreckBrgDeg != null ? Math.round(wreckBrgDeg) : null,
+                bearing_cardinal:     wreckBrgDeg != null ? bearingLabel(wreckBrgDeg) : null,
+                from_location:        selectedLocation?.label ?? null,
+                notes:                wp.notes ?? null,
+                source_type:          "wreck",
+                source_key:           fKey,
+                source_display_name:  wreckLabel,
+              });
+              if (!error) {
+                setSavedWreckKeys(prev => new Set([...prev, fKey]));
+                onLocationSaved?.();
+              } else {
+                console.error("[Wreck] save location failed:", error.message);
+              }
+            }
+
+            async function handleToggleWreckPinLabel() {
+              if (!userId) return;
+              if (isWreckLabelPinned) {
+                const { error } = await supabase.from("wreck_pinned_labels")
+                  .delete().eq("user_id", userId).eq("wreck_key", fKey);
+                if (!error) setPinnedWreckLabels(prev => prev.filter(p => p.wreck_key !== fKey));
+              } else {
+                const { error } = await supabase.from("wreck_pinned_labels")
+                  .insert({ user_id: userId, wreck_key: fKey, label: wreckLabel, lat, lon });
+                if (!error) setPinnedWreckLabels(prev => [...prev, { wreck_key: fKey, label: wreckLabel, lat, lon }]);
+                else console.error("[Wreck] pin label failed:", error.message);
+              }
+            }
+
             return (
               <div
                 className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs"
@@ -5362,6 +5432,35 @@ export default function SSTHeatmapLeaflet(props) {
                     ))}
                   </div>
                 ) : null}
+
+                {/* Save Location / Pin Label -- Pro feature, mirrors the existing
+                    Save-to-saved_locations pattern used for community pins. */}
+                {userId && isPro && (
+                  <div className="flex gap-1.5 mb-2">
+                    <button
+                      onClick={handleSaveWreckLocation}
+                      disabled={isWreckSaved}
+                      className={`flex-1 flex items-center justify-center text-xs font-semibold py-1.5 rounded-lg transition-colors ${
+                        isWreckSaved ? "bg-slate-100 text-slate-400" : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                      }`}
+                    >
+                      {isWreckSaved ? "Saved" : "Save Location"}
+                    </button>
+                    <button
+                      onClick={handleToggleWreckPinLabel}
+                      className={`flex-1 flex items-center justify-center text-xs font-semibold py-1.5 rounded-lg transition-colors ${
+                        isWreckLabelPinned ? "bg-slate-600 hover:bg-slate-500 text-white" : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                      }`}
+                    >
+                      {isWreckLabelPinned ? "Unpin Label" : "Pin Label"}
+                    </button>
+                  </div>
+                )}
+                {userId && !isPro && (
+                  <div className="text-slate-400 text-[10px] text-center italic mb-2">
+                    Save Location / Pin Label are Pro features
+                  </div>
+                )}
 
                 <div className="pt-1 border-t border-slate-100">
                   {!userId ? (
