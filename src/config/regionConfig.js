@@ -211,7 +211,7 @@ export const REGION_CONFIGS = {
       { label: "Chincoteague, VA",           lat: 37.9317, lon: -75.3833, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ682" },
       { label: "Ocean City Inlet, MD",       lat: 38.3283, lon: -75.0917, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ485" },
       { label: "Indian River Inlet, DE",     lat: 38.6100, lon: -75.0700, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ485" },
-      { label: "Cape May, NJ",               lat: 38.9683, lon: -74.9600, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ485" },
+      { label: "Cape May, NJ",               lat: 38.9435, lon: -74.8695, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ485" },
       { label: "Atlantic City, NJ",          lat: 39.3567, lon: -74.4181, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ482" },
       { label: "Barnegat Light, NJ",         lat: 39.7617, lon: -74.1117, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ481" },
       { label: "Manasquan, NJ",              lat: 40.1050, lon: -74.0550, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ480" },
