@@ -433,8 +433,19 @@ async function fetchMarineForecast(url) {
 }
 
 async function fetchTides(stationId) {
-  const days = Array.from({ length: 7 }, (_, i) =>
-    moment().add(i, "days").format("YYYY-MM-DD")
+  // Fetch from yesterday (i=-1) through +6 days (8 days total). Yesterday's
+  // entry is never shown in the UI directly, but the tide detail popup's
+  // fallback curve (buildTideCurve, for stations with no real NOAA curve)
+  // needs a boundary point before today's first extremum to interpolate
+  // the midnight-to-first-tide segment. Without it there's nothing before
+  // the day's first high/low, so the fallback clamps flat to that first
+  // value instead of curving -- this produced a flat plateau from 12am to
+  // the first tide time on every "Today" card (confirmed on Oregon Inlet,
+  // 2026-07-25: flat ~1.6ft from 12am to 5:39am instead of curving up from
+  // the prior night's low). Every other day's card was already fine since
+  // its own "yesterday" (an earlier day in this same range) was in range.
+  const days = Array.from({ length: 8 }, (_, i) =>
+    moment().add(i - 1, "days").format("YYYY-MM-DD")
   );
 
   const results = await Promise.allSettled(
