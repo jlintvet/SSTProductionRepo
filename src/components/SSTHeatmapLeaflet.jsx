@@ -1829,13 +1829,11 @@ export default function SSTHeatmapLeaflet(props) {
   const isWindMap  = activeDataLayer === "windmap";
   const windActive = showWindOverlay || isWindMap;
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 640);
-  const isDesktopRef = useRef(isDesktop);
   useEffect(() => {
     const handler = () => setIsDesktop(window.innerWidth >= 640);
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
   }, []);
-  useEffect(() => { isDesktopRef.current = isDesktop; }, [isDesktop]);
 
   useEffect(() => {
     if (!savedLocations) return;
@@ -3221,23 +3219,15 @@ export default function SSTHeatmapLeaflet(props) {
         }
         // Click opens a persistent detail card (coordinates + up to 3
         // moderated photos); hover keeps the lightweight preview tooltip.
-        setHoveredWreck(null);
-        if (!isDesktopRef.current) {
-          // Mobile: pan the tapped marker into the same top-of-screen safe
-          // zone the search flow uses, at the map's current zoom (no zoom
-          // change on a plain click). Tapping a marker near a screen edge
-          // could otherwise leave the card's left/right flip-and-clamp
-          // logic with nowhere to go but back over the marker. Instant
-          // setView (see selectWreckSearchResult) instead of an animated
-          // flyTo -- same maxBounds-correction-mid-animation reasoning.
-          const centerLatLng = safeZoneFlyTarget(map, lat, lon, map.getZoom());
-          map.setView(centerLatLng, map.getZoom(), { animate: false });
-          const containerPt = map.latLngToContainerPoint([lat, lon]);
-          setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
-        } else {
-          const containerPt = map.latLngToContainerPoint(e.latlng);
-          setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
-        }
+        // The map never moves for a plain click -- only the card itself
+        // repositions to avoid the marker (see the above/below flip logic
+        // in the selectedWreck render block below). An earlier version
+        // panned the map on mobile to guarantee card clearance; Jon
+        // reported that was disorienting on its own ("the display moves"
+        // when you're just trying to look at a pin), so the fix belongs
+        // entirely in the card's own layout math instead.
+        const containerPt = map.latLngToContainerPoint(e.latlng);
+        setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
       });
       m.on("mouseout", () => {
         setHoveredWreck(null);
@@ -5346,7 +5336,17 @@ export default function SSTHeatmapLeaflet(props) {
             const mapH = mapDivRef.current?.clientHeight ?? 600;
             const rawL = px + 14;
             const popL = Math.max(8, rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL);
-            const popT = Math.min(Math.max(8, py + 16), mapH - CARD_H_ESTIMATE - 8);
+            const GAP = 16;
+            const spaceBelow = mapH - py;
+            const spaceAbove = py;
+            let popT;
+            if (spaceBelow >= CARD_H_ESTIMATE + GAP + 8) {
+              popT = py + GAP;                              // room below -- open there
+            } else if (spaceAbove >= CARD_H_ESTIMATE + GAP + 8) {
+              popT = py - GAP - CARD_H_ESTIMATE;             // not enough below, flip above
+            } else {
+              popT = Math.max(8, Math.min(py + GAP, mapH - CARD_H_ESTIMATE - 8)); // neither fits fully -- clamp on-screen
+            }
             const coordStr = `${lat.toFixed(4)}°N  ${Math.abs(lon).toFixed(4)}°${lon < 0 ? "W" : "E"}`;
             const wreckDistNm = selectedLocation ? distanceNm(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
             const wreckBrgDeg = selectedLocation ? bearingDeg(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
