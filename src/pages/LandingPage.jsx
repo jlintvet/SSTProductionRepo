@@ -698,7 +698,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-77.46,37.26,-68.97,41.51]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
         desc: "Chesapeake Bay mouth to Rhode Island Sound offshore — Delmarva, Jersey Shore, Long Island, Block Island Sound",
         bounds: "N 41.51°  ·  S 37.26°  ·  W 77.46°  ·  E 68.97°",
-        ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],
+        ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Moriches Inlet","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],
       },
     ];
     return (

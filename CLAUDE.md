@@ -179,7 +179,7 @@ Both must stay in sync. If adding a location or changing a zone, update both fil
 | Barnegat Light NJ | ANZ481 | Manasquan Inlet NJ to Little Egg Inlet NJ, 20-60nm | PHI | forecast.weather.gov |
 | Manasquan NJ | ANZ480 | Sandy Hook NJ to Manasquan Inlet NJ, 20-40nm | PHI | forecast.weather.gov |
 | Sandy Hook NJ, Freeport NY, Captree NY | ANZ385 | Sandy Hook NJ to Fire Island Inlet NY, 20-60nm | OKX | forecast.weather.gov |
-| Shinnecock Inlet NY, Montauk NY | ANZ380 | Moriches Inlet NY to Montauk Point NY, 20-60nm | OKX | forecast.weather.gov |
+| Moriches Inlet NY, Shinnecock Inlet NY, Montauk NY | ANZ380 | Moriches Inlet NY to Montauk Point NY, 20-60nm | OKX | forecast.weather.gov |
 | Point Judith RI, Newport RI | ANZ283 | Montauk NY to Martha's Vineyard, 25-60nm | BOX | marine.weather.gov |
 
 **Note the AKQ/PHI split on ANZ485:** Ocean City Inlet MD, Indian River Inlet DE, and Cape May NJ all share the same *offshore* zone (ANZ485, issued by PHI) but land on three different *nearshore* zones from two different offices — see the toggle table below.
@@ -244,7 +244,7 @@ Every open-ocean location above has a paired 0-20nm nearshore zone, letting the 
 | Barnegat Light NJ | ANZ481 | ANZ451 — Manasquan Inlet to Little Egg Inlet NJ, 0-20nm | PHI |
 | Manasquan NJ | ANZ480 | ANZ450 — Sandy Hook to Manasquan Inlet NJ, 0-20nm | PHI |
 | Sandy Hook NJ, Freeport NY, Captree NY | ANZ385 | ANZ355 — Sandy Hook NJ to Fire Island Inlet NY, 0-20nm | OKX |
-| Shinnecock Inlet NY, Montauk NY | ANZ380 | ANZ350 — Moriches Inlet NY to Montauk Point NY, 0-20nm | OKX |
+| Moriches Inlet NY, Shinnecock Inlet NY, Montauk NY | ANZ380 | ANZ350 — Moriches Inlet NY to Montauk Point NY, 0-20nm | OKX |
 | Point Judith RI, Newport RI | ANZ283 | ANZ256 — Montauk NY to Martha's Vineyard, 0-20nm | BOX |
 
 Stonington CT (ANZ237, bay-only) has no offshore equivalent and shows no toggle, same as the 4 Chesapeake Bay locations.

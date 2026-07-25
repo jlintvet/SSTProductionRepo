@@ -314,6 +314,11 @@ const NOAA_SOURCES = {
     offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/captreeny_noaa.json", noaaZone: { id: "ANZ385", description: "Sandy Hook NJ to Fire Island Inlet NY, 20-60nm" } },
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/captreeny_noaa_nearshore.json", noaaZone: { id: "ANZ355", description: "Sandy Hook NJ to Fire Island Inlet NY, 0-20nm" } },
   },
+  "Moriches Inlet, NY": {
+    tideStation: "8513398",
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/morichesinletny_noaa.json", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },
+    nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/morichesinletny_noaa_nearshore.json", noaaZone: { id: "ANZ350", description: "Moriches Inlet NY to Montauk Point NY, 0-20nm" } },
+  },
   "Shinnecock Inlet, NY": {
     tideStation: "8512354",
     offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/shinnecockny_noaa.json", noaaZone: { id: "ANZ380", description: "Moriches Inlet NY to Montauk Point NY, 20-60nm" } },

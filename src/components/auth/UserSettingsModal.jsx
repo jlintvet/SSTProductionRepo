@@ -752,7 +752,7 @@ const REGION_PICKER_DATA = [
     desc: "Chesapeake Bay mouth to Rhode Island Sound offshore — Delmarva, Jersey Shore, Long Island, Block Island Sound",
     bounds: "N 41.51°  ·  S 37.26°  ·  W 77.46°  ·  E 68.97°",
     bbox: "[-77.46,37.26,-68.97,41.51]",
-    ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],
+    ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Moriches Inlet","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],
   },
 ];
 

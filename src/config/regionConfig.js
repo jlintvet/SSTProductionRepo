@@ -218,6 +218,7 @@ export const REGION_CONFIGS = {
       { label: "Sandy Hook, NJ",             lat: 40.4669, lon: -74.0094, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ385" },
       { label: "Freeport, NY",               lat: 40.5867, lon: -73.5783, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ385" },
       { label: "Captree, NY",                lat: 40.6267, lon: -73.2600, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ385" },
+      { label: "Moriches Inlet, NY",         lat: 40.7650, lon: -72.7567, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ380" },
       { label: "Shinnecock Inlet, NY",       lat: 40.8367, lon: -72.4800, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ380" },
       { label: "Montauk, NY",                lat: 41.0483, lon: -71.9594, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ380" },
       { label: "Stonington, CT",             lat: 41.3350, lon: -71.9050, wreckRegion: "VaToRI", noaaCoverage: true, noaaZone: "ANZ237" },
