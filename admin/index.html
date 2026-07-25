@@ -26,6 +26,10 @@ body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; backgroun
 #tokenRow { display:flex; align-items:center; gap:6px; margin-left:auto; }
 #tokenRow input { background:#0f172a; border:1px solid #334155; border-radius:6px; color:#e2e8f0; font-size:12px; padding:5px 8px; width:220px; }
 #tokenRow input::placeholder { color:#64748b; }
+.token-pill { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+.token-pill.good { background:#14532d; color:#bbf7d0; }
+.token-pill.bad { background:#7f1d1d; color:#fecaca; }
+.token-pill.checking, .token-pill.unknown { background:#334155; color:#94a3b8; }
 #tabBar { display:flex; gap:4px; padding:8px 14px 0; background:#0f172a; border-bottom:1px solid #1e293b; flex-shrink:0; }
 .tab-btn { background:transparent; border:none; border-bottom:2px solid transparent; color:#94a3b8; font-size:13px; font-weight:600; padding:8px 14px; cursor:pointer; }
 .tab-btn:hover { color:#e2e8f0; }
@@ -58,7 +62,8 @@ body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; backgroun
     <div class="pill" id="sessionPill">— </div>
     <div id="tokenRow">
       <span style="font-size:11px;color:#64748b">GitHub token</span>
-      <input id="ghTokenInput" type="password" placeholder="session only, not saved to disk" autocomplete="off"/>
+      <input id="ghTokenInput" type="password" placeholder="paste a GitHub PAT -- saved in this browser" autocomplete="off"/>
+      <span class="token-pill" id="ghTokenStatus"></span>
       <button class="btn btn-slate" onclick="doSignOut()">Sign Out</button>
     </div>
   </div>
@@ -71,6 +76,8 @@ body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; backgroun
 const SB_URL   = 'https://upxerlzdgdbjkbjpuktn.supabase.co';
 const SB_ANON  = 'sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
 const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
+const GH_REPO = 'jlintvet/SSTProductionRepo';
+const GH_TOKEN_KEY = 'sst_admin_gh_token';
 const sb = supabase.createClient(SB_URL, SB_ANON);
 
 // Each child file gets a session (so it can auto-skip its own login screen)
@@ -114,6 +121,10 @@ async function showApp() {
   $('authScreen').style.display = 'none';
   $('app').style.display = 'flex';
   $('sessionPill').textContent = session.user.email;
+  ghToken = loadStoredToken();
+  $('ghTokenInput').value = ghToken;
+  checkGhToken();
+  scheduleTokenChecks();
   buildTabs();
   selectTab(TABS[0].id);
 }
@@ -186,9 +197,52 @@ function relayToTab(tab) {
   iframe.contentWindow.postMessage(payload, '*');
 }
 
+// ── GitHub token: persisted locally, validated against the repo, and
+// re-checked on an interval so an expired/revoked token surfaces here
+// (one place) instead of as a failed commit deep inside a tab.
+let tokenCheckTimer = null;
+function loadStoredToken() {
+  try { return localStorage.getItem(GH_TOKEN_KEY) || ''; } catch (_) { return ''; }
+}
+function storeToken(tok) {
+  try {
+    if (tok) localStorage.setItem(GH_TOKEN_KEY, tok);
+    else localStorage.removeItem(GH_TOKEN_KEY);
+  } catch (_) {}
+}
+async function checkGhToken() {
+  const pill = $('ghTokenStatus');
+  if (!ghToken) { pill.textContent = 'No token saved'; pill.className = 'token-pill'; return; }
+  pill.textContent = 'Checking…'; pill.className = 'token-pill checking';
+  try {
+    const r = await fetch('https://api.github.com/repos/' + GH_REPO, {
+      headers: { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github+json' }
+    });
+    if (r.status === 401 || r.status === 403) {
+      pill.textContent = 'Invalid or expired -- replace it';
+      pill.className = 'token-pill bad';
+    } else if (r.ok) {
+      pill.textContent = 'Token OK';
+      pill.className = 'token-pill good';
+    } else {
+      pill.textContent = 'Could not verify (' + r.status + ')';
+      pill.className = 'token-pill unknown';
+    }
+  } catch (_) {
+    pill.textContent = 'Could not verify (network)';
+    pill.className = 'token-pill unknown';
+  }
+}
+function scheduleTokenChecks() {
+  if (tokenCheckTimer) clearInterval(tokenCheckTimer);
+  if (ghToken) tokenCheckTimer = setInterval(checkGhToken, 5 * 60 * 1000);
+}
 $('ghTokenInput').addEventListener('input', () => {
   ghToken = $('ghTokenInput').value.trim();
+  storeToken(ghToken);
   TABS.filter(t => t.needsToken && loadedTabs.has(t.id)).forEach(relayToTab);
+  checkGhToken();
+  scheduleTokenChecks();
 });
 
 checkExistingSession();
