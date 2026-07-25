@@ -3227,13 +3227,13 @@ export default function SSTHeatmapLeaflet(props) {
           // zone the search flow uses, at the map's current zoom (no zoom
           // change on a plain click). Tapping a marker near a screen edge
           // could otherwise leave the card's left/right flip-and-clamp
-          // logic with nowhere to go but back over the marker.
+          // logic with nowhere to go but back over the marker. Instant
+          // setView (see selectWreckSearchResult) instead of an animated
+          // flyTo -- same maxBounds-correction-mid-animation reasoning.
           const centerLatLng = safeZoneFlyTarget(map, lat, lon, map.getZoom());
-          map.once("moveend", () => {
-            const containerPt = map.latLngToContainerPoint([lat, lon]);
-            setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
-          });
-          map.flyTo(centerLatLng, map.getZoom(), { duration: 0.4 });
+          map.setView(centerLatLng, map.getZoom(), { animate: false });
+          const containerPt = map.latLngToContainerPoint([lat, lon]);
+          setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
         } else {
           const containerPt = map.latLngToContainerPoint(e.latlng);
           setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
@@ -3314,27 +3314,26 @@ export default function SSTHeatmapLeaflet(props) {
     // preferred framing after trying 13/7/9.
     const targetZoom = 10;
     const centerLatLng = safeZoneFlyTarget(map, lat, lon, targetZoom);
-    map.once("moveend", () => {
-      const containerPt = map.latLngToContainerPoint([lat, lon]);
-      setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
-      // Collapse the mobile Tools drawer only now, after the flyTo has
-      // fully settled. Collapsing it eagerly (the old order, from
-      // runWreckSearch) shrank the map container's height mid-animation on
-      // mobile -- the resulting ResizeObserver -> invalidateSize() call
-      // could interrupt the in-flight zoom animation, so the map didn't
-      // reliably land on zoom 10 on mobile the way it did on desktop
-      // (where nothing resizes when a search runs).
-      setMobilePanel(null);
-    });
-    map.flyTo(centerLatLng, targetZoom, { duration: 0.6 });
+    // Instant setView, not an animated flyTo. Leaflet re-applies its own
+    // maxBounds/minZoom constraints (recomputed by the SST/CHL data-layer
+    // effects) on every view change, animated or not -- an animated flyTo
+    // gave that correction a moving target to land on mid-flight, which
+    // read as "zooms in, then bounces back out." setView resolves (and any
+    // bounds correction with it) synchronously before this function
+    // continues, so the containerPt read below always reflects the true
+    // settled position -- no separate moveend listener needed.
+    map.setView(centerLatLng, targetZoom, { animate: false });
+    const containerPt = map.latLngToContainerPoint([lat, lon]);
+    setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
   }
 
   function runWreckSearch(term) {
     const q = term.trim().toLowerCase();
     setWreckSearchIndex(0);
     if (!q) { setWreckSearchResults([]); setWreckSearchMsg(null); return; }
+    setMobilePanel(null);
     setShowWreckSearchBar(true);
-    if (!wrecksData) { setMobilePanel(null); setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading — try again in a moment."); return; }
+    if (!wrecksData) { setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading — try again in a moment."); return; }
     const matches = wrecksData.features.filter(f => {
       const props = f.properties || {};
       const name = (props.name ?? "").trim();
@@ -3359,7 +3358,6 @@ export default function SSTHeatmapLeaflet(props) {
       setWreckSearchMsg(null);
       selectWreckSearchResult(inBounds[0]);
     } else if (outOfBounds.length > 0) {
-      setMobilePanel(null);
       setWreckSearchResults([]);
       const regionLabels = new Set();
       outOfBounds.forEach(f => {
@@ -3372,7 +3370,6 @@ export default function SSTHeatmapLeaflet(props) {
       const labelText = regionLabels.size ? [...regionLabels].join(", ") : "another region";
       setWreckSearchMsg(`Not found in this region — found in ${labelText}.`);
     } else {
-      setMobilePanel(null);
       setWreckSearchResults([]);
       setWreckSearchMsg(`No bottom feature found matching "${term.trim()}".`);
     }
@@ -5349,7 +5346,7 @@ export default function SSTHeatmapLeaflet(props) {
             const mapH = mapDivRef.current?.clientHeight ?? 600;
             const rawL = px + 14;
             const popL = Math.max(8, rawL + CARD_W > mapW - 8 ? px - CARD_W - 14 : rawL);
-            const popT = Math.min(Math.max(8, py - 40), mapH - CARD_H_ESTIMATE - 8);
+            const popT = Math.min(Math.max(8, py + 16), mapH - CARD_H_ESTIMATE - 8);
             const coordStr = `${lat.toFixed(4)}°N  ${Math.abs(lon).toFixed(4)}°${lon < 0 ? "W" : "E"}`;
             const wreckDistNm = selectedLocation ? distanceNm(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
             const wreckBrgDeg = selectedLocation ? bearingDeg(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
