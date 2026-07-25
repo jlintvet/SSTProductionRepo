@@ -849,9 +849,18 @@ export function getSolunarPeriods(date, lat, lon) {
   const major = [];
   const upperTransit = findMoonUpperTransit(dayStartDate, lat, lon);
   if (upperTransit != null) {
-    [upperTransit, upperTransit - LUNAR_DAY_MS / 2, upperTransit + LUNAR_DAY_MS / 2]
-      .filter(t => t >= dayStartMs && t <= dayEndMs)
-      .forEach(t => major.push({ start: t - 3600000, end: t + 3600000 }));
+    // Tag each candidate so callers (the tide chart's moon markers) can
+    // distinguish the moon-overhead transit from the moon-underfoot one --
+    // conventionally drawn in a brighter tone for overhead, darker for
+    // underfoot, since the moon is literally on the far side of the earth
+    // (not visible) during the underfoot transit.
+    [
+      { t: upperTransit, type: "overhead" },
+      { t: upperTransit - LUNAR_DAY_MS / 2, type: "underfoot" },
+      { t: upperTransit + LUNAR_DAY_MS / 2, type: "underfoot" },
+    ]
+      .filter(c => c.t >= dayStartMs && c.t <= dayEndMs)
+      .forEach(c => major.push({ start: c.t - 3600000, end: c.t + 3600000, type: c.type }));
   }
 
   const minor = [];

@@ -9,14 +9,14 @@
 //   - forecastHourlyUrl prop added; clicking the NWS weather block opens an
 //     inline hourly popup (HourlyWeatherPopup, defined below)
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import moment from "moment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare, AlertTriangle } from "lucide-react";
+import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare, AlertTriangle, HelpCircle } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, ReferenceArea, ReferenceLine } from "recharts";
+import { ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, ReferenceDot, ReferenceLine } from "recharts";
 import { fetchHourlyForecast, fetchTideCurve, buildTideCurve, getMoonPhase, getTideStrength, getSolunarPeriods } from "@/hooks/useMarineForecast";
 import ShareForecastDialog from "@/components/weather/ShareForecastDialog";
 
@@ -241,15 +241,99 @@ function interpolateNow(points) {
   return null;
 }
 
-function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isToday, dailyTides, dailySunData, nws, lat, lon, onClose }) {
+// Small moon-disc marker drawn on the tide chart at each major solunar
+// period. Built from plain shapes (base circle + half-circle + a corrective
+// full-width ellipse) rather than a single hand-rolled arc path, so the
+// crescent/gibbous shape falls out of simple, easy-to-verify geometry:
+//   - illumination 0   (new)  -> corrective ellipse is fully DARK -> disc reads fully dark
+//   - illumination 0.5 (qtr)  -> corrective ellipse has zero width -> clean half-moon
+//   - illumination 1   (full) -> corrective ellipse is fully LIT  -> disc reads fully lit
+// tone distinguishes the moon-overhead transit (bright/gold) from
+// moon-underfoot (dark/slate, since the moon is on the far side of the
+// earth and not actually visible during that transit).
+function MoonPhaseIcon({ cx, cy, illumination, waxing, tone }) {
+  if (cx == null || cy == null) return null;
+  const r = 7;
+  const lit  = tone === "overhead" ? "#facc15" : "#94a3b8";
+  const dark = tone === "overhead" ? "#1e293b" : "#334155";
+  const halfSweep = waxing ? 1 : 0; // 1 = right half lit, 0 = left half lit
+  const halfPath = `M 0 ${-r} A ${r} ${r} 0 0 ${halfSweep} 0 ${r} Z`;
+  const rx = Math.abs(illumination - 0.5) * 2 * r;
+  const correctionColor = illumination >= 0.5 ? lit : dark;
+
+  return (
+    <g transform={`translate(${cx},${cy})`}>
+      <circle r={r + 1.5} fill="#fff" stroke="#e2e8f0" strokeWidth={1} />
+      <circle r={r} fill={dark} />
+      <path d={halfPath} fill={lit} />
+      {rx > 0.15 && <ellipse rx={rx} ry={r} fill={correctionColor} />}
+    </g>
+  );
+}
+
+// Small explanatory popover for the "Solunar Feeding Times" heading --
+// separate from HourlyWeatherPopup, and from the (?) button on the weather
+// row above (which opens the hourly popup instead of explaining anything).
+function SolunarHelpPopover() {
+  const [open, setOpen] = useState(false);
+  const popRef = useRef(null);
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClick(e) {
+      if (popRef.current?.contains(e.target)) return;
+      if (btnRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
+    function onEsc(e) { if (e.key === "Escape") setOpen(false); }
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [open]);
+
+  return (
+    <span style={{ position: "relative", display: "inline-flex", marginLeft: 4 }}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        title="What are solunar feeding times?"
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          border: "none", background: "none", padding: 0,
+          color: "#94a3b8", cursor: "pointer", lineHeight: 1,
+        }}
+      >
+        <HelpCircle size={12} />
+      </button>
+      {open && (
+        <div
+          ref={popRef}
+          style={{
+            position: "absolute", left: 0, top: 18, width: 240, zIndex: 10,
+            background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)", padding: "8px 10px",
+            fontSize: 11, color: "#475569", fontWeight: 400, lineHeight: 1.4,
+          }}
+        >
+          Major periods (~2hrs) happen when the moon is overhead or underfoot; minor periods (~1hr) happen at moonrise and moonset. Fish activity tends to peak during these windows.
+        </div>
+      )}
+    </span>
+  );
+}
+
+function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isToday, dailyTides, nws, lat, lon, forecastHourlyUrl, onClose }) {
   const moon = getMoonPhase(moment(date, "YYYY-MM-DD").toDate());
   const tideStrength = getTideStrength(moment(date, "YYYY-MM-DD").toDate());
   const solunar = getSolunarPeriods(date, lat, lon);
 
   const dayStart  = moment(date, "YYYY-MM-DD").startOf("day").valueOf();
   const dayEnd    = moment(date, "YYYY-MM-DD").endOf("day").valueOf();
-  const sunriseMs = dailySunData?.sunrise ? new Date(dailySunData.sunrise).getTime() : null;
-  const sunsetMs  = dailySunData?.sunset  ? new Date(dailySunData.sunset).getTime()  : null;
   const hourTicks = Array.from({ length: 12 }, (_, i) => dayStart + i * 2 * 3600000);
 
   // Fallback curve if NOAA has no real high-resolution data for this
@@ -266,6 +350,7 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
   const [loading, setLoading]         = useState(true);
   const [chartData, setChartData]     = useState([]);
   const [isApproximate, setIsApprox]  = useState(false);
+  const [showHourlyFromTide, setShowHourlyFromTide] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -294,6 +379,30 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
 
   const lowTides  = (dailyTides ?? []).filter(t => t.type === "Low");
   const highTides = (dailyTides ?? []).filter(t => t.type === "High");
+
+  // Color the tide curve fill/stroke by segment instead of a flat gradient:
+  // cyan while rising (incoming tide), amber while falling (outgoing), red
+  // wherever the curve dips below 0ft (an abnormally low tide -- a real
+  // navigation-hazard signal, not decoration). Direction is a function of
+  // time, so a single horizontal linearGradient with a stop at each sample
+  // point's x-fraction reproduces this without needing multiple <Area>
+  // series or masking.
+  const dayRange = dayEnd - dayStart;
+  const gradientStops = chartData.map((p, i) => {
+    const next = chartData[i + 1];
+    const prev = chartData[i - 1];
+    const rising = next ? next.v > p.v : prev ? p.v > prev.v : true;
+    const color = p.v < 0 ? "#ef4444" : rising ? "#0891b2" : "#f59e0b";
+    const offset = dayRange === 0 ? 0 : Math.min(1, Math.max(0, (p.x - dayStart) / dayRange));
+    return { offset, color };
+  });
+
+  // Moon markers sit a fixed margin above the tallest point on the chart
+  // rather than chasing each individual peak, so they read as a consistent
+  // strip regardless of which peak a given major period happens to land near.
+  const chartMax = chartData.length ? Math.max(...chartData.map(p => p.v)) : 0;
+  const chartMin = chartData.length ? Math.min(...chartData.map(p => p.v)) : 0;
+  const moonMarkerY = chartMax + (chartMax - chartMin || 1) * 0.18;
 
   const popup = (
     <div
@@ -358,6 +467,20 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
                   <span style={{ color: "#334155", fontWeight: 600 }}>
                     {nws.high !== null ? `${nws.high}°` : "--"} / {nws.low !== null ? `${nws.low}°F` : "--"}
                   </span>
+                  {forecastHourlyUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setShowHourlyFromTide(true)}
+                      title="Tap for hourly forecast"
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: "none", background: "none", padding: 0,
+                        color: "#94a3b8", cursor: "pointer", lineHeight: 1,
+                      }}
+                    >
+                      <HelpCircle size={13} />
+                    </button>
+                  )}
                 </span>
               )}
             </div>
@@ -381,17 +504,12 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 14, right: 6, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="tideFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0891b2" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#0891b2" stopOpacity={0.02} />
+                    <linearGradient id="tideFill" x1="0" y1="0" x2="1" y2="0">
+                      {gradientStops.map((s, i) => (
+                        <stop key={i} offset={s.offset} stopColor={s.color} />
+                      ))}
                     </linearGradient>
                   </defs>
-                  {sunriseMs != null && (
-                    <ReferenceArea x1={dayStart} x2={sunriseMs} fill="#64748b" fillOpacity={0.08} ifOverflow="extendDomain" />
-                  )}
-                  {sunsetMs != null && (
-                    <ReferenceArea x1={sunsetMs} x2={dayEnd} fill="#64748b" fillOpacity={0.08} ifOverflow="extendDomain" />
-                  )}
                   <XAxis
                     dataKey="x" type="number" domain={[dayStart, dayEnd]}
                     ticks={hourTicks}
@@ -405,7 +523,7 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
                     tickFormatter={v => `${v.toFixed(1)}ft`}
                     width={38}
                   />
-                  <Area type="monotone" dataKey="v" stroke="#0891b2" strokeWidth={2} fill="url(#tideFill)" dot={false} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="v" stroke="url(#tideFill)" strokeWidth={2} fill="url(#tideFill)" fillOpacity={0.35} dot={false} isAnimationActive={false} />
                   {now && (
                     <ReferenceLine
                       x={Date.now()} stroke="#ef4444" strokeWidth={1.5}
@@ -415,6 +533,28 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
                       }}
                     />
                   )}
+                  {solunar.major.map((p, i) => {
+                    const midpoint = (p.start + p.end) / 2;
+                    if (midpoint < dayStart || midpoint > dayEnd) return null;
+                    return (
+                      <ReferenceDot
+                        key={i}
+                        x={midpoint}
+                        y={moonMarkerY}
+                        r={0}
+                        isFront
+                        ifOverflow="extendDomain"
+                        shape={(dotProps) => (
+                          <MoonPhaseIcon
+                            {...dotProps}
+                            illumination={moon.illumination}
+                            waxing={moon.waxing}
+                            tone={p.type}
+                          />
+                        )}
+                      />
+                    );
+                  })}
                 </ComposedChart>
               </ResponsiveContainer>
               {isApproximate && (
@@ -451,7 +591,10 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
           {/* Solunar feeding periods */}
           {(solunar.major.length > 0 || solunar.minor.length > 0) && (
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Solunar Feeding Times</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 4, display: "flex", alignItems: "center" }}>
+                Solunar Feeding Times
+                <SolunarHelpPopover />
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>Major</div>
@@ -473,7 +616,19 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
     </div>
   );
 
-  return ReactDOM.createPortal(popup, document.body);
+  return (
+    <>
+      {ReactDOM.createPortal(popup, document.body)}
+      {showHourlyFromTide && forecastHourlyUrl && (
+        <HourlyWeatherPopup
+          forecastHourlyUrl={forecastHourlyUrl}
+          date={date}
+          label={label}
+          onClose={() => setShowHourlyFromTide(false)}
+        />
+      )}
+    </>
+  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -723,10 +878,10 @@ export default function ForecastCard({
           locationLabel={locationLabel}
           isToday={isToday}
           dailyTides={dailyTides}
-          dailySunData={dailySunData}
           nws={nws}
           lat={lat}
           lon={lon}
+          forecastHourlyUrl={forecastHourlyUrl}
           onClose={() => setShowTideDetail(false)}
         />
       )}
