@@ -3304,8 +3304,11 @@ export default function SSTHeatmapLeaflet(props) {
     // the coastline/other wrecks instead of zooming in with nothing else on
     // screen. 10 sits a bit tighter than the region's own whole-region
     // default zoom (defaultZoom in regionConfig.js runs 6.5-7.5) -- Jon's
-    // preferred framing after trying 13/7/9.
-    const targetZoom = 10;
+    // preferred framing after trying 13/7/9. Mobile gets one step wider (9)
+    // -- a narrow phone viewport shows proportionally less geography at the
+    // same numeric zoom level than a wide desktop window, so the identical
+    // zoom value reads as "more zoomed in" on mobile.
+    const targetZoom = isDesktop ? 10 : 9;
     const centerLatLng = safeZoneFlyTarget(map, lat, lon, targetZoom);
     // Instant setView, not an animated flyTo. Leaflet re-applies its own
     // maxBounds/minZoom constraints (recomputed by the SST/CHL data-layer
