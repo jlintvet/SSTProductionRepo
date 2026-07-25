@@ -1829,11 +1829,13 @@ export default function SSTHeatmapLeaflet(props) {
   const isWindMap  = activeDataLayer === "windmap";
   const windActive = showWindOverlay || isWindMap;
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 640);
+  const isDesktopRef = useRef(isDesktop);
   useEffect(() => {
     const handler = () => setIsDesktop(window.innerWidth >= 640);
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
   }, []);
+  useEffect(() => { isDesktopRef.current = isDesktop; }, [isDesktop]);
 
   useEffect(() => {
     if (!savedLocations) return;
@@ -3220,8 +3222,22 @@ export default function SSTHeatmapLeaflet(props) {
         // Click opens a persistent detail card (coordinates + up to 3
         // moderated photos); hover keeps the lightweight preview tooltip.
         setHoveredWreck(null);
-        const containerPt = map.latLngToContainerPoint(e.latlng);
-        setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
+        if (!isDesktopRef.current) {
+          // Mobile: pan the tapped marker into the same top-of-screen safe
+          // zone the search flow uses, at the map's current zoom (no zoom
+          // change on a plain click). Tapping a marker near a screen edge
+          // could otherwise leave the card's left/right flip-and-clamp
+          // logic with nowhere to go but back over the marker.
+          const centerLatLng = safeZoneFlyTarget(map, lat, lon, map.getZoom());
+          map.once("moveend", () => {
+            const containerPt = map.latLngToContainerPoint([lat, lon]);
+            setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
+          });
+          map.flyTo(centerLatLng, map.getZoom(), { duration: 0.4 });
+        } else {
+          const containerPt = map.latLngToContainerPoint(e.latlng);
+          setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
+        }
       });
       m.on("mouseout", () => {
         setHoveredWreck(null);
@@ -3267,6 +3283,24 @@ export default function SSTHeatmapLeaflet(props) {
     }, 5000);
   }
 
+  // Computes a flyTo target that lands (lat,lon) in the upper third of the
+  // viewport at the given zoom, horizontally centered, instead of dead
+  // center or wherever it happened to be tapped. Leaves the bottom ~65% of
+  // the screen clear for the wreck detail card, which anchors near the
+  // marker's post-fly screen position -- this replaced an earlier
+  // left-third horizontal offset after Jon reported the card still landing
+  // over the marker: "move target so it lands the marker in the top 50% of
+  // the screen instead of left third, so the detail card has guaranteed
+  // room to open below it." Shared by both the search flow and the plain
+  // marker click (mobile only for click -- see the click handler above).
+  function safeZoneFlyTarget(map, lat, lon, zoom) {
+    const size = map.getSize();
+    const topFraction = 0.3; // marker lands 30% down from the top of the screen
+    const targetPt = map.project([lat, lon], zoom);
+    const centerPt = targetPt.add([0, size.y * (0.5 - topFraction)]);
+    return map.unproject(centerPt, zoom);
+  }
+
   function selectWreckSearchResult(f) {
     const map = mapRef.current; if (!map) return;
     const [lon, lat] = f.geometry.coordinates;
@@ -3279,24 +3313,18 @@ export default function SSTHeatmapLeaflet(props) {
     // default zoom (defaultZoom in regionConfig.js runs 6.5-7.5) -- Jon's
     // preferred framing after trying 13/7/9.
     const targetZoom = 10;
-    // Center the marker toward the left of the viewport instead of dead
-    // center. A plain flyTo([lat,lon]) put the marker at the exact
-    // horizontal midpoint, and the 232px-wide detail card's left/right
-    // "flip if it'd run off screen" logic had nowhere to go on narrow
-    // mobile viewports -- clamped back on-screen, the card ended up
-    // spanning across the marker's own x position, burying the pulsing
-    // highlight ring under it. Projecting/unprojecting at the target zoom
-    // (independent of the map's current view) lets us pick a flyTo target
-    // that lands the marker near the left third of the screen instead,
-    // guaranteeing room for the card to open beside it on any screen width.
-    const size = map.getSize();
-    const leftMargin = Math.min(70, size.x * 0.2);
-    const targetPt = map.project([lat, lon], targetZoom);
-    const centerPt = targetPt.add([size.x / 2 - leftMargin, 0]);
-    const centerLatLng = map.unproject(centerPt, targetZoom);
+    const centerLatLng = safeZoneFlyTarget(map, lat, lon, targetZoom);
     map.once("moveend", () => {
       const containerPt = map.latLngToContainerPoint([lat, lon]);
       setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
+      // Collapse the mobile Tools drawer only now, after the flyTo has
+      // fully settled. Collapsing it eagerly (the old order, from
+      // runWreckSearch) shrank the map container's height mid-animation on
+      // mobile -- the resulting ResizeObserver -> invalidateSize() call
+      // could interrupt the in-flight zoom animation, so the map didn't
+      // reliably land on zoom 10 on mobile the way it did on desktop
+      // (where nothing resizes when a search runs).
+      setMobilePanel(null);
     });
     map.flyTo(centerLatLng, targetZoom, { duration: 0.6 });
   }
@@ -3305,9 +3333,8 @@ export default function SSTHeatmapLeaflet(props) {
     const q = term.trim().toLowerCase();
     setWreckSearchIndex(0);
     if (!q) { setWreckSearchResults([]); setWreckSearchMsg(null); return; }
-    setMobilePanel(null);
     setShowWreckSearchBar(true);
-    if (!wrecksData) { setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading — try again in a moment."); return; }
+    if (!wrecksData) { setMobilePanel(null); setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading — try again in a moment."); return; }
     const matches = wrecksData.features.filter(f => {
       const props = f.properties || {};
       const name = (props.name ?? "").trim();
@@ -3332,6 +3359,7 @@ export default function SSTHeatmapLeaflet(props) {
       setWreckSearchMsg(null);
       selectWreckSearchResult(inBounds[0]);
     } else if (outOfBounds.length > 0) {
+      setMobilePanel(null);
       setWreckSearchResults([]);
       const regionLabels = new Set();
       outOfBounds.forEach(f => {
@@ -3344,6 +3372,7 @@ export default function SSTHeatmapLeaflet(props) {
       const labelText = regionLabels.size ? [...regionLabels].join(", ") : "another region";
       setWreckSearchMsg(`Not found in this region — found in ${labelText}.`);
     } else {
+      setMobilePanel(null);
       setWreckSearchResults([]);
       setWreckSearchMsg(`No bottom feature found matching "${term.trim()}".`);
     }
