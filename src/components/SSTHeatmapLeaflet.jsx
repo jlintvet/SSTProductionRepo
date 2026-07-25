@@ -3279,10 +3279,10 @@ export default function SSTHeatmapLeaflet(props) {
     });
     // Fixed zoom (not map.getMaxZoom()) so the result stays oriented against
     // the coastline/other wrecks instead of zooming in with nothing else on
-    // screen. 7 is close to the region's own whole-region default zoom
-    // (defaultZoom in regionConfig.js runs 6.5-7.5) -- Jon wants the result
-    // framed against the whole coastline, not a tight neighborhood view.
-    map.flyTo([lat, lon], 7, { duration: 0.6 });
+    // screen. 9 sits a couple steps in from the region's own whole-region
+    // default zoom (defaultZoom in regionConfig.js runs 6.5-7.5) -- tighter
+    // framing than 7 while still keeping the coastline in view.
+    map.flyTo([lat, lon], 9, { duration: 0.6 });
   }
 
   function runWreckSearch(term) {
