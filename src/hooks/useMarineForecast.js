@@ -35,11 +35,16 @@
 //   const hours = await fetchHourlyForecast(data.forecastHourlyUrl, "2026-06-07");
 //   // hours: array of { hour, temp, precip, wind, forecast } for that date
 //
-// Tide curve for the tide detail popup — synthesized locally from hi/lo
-// points, NOT fetched (see "Tide curve synthesis" section below for why):
-//   import { buildTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
-//   const curve = buildTideCurve(extrema, dayStartMs, dayEndMs);
-//   // curve: array of { x: number (ms epoch), v: number (ft) }
+// Tide curve for the tide detail popup — tries a real NOAA 6-minute fetch
+// first (only reference stations publish this), and falls back to a local
+// synthesis from hi/lo points for subordinate stations that don't:
+//   import { fetchTideCurve, buildTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
+//   try {
+//     const curve = await fetchTideCurve(data.tideStation, "2026-06-07"); // real NOAA curve
+//   } catch {
+//     const curve = buildTideCurve(extrema, dayStartMs, dayEndMs); // synthesized fallback
+//   }
+//   // curve: array of { x: number (ms epoch), v: number (ft) } either way
 //   const moon = getMoonPhase(new Date());
 //   // moon: { fraction, illumination, waxing }
 
@@ -386,6 +391,10 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 // Hourly cache: keyed by `${forecastHourlyUrl}::${date}`
 const hourlyCache = new Map();
 
+// Tide curve cache: keyed by `${stationId}::${date}` — real NOAA 6-minute
+// water-level points for the tide detail popup chart, when available.
+const tideCurveCache = new Map();
+
 // Tide backup: a rolling 60-day window of hi/lo predictions for every
 // departure-location tide station, computed independently of NOAA's live
 // predictions/datagetter service (see tide_predictions_backup.py in the
@@ -612,6 +621,54 @@ export async function fetchHourlyForecast(forecastHourlyUrl, date) {
 
   hourlyCache.set(cacheKey, hours);
   return hours;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Real tide curve fetch — exported for use in the tide detail popup
+// ─────────────────────────────────────────────────────────────────────────────
+// Only works for NOAA "reference" stations, which publish harmonic
+// constituents and support the high-resolution predictions/datagetter
+// endpoint. "Subordinate" stations (offset-derived from a nearby reference
+// station — confirmed via the mdapi stations endpoint's "type" field, "R"
+// vs "S") don't have this data; NOAA returns HTTP 200 with a body of
+// {"error":{"message":"No Predictions data was found..."}} for those rather
+// than a non-200 status, so the error has to be detected by inspecting the
+// body, not res.ok. Callers should catch and fall back to buildTideCurve()
+// below for stations this fails on. Cached per station+date since the
+// result never changes once fetched.
+
+export async function fetchTideCurve(stationId, date) {
+  if (!stationId) throw new Error("No tide station available");
+
+  const cacheKey = `${stationId}::${date}`;
+  if (tideCurveCache.has(cacheKey)) return tideCurveCache.get(cacheKey);
+
+  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter` +
+    `?station=${stationId}` +
+    `&begin_date=${date}` +
+    `&end_date=${date}` +
+    `&product=predictions` +
+    `&datum=mllw` +
+    `&time_zone=lst_ldt` +
+    `&interval=6` +
+    `&units=english` +
+    `&format=json`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`tide curve HTTP ${res.status}`);
+  const json = await res.json();
+
+  if (json.error) throw new Error(json.error.message ?? "No tide curve data for this station");
+  const predictions = json.predictions ?? [];
+  if (!predictions.length) throw new Error("Empty tide curve response");
+
+  const points = predictions.map(p => ({
+    x: new Date(p.t.replace(" ", "T")).getTime(),
+    v: parseFloat(p.v),
+  }));
+
+  tideCurveCache.set(cacheKey, points);
+  return points;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, ReferenceArea, ReferenceLine } from "recharts";
-import { fetchHourlyForecast, buildTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
+import { fetchHourlyForecast, fetchTideCurve, buildTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
 import ShareForecastDialog from "@/components/weather/ShareForecastDialog";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -201,13 +201,16 @@ function HourlyWeatherPopup({ forecastHourlyUrl, date, label, onClose }) {
 }
 
 // ── Tide detail popup ─────────────────────────────────────────────────────────
-// Same portal pattern as HourlyWeatherPopup above. Draws a smooth tide curve
-// synthesized locally from the hi/lo points already in tideData (see
-// buildTideCurve's doc comment in useMarineForecast.js for why this isn't a
-// live NOAA fetch), shades the pre-sunrise/post-sunset hours using that
-// day's sun data, and — for today's card only — marks the current
-// interpolated tide height with a reference line. Low/High tide lists reuse
-// the same dailyTides array ForecastCard already computed for the summary view.
+// Same portal pattern as HourlyWeatherPopup above. Tries a real NOAA
+// 6-minute curve first (fetchTideCurve — only works for "reference"
+// stations) and falls back to a curve synthesized locally from the hi/lo
+// points in tideData (buildTideCurve — works everywhere) when NOAA has no
+// high-resolution data for this station's type. See both functions' doc
+// comments in useMarineForecast.js. Shades the pre-sunrise/post-sunset
+// hours using that day's sun data, and — for today's card only — marks the
+// current interpolated tide height with a reference line. Low/High tide
+// lists reuse the same dailyTides array ForecastCard already computed for
+// the summary view.
 
 function formatHourTick(ms) {
   const d = new Date(ms);
@@ -233,7 +236,7 @@ function interpolateNow(points) {
   return null;
 }
 
-function TideDetailPopup({ tideData, date, label, locationLabel, isToday, dailyTides, dailySunData, nws, onClose }) {
+function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isToday, dailyTides, dailySunData, nws, onClose }) {
   const moon = getMoonPhase(moment(date, "YYYY-MM-DD").toDate());
 
   const dayStart  = moment(date, "YYYY-MM-DD").startOf("day").valueOf();
@@ -242,17 +245,44 @@ function TideDetailPopup({ tideData, date, label, locationLabel, isToday, dailyT
   const sunsetMs  = dailySunData?.sunset  ? new Date(dailySunData.sunset).getTime()  : null;
   const hourTicks = Array.from({ length: 12 }, (_, i) => dayStart + i * 2 * 3600000);
 
-  // Curve is synthesized from hi/lo points, not fetched — see buildTideCurve's
-  // doc comment in useMarineForecast.js. Bracket the day with the prior day's
-  // last extremum and the next day's first extremum so the curve interpolates
-  // correctly across midnight instead of flatlining at the edges.
+  // Fallback curve if NOAA has no real high-resolution data for this
+  // station (see fetchTideCurve's doc comment in useMarineForecast.js).
+  // Bracket the day with the prior day's last extremum and the next day's
+  // first extremum so it interpolates correctly across midnight instead of
+  // flatlining at the edges.
   const prevDate = moment(date, "YYYY-MM-DD").subtract(1, "day").format("YYYY-MM-DD");
   const nextDate = moment(date, "YYYY-MM-DD").add(1, "day").format("YYYY-MM-DD");
   const prevExtremum = (tideData?.[prevDate] ?? []).slice(-1);
   const nextExtremum = (tideData?.[nextDate] ?? []).slice(0, 1);
   const extrema = [...prevExtremum, ...(dailyTides ?? []), ...nextExtremum];
 
-  const chartData = buildTideCurve(extrema, dayStart, dayEnd);
+  const [loading, setLoading]         = useState(true);
+  const [chartData, setChartData]     = useState([]);
+  const [isApproximate, setIsApprox]  = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchTideCurve(stationId, date)
+      .then(points => {
+        if (cancelled) return;
+        setChartData(points);
+        setIsApprox(false);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setChartData(buildTideCurve(extrema, dayStart, dayEnd));
+        setIsApprox(true);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+    // extrema/dayStart/dayEnd are derived from props that don't change while
+    // this popup instance is open, so stationId+date fully capture "when to
+    // refetch" here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationId, date]);
+
   const now = isToday ? interpolateNow(chartData) : null;
 
   const lowTides  = (dailyTides ?? []).filter(t => t.type === "Low");
@@ -319,16 +349,22 @@ function TideDetailPopup({ tideData, date, label, locationLabel, isToday, dailyT
             )}
           </div>
 
-          {chartData.length === 0 && (
+          {loading && (
+            <div style={{ textAlign: "center", padding: "24px 0", color: "#94a3b8", fontSize: 13 }}>
+              Loading tide curve…
+            </div>
+          )}
+
+          {!loading && chartData.length === 0 && (
             <div style={{ textAlign: "center", padding: "24px 0", color: "#94a3b8", fontSize: 13 }}>
               No tide curve data available for this date.
             </div>
           )}
 
-          {chartData.length > 0 && (
+          {!loading && chartData.length > 0 && (
             <div style={{ width: "100%", height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 14, right: 10, left: -18, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 14, right: 6, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="tideFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#0891b2" stopOpacity={0.25} />
@@ -351,8 +387,8 @@ function TideDetailPopup({ tideData, date, label, locationLabel, isToday, dailyT
                   <YAxis
                     tick={{ fontSize: 10, fill: "#94a3b8" }}
                     axisLine={false} tickLine={false}
-                    tickFormatter={v => `${v}ft`}
-                    width={40}
+                    tickFormatter={v => `${v.toFixed(1)}ft`}
+                    width={38}
                   />
                   <Area type="monotone" dataKey="v" stroke="#0891b2" strokeWidth={2} fill="url(#tideFill)" dot={false} isAnimationActive={false} />
                   {now && (
@@ -366,6 +402,11 @@ function TideDetailPopup({ tideData, date, label, locationLabel, isToday, dailyT
                   )}
                 </ComposedChart>
               </ResponsiveContainer>
+              {isApproximate && (
+                <p style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", marginTop: 2 }}>
+                  Approximate curve — NOAA doesn't publish high-resolution data for this station.
+                </p>
+              )}
             </div>
           )}
 
@@ -637,6 +678,7 @@ export default function ForecastCard({
       {/* Tide detail popup portal */}
       {showTideDetail && tideStation && (
         <TideDetailPopup
+          stationId={tideStation}
           tideData={tideData}
           date={forecastDate}
           label={forecast.period.replace(" Of ", " of ")}
