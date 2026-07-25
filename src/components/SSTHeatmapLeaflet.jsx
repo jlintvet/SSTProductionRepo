@@ -3273,16 +3273,32 @@ export default function SSTHeatmapLeaflet(props) {
     const props = f.properties || {};
     const fKey = `${(props.name ?? "").trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
     showWreckHighlight(lat, lon);
-    map.once("moveend", () => {
-      const containerPt = map.latLngToContainerPoint([lat, lon]);
-      setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
-    });
     // Fixed zoom (not map.getMaxZoom()) so the result stays oriented against
     // the coastline/other wrecks instead of zooming in with nothing else on
     // screen. 10 sits a bit tighter than the region's own whole-region
     // default zoom (defaultZoom in regionConfig.js runs 6.5-7.5) -- Jon's
     // preferred framing after trying 13/7/9.
-    map.flyTo([lat, lon], 10, { duration: 0.6 });
+    const targetZoom = 10;
+    // Center the marker toward the left of the viewport instead of dead
+    // center. A plain flyTo([lat,lon]) put the marker at the exact
+    // horizontal midpoint, and the 232px-wide detail card's left/right
+    // "flip if it'd run off screen" logic had nowhere to go on narrow
+    // mobile viewports -- clamped back on-screen, the card ended up
+    // spanning across the marker's own x position, burying the pulsing
+    // highlight ring under it. Projecting/unprojecting at the target zoom
+    // (independent of the map's current view) lets us pick a flyTo target
+    // that lands the marker near the left third of the screen instead,
+    // guaranteeing room for the card to open beside it on any screen width.
+    const size = map.getSize();
+    const leftMargin = Math.min(70, size.x * 0.2);
+    const targetPt = map.project([lat, lon], targetZoom);
+    const centerPt = targetPt.add([size.x / 2 - leftMargin, 0]);
+    const centerLatLng = map.unproject(centerPt, targetZoom);
+    map.once("moveend", () => {
+      const containerPt = map.latLngToContainerPoint([lat, lon]);
+      setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
+    });
+    map.flyTo(centerLatLng, targetZoom, { duration: 0.6 });
   }
 
   function runWreckSearch(term) {
