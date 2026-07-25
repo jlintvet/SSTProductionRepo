@@ -532,7 +532,14 @@ Edit `DailySST/wrecks.json` directly. Each feature follows this structure:
 
 ### Frontend fetch
 URL: `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/wrecks.json`
-Fetched once on first toggle of the Bottom Features tool (`showWrecks`). Filtered to `regionBounds` and by `loc.wreckRegion` (from the selected departure location).
+Fetched once on first toggle of the Bottom Features tool (`showWrecks`). Filtered to `regionBounds` only — as of `d4b651c` (2026-07-17) the `region`/`wreckRegion` field is organizational/display metadata only, not a per-port visibility filter; every feature inside the current region's bounds renders regardless of which port it's tagged under.
+
+### Marker clustering + the `maxZoom` requirement it imposes
+
+Wreck/structure markers render through `L.markerClusterGroup` (`disableClusteringAtZoom: 13`, `maxClusterRadius: 55`, added `2ed7b3f`, 2026-07-22), not a plain `L.layerGroup`. `leaflet.markercluster` throws `"Map has no maxZoom specified"` if built against a map with an unset (`Infinity`) `maxZoom` — this map's `maxZoom` was historically only set later, inside `applyFillZoom` (see `docs/map_viewport_nuances.md` section 4), which permanently no-ops once `sstReadyRef.current` is true and could be skipped entirely on a fast/cache-warm load, especially in GL-basemap mode (the non-GL fallback tile layer's own `maxZoom: 19` accidentally covered for it). Fixed by passing `maxZoom: 20` directly in the `L.map()` constructor options so the map is never in the unset state — full writeup in `docs/map_viewport_nuances.md` section 9.1.
+
+### Bottom-feature name search
+Substring, case-insensitive search over the already-loaded `wrecksData.features` (no new fetch), with cross-region messaging and same-name cycling. Selecting a result repositions the map with a synchronous `map.setView` (not an animated `flyTo` — see `docs/map_viewport_nuances.md` section 9.2 for why) to a fixed zoom (10 desktop / 9 mobile) and an offset target that lands the marker in the screen's top ~30%, leaving room for the detail card to open below it. Full feature writeup: `docs/map_control_panel.md`, "Bottom feature name search."
 
 ### `_build_grid` — elevation-sign land mask + morphological opening
 
