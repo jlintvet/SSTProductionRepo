@@ -3218,14 +3218,17 @@ export default function SSTHeatmapLeaflet(props) {
           return;
         }
         // Click opens a persistent detail card (coordinates + up to 3
-        // moderated photos); hover keeps the lightweight preview tooltip.
-        // The map never moves for a plain click -- only the card itself
-        // repositions to avoid the marker (see the above/below flip logic
-        // in the selectedWreck render block below). An earlier version
-        // panned the map on mobile to guarantee card clearance; Jon
-        // reported that was disorienting on its own ("the display moves"
-        // when you're just trying to look at a pin), so the fix belongs
-        // entirely in the card's own layout math instead.
+        // moderated photos), replacing the lightweight hover tooltip --
+        // must explicitly clear hoveredWreck here or the tooltip (set by
+        // the mouseover/tap-preview above) stays visible stacked on top of
+        // the card. The map never moves for a plain click -- only the card
+        // itself repositions to avoid the marker (see the above/below flip
+        // logic in the selectedWreck render block below). An earlier
+        // version panned the map on mobile to guarantee card clearance;
+        // Jon reported that was disorienting on its own ("the display
+        // moves" when you're just trying to look at a pin), so the fix
+        // belongs entirely in the card's own layout math instead.
+        setHoveredWreck(null);
         const containerPt = map.latLngToContainerPoint(e.latlng);
         setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
       });
