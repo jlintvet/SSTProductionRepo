@@ -3278,11 +3278,11 @@ export default function SSTHeatmapLeaflet(props) {
       setSelectedWreck({ props, lat, lon, fKey, px: containerPt.x, py: containerPt.y });
     });
     // Fixed zoom (not map.getMaxZoom()) so the result stays oriented against
-    // the coastline/other wrecks instead of zooming in to street-level with
-    // nothing else on screen. 13 matches disableClusteringAtZoom so the pin
-    // also un-clusters in GL mode; Leaflet clamps to the real ceiling (12 in
-    // non-GL mode) automatically if that's lower.
-    map.flyTo([lat, lon], 13, { duration: 0.6 });
+    // the coastline/other wrecks instead of zooming in with nothing else on
+    // screen. 7 is close to the region's own whole-region default zoom
+    // (defaultZoom in regionConfig.js runs 6.5-7.5) -- Jon wants the result
+    // framed against the whole coastline, not a tight neighborhood view.
+    map.flyTo([lat, lon], 7, { duration: 0.6 });
   }
 
   function runWreckSearch(term) {
