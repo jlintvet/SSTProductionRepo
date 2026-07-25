@@ -905,7 +905,21 @@ document.getElementById('photoSection').addEventListener('click',e=>{
 initMap();
 loadFeatures();
 loadBathy();
-checkPhotoAuth();
+if (window.parent !== window) {
+  window.addEventListener('message', (ev) => {
+    if (!ev.data || ev.data.type !== 'SST_ADMIN_SESSION') return;
+    if (typeof ev.data.ghToken === 'string') {
+      const ti = document.getElementById('tokenInput');
+      if (ti) ti.value = ev.data.ghToken;
+    }
+    if (ev.data.session) {
+      sb.auth.setSession(ev.data.session).then(() => { checkPhotoAuth(); });
+    }
+  });
+  window.parent.postMessage({ type: 'SST_ADMIN_READY' }, '*');
+} else {
+  checkPhotoAuth();
+}
 </script>
 </body>
 </html>

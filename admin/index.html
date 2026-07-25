@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SST Admin Hub</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:#0f172a; color:#e2e8f0; }
+#authScreen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0f172a; z-index:9999; }
+.auth-box { background:#1e293b; border:1px solid #334155; border-radius:14px; padding:28px; width:340px; }
+.auth-box h2 { margin:0 0 4px; font-size:18px; }
+.auth-box p { margin:0 0 16px; font-size:12px; color:#94a3b8; }
+.auth-err { color:#f87171; font-size:12px; min-height:16px; margin-top:8px; text-align:center; }
+.finput { background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px; padding:7px 9px; width:100%; }
+.flabel { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; margin-top:10px; }
+.btn { border:none; border-radius:8px; padding:6px 13px; font-size:12px; font-weight:600; cursor:pointer; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.btn-blue { background:#2563eb; color:#fff; }
+.btn-slate { background:#334155; color:#e2e8f0; } .btn-slate:hover { background:#475569; }
+#app { display:none; flex-direction:column; height:100vh; }
+#topbar { display:flex; align-items:center; gap:10px; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155; flex-wrap:wrap; flex-shrink:0; }
+#topbar h1 { font-size:14px; font-weight:700; margin:0 10px 0 0; white-space:nowrap; }
+.pill { background:#334155; border-radius:999px; padding:4px 11px; font-size:11px; font-weight:600; color:#cbd5e1; white-space:nowrap; }
+#tokenRow { display:flex; align-items:center; gap:6px; margin-left:auto; }
+#tokenRow input { background:#0f172a; border:1px solid #334155; border-radius:6px; color:#e2e8f0; font-size:12px; padding:5px 8px; width:220px; }
+#tokenRow input::placeholder { color:#64748b; }
+#tabBar { display:flex; gap:4px; padding:8px 14px 0; background:#0f172a; border-bottom:1px solid #1e293b; flex-shrink:0; }
+.tab-btn { background:transparent; border:none; border-bottom:2px solid transparent; color:#94a3b8; font-size:13px; font-weight:600; padding:8px 14px; cursor:pointer; }
+.tab-btn:hover { color:#e2e8f0; }
+.tab-btn.active { color:#e2e8f0; border-bottom-color:#2563eb; }
+#frames { flex:1; position:relative; overflow:hidden; }
+.tab-frame-wrap { position:absolute; inset:0; display:none; }
+.tab-frame-wrap.visible { display:block; }
+.tab-frame-wrap iframe { width:100%; height:100%; border:none; background:#0f172a; }
+.frame-placeholder { display:flex; align-items:center; justify-content:center; height:100%; color:#64748b; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div id="authScreen">
+  <div class="auth-box">
+    <h2>SST Admin Hub</h2>
+    <p>Sign in once to access all admin tools.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div><div class="flabel" style="margin-top:0">Email</div><input id="authEmail" class="finput" type="email" autocomplete="email"/></div>
+      <div><div class="flabel" style="margin-top:0">Password</div><input id="authPass" class="finput" type="password" autocomplete="current-password"/></div>
+      <button class="btn btn-blue" onclick="doLogin()" style="margin-top:8px">Sign In</button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <h1>SST Admin</h1>
+    <div class="pill" id="sessionPill">— </div>
+    <div id="tokenRow">
+      <span style="font-size:11px;color:#64748b">GitHub token</span>
+      <input id="ghTokenInput" type="password" placeholder="session only, not saved to disk" autocomplete="off"/>
+      <button class="btn btn-slate" onclick="doSignOut()">Sign Out</button>
+    </div>
+  </div>
+  <div id="tabBar"></div>
+  <div id="frames"></div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────
+const SB_URL   = 'https://upxerlzdgdbjkbjpuktn.supabase.co';
+const SB_ANON  = 'sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
+const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
+const sb = supabase.createClient(SB_URL, SB_ANON);
+
+// Each child file gets a session (so it can auto-skip its own login screen)
+// and, where relevant, the shared GitHub token (so "Commit to GitHub" works
+// without re-entering it per tab). fish_tuner.html needs neither -- it has
+// no auth and no write-back path (it only exports a local file for manual
+// commit), so it's just iframed as-is.
+const TABS = [
+  { id: 'users',     label: 'Users',           src: 'user_admin.html',            needsSession: true,  needsToken: false },
+  { id: 'community', label: 'Community',       src: 'community_admin.html',       needsSession: true,  needsToken: true  },
+  { id: 'bottom',    label: 'Bottom Features',  src: 'bottom_features_admin.html', needsSession: true,  needsToken: true  },
+  { id: 'announce',  label: 'Announcements',    src: 'announcements_admin.html',   needsSession: true,  needsToken: false },
+  { id: 'fish',      label: 'Fish Tuner',       src: 'fish_tuner.html',            needsSession: false, needsToken: false },
+];
+
+let currentSession = null;
+let ghToken = '';
+let activeTab = null;
+const loadedTabs = new Set();
+
+function $(id) { return document.getElementById(id); }
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = $('authEmail').value.trim();
+  const pass  = $('authPass').value;
+  const err   = $('authErr'); err.textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { err.textContent = error.message; return; }
+  if (!ADMIN_EMAILS.includes(data.user.email)) { await sb.auth.signOut(); err.textContent = 'Not an admin account.'; return; }
+  showApp();
+}
+async function doSignOut() { await sb.auth.signOut(); location.reload(); }
+async function checkExistingSession() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (user && ADMIN_EMAILS.includes(user.email)) showApp();
+}
+async function showApp() {
+  const { data: { session } } = await sb.auth.getSession();
+  currentSession = session;
+  $('authScreen').style.display = 'none';
+  $('app').style.display = 'flex';
+  $('sessionPill').textContent = session.user.email;
+  buildTabs();
+  selectTab(TABS[0].id);
+}
+$('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+function buildTabs() {
+  const bar = $('tabBar');
+  const frames = $('frames');
+  bar.innerHTML = '';
+  frames.innerHTML = '';
+  TABS.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn';
+    btn.textContent = t.label;
+    btn.dataset.tab = t.id;
+    btn.onclick = () => selectTab(t.id);
+    bar.appendChild(btn);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'tab-frame-wrap';
+    wrap.dataset.tab = t.id;
+    wrap.innerHTML = '<div class="frame-placeholder">Loading ' + t.label + '…</div>';
+    frames.appendChild(wrap);
+  });
+}
+
+function selectTab(id) {
+  activeTab = id;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.tab-frame-wrap').forEach(w => w.classList.toggle('visible', w.dataset.tab === id));
+  ensureLoaded(id);
+}
+
+function ensureLoaded(id) {
+  if (loadedTabs.has(id)) return;
+  loadedTabs.add(id);
+  const tab = TABS.find(t => t.id === id);
+  const wrap = document.querySelector('.tab-frame-wrap[data-tab="' + id + '"]');
+  const iframe = document.createElement('iframe');
+  iframe.id = 'frame-' + id;
+  iframe.src = tab.src;
+  wrap.innerHTML = '';
+  wrap.appendChild(iframe);
+}
+
+// ── Session / token relay ───────────────────────────────────────────────────
+// Child tools each expose their own login screen when opened standalone.
+// When opened inside this hub, they announce readiness (SST_ADMIN_READY)
+// and we hand them the already-authenticated session (and GitHub token,
+// where relevant) via postMessage so they skip that screen automatically.
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (!d || d.type !== 'SST_ADMIN_READY') return;
+  const tab = TABS.find(t => {
+    const f = document.getElementById('frame-' + t.id);
+    return f && f.contentWindow === ev.source;
+  });
+  if (tab) relayToTab(tab);
+});
+
+function relayToTab(tab) {
+  const iframe = document.getElementById('frame-' + tab.id);
+  if (!iframe || !iframe.contentWindow) return;
+  const payload = { type: 'SST_ADMIN_SESSION' };
+  if (tab.needsSession && currentSession) {
+    payload.session = { access_token: currentSession.access_token, refresh_token: currentSession.refresh_token };
+  }
+  if (tab.needsToken) payload.ghToken = ghToken;
+  iframe.contentWindow.postMessage(payload, '*');
+}
+
+$('ghTokenInput').addEventListener('input', () => {
+  ghToken = $('ghTokenInput').value.trim();
+  TABS.filter(t => t.needsToken && loadedTabs.has(t.id)).forEach(relayToTab);
+});
+
+checkExistingSession();
+</script>
+</body>
+</html>

@@ -558,7 +558,19 @@ async function loadFeedback(announcementId) {
   `).join('');
 }
 
-checkExistingSession();
+if (window.parent !== window) {
+  window.addEventListener('message', (ev) => {
+    if (!ev.data || ev.data.type !== 'SST_ADMIN_SESSION') return;
+    if (ev.data.session) {
+      sb.auth.setSession(ev.data.session).then(({ data }) => {
+        if (data.user && ADMIN_EMAILS.includes(data.user.email)) showApp();
+      });
+    }
+  });
+  window.parent.postMessage({ type: 'SST_ADMIN_READY' }, '*');
+} else {
+  checkExistingSession();
+}
 </script>
 </body>
 </html>
