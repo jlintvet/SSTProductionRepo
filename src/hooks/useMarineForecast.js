@@ -47,6 +47,11 @@
 //   // curve: array of { x: number (ms epoch), v: number (ft) } either way
 //   const moon = getMoonPhase(new Date());
 //   // moon: { fraction, illumination, waxing }
+//
+// Fishing-relevant moon context for the tide detail popup:
+//   import { getTideStrength, getSolunarPeriods } from "@/hooks/useMarineForecast";
+//   const strength = getTideStrength(new Date());        // { label, note } -- spring/neap
+//   const solunar  = getSolunarPeriods("2026-06-07", lat, lon); // { major: [...], minor: [...] }
 
 import { useCallback, useEffect, useState } from "react";
 import moment from "moment";
@@ -761,6 +766,105 @@ export function getMoonPhase(date) {
     fraction,
     illumination: fraction,
     waxing: phase < 0.5,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tide strength (spring/neap) — exported for use in the tide detail popup
+// ─────────────────────────────────────────────────────────────────────────────
+// Spring tides (bigger swings, stronger currents) occur around new and full
+// moon, when the sun's and moon's tidal pulls align; neap tides (smaller
+// swings, weaker currents) occur around the quarter moons, when the two
+// pulls partially cancel. This is a coarse phase-based classification, not a
+// per-station tidal-range calculation — most of this app's stations don't
+// publish the harmonic constituents that would be needed for that (see
+// fetchTideCurve's doc comment above). It answers "why does today's tide
+// chart look the way it does" rather than predicting an exact range.
+//
+// Returns { label, note }:
+//   label — "Spring Tide" | "Neap Tide" | "Moderate Tide"
+//   note  — one-line explanation for display under the label
+
+export function getTideStrength(date) {
+  const { phase } = SunCalc.getMoonIllumination(date);
+  const distToSpring = Math.min(phase, Math.abs(phase - 0.5), Math.abs(phase - 1));
+  const distToNeap   = Math.min(Math.abs(phase - 0.25), Math.abs(phase - 0.75));
+
+  if (distToSpring <= 0.08) {
+    return { label: "Spring Tide", note: "New/full moon — stronger currents, bigger swings" };
+  }
+  if (distToNeap <= 0.08) {
+    return { label: "Neap Tide", note: "Quarter moon — weaker currents, smaller swings" };
+  }
+  return { label: "Moderate Tide", note: "Between spring and neap" };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Solunar feeding periods — exported for use in the tide detail popup
+// ─────────────────────────────────────────────────────────────────────────────
+// Classic solunar theory (J. Alden Knight's tables): fish activity tends to
+// peak around 4 daily windows tied to the moon's position relative to the
+// observer — 2 "major" periods (~2hrs, centered on the moon crossing the
+// meridian overhead and underfoot) and 2 "minor" periods (~1hr, centered on
+// moonrise and moonset).
+//
+// SunCalc exposes moonrise/moonset (getMoonTimes) directly, covering the
+// minor periods. It doesn't expose transit (culmination) times, so upper
+// transit is found by sampling getMoonPosition's altitude across the day and
+// taking the time of peak altitude; lower transit (underfoot) is derived as
+// half the moon's ~24h50m cycle (12h25m) from upper transit, taking whichever
+// of the two candidates (before/after) falls in this calendar day. This is
+// an approximation — true lower transit can drift a few minutes from this
+// due to declination change over the day — but well within the multi-hour
+// granularity solunar windows use.
+//
+// Returns { major: [{start,end}, ...], minor: [{start,end}, ...] } as
+// epoch-ms windows, each array holding at most 2 entries for the day
+// (fewer if the moon doesn't transit/rise/set within the sampled window).
+
+const LUNAR_DAY_MS = 24.8412 * 3600000; // moon's average time between successive upper transits
+
+function findMoonUpperTransit(dayStartDate, lat, lon) {
+  // Sample altitude every 5 minutes across a window padded 1hr before and
+  // after the calendar day so a transit near midnight isn't cut off.
+  const start = dayStartDate.getTime() - 3600000;
+  const stepMs = 5 * 60000;
+  const steps = Math.ceil((26 * 3600000) / stepMs);
+  let best = null;
+  for (let i = 0; i <= steps; i++) {
+    const t = start + i * stepMs;
+    const { altitude } = SunCalc.getMoonPosition(new Date(t), lat, lon);
+    if (!best || altitude > best.altitude) best = { t, altitude };
+  }
+  return best ? best.t : null;
+}
+
+export function getSolunarPeriods(date, lat, lon) {
+  if (lat == null || lon == null) return { major: [], minor: [] };
+
+  const dayStartDate = moment(date, "YYYY-MM-DD").startOf("day").toDate();
+  const dayStartMs = dayStartDate.getTime();
+  const dayEndMs   = moment(date, "YYYY-MM-DD").endOf("day").valueOf();
+
+  const major = [];
+  const upperTransit = findMoonUpperTransit(dayStartDate, lat, lon);
+  if (upperTransit != null) {
+    [upperTransit, upperTransit - LUNAR_DAY_MS / 2, upperTransit + LUNAR_DAY_MS / 2]
+      .filter(t => t >= dayStartMs && t <= dayEndMs)
+      .forEach(t => major.push({ start: t - 3600000, end: t + 3600000 }));
+  }
+
+  const minor = [];
+  const moonTimes = SunCalc.getMoonTimes(dayStartDate, lat, lon);
+  [moonTimes.rise, moonTimes.set].forEach(t => {
+    if (t && t.getTime() >= dayStartMs && t.getTime() <= dayEndMs) {
+      minor.push({ start: t.getTime() - 1800000, end: t.getTime() + 1800000 });
+    }
+  });
+
+  return {
+    major: major.slice(0, 2).sort((a, b) => a.start - b.start),
+    minor: minor.slice(0, 2).sort((a, b) => a.start - b.start),
   };
 }
 

@@ -191,6 +191,8 @@ export default function WeatherBottomSheet() {
                 zoneMode={zoneMode}
                 onZoneModeChange={setZoneMode}
                 alerts={data.alerts}
+                lat={selectedLocation?.lat}
+                lon={selectedLocation?.lon}
               />
             </div>
             {snap === "full" && (
@@ -204,6 +206,8 @@ export default function WeatherBottomSheet() {
                 forecastHourlyUrl={data.forecastHourlyUrl}
                 noaaZone={data.noaaZone}
                 alerts={data.alerts}
+                lat={selectedLocation?.lat}
+                lon={selectedLocation?.lon}
               />
             )}
             {data.forecast?.timestamp && snap === "full" && (

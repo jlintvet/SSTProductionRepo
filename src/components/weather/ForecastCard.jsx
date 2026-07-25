@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wind, Waves, Activity, ArrowUpDown, Sunrise, Sun, Droplets, Cloud, CloudSun, Cloudy, CloudRain, CloudSnow, CloudFog, CloudLightning, ChevronDown, X, MessageSquare, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, ReferenceArea, ReferenceLine } from "recharts";
-import { fetchHourlyForecast, fetchTideCurve, buildTideCurve, getMoonPhase } from "@/hooks/useMarineForecast";
+import { fetchHourlyForecast, fetchTideCurve, buildTideCurve, getMoonPhase, getTideStrength, getSolunarPeriods } from "@/hooks/useMarineForecast";
 import ShareForecastDialog from "@/components/weather/ShareForecastDialog";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -221,6 +221,11 @@ function formatHourTick(ms) {
   return `${h - 12}P`;
 }
 
+function formatTimeRange(startMs, endMs) {
+  const opts = { hour: "numeric", minute: "2-digit" };
+  return `${new Date(startMs).toLocaleTimeString([], opts)} – ${new Date(endMs).toLocaleTimeString([], opts)}`;
+}
+
 function interpolateNow(points) {
   if (!points || points.length < 2) return null;
   const now = Date.now();
@@ -236,8 +241,10 @@ function interpolateNow(points) {
   return null;
 }
 
-function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isToday, dailyTides, dailySunData, nws, onClose }) {
+function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isToday, dailyTides, dailySunData, nws, lat, lon, onClose }) {
   const moon = getMoonPhase(moment(date, "YYYY-MM-DD").toDate());
+  const tideStrength = getTideStrength(moment(date, "YYYY-MM-DD").toDate());
+  const solunar = getSolunarPeriods(date, lat, lon);
 
   const dayStart  = moment(date, "YYYY-MM-DD").startOf("day").valueOf();
   const dayEnd    = moment(date, "YYYY-MM-DD").endOf("day").valueOf();
@@ -333,20 +340,28 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
 
         {/* Body */}
         <div style={{ overflowY: "auto", padding: "16px 18px 20px" }}>
-          {/* Moon phase + weather summary row */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            marginBottom: 12, fontSize: 12, color: "#64748b",
-          }}>
-            <span>{Math.round(moon.illumination * 100)}% {moon.waxing ? "Waxing" : "Waning"}</span>
-            {nws && (
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {getWeatherIcon(nws.dayForecast, 16)}
-                <span style={{ color: "#334155", fontWeight: 600 }}>
-                  {nws.high !== null ? `${nws.high}°` : "--"} / {nws.low !== null ? `${nws.low}°F` : "--"}
+          {/* Tide strength (spring/neap) + weather summary row */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              fontSize: 12, color: "#64748b",
+            }}>
+              <span>
+                <span style={{ fontWeight: 700, color: "#0f172a" }}>{tideStrength.label}</span>
+                <span style={{ marginLeft: 6, color: "#94a3b8" }}>
+                  {Math.round(moon.illumination * 100)}% {moon.waxing ? "Waxing" : "Waning"}
                 </span>
               </span>
-            )}
+              {nws && (
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {getWeatherIcon(nws.dayForecast, 16)}
+                  <span style={{ color: "#334155", fontWeight: 600 }}>
+                    {nws.high !== null ? `${nws.high}°` : "--"} / {nws.low !== null ? `${nws.low}°F` : "--"}
+                  </span>
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{tideStrength.note}</p>
           </div>
 
           {loading && (
@@ -432,6 +447,27 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
               )) : <div style={{ fontSize: 12, color: "#94a3b8" }}>N/A</div>}
             </div>
           </div>
+
+          {/* Solunar feeding periods */}
+          {(solunar.major.length > 0 || solunar.minor.length > 0) && (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Solunar Feeding Times</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>Major</div>
+                  {solunar.major.length > 0 ? solunar.major.map((p, i) => (
+                    <div key={i} style={{ fontSize: 12, color: "#475569" }}>{formatTimeRange(p.start, p.end)}</div>
+                  )) : <div style={{ fontSize: 12, color: "#94a3b8" }}>N/A</div>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>Minor</div>
+                  {solunar.minor.length > 0 ? solunar.minor.map((p, i) => (
+                    <div key={i} style={{ fontSize: 12, color: "#475569" }}>{formatTimeRange(p.start, p.end)}</div>
+                  )) : <div style={{ fontSize: 12, color: "#94a3b8" }}>N/A</div>}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -454,6 +490,8 @@ export default function ForecastCard({
   forecastHourlyUrl,   // from data.forecastHourlyUrl via useMarineForecast
   noaaZone,            // { id, description } from NOAA_SOURCES — shown as footnote
   alerts,              // full data.alerts array from useMarineForecast — filtered below by date
+  lat,                 // selectedLocation.lat — needed for solunar period calculation
+  lon,                 // selectedLocation.lon
 }) {
   const [showNarrative,   setShowNarrative]   = useState(false);
   const [showHourly,      setShowHourly]      = useState(false);
@@ -687,6 +725,8 @@ export default function ForecastCard({
           dailyTides={dailyTides}
           dailySunData={dailySunData}
           nws={nws}
+          lat={lat}
+          lon={lon}
           onClose={() => setShowTideDetail(false)}
         />
       )}

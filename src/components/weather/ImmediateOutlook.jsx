@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import ForecastCard from "@/components/weather/ForecastCard";
 import NearshoreOffshoreToggle from "@/components/weather/NearshoreOffshoreToggle";
 
-export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, tideStation, sunData, locationLabel, forecastTimestamp, forecastHourlyUrl, noaaZone, hasNearshore, zoneMode, onZoneModeChange, alerts }) {
+export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, tideStation, sunData, locationLabel, forecastTimestamp, forecastHourlyUrl, noaaZone, hasNearshore, zoneMode, onZoneModeChange, alerts, lat, lon }) {
   if (!forecasts?.length) return null;
 
   const cards = forecasts.slice(0, 3);
@@ -50,6 +50,8 @@ export default function ImmediateOutlook({ forecasts, nwsForecast, tideData, tid
               forecastHourlyUrl={forecastHourlyUrl}
               noaaZone={noaaZone}
               alerts={alerts}
+              lat={lat}
+              lon={lon}
             />
           ))}
         </div>
