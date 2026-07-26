@@ -295,6 +295,20 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
   const lowTides  = (dailyTides ?? []).filter(t => t.type === "Low");
   const highTides = (dailyTides ?? []).filter(t => t.type === "High");
 
+  // Fill visibility by segment: shown (blue, 0.25 opacity) while the tide is
+  // rising/incoming, hidden (0 opacity) while falling/outgoing. A single
+  // horizontal linearGradient with a stop at each sample point's x-fraction
+  // reproduces this without multiple <Area> series, same technique as
+  // before -- just toggling opacity instead of switching hue.
+  const dayRange = dayEnd - dayStart;
+  const fillStops = chartData.map((p, i) => {
+    const next = chartData[i + 1];
+    const prev = chartData[i - 1];
+    const rising = next ? next.v > p.v : prev ? p.v > prev.v : true;
+    const offset = dayRange === 0 ? 0 : Math.min(1, Math.max(0, (p.x - dayStart) / dayRange));
+    return { offset, opacity: rising ? 0.25 : 0 };
+  });
+
   const popup = (
     <div
       onClick={onClose}
@@ -395,9 +409,10 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 14, right: 6, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="tideFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0891b2" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#0891b2" stopOpacity={0.02} />
+                    <linearGradient id="tideFill" x1="0" y1="0" x2="1" y2="0">
+                      {fillStops.map((s, i) => (
+                        <stop key={i} offset={s.offset} stopColor="#0891b2" stopOpacity={s.opacity} />
+                      ))}
                     </linearGradient>
                   </defs>
                   <XAxis
