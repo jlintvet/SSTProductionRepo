@@ -629,7 +629,7 @@ export default function ForecastCard({
                   <p className="text-xs text-slate-500 truncate">{nws.nightForecast}</p>
                 )}
                 {forecastHourlyUrl && (
-                  <p className="text-[10px] text-sky-500 mt-0.5 font-medium">Tap for hourly ↗</p>
+                  <p className="text-[10px] text-sky-500 mt-0.5 font-medium">Tap for hourly</p>
                 )}
               </div>
               <div className="text-right text-sm flex-shrink-0">
@@ -714,7 +714,7 @@ export default function ForecastCard({
                   <p className="text-xs text-slate-500">N/A</p>
                 )}
                 {tideStation && (
-                  <p className="text-[10px] text-sky-500 mt-0.5 font-medium">Tap for more ↗</p>
+                  <p className="text-[10px] text-sky-500 mt-0.5 font-medium">Tap for more</p>
                 )}
               </div>
             </div>
