@@ -18,6 +18,7 @@ import React, {
   useState, useRef, useCallback, useEffect, useLayoutEffect,
 } from "react";
 import { createPortal } from "react-dom";
+import { Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
@@ -205,22 +206,71 @@ function NumInput({ value, onChange, absMin, absMax, step }) {
 // ─────────────────────────────────────────────────────────────────────────
 // SavedPill — module-level
 // ─────────────────────────────────────────────────────────────────────────
-function SavedPill({ entry, ramp, absMin, absMax, unit, step, onLoad, onDelete }) {
+function SavedPill({ entry, ramp, absMin, absMax, unit, step, onLoad, onDelete, onRename, isActive }) {
   const pMin = ((entry.range_min - absMin) / (absMax - absMin)) * 100;
   const pMax = ((entry.range_max - absMin) / (absMax - absMin)) * 100;
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(entry.name);
+  const editRef = useRef(null);
+
+  useEffect(() => { if (!editing) setEditName(entry.name); }, [entry.name, editing]);
+  useEffect(() => { if (editing) editRef.current?.focus(); }, [editing]);
+
+  function commitRename() {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== entry.name) onRename(entry.id, trimmed);
+    else setEditName(entry.name);
+    setEditing(false);
+  }
+
   return (
     <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 8px",
-      background:"#f8fafc", border:"1.5px solid #e2e8f0", borderRadius:8 }}>
+      background: isActive ? OCEAN_LIGHT : "#f8fafc",
+      border:`1.5px solid ${isActive ? OCEAN : "#e2e8f0"}`, borderRadius:8 }}>
       <div style={{ width:36, height:8, borderRadius:3, flexShrink:0,
         background:rampToCSS(ramp), position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", top:0, bottom:0, left:0, width:`${pMin}%`, background:HATCH }}/>
         <div style={{ position:"absolute", top:0, bottom:0, right:0, width:`${100-pMax}%`, background:HATCH }}/>
       </div>
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:TEXT, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{entry.name}</div>
+        {editing ? (
+          <input
+            ref={editRef}
+            type="text"
+            value={editName}
+            maxLength={40}
+            onChange={e => setEditName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={e => {
+              e.stopPropagation();
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") { setEditName(entry.name); setEditing(false); }
+            }}
+            style={{ width:"100%", fontSize:11, fontWeight:700, color:TEXT, fontFamily:"inherit",
+              border:`1.5px solid ${OCEAN}`, borderRadius:4, padding:"1px 4px", outline:"none", background:"#fff" }}
+          />
+        ) : (
+          <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:TEXT, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{entry.name}</div>
+            {isActive && (
+              <span style={{ fontSize:8, fontWeight:800, letterSpacing:"0.03em", color:OCEAN_DARK,
+                background:"#fff", border:`1px solid ${OCEAN}`, borderRadius:4, padding:"1px 4px", flexShrink:0 }}>
+                ACTIVE
+              </span>
+            )}
+          </div>
+        )}
         <div style={{ fontSize:10, color:MUTED }}>{fmt(entry.range_min,step)}{unit}–{fmt(entry.range_max,step)}{unit}</div>
       </div>
+      {!editing && (
+        <button onClick={() => setEditing(true)} title="Rename"
+          style={{ padding:"3px 6px", borderRadius:5, border:"1.5px solid #e2e8f0",
+            background:"transparent", color:MUTED, cursor:"pointer", flexShrink:0,
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <Pencil size={11} />
+        </button>
+      )}
       <button onClick={() => onLoad(entry)}
         style={{ padding:"3px 8px", borderRadius:5, fontSize:10, fontWeight:700,
           border:`1.5px solid ${OCEAN}`, background:OCEAN_LIGHT, color:OCEAN_DARK, cursor:"pointer", flexShrink:0 }}>
@@ -249,7 +299,7 @@ function SavedPill({ entry, ramp, absMin, absMax, unit, step, onLoad, onDelete }
 function RangePanel({
   cfg, range, onRangeChange, onApply, onReset,
   userId, activeLayer,
-  savedRanges, onSave, onLoad, onDelete, loadingRanges,
+  savedRanges, onSave, onLoad, onDelete, onRename, loadingRanges,
   onClose,
 }) {
   const [tab, setTab] = useState("adjust");
@@ -261,6 +311,12 @@ function RangePanel({
   const pMin   = ((range.min - cfg.absMin) / (cfg.absMax - cfg.absMin)) * 100;
   const pMax   = ((range.max - cfg.absMin) / (cfg.absMax - cfg.absMin)) * 100;
   const spread = range.max - range.min;
+
+  // Which saved profile (if any) matches the range currently displayed
+  const RANGE_EPS = 1e-6;
+  const activeEntry = savedRanges.find(r =>
+    Math.abs(r.range_min - range.min) < RANGE_EPS && Math.abs(r.range_max - range.max) < RANGE_EPS
+  ) || null;
 
 function handleLoad(entry) {
     const r = { min: entry.range_min, max: entry.range_max, maskOutside: false };
@@ -294,6 +350,12 @@ function handleLoad(entry) {
           <div style={{ fontSize:10, color:"rgba(255,255,255,0.65)", marginTop:1 }}>
             Full color ramp stretched across selected window
           </div>
+          {activeEntry && (
+            <div style={{ fontSize:10, color:"#fff", marginTop:4, display:"flex", alignItems:"center", gap:4 }}>
+              <span style={{ opacity:0.7 }}>Showing:</span>
+              <span style={{ fontWeight:700 }}>{activeEntry.name}</span>
+            </div>
+          )}
         </div>
         {onClose && (
           <button onClick={onClose}
@@ -409,7 +471,8 @@ function handleLoad(entry) {
                 <SavedPill key={entry.id} entry={entry}
                   ramp={cfg.ramp} absMin={cfg.absMin} absMax={cfg.absMax}
                   unit={cfg.unit} step={cfg.step}
-                  onLoad={handleLoad} onDelete={onDelete} />
+                  isActive={activeEntry?.id === entry.id}
+                  onLoad={handleLoad} onDelete={onDelete} onRename={onRename} />
               ))}
             </div>
           )}
@@ -603,6 +666,11 @@ export default function SSTRangeControl({
     setSavedRanges(prev => prev.filter(r => r.id !== id));
   }
 
+  async function handleRename(id, name) {
+    const { error } = await supabase.from("user_sst_ranges").update({ name }).eq("id", id);
+    if (!error) setSavedRanges(prev => prev.map(r => (r.id === id ? { ...r, name } : r)));
+  }
+
   function handleApply(r) {
     onApply?.(r);
     _setRange(r); // keep internal state in sync with applied
@@ -636,6 +704,7 @@ export default function SSTRangeControl({
             savedRanges={savedRanges}
             onSave={handleSave}
             onDelete={handleDelete}
+            onRename={handleRename}
             loadingRanges={loadingRanges}
             onClose={() => setIsOpen(false)}
           />
