@@ -352,10 +352,17 @@ function SSTPageBody() {
   // TEST: CHL tile-pyramid experiment -- mid_atlantic only (see CHLTileGenerator.py
   // and SST_RENDERING.md problem #8). Blank on other regions so the frontend
   // toggle harmlessly no-ops until/unless this is extended.
+  // Reuses _bathyCacheBust (already computed above, once per calendar day) rather
+  // than a manually-incremented "?v=N" -- this is being regenerated multiple
+  // times per day during active testing, and a stale browser cache of the tile
+  // URLs already caused one round of confusion (CloudFront invalidation clears
+  // the edge cache but not the browser's own cache). A day-stable value avoids
+  // a render-loop risk that a per-render timestamp (e.g. Date.now()) would cause
+  // via the CHL_TILE_URL/CHL_CONTOURS_URL effect dependencies in SSTHeatmapLeaflet.jsx.
   const CHL_TILE_URL_R       = regionKey === "mid_atlantic"
-    ? "https://d3qy1jhzqojgwx.cloudfront.net/chl/mid_atlantic/{z}/{x}/{y}.png?v=1" : "";
+    ? `https://d3qy1jhzqojgwx.cloudfront.net/chl/mid_atlantic/{z}/{x}/{y}.png?v=${_bathyCacheBust}` : "";
   const CHL_CONTOURS_URL_R   = regionKey === "mid_atlantic"
-    ? "https://d3qy1jhzqojgwx.cloudfront.net/chl/mid_atlantic/contours.json" : "";
+    ? `https://d3qy1jhzqojgwx.cloudfront.net/chl/mid_atlantic/contours.json?v=${_bathyCacheBust}` : "";
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
