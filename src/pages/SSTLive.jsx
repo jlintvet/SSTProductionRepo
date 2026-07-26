@@ -349,6 +349,13 @@ function SSTPageBody() {
   const BATHY_URL_R          = `https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/bathymetry${_BATHY_SUFFIX}.json`;
   const BATHY_TILE_REGION    = _suffix || "mid_atlantic";
   const BATHY_TILE_URL_R     = `https://d3qy1jhzqojgwx.cloudfront.net/bathy/${BATHY_TILE_REGION}/{z}/{x}/{y}.png?v=2`;
+  // TEST: CHL tile-pyramid experiment -- mid_atlantic only (see CHLTileGenerator.py
+  // and SST_RENDERING.md problem #8). Blank on other regions so the frontend
+  // toggle harmlessly no-ops until/unless this is extended.
+  const CHL_TILE_URL_R       = regionKey === "mid_atlantic"
+    ? "https://d3qy1jhzqojgwx.cloudfront.net/chl/mid_atlantic/{z}/{x}/{y}.png?v=1" : "";
+  const CHL_CONTOURS_URL_R   = regionKey === "mid_atlantic"
+    ? "https://d3qy1jhzqojgwx.cloudfront.net/chl/mid_atlantic/contours.json" : "";
 
   // Auth is guaranteed by the outer SSTLive gate — no second listener needed here.
 
@@ -1298,6 +1305,8 @@ function SSTPageBody() {
               BATHY_CONTOURS_URL={BATHY_CONTOURS_URL_R}
               BATHY_URL={BATHY_URL_R}
               BATHY_TILE_URL={BATHY_TILE_URL_R}
+              CHL_TILE_URL={CHL_TILE_URL_R}
+              CHL_CONTOURS_URL={CHL_CONTOURS_URL_R}
               WRECKS_URL={WRECKS_URL}
               isPro={isPro}
               profileLoaded={profileLoaded}

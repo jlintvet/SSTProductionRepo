@@ -1112,6 +1112,7 @@ export default function SSTHeatmapLeaflet(props) {
     legendHoverSst, openControlPanelRef, rangeControlOpenRef,
     onNotesUpdated,
     BATHY_CONTOURS_URL, WRECKS_URL, BATHY_URL, BATHY_TILE_URL,
+    CHL_TILE_URL, CHL_CONTOURS_URL,   // TEST: CHL tile-pyramid experiment, mid_atlantic only
     isPro,
     profileLoaded,
     currentsData, currentsLoading, showCurrents, setShowCurrents,
@@ -1192,6 +1193,8 @@ export default function SSTHeatmapLeaflet(props) {
   const radarFadeOutRef   = useRef(null);   // previous tile layer, currently fading out
   const radarFadeTimerRef = useRef(null);   // timeout that removes it once the fade finishes
   const bathyTileRef     = useRef(null);
+  const chlTileRef       = useRef(null);   // TEST: CHL tile-pyramid experiment
+  const chlContourLayerRef = useRef(null); // TEST: CHL tile-pyramid experiment
   const bathyLabelRef    = useRef(null);
   const wreckLayerRef    = useRef(null);
   const buoyLayerRef     = useRef(null);
@@ -1263,6 +1266,14 @@ export default function SSTHeatmapLeaflet(props) {
   const [radarHost, setRadarHost] = useState("");
   const [radarPlaying, setRadarPlaying] = useState(false);
   const [showBathyRaster, setShowBathyRaster] = useState(false);
+  // TEST: CHL tile-pyramid experiment (mid_atlantic only) -- see SST_RENDERING.md
+  // problem #8 and CHLTileGenerator.py. Toggles between the existing client-side
+  // canvas+blur CHL rendering and a GDAL lanczos-resampled tile pyramid + contour
+  // lines, for a side-by-side sharpness comparison. Not gated behind ProGate --
+  // this is a dev/test toggle, not a shipped feature yet.
+  const [showChlTiles, setShowChlTiles] = useState(false);
+  const [chlContours, setChlContours] = useState(null);
+  const [chlContoursLoading, setChlContoursLoading] = useState(false);
   const [showWrecks,      setShowWrecks]      = useState(false);
   const [showBuoys,       setShowBuoys]       = useState(false);
   const [buoysData,       setBuoysData]       = useState(null);
@@ -1877,6 +1888,11 @@ export default function SSTHeatmapLeaflet(props) {
     map.createPane("sstDataPane"); map.getPane("sstDataPane").style.zIndex = "350"; map.getPane("sstDataPane").style.pointerEvents = "none";
     map.createPane("bathyTilePane"); map.getPane("bathyTilePane").style.zIndex = "362"; map.getPane("bathyTilePane").style.pointerEvents = "none";
     map.createPane("bathyPane");   map.getPane("bathyPane").style.zIndex   = "375"; map.getPane("bathyPane").style.pointerEvents   = "none";
+    // TEST: CHL tile-pyramid experiment panes -- chlTilePane sits where the
+    // existing CHL/SeaColor/Composite imageOverlay renders (default overlayPane,
+    // 400), one level below it; chlContourPane sits just above the tile raster.
+    map.createPane("chlTilePane");    map.getPane("chlTilePane").style.zIndex    = "390"; map.getPane("chlTilePane").style.pointerEvents    = "none";
+    map.createPane("chlContourPane"); map.getPane("chlContourPane").style.zIndex = "395"; map.getPane("chlContourPane").style.pointerEvents = "none";
     // radarPane sits at the same level as bathyTilePane (both are full basemap-replace
     // raster layers, mutually exclusive with each other and with SST/CHL/composite),
     // below bathyPane (contour lines, 375) and markerPane (pins/labels, 600).
@@ -2350,7 +2366,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (overlayLayerRef.current) { map.removeLayer(overlayLayerRef.current); overlayLayerRef.current = null; }
     if (showBathyRaster || showRadarOverlay) return;
     let overlayGrid=null,latSet2=[],lonSet2=[],colorFn=null,min2=0,max2=1;
-    if (activeDataLayer==="chlorophyll"&&chlData?.days?.length) {
+    if (activeDataLayer==="chlorophyll"&&chlData?.days?.length&&!showChlTiles) {
       const day=chlData.days[chlDateIndex]||chlData.days[chlData.days.length-1];
       if(!day?.grid?.length)return;
       latSet2=[...new Set(day.grid.map(d=>d.lat))].sort((a,b)=>b-a);
@@ -2505,7 +2521,7 @@ export default function SSTHeatmapLeaflet(props) {
       sstReadyRef.current = true; setSstReady(true);
     });
     return () => { _ac_ov.abort(); };
-  }, [mapReady, showBathyRaster, showRadarOverlay, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
+  }, [mapReady, showBathyRaster, showRadarOverlay, showChlTiles, activeDataLayer, chlData, chlDateIndex, seaColorData, seaColorDateIndex, compositeData, altimetryData, waterMaskVersion, openOceanVersion, repaintTrigger, sstRange?.min, sstRange?.max]);
 
   // ── Velocity layer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2991,6 +3007,63 @@ export default function SSTHeatmapLeaflet(props) {
       if (bathyTileRef.current) { try { map.removeLayer(bathyTileRef.current); } catch(_){} bathyTileRef.current = null; }
     };
   }, [mapReady, showBathyRaster, BATHY_TILE_URL]);
+
+  // ── TEST: CHL tile layer (mid_atlantic only, CloudFront raster PNG) ────────
+  // Same tile-layer pattern as the Shaded Relief effect above. Independent of
+  // showBathyRaster/showRadarOverlay -- this only replaces the CHL raster
+  // rendering (see the "!showChlTiles" guard in the overlay useEffect above),
+  // not the whole basemap.
+  useEffect(() => {
+    const map = mapRef.current; if (!mapReady || !map) return;
+    if (chlTileRef.current) { try { map.removeLayer(chlTileRef.current); } catch(_){} chlTileRef.current = null; }
+    if (!showChlTiles || !CHL_TILE_URL) return;
+    const lyr = L.tileLayer(CHL_TILE_URL, {
+      pane: 'chlTilePane',
+      minZoom: 5,
+      maxNativeZoom: 11,
+      maxZoom: 18,
+      opacity: 0.9,
+      attribution: '',
+      interactive: false,
+    });
+    lyr.addTo(map);
+    chlTileRef.current = lyr;
+    return () => {
+      if (chlTileRef.current) { try { map.removeLayer(chlTileRef.current); } catch(_){} chlTileRef.current = null; }
+    };
+  }, [mapReady, showChlTiles, CHL_TILE_URL]);
+
+  // ── TEST: CHL contour fetch (mid_atlantic only) ─────────────────────────────
+  useEffect(() => {
+    if (!mapReady || !showChlTiles || chlContours || !CHL_CONTOURS_URL) return;
+    setChlContoursLoading(true);
+    fetch(CHL_CONTOURS_URL)
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(d => { setChlContours(d); setChlContoursLoading(false); })
+      .catch(() => setChlContoursLoading(false));
+  }, [mapReady, showChlTiles, CHL_CONTOURS_URL]);
+
+  // ── TEST: CHL contour render (mid_atlantic only) ────────────────────────────
+  // Precomputed backend GeoJSON LineStrings (contourpy + Chaikin smoothing, same
+  // technique as bathymetry_contours.json) -- rendered directly, no client-side
+  // marching squares needed, same as the bathymetry contour layer above.
+  useEffect(() => {
+    const map = mapRef.current; if (!mapReady || !map) return;
+    if (chlContourLayerRef.current) { map.removeLayer(chlContourLayerRef.current); chlContourLayerRef.current = null; }
+    if (!showChlTiles || !chlContours) return;
+    const chlContourColor = v => (
+      v >= 10 ? "#7a0f14" : v >= 3 ? "#c23a1a" : v >= 1 ? "#e0a30f" :
+      v >= 0.3 ? "#4a9e2f" : "#1f6fb8"
+    );
+    const lyr = L.geoJSON(chlContours, {
+      interactive: false, pane: "chlContourPane",
+      style: f => ({ color: chlContourColor(f.properties.value_mgm3), weight: 1.4, opacity: 0.85 }),
+    });
+    lyr.addTo(map); chlContourLayerRef.current = lyr;
+    return () => {
+      if (chlContourLayerRef.current) { map.removeLayer(chlContourLayerRef.current); chlContourLayerRef.current = null; }
+    };
+  }, [mapReady, showChlTiles, chlContours]);
 
   // ── Radar (RainViewer, Pro, all regions) ─────────────────────────────────────
   // Behaves like Shaded Relief (a Tools-section, full basemap-replace mode) rather
@@ -4113,6 +4186,7 @@ export default function SSTHeatmapLeaflet(props) {
             showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showBathyRaster={showBathyRaster} setShowBathyRaster={setShowBathyRaster}
+            showChlTiles={showChlTiles} setShowChlTiles={setShowChlTiles}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
             wreckSearchTerm={wreckSearchTerm} setWreckSearchTerm={setWreckSearchTerm}
             wreckSearchResults={wreckSearchResults} wreckSearchIndex={wreckSearchIndex}

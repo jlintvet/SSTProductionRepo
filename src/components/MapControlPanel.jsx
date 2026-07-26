@@ -299,6 +299,7 @@ export default function MapControlPanel({
   // overlays
   showBathyLayer, setShowBathyLayer,
   showBathyRaster, setShowBathyRaster,
+  showChlTiles, setShowChlTiles,   // TEST: CHL tile-pyramid experiment, mid_atlantic only
   jsonContoursLoading,
   showWrecks, setShowWrecks,
   wrecksLoading,
@@ -858,6 +859,24 @@ export default function MapControlPanel({
             </div>
             {hbtn("shadedrelief")}
           </div>
+
+          {/* TEST: CHL tile-pyramid experiment -- mid_atlantic only, not a shipped
+              feature yet, no ProGate (dev/test toggle). Switches the chlorophyll
+              layer between the existing canvas+blur rendering and a GDAL
+              lanczos-resampled tile pyramid + contour lines. See
+              SST_RENDERING.md problem #8 and CHLTileGenerator.py. */}
+          {regionKey === "mid_atlantic" && (
+            <div className="flex gap-1 items-stretch">
+              <div className="flex-1">
+                <ToolBtn active={showChlTiles} color="emerald" onClick={() => {
+                  setActiveDataLayer("chlorophyll");
+                  setShowChlTiles(v => !v);
+                }}>
+                  CHL Tiles (test)
+                </ToolBtn>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-1 items-stretch">
             <div className="flex-1">
