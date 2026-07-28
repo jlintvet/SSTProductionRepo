@@ -3017,12 +3017,18 @@ export default function SSTHeatmapLeaflet(props) {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (chlTileRef.current) { try { map.removeLayer(chlTileRef.current); } catch(_){} chlTileRef.current = null; }
     if (!showChlTiles || !CHL_TILE_URL) return;
+    // Translucency is now baked into the tile PNG alpha channel
+    // (CHLTileGenerator.py DATA_ALPHA=229) instead of applied here as a
+    // CSS-level layer opacity. opacity:0.9 was revealing hairline seams
+    // between adjacent 256px tiles (browser sub-pixel rounding) as a
+    // visible waffle/grid pattern across the ocean -- opacity:1 removes
+    // the CSS-level blending that exposed those seams.
     const lyr = L.tileLayer(CHL_TILE_URL, {
       pane: 'chlTilePane',
       minZoom: 5,
       maxNativeZoom: 11,
       maxZoom: 18,
-      opacity: 0.9,
+      opacity: 1,
       attribution: '',
       interactive: false,
     });
