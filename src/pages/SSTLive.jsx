@@ -43,16 +43,15 @@ if (typeof document !== "undefined" && !document.getElementById("leaflet-tw-fix"
     .leaflet-velocity-layer { pointer-events: none; }
     .leaflet-velocity-layer canvas { max-width: none !important; max-height: none !important; }
     .leaflet-overlay-pane canvas { overflow: visible !important; }
-    /* TEST: CHL tile-pyramid grid/seam fix. The earlier theory (CSS opacity
-       blending was exposing seams) was wrong -- opacity:1 made the grid MORE
-       visible, not less. The real cause is a well-known Leaflet issue: adjacent
-       256px tile <img> elements get independently sub-pixel-rounded when
-       positioned via CSS transforms, leaving a 1px gap where the basemap shows
-       through. At full opacity that gap reads as a stark grid line. Standard
-       fix: render each tile slightly larger than its layout box so neighboring
-       tiles overlap by half a pixel instead of gapping. Scoped to chlTilePane
-       only so it can't affect the working bathy/SST tile panes. */
-    .leaflet-chlTilePane-pane .leaflet-tile {
+    /* TEST: defensive half-pixel tile overlap, guarding against genuine Leaflet
+       sub-pixel tile-boundary rounding (a real but separate, minor phenomenon).
+       NOTE: this was NOT the cause of the grid pattern Jon reported -- direct
+       tile inspection proved that grid was baked into the PNG pixels themselves
+       (gdal2tiles overview-resampling artifact, fixed in CHLTileGenerator.py by
+       switching -r cubic -> -r average). Also fixing a selector bug here: Leaflet
+       createPane("chlTilePane") produces class "leaflet-chlTile-pane", not
+       "leaflet-chlTilePane-pane" -- the original selector never matched anything. */
+    .leaflet-chlTile-pane .leaflet-tile {
       width: 256.5px !important;
       height: 256.5px !important;
     }
