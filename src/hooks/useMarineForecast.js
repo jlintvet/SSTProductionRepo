@@ -791,10 +791,10 @@ export function getTideStrength(date) {
   const distToNeap   = Math.min(Math.abs(phase - 0.25), Math.abs(phase - 0.75));
 
   if (distToSpring <= 0.08) {
-    return { label: "Spring Tide", note: "New/full moon — stronger currents, bigger swings" };
+    return { label: "Spring Tide", note: "New/full moon - stronger currents, bigger swings" };
   }
   if (distToNeap <= 0.08) {
-    return { label: "Neap Tide", note: "Quarter moon — weaker currents, smaller swings" };
+    return { label: "Neap Tide", note: "Quarter moon - weaker currents, smaller swings" };
   }
   return { label: "Moderate Tide", note: "Between spring and neap" };
 }

@@ -114,7 +114,7 @@ export default function HelpReportModal({ onClose }) {
             <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
               <Check className="w-6 h-6 text-emerald-500" />
             </div>
-            <p className="text-slate-800 font-semibold">Thank you — we'll review and be in touch shortly.</p>
+            <p className="text-slate-800 font-semibold">Thank you - we'll review and be in touch shortly.</p>
             <p className="text-slate-500 text-sm leading-relaxed">
               Thank you for taking the time to be an active member of this community. We value your
               feedback and support.

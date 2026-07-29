@@ -132,7 +132,7 @@ const GLOBAL_CSS = `
   .rl-hero-content{transition:opacity .5s ease,transform .5s ease;}
   .rl-hero-content.fading{opacity:0;transform:translateY(12px);}
 
-  /* TRUST BAR — horizontal marquee, single line, scrolls left to right */
+  /* TRUST BAR - horizontal marquee, single line, scrolls left to right */
   .rl-trust{background:#0f2244;border-top:1px solid rgba(12,196,160,.14);
     border-bottom:1px solid rgba(12,196,160,.14);padding:1rem 0;overflow:hidden;}
   .rl-trust-track{display:inline-flex;width:max-content;
@@ -664,7 +664,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         key: "mid_atlantic",
         label: "Mid-Atlantic",
         mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-78.84,33.7,-72.21,39.5]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
-        desc: "Maryland, Virginia & North Carolina offshore — Chesapeake Bay, Outer Banks, Gulf Stream access",
+        desc: "Maryland, Virginia & North Carolina offshore - Chesapeake Bay, Outer Banks, Gulf Stream access",
         bounds: "N 39.5°  ·  S 33.7°  ·  W 78.8°  ·  E 72.2°",
         ports: ["Bay Bridge Tunnel","Beaufort Inlet","Cape Charles","Hatteras Inlet","Horn Harbor","Ocean City Inlet","Oregon Inlet","Poquoson","Virginia Beach"],
       },
@@ -672,7 +672,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         key: "ga_sc",
         label: "Georgia & South Carolina",
         mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-82.0,29.8,-75.2,35.2]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
-        desc: "Southern NC, SC, Georgia & NE Florida offshore — year-round Gulf Stream, sea islands, deep inlets",
+        desc: "Southern NC, SC, Georgia & NE Florida offshore - year-round Gulf Stream, sea islands, deep inlets",
         bounds: "N 35.2°  ·  S 29.8°  ·  W 82.0°  ·  E 75.2°",
         ports: ["Beaufort SC","Carolina Beach","Charleston","Darien","Fernandina Beach","Georgetown SC","Hilton Head","Jekyll Island","Little River Inlet","Mayport","Murrells Inlet","Myrtle Beach","Southport","St. Augustine","St. Simons Island","Tybee Island","Wrightsville Beach"],
       },
@@ -680,7 +680,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         key: "ne_fl",
         label: "Northeast Florida",
         mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-81.97,26.0,-76.14,30.5]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
-        desc: "Jacksonville to Fort Lauderdale offshore — Gulf Stream close to shore, reef structure, deep inlets",
+        desc: "Jacksonville to Fort Lauderdale offshore - Gulf Stream close to shore, reef structure, deep inlets",
         bounds: "N 30.5°  ·  S 26.0°  ·  W 81.97°  ·  E 76.14°",
         ports: ["Mayport","St. Augustine","Ponce Inlet","Port Canaveral","Sebastian Inlet","Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale"],
       },
@@ -688,7 +688,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         key: "s_fl",
         label: "Southern Florida",
         mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-83.16,22.15,-76.14,27.47]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
-        desc: "Fort Pierce to the Florida Keys and Gulf coast offshore — Florida Straits, Gulf Stream against the reef, Keys backcountry",
+        desc: "Fort Pierce to the Florida Keys and Gulf coast offshore - Florida Straits, Gulf Stream against the reef, Keys backcountry",
         bounds: "N 27.47°  ·  S 22.15°  ·  W 83.16°  ·  E 76.14°",
         ports: ["Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale","Miami","Islamorada","Marathon","Key West","Naples","Marco Island","Fort Myers Beach"],
       },
@@ -696,7 +696,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
         key: "va_ri",
         label: "Virginia to Rhode Island",
         mapUrl: `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/[-77.46,37.26,-68.97,41.51]/560x260@2x?access_token=${tok}&logo=false&attribution=false&padding=20`,
-        desc: "Chesapeake Bay mouth to Rhode Island Sound offshore — Delmarva, Jersey Shore, Long Island, Block Island Sound",
+        desc: "Chesapeake Bay mouth to Rhode Island Sound offshore - Delmarva, Jersey Shore, Long Island, Block Island Sound",
         bounds: "N 41.51°  ·  S 37.26°  ·  W 77.46°  ·  E 68.97°",
         ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Moriches Inlet","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],
       },
@@ -748,7 +748,7 @@ function AuthForm({ onSuccess, initialMode, checkoutPriceId }) {
       <p style={{ color: "#475569", fontSize: 14, margin: "0 0 16px", lineHeight: 1.6 }}>
         Confirmation link sent to <strong>{email}</strong>.<br/>
         {checkoutPriceId
-          ? "Click it to activate your account — we'll take you straight to checkout."
+          ? "Click it to activate your account - we'll take you straight to checkout."
           : "Click it to activate your account and start your 30-day Pro trial."}
       </p>
       <button className="rl-fmbtn" style={{ background: "#64748b" }}
@@ -1222,7 +1222,7 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
         }}>
           <span>
             {authed
-              ? "Payment received — you're Pro now."
+              ? "Payment received - you're Pro now."
               : "Payment received. Check your email to confirm your account, then sign in to start using Pro."}
           </span>
           <button onClick={() => setUpgradedBanner(false)} style={{
@@ -1251,7 +1251,7 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
       {/* HERO CAROUSEL */}
       <HeroCarousel open={openRegister} heroBoatImg={heroBoatImg} featureMahiImg={featureMahiImg} ctaBillfishImg={ctaBillfishImg} />
 
-      {/* TRUST BAR — scrolling marquee */}
+      {/* TRUST BAR - scrolling marquee */}
       <div className="rl-trust">
         <div className="rl-trust-track">
           {[...TRUST_ITEMS, ...TRUST_ITEMS].map((t, i) => (
@@ -1278,7 +1278,7 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
             ))}
           </div>
           <div className="rl-mapframe">
-            <img src={appUiImg} alt="RipLoc app — marine forecast, SST map, and route planner" />
+            <img src={appUiImg} alt="RipLoc app - marine forecast, SST map, and route planner" />
             <div className="rl-maplabel" style={{ top: 16, left: 16 }}>Live · Oregon Inlet, NC</div>
             <div className="rl-maplabel" style={{ bottom: 16, right: 16 }}>SST + Route Planning + Marine Forecast</div>
           </div>
@@ -1359,7 +1359,7 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
               </div>
             </div>
             <div className="rl-scr">
-              <img src={routeMapImg} alt="RipLoc trip plan — multi-waypoint route on SST map" />
+              <img src={routeMapImg} alt="RipLoc trip plan - multi-waypoint route on SST map" />
             </div>
           </div>
 
@@ -1385,14 +1385,14 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
             </div>
           </div>
 
-          {/* Feature 4 — Weather */}
+          {/* Feature 4 - Weather */}
           <div className="rl-feat-grid rl-flip">
             <div>
               <div className="rl-feat-lbl">Marine Weather</div>
               <h3 className="rl-feat-h3">Every forecast.<br/>One place.</h3>
               <p className="rl-feat-body">
-                NOAA sea conditions, tides, wind, sunrise/sunset, and general weather — immediate
-                and extended forecasts with hourly breakdowns — all built seamlessly into the app
+                NOAA sea conditions, tides, wind, sunrise/sunset, and general weather - immediate
+                and extended forecasts with hourly breakdowns - all built seamlessly into the app
                 and pinned to your departure location. No more bouncing between five different apps
                 at 4 AM. Shareable with your crew in one tap.
               </p>
@@ -1410,15 +1410,14 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
             </div>
           </div>
 
-          {/* Feature 5 — Sharing */}
+          {/* Feature 5 - Sharing */}
           <div className="rl-feat-grid">
             <div>
               <div className="rl-feat-lbl">Crew Sharing</div>
               <h3 className="rl-feat-h3">Send the plan.<br/>Not a screenshot.</h3>
               <p className="rl-feat-body">
                 Pro subscribers can share locations, routes, and weather with their crew via email
-                or text. Recipients import everything directly into their account with one tap —
-                exact waypoints, fuel calculations, and forecast included. No manual entry, no
+                or text. Recipients import everything directly into their account with one tap -                 exact waypoints, fuel calculations, and forecast included. No manual entry, no
                 blurry screenshots.
               </p>
               <div className="rl-pills">
@@ -1431,7 +1430,7 @@ export default function MarketingLanding({ onAuthSuccess, authed }) {
               </div>
             </div>
             <div className="rl-scr">
-              <img src={sharingImg} alt="RipLoc crew sharing — send routes and weather to crew" />
+              <img src={sharingImg} alt="RipLoc crew sharing - send routes and weather to crew" />
             </div>
           </div>
 

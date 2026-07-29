@@ -88,7 +88,7 @@
   }
 }
 
-/* Dynamic viewport height — accounts for mobile browser chrome (URL bar, nav bar) */
+/* Dynamic viewport height - accounts for mobile browser chrome (URL bar, nav bar) */
 .sst-fullscreen {
   height: 100vh;
   height: 100dvh;

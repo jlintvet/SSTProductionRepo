@@ -222,7 +222,7 @@ export default function AnnouncementCarousel({ announcements, onDismiss, onReact
               </button>
             </div>
           ) : (
-            <p className="text-[11px] text-cyan-600 mb-2">Thanks — comment sent.</p>
+            <p className="text-[11px] text-cyan-600 mb-2">Thanks - comment sent.</p>
           )}
         </div>
         </div>

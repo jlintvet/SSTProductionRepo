@@ -288,7 +288,7 @@ export async function generateForecastShareImage(opts) {
   rowLabel("Wind", drawWindIcon, cy);
   ctx.fillStyle = SLATE; ctx.textAlign = "left";
   ctx.font = "600 14px -apple-system, Segoe UI, Roboto, sans-serif";
-  const windStr = wind ? (`${wind.direction ?? ""} ${wind.speed ?? ""}`.trim() || "—") : "—";
+  const windStr = wind ? (`${wind.direction ?? ""} ${wind.speed ?? ""}`.trim() || "-") : "-";
   ctx.fillText(ellip(ctx, windStr, W - VX - 110), VX, cy + 1);
   if (wind?.gusts) {
     ctx.fillStyle = ORANGE; ctx.textAlign = "right";
@@ -301,7 +301,7 @@ export async function generateForecastShareImage(opts) {
   rowLabel("Seas", drawWaveIcon, y + 22);
   ctx.fillStyle = SLATE; ctx.textAlign = "left";
   ctx.font = "600 14px -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.fillText(ellip(ctx, waves || "—", W - VX - 24), VX, y + 23);
+  ctx.fillText(ellip(ctx, waves || "-", W - VX - 24), VX, y + 23);
   if (swell) {
     ctx.fillStyle = SLATE_LT;
     ctx.font = "400 12px -apple-system, Segoe UI, Roboto, sans-serif";

@@ -394,7 +394,7 @@ function handleLoad(entry) {
             <span style={{ fontSize:9, color:MUTED }}>{fmt(cfg.absMax,cfg.step)}{cfg.unit}</span>
           </div>
 
-          {/* Slider — the ramp IS the visual; labels live above it */}
+          {/* Slider - the ramp IS the visual; labels live above it */}
           <DualSlider
             min={range.min} max={range.max}
             absMin={cfg.absMin} absMax={cfg.absMax}
@@ -409,7 +409,7 @@ function handleLoad(entry) {
               <NumInput value={range.min} absMin={cfg.absMin} absMax={cfg.absMax} step={cfg.step}
                 onChange={v => onRangeChange({ ...range, min: Math.min(v, range.max - cfg.step) })} />
             </div>
-            <div style={{ color:"#e2e8f0", paddingTop:16, fontSize:14 }}>—</div>
+            <div style={{ color:"#e2e8f0", paddingTop:16, fontSize:14 }}> - </div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:9, fontWeight:700, color:MUTED, marginBottom:3 }}>MAX</div>
               <NumInput value={range.max} absMin={cfg.absMin} absMax={cfg.absMax} step={cfg.step}
@@ -538,7 +538,7 @@ function ScaleBar({ cfg, range, isOpen, isNarrowed, onClick, triggerRef }) {
         boxShadow: isOpen ? `0 0 0 2px ${OCEAN}44` : "0 1px 4px rgba(0,0,0,0.08)",
         transition:"all 0.15s", width:"100%",
       }}>
-      {/* Ramp preview — 80px */}
+      {/* Ramp preview - 80px */}
       <div style={{ position:"relative", width:80, height:"100%", flexShrink:0 }}>
         <div style={{ position:"absolute", inset:0, background:rampToCSS(cfg.ramp) }}/>
         <div style={{ position:"absolute", top:0, bottom:0, left:0, width:`${pMin}%`, background:HATCH }}/>
@@ -572,7 +572,7 @@ export default function SSTRangeControl({
   openRef,
   dataMin,        // live data bounds (CHL/SeaColor day stats)
   dataMax,
-  seasonalDefault, // { min, max } from getSeasonalSstDefault() — SST only.
+  seasonalDefault, // { min, max } from getSeasonalSstDefault() - SST only.
                    // Overrides cfg.defaultMin/defaultMax so isNarrowed and Reset
                    // target the seasonal values.
 }) {

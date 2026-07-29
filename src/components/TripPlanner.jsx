@@ -34,7 +34,7 @@ function addHours(dateStr, hours) {
 }
 
 function fmtTime(date) {
-  if (!date) return "—";
+  if (!date) return "-";
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
@@ -218,7 +218,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
   async function saveRoute() {
     if (!userId || waypoints.length < 2) {
-      console.warn("[TripPlanner] saveRoute — userId:", userId, "wps:", waypoints.length);
+      console.warn("[TripPlanner] saveRoute - userId:", userId, "wps:", waypoints.length);
       return;
     }
     setSaving(true);
@@ -395,7 +395,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
             </button>
           )}
 
-          {/* Depart + Speed — desktop only (inline in row 2) */}
+          {/* Depart + Speed - desktop only (inline in row 2) */}
           <div className="hidden sm:flex items-center gap-2 ml-auto shrink-0">
             <div className="w-px h-4 bg-slate-200"/>
             <label className="text-[10px] text-slate-400 whitespace-nowrap">Depart</label>
@@ -411,13 +411,13 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
             <input
               type="number"
               value={speedOverride}
-              placeholder={cruiseSpeedKts ? String(cruiseSpeedKts) : "—"}
+              placeholder={cruiseSpeedKts ? String(cruiseSpeedKts) : "-"}
               onChange={e => setSpeedOverride(e.target.value)}
               className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-14 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700"
             />
             <span className="text-[10px] text-slate-400">kts</span>
 
-            {/* Navigate / Start / End Nav — right of Depart/Speed on desktop */}
+            {/* Navigate / Start / End Nav - right of Depart/Speed on desktop */}
             {waypoints.length >= 2 && isPro && (
               <>
                 <div className="w-px h-4 bg-slate-200"/>
@@ -471,7 +471,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
 
 
 
-      {/* ── Header row 3: depart / speed — mobile only ── */}
+      {/* ── Header row 3: depart / speed - mobile only ── */}
       {!collapsed && (
         <div className="sm:hidden flex items-center gap-2 px-3 border-b border-slate-100 h-10 flex-shrink-0">
           <label className="text-[10px] text-slate-400 whitespace-nowrap">Depart</label>
@@ -487,7 +487,7 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
           <input
             type="number"
             value={speedOverride}
-            placeholder={cruiseSpeedKts ? String(cruiseSpeedKts) : "—"}
+            placeholder={cruiseSpeedKts ? String(cruiseSpeedKts) : "-"}
             onChange={e => setSpeedOverride(e.target.value)}
             className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 w-14 focus:outline-none focus:ring-1 focus:ring-cyan-400 text-slate-700 shrink-0"
           />
@@ -542,13 +542,13 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                     </td>
                     <td className="px-2 py-1 text-right text-slate-500 font-mono hidden sm:table-cell">{fmtCoord(leg.lat, true)}</td>
                     <td className="px-2 py-1 text-right text-slate-500 font-mono hidden sm:table-cell">{fmtCoord(leg.lng, false)}</td>
-                    <td className="px-2 py-1 text-right text-slate-600 font-mono">{leg.hdg != null ? `${Math.round(leg.hdg)}°` : "—"}</td>
-                    <td className="px-2 py-1 text-right text-slate-600 font-mono">{i === 0 ? "—" : `${leg.distNm.toFixed(1)}`}</td>
+                    <td className="px-2 py-1 text-right text-slate-600 font-mono">{leg.hdg != null ? `${Math.round(leg.hdg)}°` : "-"}</td>
+                    <td className="px-2 py-1 text-right text-slate-600 font-mono">{i === 0 ? "-" : `${leg.distNm.toFixed(1)}`}</td>
                     <td className="px-2 py-1 text-right text-slate-700 font-mono font-semibold">{leg.cumNm.toFixed(1)}</td>
                     <td className="px-2 py-1 text-right text-cyan-700 font-mono">{fmtTime(leg.eta)}</td>
                     {fuelBurnGalHr > 0 && (
                       <td className="px-2 py-1 text-right text-amber-700 font-mono">
-                        {i === 0 ? "—" : `${((leg.distNm / speed) * fuelBurnGalHr).toFixed(1)} gal`}
+                        {i === 0 ? "-" : `${((leg.distNm / speed) * fuelBurnGalHr).toFixed(1)} gal`}
                       </td>
                     )}
                     <td className="px-2 py-1 text-right">
@@ -567,11 +567,11 @@ export default function TripPlanner({ waypoints, setWaypoints, onClose, userId, 
                     <td colSpan={2} className="px-3 py-1.5 text-slate-500 uppercase tracking-wide">Totals</td>
                     <td className="hidden sm:table-cell"/>
                     <td className="hidden sm:table-cell"/>
-                    <td className="px-2 py-1.5 text-right">—</td>
+                    <td className="px-2 py-1.5 text-right"> - </td>
                     <td className="px-2 py-1.5 text-right font-mono">{totalNm.toFixed(1)} nm</td>
                     <td className="px-2 py-1.5 text-right font-mono">{totalNm.toFixed(1)} nm</td>
                     <td className="px-2 py-1.5 text-right font-mono text-cyan-700">
-                      {totalHrs != null ? `${Math.floor(totalHrs)}h ${Math.round((totalHrs % 1) * 60)}m` : "—"}
+                      {totalHrs != null ? `${Math.floor(totalHrs)}h ${Math.round((totalHrs % 1) * 60)}m` : "-"}
                     </td>
                     {fuelBurnGalHr > 0 && (
                       <td className="px-2 py-1.5 text-right font-mono text-amber-700">

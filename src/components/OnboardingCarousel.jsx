@@ -22,14 +22,14 @@ const SLIDES = [
   {
     id: "welcome",
     title: "Welcome to RipLoc",
-    caption: "A quick tour of what RipLoc can do for your fishing. Take 2 minutes now — it pays off on the water.",
+    caption: "A quick tour of what RipLoc can do for your fishing. Take 2 minutes now - it pays off on the water.",
     videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/RipLoc+Layout.mp4",
     posterUrl: "/onboarding-welcome-poster.jpg",
   },
   {
     id: "control-panel",
     title: "Navigating the Control Panel",
-    caption: "The control panel explained — Sources, Overlays, Tools & Community Features.",
+    caption: "The control panel explained - Sources, Overlays, Tools & Community Features.",
     videoUrl: "https://riploc-storage.s3.us-east-2.amazonaws.com/Overview+of+App+Navigation+and+Controls.mp4",
     posterUrl: "/onboarding-control-panel-poster.jpg",
   },
@@ -171,7 +171,7 @@ export default function OnboardingCarousel({ onComplete }) {
             </div>
           )}
 
-          {/* Mute toggle — only shown when video is present */}
+          {/* Mute toggle - only shown when video is present */}
           {current.videoUrl && (
             <button
               onClick={toggleMute}

@@ -7,11 +7,11 @@ import { supabase } from "@/lib/supabase";
 import { useAppContext } from "@/context/AppContext";
 
 function fmt(val, decimals = 1) {
-  return val != null ? val.toFixed(decimals) : "—";
+  return val != null ? val.toFixed(decimals) : "-";
 }
 
 function fmtDuration(hrs) {
-  if (hrs == null) return "—";
+  if (hrs == null) return "-";
   const h = Math.floor(hrs);
   const m = Math.round((hrs % 1) * 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
@@ -87,10 +87,10 @@ export default function TripSummaryModal({ tripData, onClose }) {
     <tr className="border-t border-slate-100">
       <td className="py-2 px-3 text-[11px] text-slate-500 whitespace-nowrap">{label}</td>
       <td className="py-2 px-3 text-[11px] text-slate-500 font-mono text-right">
-        {planned != null ? planned : "—"}{planned != null ? unit : ""}
+        {planned != null ? planned : "-"}{planned != null ? unit : ""}
       </td>
       <td className="py-2 px-3 text-[12px] text-slate-800 font-semibold font-mono text-right">
-        {actual != null ? actual : "—"}{actual != null ? unit : ""}
+        {actual != null ? actual : "-"}{actual != null ? unit : ""}
       </td>
     </tr>
   );
@@ -160,17 +160,17 @@ export default function TripSummaryModal({ tripData, onClose }) {
               />
               <tr className="border-t border-slate-100">
                 <td className="py-2 px-3 text-[11px] text-slate-500">Max speed</td>
-                <td className="py-2 px-3 text-right text-[11px] text-slate-400">—</td>
+                <td className="py-2 px-3 text-right text-[11px] text-slate-400"> - </td>
                 <td className="py-2 px-3 text-right text-[12px] font-semibold font-mono text-slate-800">
-                  {maxSpeedKts != null ? `${fmt(maxSpeedKts)} kts` : "—"}
+                  {maxSpeedKts != null ? `${fmt(maxSpeedKts)} kts` : "-"}
                 </td>
               </tr>
               {fuelBurnGalHr > 0 && (
                 <tr className="border-t border-slate-100">
                   <td className="py-2 px-3 text-[11px] text-slate-500">Fuel used</td>
-                  <td className="py-2 px-3 text-right text-[11px] text-slate-400">—</td>
+                  <td className="py-2 px-3 text-right text-[11px] text-slate-400"> - </td>
                   <td className="py-2 px-3 text-right text-[12px] font-semibold font-mono text-amber-700">
-                    {fuelUsed != null ? `${fuelUsed} gal` : "—"}
+                    {fuelUsed != null ? `${fuelUsed} gal` : "-"}
                   </td>
                 </tr>
               )}

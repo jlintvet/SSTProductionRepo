@@ -185,7 +185,7 @@ function AppRoot() {
           <ProtectedRoute authed={authed}><SSTLive /></ProtectedRoute>
         } />
 
-        {/* Landing page — always shown at root regardless of auth */}
+        {/* Landing page - always shown at root regardless of auth */}
         <Route path="/*" element={
           <LandingPage
             authed={authed}

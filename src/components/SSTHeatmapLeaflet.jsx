@@ -362,7 +362,7 @@ function TipFlow({ pin, userId, onClose }) {
     if (platform === "venmo") {
       const deepLink = `venmo://paycharge?txn=pay&recipients=${encodeURIComponent(pin.venmo_handle)}&amount=${finalAmount}&note=${note}`;
       const webLink  = `https://venmo.com/u/${encodeURIComponent(pin.venmo_handle.replace(/^@/, ""))}`;
-      window.open(webLink, "_blank");   // open synchronously — not blocked
+      window.open(webLink, "_blank");   // open synchronously - not blocked
       window.location.href = deepLink; // try app; if it opens, user closes the extra tab
     } else {
       const handle   = pin.cashapp_handle.startsWith("$") ? pin.cashapp_handle : `$${pin.cashapp_handle}`;
@@ -430,13 +430,13 @@ function TipFlow({ pin, userId, onClose }) {
           {(pin.venmo_handle || (!pin.venmo_handle && !pin.cashapp_handle)) && (
             <button onClick={() => attemptTip("venmo")} disabled={recording || finalAmount <= 0}
               className="w-full py-2 rounded-xl bg-[#3D95CE] hover:bg-[#2d7ab8] text-white font-semibold text-sm transition-colors disabled:opacity-50">
-              Open Venmo — ${finalAmount}
+              Open Venmo - ${finalAmount}
             </button>
           )}
           {(pin.cashapp_handle || (!pin.venmo_handle && !pin.cashapp_handle)) && (
             <button onClick={() => attemptTip("cashapp")} disabled={recording || finalAmount <= 0}
               className="w-full py-2 rounded-xl bg-[#00D64F] hover:bg-[#00b843] text-white font-semibold text-sm transition-colors disabled:opacity-50">
-              Open Cash App — ${finalAmount}
+              Open Cash App - ${finalAmount}
             </button>
           )}
         </div>
@@ -598,13 +598,13 @@ function windSpeedColor(val, min, max) {
 }
 // SLA colorscale: blue (negative) → white (zero) → red (positive)
 const SLA_STOPS = [
-  [0.0,  [  0,   0, 200]], // strong negative — deep blue
-  [0.2,  [  0, 190, 255]], // moderate negative — cyan
-  [0.4,  [  0, 210, 120]], // slight negative — cyan-green
-  [0.5,  [ 40, 200,  40]], // zero anomaly — green
-  [0.6,  [230, 230,   0]], // slight positive — yellow
-  [0.8,  [255, 110,   0]], // moderate positive — orange
-  [1.0,  [200,   0,   0]], // strong positive — deep red
+  [0.0,  [  0,   0, 200]], // strong negative - deep blue
+  [0.2,  [  0, 190, 255]], // moderate negative - cyan
+  [0.4,  [  0, 210, 120]], // slight negative - cyan-green
+  [0.5,  [ 40, 200,  40]], // zero anomaly - green
+  [0.6,  [230, 230,   0]], // slight positive - yellow
+  [0.8,  [255, 110,   0]], // moderate positive - orange
+  [1.0,  [200,   0,   0]], // strong positive - deep red
 ];
 function slaColor(val, valMin, valMax) {
   // val in meters; range is auto-scaled from data percentiles via valMin/valMax
@@ -971,11 +971,11 @@ function InfoPopup({ text, onClose, triggerRef }) {
     document.body
   );
 }
-const TARGET_TEMP_HELP = `The dotted white line is the plain isotherm — every point where the water hits exactly your target temp, regardless of whether it's a sharp break or a gentle slope. It's a geometric contour, like a topographic line.`;
+const TARGET_TEMP_HELP = `The dotted white line is the plain isotherm - every point where the water hits exactly your target temp, regardless of whether it's a sharp break or a gentle slope. It's a geometric contour, like a topographic line.`;
 const DIFFERENTIAL_HELP = `The Differential slider sets how wide a temperature change has to be, between neighboring points, before it counts as a "break."
 
-• Low differential (0.5°F) — draws the cyan line across almost the whole isotherm, including gentle, gradual temperature changes.
-• High differential (8°F) — draws the cyan line only where temperature jumps sharply over a short distance — the strongest, widest breaks.
+• Low differential (0.5°F) - draws the cyan line across almost the whole isotherm, including gentle, gradual temperature changes.
+• High differential (8°F) - draws the cyan line only where temperature jumps sharply over a short distance - the strongest, widest breaks.
 
 The solid cyan line is the temp break and is only drawn where the temperature differential exceeds your threshold.`;
 function HelpIcon({ onOpen, btnRef }) {
@@ -1197,7 +1197,7 @@ export default function SSTHeatmapLeaflet(props) {
   const activeViirsDay = viirsData?.days?.[viirsDateIndex] ?? null;
   // Format ISO "2026-06-22" or YYYYMMDD "20260622" → "Jun 22"
   const fmtDate = s => {
-    if (!s) return "—";
+    if (!s) return "-";
     if (/^\d{8}$/.test(s)) {
       const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`;
@@ -2396,7 +2396,7 @@ export default function SSTHeatmapLeaflet(props) {
       });
       latSet2 = [...cLatSet].sort((a,b) => b - a);
       lonSet2 = [...cLonSet].sort((a,b) => a - b);
-      min2 = 50; max2 = 90; // fixed SST reference — consistent with all other SST sources
+      min2 = 50; max2 = 90; // fixed SST reference - consistent with all other SST sources
       colorFn = null;
     } else if (activeDataLayer==="seacolor"&&seaColorData?.days?.length) {
       const day=seaColorData.days[seaColorDateIndex]||seaColorData.days[seaColorData.days.length-1];
@@ -3357,7 +3357,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!q) { setWreckSearchResults([]); setWreckSearchMsg(null); return; }
     setMobilePanel(null);
     setShowWreckSearchBar(true);
-    if (!wrecksData) { setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading — try again in a moment."); return; }
+    if (!wrecksData) { setWreckSearchResults([]); setWreckSearchMsg("Bottom features are still loading - try again in a moment."); return; }
     const matches = wrecksData.features.filter(f => {
       const props = f.properties || {};
       const name = (props.name ?? "").trim();
@@ -3392,7 +3392,7 @@ export default function SSTHeatmapLeaflet(props) {
         });
       });
       const labelText = regionLabels.size ? [...regionLabels].join(", ") : "another region";
-      setWreckSearchMsg(`Not found in this region — found in ${labelText}.`);
+      setWreckSearchMsg(`Not found in this region - found in ${labelText}.`);
     } else {
       setWreckSearchResults([]);
       setWreckSearchMsg(`No bottom feature found matching "${term.trim()}".`);
@@ -3527,7 +3527,7 @@ export default function SSTHeatmapLeaflet(props) {
 
     sp.zones.forEach(zone => {
       const c   = zone.conditions;
-      const brk = c.break_strength ? c.break_strength[0].toUpperCase() + c.break_strength.slice(1) : "—";
+      const brk = c.break_strength ? c.break_strength[0].toUpperCase() + c.break_strength.slice(1) : "-";
 
       const seasonBadge = zone.in_season === false
         ? `<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:5px">Off Season</span>`
@@ -3537,10 +3537,10 @@ export default function SSTHeatmapLeaflet(props) {
         ? `<div style="color:#94a3b8;font-size:10px;margin-bottom:2px">habitat ${(zone.habitat_score * 100).toFixed(0)}% &times; ${zone.seasonal_factor.toFixed(2)} seasonal</div>`
         : "";
 
-      const chlDisplay = c.chl_mg_m3 != null ? `${c.chl_mg_m3.toFixed(2)} mg/m³` : "—";
+      const chlDisplay = c.chl_mg_m3 != null ? `${c.chl_mg_m3.toFixed(2)} mg/m³` : "-";
 
       const cloudWarning = showCloudWarning
-        ? `No imagery available within the last ${compAge.ageHours} hours. Most recent data: ${compAge.dateLabel}. These recommendations are based on the most recent imagery available — keep this in mind when planning your trip.`
+        ? `No imagery available within the last ${compAge.ageHours} hours. Most recent data: ${compAge.dateLabel}. These recommendations are based on the most recent imagery available - keep this in mind when planning your trip.`
         : null;
 
       const narrativeBlock = zone.narrative
@@ -3551,8 +3551,8 @@ export default function SSTHeatmapLeaflet(props) {
         `<div style="font-size:12px;line-height:1.7;max-width:270px">` +
         `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin-bottom:1px"><b>Zone ${zone.rank} &middot; ${(zone.score * 100).toFixed(0)}% match</b>${seasonBadge}</div>` +
         habitatLine +
-        `SST: ${c.sst_f ?? "—"}°F &middot; Break: ${brk}<br/>` +
-        `Depth: ${c.depth_ft != null ? Math.round(c.depth_ft) + "ft" : "—"} &middot; CHL: ${chlDisplay}<br/>` +
+        `SST: ${c.sst_f ?? "-"}°F &middot; Break: ${brk}<br/>` +
+        `Depth: ${c.depth_ft != null ? Math.round(c.depth_ft) + "ft" : "-"} &middot; CHL: ${chlDisplay}<br/>` +
         `Area: ~${zone.area_sq_nm} sq nm` +
         narrativeBlock +
         `</div>`;
@@ -3795,7 +3795,7 @@ export default function SSTHeatmapLeaflet(props) {
       reopenPanel = "sst";
       const hrs = activeViirsDay?.available_hours || [];
       const hIdx = hrs.indexOf(viirsHour);
-      const hrLabel = (!activeViirsDay?.date || viirsHour == null) ? "—" : (() => {
+      const hrLabel = (!activeViirsDay?.date || viirsHour == null) ? "-" : (() => {
         const d = new Date(new Date(`${activeViirsDay.date}T${String(viirsHour).padStart(2, "0")}:00:00Z`).toLocaleString("en-US", { timeZone: "America/New_York" }));
         const hr = d.getHours();
         return hr === 0 ? "12am" : hr < 12 ? `${hr}am` : hr === 12 ? "12pm" : `${hr - 12}pm`;
@@ -3865,7 +3865,7 @@ export default function SSTHeatmapLeaflet(props) {
         <>
           <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.max(0, i - 1)); }} disabled={compositeDateIndex === 0}
             className="h-8 px-2 flex items-center justify-center rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8249;</button>
-          <span className="flex-1 h-8 leading-8 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded truncate">{compositeDates[compositeDateIndex] ?? "—"}</span>
+          <span className="flex-1 h-8 leading-8 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded truncate">{compositeDates[compositeDateIndex] ?? "-"}</span>
           <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1)); }} disabled={compositeDateIndex === compositeDates.length - 1}
             className="h-8 px-2 flex items-center justify-center rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30 flex-shrink-0">&#8250;</button>
           {compositeDates.length > 1 && (
@@ -3968,7 +3968,7 @@ export default function SSTHeatmapLeaflet(props) {
           <div ref={mapDivRef} className="rounded overflow-hidden flex-1"
                style={{ background: "transparent", width: "100%", height: `calc(100% - ${sliderHeight}px)` }} />
 
-          {/* Desktop collapsed icon column — mirrors mobile right rail */}
+          {/* Desktop collapsed icon column - mirrors mobile right rail */}
           {panelCollapsed && (
             <div className="hidden sm:flex absolute flex-col gap-1" style={{ right: 8, top: 8, zIndex: 501 }}>
               {/* Expand */}
@@ -4080,7 +4080,7 @@ export default function SSTHeatmapLeaflet(props) {
               {/* Real Time GPS */}
               <button
                 onClick={onToggleGps}
-                title={gpsActive ? "GPS On — tap to stop" : "GPS"}
+                title={gpsActive ? "GPS On - tap to stop" : "GPS"}
                 className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
                 style={{
                   width: 32, height: 32, padding: 0,
@@ -4191,7 +4191,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Mobile floating controls — 5 layer icons + divider + inspect/pan/bookmark */}
+          {/* Mobile floating controls - 5 layer icons + divider + inspect/pan/bookmark */}
           <div className="sm:hidden absolute flex flex-col gap-1" style={{ right: 8, top: 8, zIndex: 501 }}>
             {/* SST */}
             <button onClick={() => { setMobilePanel(p => p === "sst" ? null : "sst"); if(activeDataLayer!=="sst"&&activeDataLayer!=="composite"){ const s=localStorage.getItem("sst_sub_layer")||"sst"; setActiveDataLayer(s); } setShowRadarOverlay(false); setShowBathyRaster(false); }} title="SST"
@@ -4306,7 +4306,7 @@ export default function SSTHeatmapLeaflet(props) {
             {/* Real Time GPS */}
             <button
               onClick={onToggleGps}
-              title={gpsActive ? "GPS On — tap to stop" : "GPS"}
+              title={gpsActive ? "GPS On - tap to stop" : "GPS"}
               className="flex items-center justify-center bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-sm"
               style={{
                 width: 30, height: 30, padding: 0,
@@ -4347,7 +4347,7 @@ export default function SSTHeatmapLeaflet(props) {
             />
           )}
 
-          {/* Mobile focused drawers — one per layer icon */}
+          {/* Mobile focused drawers - one per layer icon */}
           {mobilePanel && (
             <div className="sm:hidden fixed left-0 right-0 bg-white border-t border-slate-200 shadow-xl flex flex-col"
                  style={{ bottom: 0, zIndex: 2000, maxHeight: "45vh", overflowY: "auto" }}>
@@ -4395,7 +4395,7 @@ export default function SSTHeatmapLeaflet(props) {
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
                         )}
                         <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
-                          {compositeDates[compositeDateIndex] ?? "—"}
+                          {compositeDates[compositeDateIndex] ?? "-"}
                         </span>
                         {compositeDates.length > 1 && (
                           <button onClick={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1)); }} disabled={compositeDateIndex === compositeDates.length - 1}
@@ -4652,7 +4652,7 @@ export default function SSTHeatmapLeaflet(props) {
                       </button>
                     </div>
 
-                    {/* Wind time controls — only when wind data loaded */}
+                    {/* Wind time controls - only when wind data loaded */}
                     {windData?.hours?.length > 0 && (() => {
                       const hours = windData.hours;
                       const curDay = hours[windHourIndex]?.time
@@ -4677,7 +4677,7 @@ export default function SSTHeatmapLeaflet(props) {
                             <div className="flex-1 text-center text-[11px] font-semibold text-sky-800 bg-sky-50 rounded-lg py-1 truncate">
                               {hours[windHourIndex]?.time
                                 ? new Date(hours[windHourIndex].time).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "America/New_York" })
-                                : "—"}
+                                : "-"}
                             </div>
                             <button onClick={() => setWindHourIndex(nextDayIdx)} disabled={nextDayIdx === null}
                               className="px-2 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-bold disabled:opacity-30">Day »</button>
@@ -4689,7 +4689,7 @@ export default function SSTHeatmapLeaflet(props) {
                             <div className="flex-1 text-center text-[11px] font-semibold text-sky-700 bg-sky-50 rounded-lg py-1.5 truncate">
                               {hours[windHourIndex]?.time
                                 ? new Date(hours[windHourIndex].time).toLocaleString("en-US", { hour: "numeric", timeZone: "America/New_York" })
-                                : "—"}
+                                : "-"}
                             </div>
                             <button onClick={() => setWindHourIndex(i => Math.min(hours.length - 1, i + 1))} disabled={windHourIndex === hours.length - 1}
                               className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
@@ -4734,7 +4734,7 @@ export default function SSTHeatmapLeaflet(props) {
                         </MobileProGate>
                       </div>
                       {altimetryDates?.length > 1 && (() => {
-                        const fmtD = s => { if (!s||s.length<8) return s??"—"; const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`; };
+                        const fmtD = s => { if (!s||s.length<8) return s??"-"; const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`; };
                         return (
                           <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4 }}>
                             <button onClick={() => { setAltimetryPlaying(false); setAltimetryDateIndex(i => Math.max(0, i-1)); }}
@@ -4801,7 +4801,7 @@ export default function SSTHeatmapLeaflet(props) {
                         )}
                       </MobileProGate>
                     )}
-                    {/* HOTSPOT UI HIDDEN — needs work
+                    {/* HOTSPOT UI HIDDEN - needs work
                     <MobileProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">
                       <button onClick={() => setShowHotspots(h => !h)}
                         className={`w-full text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${showHotspots ? "bg-amber-700 text-white border-amber-700" : "bg-white text-slate-600 border-slate-300"}`}>
@@ -4917,7 +4917,7 @@ export default function SSTHeatmapLeaflet(props) {
                               <button onClick={() => setLoranHelpOpen(false)}
                                 className="text-slate-400 hover:text-slate-600 text-xl leading-none font-light">×</button>
                             </div>
-                            <img src="/loran_ref_point.png" alt="The Point — Loran Y lines"
+                            <img src="/loran_ref_point.png" alt="The Point - Loran Y lines"
                                  className="w-full object-cover" style={{maxHeight:200}}
                                  onError={e => { e.currentTarget.style.display="none"; }} />
                             <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
@@ -4936,7 +4936,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Compact day/hour nav (mobile) — replaces the full drawer once a secondary source is picked, so it doesn't cover most of the map. Content computed once in dayNavContent above and shared with the desktop bar below. */}
+          {/* Compact day/hour nav (mobile) - replaces the full drawer once a secondary source is picked, so it doesn't cover most of the map. Content computed once in dayNavContent above and shared with the desktop bar below. */}
           {showMobileSourceNav && !mobilePanel && dayNavContent.content && !wreckSearchBarVisible && (
             <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
                  style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
@@ -4947,7 +4947,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Compact wreck-search result bar (mobile) — replaces the full Tools
+          {/* Compact wreck-search result bar (mobile) - replaces the full Tools
               drawer once a bottom-feature search runs, so the keyboard + a
               45vh drawer + the wreck detail card don't all stack up on top
               of each other at once. Takes priority over the source-nav bar
@@ -4986,7 +4986,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Compact day/hour nav (desktop) — shown when the sidebar is collapsed so the user isn't forced to reopen the full 168px panel just to change date/hour. Centered across the map/data display at the bottom -- wide enough that VIIRS mode's 5 buttons + 2 date/hour labels don't truncate (was fixed 240px docked left, which cut the date label down to "J..."). */}
+          {/* Compact day/hour nav (desktop) - shown when the sidebar is collapsed so the user isn't forced to reopen the full 168px panel just to change date/hour. Centered across the map/data display at the bottom -- wide enough that VIIRS mode's 5 buttons + 2 date/hour labels don't truncate (was fixed 240px docked left, which cut the date label down to "J..."). */}
           {panelCollapsed && dayNavContent.content && (
             <div className="hidden sm:flex absolute bg-white rounded-2xl border border-slate-200 shadow-xl items-center gap-1.5 px-3 py-2"
                  style={{ bottom: sliderHeight + 8, left: "50%", transform: "translateX(-50%)", zIndex: 900, width: 480, maxWidth: "calc(100% - 96px)" }}>
@@ -5172,7 +5172,7 @@ export default function SSTHeatmapLeaflet(props) {
             async function handleSaveCommunityPin() {
               if (!userId || alreadySaved) return;
               const label = pin.display_name
-                ? `${speciesList || "Report"} — ${pin.display_name}`
+                ? `${speciesList || "Report"} - ${pin.display_name}`
                 : (speciesList || "Community Pin");
               const { error } = await supabase
                 .from("saved_locations")
@@ -5252,7 +5252,7 @@ export default function SSTHeatmapLeaflet(props) {
                   </div>
                 )}
 
-                {/* Photos — up to 10. A single photo keeps the old full-width
+                {/* Photos - up to 10. A single photo keeps the old full-width
                     hero treatment (object-contain so portrait photos aren't
                     center-cropped); 2+ photos show as a horizontal thumbnail
                     strip instead, since the 252px card can't show more than
@@ -5407,7 +5407,7 @@ export default function SSTHeatmapLeaflet(props) {
               const { error: upErr } = await supabase.storage.from("share-images")
                 .upload(path, file, { contentType: file.type, upsert: false });
               if (upErr) {
-                setWreckPhotoMsg("Upload failed — try again.");
+                setWreckPhotoMsg("Upload failed - try again.");
                 setWreckPhotoSubmitting(false);
                 return;
               }
@@ -5418,7 +5418,7 @@ export default function SSTHeatmapLeaflet(props) {
                 image_url: pub?.publicUrl,
               });
               setWreckPhotoSubmitting(false);
-              setWreckPhotoMsg(insErr ? "Couldn't submit — try again." : "Submitted — pending review.");
+              setWreckPhotoMsg(insErr ? "Couldn't submit - try again." : "Submitted - pending review.");
             }
 
             const wreckLabel = wp.name || (wp.symbol === "Wreck" ? "Wreck" : "Structure");
@@ -5735,7 +5735,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* GPS HUD — enhanced with navigation info when active */}
+          {/* GPS HUD - enhanced with navigation info when active */}
           {gpsActive && boatPosition && (() => {
             // Compute nav ETA if navigating
             let navLine1 = null, navLine2 = null;
@@ -5894,7 +5894,7 @@ export default function SSTHeatmapLeaflet(props) {
       </div>
     </div>
 
-    {/* Waypoint delete popup — rendered at root so it's never clipped */}
+    {/* Waypoint delete popup - rendered at root so it's never clipped */}
     {wpDeletePopup && createPortal(
       <div
         style={{ position: "fixed", left: wpDeletePopup.px, top: wpDeletePopup.py - 48,

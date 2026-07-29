@@ -9,7 +9,7 @@ import { generateForecastShareImage } from "@/lib/generateForecastShareImage";
 function buildShareText(payload) {
   const { locationLabel, periodLabel, condition, high, low, wind, waves } = payload;
   const lines = [];
-  lines.push(`${locationLabel || "Forecast"} — ${periodLabel || ""}`.trim());
+  lines.push(`${locationLabel || "Forecast"} - ${periodLabel || ""}`.trim());
   if (condition) lines.push(condition);
   const t = [];
   if (high != null) t.push(`Hi ${high}°`);
@@ -18,7 +18,7 @@ function buildShareText(payload) {
   if (wind && (wind.direction || wind.speed)) lines.push(`Wind ${[wind.direction, wind.speed].filter(Boolean).join(" ")}`);
   if (waves) lines.push(`Seas ${waves}`);
   lines.push("");
-  lines.push("Shared from RipLoc — live SST, marine forecasts & fishing intel");
+  lines.push("Shared from RipLoc - live SST, marine forecasts & fishing intel");
   lines.push("https://riploc.com");
   return lines.join("\n");
 }
@@ -58,7 +58,7 @@ export default function ShareForecastDialog({ payload, onClose }) {
 
   async function handleShare(type) {
     const text = buildShareText(payload);
-    const title = `${payload.locationLabel || "Forecast"} — ${payload.periodLabel || ""}`.trim();
+    const title = `${payload.locationLabel || "Forecast"} - ${payload.periodLabel || ""}`.trim();
     const blob = imgBlobRef.current;
 
     if (blob && navigator.canShare) {

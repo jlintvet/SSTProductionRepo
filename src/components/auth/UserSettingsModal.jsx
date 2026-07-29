@@ -378,7 +378,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
           <Section title="Navigation">
             <Row label="Display name">
               <span className="text-xs text-slate-500 leading-snug">
-                Set in <span className="font-medium text-slate-700">Community Profile</span> below — shown to other users when you share live location while navigating.
+                Set in <span className="font-medium text-slate-700">Community Profile</span> below - shown to other users when you share live location while navigating.
               </span>
             </Row>
             <Row label="Share by default">
@@ -433,7 +433,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
             </Row>
             <p className="text-[11px] text-slate-400 leading-relaxed">
               Display name appears on your community pins. Payment handles let other anglers tip you for catch reports.
-              Posting anonymously hides your name from other users on the map — you still earn leaderboard credit and
+              Posting anonymously hides your name from other users on the map - you still earn leaderboard credit and
               can still be tipped, and this can be overridden per post. You can always be identified in admin
               moderation. Change per post from the report form's own checkbox.
             </p>
@@ -462,7 +462,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 {push.pushBusy
                   ? "Updating…"
                   : push.pushEnabled
-                    ? "Notifying you of nearby live pins — tap to turn off"
+                    ? "Notifying you of nearby live pins - tap to turn off"
                     : "Notify me about nearby live pins"}
               </button>
               {push.pushEnabled && (
@@ -525,7 +525,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 <p className="text-[11px] text-red-500">{ambCodeError}</p>
               )}
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Share this code — anyone who redeems it gets a free year of Pro. 4-30 lowercase letters/numbers, no spaces or symbols.
+                Share this code - anyone who redeems it gets a free year of Pro. 4-30 lowercase letters/numbers, no spaces or symbols.
               </p>
 
               <div className="pt-2">
@@ -566,7 +566,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 <p className="text-[11px] text-slate-500 leading-relaxed">
                   Redeemed code <strong>{referral.referred_by}</strong>
                   {referral.referral_end && (
-                    <> — active until {new Date(referral.referral_end).toLocaleDateString()}</>
+                    <> - active until {new Date(referral.referral_end).toLocaleDateString()}</>
                   )}
                   .
                 </p>
@@ -590,7 +590,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                     <p className="text-[11px] text-red-500">{referralStatus}</p>
                   )}
                   {referralStatus === "ok" && (
-                    <p className="text-[11px] text-emerald-600">Code redeemed — you now have a year of Pro access.</p>
+                    <p className="text-[11px] text-emerald-600">Code redeemed - you now have a year of Pro access.</p>
                   )}
                   <p className="text-[11px] text-slate-400 leading-relaxed">
                     Have a code from one of our ambassadors? Redeem it here for a free year of Pro access.
@@ -717,7 +717,7 @@ const REGION_PICKER_DATA = [
   {
     key: "mid_atlantic",
     label: "Mid-Atlantic",
-    desc: "Maryland, Virginia & North Carolina offshore — Chesapeake Bay, Outer Banks, Gulf Stream access",
+    desc: "Maryland, Virginia & North Carolina offshore - Chesapeake Bay, Outer Banks, Gulf Stream access",
     bounds: "N 39.5°  ·  S 33.7°  ·  W 78.8°  ·  E 72.2°",
     bbox: "[-78.84,33.7,-72.21,39.5]",
     ports: ["Bay Bridge Tunnel","Beaufort Inlet","Cape Charles","Hatteras Inlet","Horn Harbor","Ocean City Inlet","Oregon Inlet","Poquoson","Virginia Beach"],
@@ -725,7 +725,7 @@ const REGION_PICKER_DATA = [
   {
     key: "ga_sc",
     label: "Georgia & South Carolina",
-    desc: "Southern NC, SC, Georgia & NE Florida offshore — year-round Gulf Stream, sea islands, deep inlets",
+    desc: "Southern NC, SC, Georgia & NE Florida offshore - year-round Gulf Stream, sea islands, deep inlets",
     bounds: "N 35.2°  ·  S 29.8°  ·  W 82.0°  ·  E 75.2°",
     bbox: "[-82.0,29.8,-75.2,35.2]",
     ports: ["Beaufort SC","Carolina Beach","Charleston","Darien","Fernandina Beach","Georgetown SC","Hilton Head","Jekyll Island","Little River Inlet","Mayport","Murrells Inlet","Myrtle Beach","Southport","St. Augustine","St. Simons Island","Tybee Island","Wrightsville Beach"],
@@ -733,7 +733,7 @@ const REGION_PICKER_DATA = [
   {
     key: "ne_fl",
     label: "Northeast Florida",
-    desc: "Jacksonville to Fort Lauderdale offshore — Gulf Stream close to shore, reef structure, deep inlets",
+    desc: "Jacksonville to Fort Lauderdale offshore - Gulf Stream close to shore, reef structure, deep inlets",
     bounds: "N 30.5°  ·  S 26.0°  ·  W 81.97°  ·  E 76.14°",
     bbox: "[-81.97,26.0,-76.14,30.5]",
     ports: ["Mayport","St. Augustine","Ponce Inlet","Port Canaveral","Sebastian Inlet","Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale"],
@@ -741,7 +741,7 @@ const REGION_PICKER_DATA = [
   {
     key: "s_fl",
     label: "Southern Florida",
-    desc: "Fort Pierce to the Florida Keys and Gulf coast offshore — Florida Straits, Gulf Stream against the reef, Keys backcountry",
+    desc: "Fort Pierce to the Florida Keys and Gulf coast offshore - Florida Straits, Gulf Stream against the reef, Keys backcountry",
     bounds: "N 27.47°  ·  S 22.15°  ·  W 83.16°  ·  E 76.14°",
     bbox: "[-83.16,22.15,-76.14,27.47]",
     ports: ["Fort Pierce","Stuart","Lake Worth Inlet","Fort Lauderdale","Miami","Islamorada","Marathon","Key West","Naples","Marco Island","Fort Myers Beach"],
@@ -749,7 +749,7 @@ const REGION_PICKER_DATA = [
   {
     key: "va_ri",
     label: "Virginia to Rhode Island",
-    desc: "Chesapeake Bay mouth to Rhode Island Sound offshore — Delmarva, Jersey Shore, Long Island, Block Island Sound",
+    desc: "Chesapeake Bay mouth to Rhode Island Sound offshore - Delmarva, Jersey Shore, Long Island, Block Island Sound",
     bounds: "N 41.51°  ·  S 37.26°  ·  W 77.46°  ·  E 68.97°",
     bbox: "[-77.46,37.26,-68.97,41.51]",
     ports: ["Virginia Beach","Wachapreague","Chincoteague","Ocean City Inlet","Indian River Inlet","Cape May","Atlantic City","Barnegat Light","Manasquan","Sandy Hook","Freeport","Captree","Moriches Inlet","Shinnecock Inlet","Montauk","Stonington","Point Judith","Newport"],

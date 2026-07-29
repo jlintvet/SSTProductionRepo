@@ -100,7 +100,7 @@ export function usePushNotifications({ userId, selectedLocation, gpsActive, boat
         uid = authData?.user?.id || null;
       }
       if (!uid) {
-        setPushError("Couldn't verify your account — try reloading the page.");
+        setPushError("Couldn't verify your account - try reloading the page.");
         return;
       }
       await enablePushNotifications({

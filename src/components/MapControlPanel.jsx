@@ -85,11 +85,11 @@ function ProGate({ isPro, children, label }) {
 // ── Help content config ───────────────────────────────────────────────────────
 const HELP_CONFIG = {
   sst:         { title: "Sea Surface Temperature (SST)", image: "/help/sst.png",        text: "SST shows ocean surface water temperature. Warmer water (reds/yellows) holds bait and attracts pelagics. Use Cloud Free (MUR) for the clearest gap-filled picture, Hourly (VIIRS) for the most recent passes, or HD Composite to gap-fill cloud cover." },
-  chlorophyll: { title: "Chlorophyll",                   image: "/chl_ref_point.png",   text: "Chlorophyll concentration indicates biological productivity — greener water has more phytoplankton, which means more bait. The edge between high- and low-chl water often holds mahi, wahoo, and tuna. Adjust the gain to stretch or compress the color scale for your area." },
+  chlorophyll: { title: "Chlorophyll",                   image: "/chl_ref_point.png",   text: "Chlorophyll concentration indicates biological productivity - greener water has more phytoplankton, which means more bait. The edge between high- and low-chl water often holds mahi, wahoo, and tuna. Adjust the gain to stretch or compress the color scale for your area." },
   seacolor:    { title: "Sea Color / Kd490",             image: "/help/seacolor.png",   text: "Kd490 measures water clarity. Cleaner, bluer water has lower Kd490. The boundary between turbid and clear water is a productive fishing zone, especially for mahi and tuna following the color change." },
   altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/altimetry_ref.png",   text: "Altimetry comes from satellite radar that detects extremely small changes in ocean surface height and turns them into a contour map. Raised areas (dark blue, light blue, green) mark spots where deep water is welling up toward the surface, bringing nutrients and bait with it. Lower areas (yellow, orange, red) mark spots where surface water is sinking, leaving less for baitfish to feed on. Dark blue is your top pick, light blue and green are still worth a look, and yellow, orange, or red areas are best skipped. Updated daily. Contour lines are drawn every 5cm (about 2 inches), with numbered lines every 10cm." },
   windmap:     { title: "Wind Map",                      image: "/help/windmap.png",    text: "The wind map shows surface wind speed and direction from the GFS model. Strong offshore winds push surface water and can affect sea state and bait positioning. Use this to gauge conditions before heading out." },
-  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",   text: "The temp break tool highlights the target isotherm — set the temperature, differential, and distance to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band. Distance sets how many grid steps apart the comparison is made — raise it to catch breaks that build up gradually over a wider area instead of a single sharp step; the line is drawn midway between the cooler and warmer water, not at the exact crossing." },
+  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",   text: "The temp break tool highlights the target isotherm - set the temperature, differential, and distance to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band. Distance sets how many grid steps apart the comparison is made - raise it to catch breaks that build up gradually over a wider area instead of a single sharp step; the line is drawn midway between the cooler and warmer water, not at the exact crossing." },
   hotspots:    { title: "Fish Hot Spots",                image: "/help/hotspots.png",   text: "AI-scored locations based on SST gradients, chlorophyll, currents, and bottom structure. Select a target species to tune the model for that fish's preferred conditions. Scores are computed daily and vary with data freshness." },
   windoverlay: { title: "Wind Overlay",                  image: "/help/windoverlay.png",text: "Animated wind arrows overlaid directly on the map. Shows real-time GFS wind direction and speed over the water. Useful for judging sea conditions at any point on the map." },
   currents:    { title: "Ocean Currents",                image: "/help/currents.png",   text: "Ocean current vectors from OSCAR (5-day lag). Shows water flow direction and speed. Current edges and convergence zones concentrate bait and attract pelagics. The Gulf Stream and its eddies appear clearly." },
@@ -103,7 +103,7 @@ const HELP_CONFIG = {
   loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png", text: "" },
   community:   { title: "Community Pins",                image: "/help/community.png",  text: "Community pins show catch reports and live fish activity posted by other anglers. Lime green pins are live (48h) and pulse while active; after 48h they turn blue like a regular catch report. All pins stay visible for 7 days total. Click any pin to see details and tip the poster." },
   labels:      { title: "Map Labels",                    image: "/help/labels.png",     text: "Shows canyon names and geographic feature labels on the map. Labels scale with zoom level and display the names of major offshore canyons, ridges, and banks." },
-  weatherbuoys:{ title: "Weather Buoys",                 image: "/help/buoys.png",      text: "Live observations from NOAA NDBC buoys — wind, gusts, waves, water and air temperature, and pressure. Only buoys within range of your selected departure are shown; tap one for the latest reading and how long ago it was observed. Refreshes about every 15 minutes." },
+  weatherbuoys:{ title: "Weather Buoys",                 image: "/help/buoys.png",      text: "Live observations from NOAA NDBC buoys - wind, gusts, waves, water and air temperature, and pressure. Only buoys within range of your selected departure are shown; tap one for the latest reading and how long ago it was observed. Refreshes about every 15 minutes." },
 };
 
 // ── Tiny helpers ───────────────────────────────────────────────────────────────
@@ -373,7 +373,7 @@ export default function MapControlPanel({
   const isCHL       = activeDataLayer === "chlorophyll";
   // Format any date string (ISO "2026-06-22" or YYYYMMDD "20260622") → "Jun 22"
   const fmtDate = s => {
-    if (!s) return "—";
+    if (!s) return "-";
     if (/^\d{8}$/.test(s)) {
       const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       return `${mo[parseInt(s.slice(4,6),10)-1]} ${parseInt(s.slice(6,8),10)}`;
@@ -464,7 +464,7 @@ export default function MapControlPanel({
               {isComposite && compositeData && (
                 compositeDates?.length >= 1 ? (
                   <DateNav
-                    label={compositeDates[compositeDateIndex] ?? "—"} color="cyan"
+                    label={compositeDates[compositeDateIndex] ?? "-"} color="cyan"
                     onPrev={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.max(0, i - 1)); }}
                     onNext={() => { setSstPlaying(false); setCompositeDateIndex(i => Math.min(compositeDates.length - 1, i + 1)); }}
                     disablePrev={compositeDateIndex === 0}
@@ -793,7 +793,7 @@ export default function MapControlPanel({
             </div>
           )}
 
-          {/* HOTSPOT UI HIDDEN — needs work
+          {/* HOTSPOT UI HIDDEN - needs work
           <div className="flex gap-1 items-start">
             <div className="flex-1">
               <ProGate isPro={isPro} label="Fishing hotspot scoring is available on the Pro plan.">

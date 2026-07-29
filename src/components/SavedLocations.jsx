@@ -73,8 +73,8 @@ export default function SavedLocations({
   onClearMarkers,
   onSelectLocation,
   highlightedId,
-  onShare,               // (loc) => void — triggers share dialog in parent
-  onTipCommunitySource,  // (loc) => void — opens tip modal for community-saved location
+  onShare,               // (loc) => void - triggers share dialog in parent
+  onTipCommunitySource,  // (loc) => void - opens tip modal for community-saved location
   isPro,                 // only show share button for pro/trial users
 }) {
   const [deletingId, setDeletingId] = useState(null);

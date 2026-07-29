@@ -150,7 +150,7 @@ export default function WeatherBottomSheet() {
         <button
           onClick={cyclePeek}
           className="w-full px-3 py-1.5 flex items-center gap-2 text-left"
-          aria-label={`Weather panel — currently ${snap}, tap to expand`}
+          aria-label={`Weather panel - currently ${snap}, tap to expand`}
         >
           <PeekSummary location={selectedLocation} data={data} isAvailable={isAvailable} />
           <ChevronUp
@@ -233,7 +233,7 @@ function PeekSummary({ location, data, isAvailable }) {
   if (!isAvailable) {
     return (
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm font-semibold text-slate-600 truncate">{location?.label ?? "—"}</span>
+        <span className="text-sm font-semibold text-slate-600 truncate">{location?.label ?? "-"}</span>
         <span className="text-xs text-slate-400 truncate">No marine forecast</span>
       </div>
     );
@@ -246,7 +246,7 @@ function PeekSummary({ location, data, isAvailable }) {
   return (
     <div className="flex items-center gap-2 min-w-0 text-sm">
       <span className="leading-none flex-shrink-0 flex items-center" aria-hidden>{getWeatherIcon(nws?.dayForecast, 18)}</span>
-      <span className="font-semibold text-slate-700 truncate flex-shrink-0">{location?.label ?? "—"}</span>
+      <span className="font-semibold text-slate-700 truncate flex-shrink-0">{location?.label ?? "-"}</span>
       {tempText && <span className="text-slate-600 tabular-nums flex-shrink-0">{tempText}</span>}
       {windText && <span className="text-slate-500 tabular-nums truncate">· {windText}</span>}
       {waveText && <span className="text-cyan-600 tabular-nums hidden xs:inline truncate">· {waveText}</span>}

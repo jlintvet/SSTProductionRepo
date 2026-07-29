@@ -45,7 +45,7 @@ export function useRegionAccess() {
 
         if (profileError || !profile) {
           // No profile yet — give Pro access so new users get full trial
-          console.warn("[useRegionAccess] No user_profiles row — defaulting to trial.");
+          console.warn("[useRegionAccess] No user_profiles row - defaulting to trial.");
           setPermittedRegions([DEFAULT_REGION]);
           setRegion(DEFAULT_REGION);
           setDaysLeft(30);

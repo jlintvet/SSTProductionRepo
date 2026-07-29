@@ -95,7 +95,7 @@ export default function UserMenu({ onUpgrade }) {
       if (daysLeft === 1)    return "Free Trial (1 day left)";
       return "Free Trial (" + daysLeft + " days left)";
     }
-    return tier ?? "—";
+    return tier ?? "-";
   }
 
   function getTierColor() {

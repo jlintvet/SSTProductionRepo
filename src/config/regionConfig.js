@@ -242,7 +242,7 @@ function getSeason(month) {
   return "spring";
 }
 
-/** Returns the seasonal SST color default for a region. Always {min,max} — never null. */
+/** Returns the seasonal SST color default for a region. Always {min,max} - never null. */
 export function getSeasonalSstDefault(regionKey) {
   const cfg    = getRegionConfig(regionKey);
   const season = getSeason(new Date().getMonth() + 1);

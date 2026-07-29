@@ -136,7 +136,7 @@ export default function LeaderboardModal({ onClose }) {
           ) : rows.length === 0 ? (
             <div style={{ textAlign: "center", color: "rgba(255,255,255,0.3)",
               fontSize: 13, padding: "48px 24px" }}>
-              No reports yet — be the first angler on the board!
+              No reports yet - be the first angler on the board!
             </div>
           ) : rows.map((r, i) => {
             const isTop3 = i < 3;

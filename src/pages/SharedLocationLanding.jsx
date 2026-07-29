@@ -34,7 +34,7 @@ export default function SharedLocationLanding() {
     supabase.auth.getUser().then(({ data }) => {
       setUserId(data?.user?.id ?? null);
     });
-    document.title = `${name} — SSTLive`;
+    document.title = `${name} - SSTLive`;
   }, [name]);
 
   // ── Save to user's locations ─────────────────────────────────────────────
@@ -61,7 +61,7 @@ export default function SharedLocationLanding() {
       setSaved(true);
     } catch (e) {
       console.error("Save failed:", e);
-      setSaveError("Couldn't save — please try again.");
+      setSaveError("Couldn't save - please try again.");
     } finally {
       setSaving(false);
     }

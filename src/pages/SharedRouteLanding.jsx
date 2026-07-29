@@ -51,7 +51,7 @@ export default function SharedRouteLanding() {
       const decoded = decodeRouteData(dataParam);
       if (decoded && decoded.waypoints?.length) {
         setRoute({ ...decoded, id: null, share_token: token || null });
-        document.title = `${decoded.name || "Fishing Route"} — SSTLive`;
+        document.title = `${decoded.name || "Fishing Route"} - SSTLive`;
         setLoading(false);
         return;
       }
@@ -77,7 +77,7 @@ export default function SharedRouteLanding() {
           setNotFound(true);
         } else {
           setRoute(data);
-          document.title = `${data.name || "Fishing Route"} — SSTLive`;
+          document.title = `${data.name || "Fishing Route"} - SSTLive`;
         }
       } catch (_) {
         setNotFound(true);
@@ -111,7 +111,7 @@ export default function SharedRouteLanding() {
       setSaved(true);
     } catch (e) {
       console.error("Save failed:", e);
-      setSaveError("Couldn't save — please try again.");
+      setSaveError("Couldn't save - please try again.");
     } finally {
       setSaving(false);
     }

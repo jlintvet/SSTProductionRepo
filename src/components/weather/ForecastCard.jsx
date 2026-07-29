@@ -130,7 +130,7 @@ function HourlyWeatherPopup({ forecastHourlyUrl, date, label, onClose }) {
           </button>
         </div>
 
-        {/* Body — horizontal scrolling strip */}
+        {/* Body - horizontal scrolling strip */}
         <div style={{ overflowX: "auto", overflowY: "hidden", padding: "16px 18px 20px" }}>
           {loading && (
             <div style={{ textAlign: "center", padding: "32px 48px", color: "#94a3b8", fontSize: 14, whiteSpace: "nowrap" }}>
@@ -172,7 +172,7 @@ function HourlyWeatherPopup({ forecastHourlyUrl, date, label, onClose }) {
                     {h.temp}°
                   </span>
 
-                  {/* Precip % — only show if > 0 */}
+                  {/* Precip % - only show if > 0 */}
                   <span style={{
                     fontSize: 10, fontWeight: 600,
                     color: h.precip > 30 ? "#2563eb" : "#94a3b8",
@@ -337,7 +337,7 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Tide Details</div>
             <div style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>
-              {label}{locationLabel ? ` — ${locationLabel}` : ""}
+              {label}{locationLabel ? ` - ${locationLabel}` : ""}
             </div>
           </div>
           <button
@@ -442,7 +442,7 @@ function TideDetailPopup({ stationId, tideData, date, label, locationLabel, isTo
               </ResponsiveContainer>
               {isApproximate && (
                 <p style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", marginTop: 2 }}>
-                  Approximate curve — NOAA doesn't publish high-resolution data for this station.
+                  Approximate curve - NOAA doesn't publish high-resolution data for this station.
                 </p>
               )}
             </div>
@@ -540,9 +540,9 @@ export default function ForecastCard({
   sunData,
   locationLabel,
   forecastHourlyUrl,   // from data.forecastHourlyUrl via useMarineForecast
-  noaaZone,            // { id, description } from NOAA_SOURCES — shown as footnote
-  alerts,              // full data.alerts array from useMarineForecast — filtered below by date
-  lat,                 // selectedLocation.lat — needed for solunar period calculation
+  noaaZone,            // { id, description } from NOAA_SOURCES - shown as footnote
+  alerts,              // full data.alerts array from useMarineForecast - filtered below by date
+  lat,                 // selectedLocation.lat - needed for solunar period calculation
   lon,                 // selectedLocation.lon
 }) {
   const [showNarrative,   setShowNarrative]   = useState(false);
@@ -612,7 +612,7 @@ export default function ForecastCard({
             </div>
           )}
 
-          {/* NWS Weather — click to open hourly popup */}
+          {/* NWS Weather - click to open hourly popup */}
           {nws && (
             <div
               onClick={() => forecastHourlyUrl && setShowHourly(true)}
@@ -747,7 +747,7 @@ export default function ForecastCard({
               <p className="text-xs text-slate-500 italic">{forecast.raw_text}</p>
               {noaaZone && (
                 <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
-                  {noaaZone.id} — {noaaZone.description}
+                  {noaaZone.id} - {noaaZone.description}
                 </p>
               )}
             </CollapsibleContent>

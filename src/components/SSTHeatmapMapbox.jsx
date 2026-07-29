@@ -228,11 +228,11 @@ function InfoPopup({ text, onClose, triggerRef }) {
     document.body
   );
 }
-const TARGET_TEMP_HELP = `The dotted white line is the plain isotherm — every point where the water hits exactly your target temp, regardless of whether it's a sharp break or a gentle slope. It's a geometric contour, like a topographic line.`;
+const TARGET_TEMP_HELP = `The dotted white line is the plain isotherm - every point where the water hits exactly your target temp, regardless of whether it's a sharp break or a gentle slope. It's a geometric contour, like a topographic line.`;
 const SHARPNESS_HELP = `The Front Sharpness slider controls which temperature differences get highlighted as "breaks."
 
-• Low sharpness (0.5°F) — only draws the cyan line where the gradient is extremely sharp.
-• High sharpness (8°F) — draws the cyan line even where temperature changes slowly.
+• Low sharpness (0.5°F) - only draws the cyan line where the gradient is extremely sharp.
+• High sharpness (8°F) - draws the cyan line even where temperature changes slowly.
 
 The solid cyan line is the temp break and only drawn where the gradient exceeds your threshold.`;
 function HelpIcon({ onOpen, btnRef }) {
@@ -1087,7 +1087,7 @@ export default function SSTHeatmapLeaflet(props) {
 
     sp.zones.forEach(zone => {
       const c   = zone.conditions;
-      const brk = c.break_strength ? c.break_strength[0].toUpperCase() + c.break_strength.slice(1) : "—";
+      const brk = c.break_strength ? c.break_strength[0].toUpperCase() + c.break_strength.slice(1) : "-";
 
       const seasonBadge = zone.in_season === false
         ? `<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:5px">Off Season</span>`
@@ -1097,10 +1097,10 @@ export default function SSTHeatmapLeaflet(props) {
         ? `<div style="color:#94a3b8;font-size:10px;margin-bottom:2px">habitat ${(zone.habitat_score * 100).toFixed(0)}% &times; ${zone.seasonal_factor.toFixed(2)} seasonal</div>`
         : "";
 
-      const chlDisplay = c.chl_mg_m3 != null ? `${c.chl_mg_m3.toFixed(2)} mg/m³` : "—";
+      const chlDisplay = c.chl_mg_m3 != null ? `${c.chl_mg_m3.toFixed(2)} mg/m³` : "-";
 
       const cloudWarning = showCloudWarning
-        ? `No imagery available within the last ${compAge.ageHours} hours. Most recent data: ${compAge.dateLabel}. These recommendations are based on the most recent imagery available — keep this in mind when planning your trip.`
+        ? `No imagery available within the last ${compAge.ageHours} hours. Most recent data: ${compAge.dateLabel}. These recommendations are based on the most recent imagery available - keep this in mind when planning your trip.`
         : null;
 
       const narrativeBlock = zone.narrative
@@ -1111,8 +1111,8 @@ export default function SSTHeatmapLeaflet(props) {
         `<div style="font-size:12px;line-height:1.7;max-width:270px">` +
         `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin-bottom:1px"><b>Zone ${zone.rank} &middot; ${(zone.score * 100).toFixed(0)}% match</b>${seasonBadge}</div>` +
         habitatLine +
-        `SST: ${c.sst_f ?? "—"}°F &middot; Break: ${brk}<br/>` +
-        `Depth: ${c.depth_ft != null ? Math.round(c.depth_ft) + "ft" : "—"} &middot; CHL: ${chlDisplay}<br/>` +
+        `SST: ${c.sst_f ?? "-"}°F &middot; Break: ${brk}<br/>` +
+        `Depth: ${c.depth_ft != null ? Math.round(c.depth_ft) + "ft" : "-"} &middot; CHL: ${chlDisplay}<br/>` +
         `Area: ~${zone.area_sq_nm} sq nm` +
         narrativeBlock +
         `</div>`;
@@ -1343,7 +1343,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Mobile floating controls — 5 layer icons + divider + inspect/pan/bookmark */}
+          {/* Mobile floating controls - 5 layer icons + divider + inspect/pan/bookmark */}
           <div className="sm:hidden absolute flex flex-col gap-1" style={{ right: 8, top: 8, zIndex: 501 }}>
             {/* SST */}
             <button onClick={() => { setMobilePanel(p => p === "sst" ? null : "sst"); setActiveDataLayer("sst"); }} title="SST"
@@ -1425,7 +1425,7 @@ export default function SSTHeatmapLeaflet(props) {
             </div>
           )}
 
-          {/* Mobile focused drawers — one per layer icon */}
+          {/* Mobile focused drawers - one per layer icon */}
           {mobilePanel && (
             <div className="sm:hidden fixed left-0 right-0 bg-white border-t border-slate-200 shadow-xl flex flex-col"
                  style={{ bottom: 0, zIndex: 2000, maxHeight: "45vh", overflowY: "auto" }}>
@@ -1473,7 +1473,7 @@ export default function SSTHeatmapLeaflet(props) {
                           <button onClick={() => setViirsDateIndex(i => Math.max(0, i - 1))} disabled={viirsDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
                           <span className="flex-1 text-center text-[10px] font-semibold text-violet-700 bg-violet-50 rounded py-1 truncate">
-                            {activeViirsDay?.date ?? "—"}
+                            {activeViirsDay?.date ?? "-"}
                           </span>
                           <button onClick={() => setViirsDateIndex(i => Math.min(viirsData.days.length - 1, i + 1))} disabled={viirsDateIndex === viirsData.days.length - 1}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
@@ -1502,7 +1502,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <button onClick={() => setMurDateIndex(i => Math.max(0, i - 1))} disabled={murDateIndex === 0}
                           className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
                         <span className="flex-1 text-center text-[10px] font-semibold text-cyan-700 bg-cyan-50 rounded py-1 truncate">
-                          {date ?? "—"}
+                          {date ?? "-"}
                         </span>
                         <button onClick={() => setMurDateIndex(i => Math.min(murData.days.length - 1, i + 1))} disabled={murDateIndex === murData.days.length - 1}
                           className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
@@ -1515,7 +1515,7 @@ export default function SSTHeatmapLeaflet(props) {
                         <button onClick={() => setGoesCompDateIndex(i => Math.max(0, i - 1))} disabled={goesCompDateIndex === 0}
                           className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
                         <span className="flex-1 text-center text-[10px] font-semibold text-indigo-700 bg-indigo-50 rounded py-1 truncate">
-                          {activeGoesCompDay?.date ?? "—"}
+                          {activeGoesCompDay?.date ?? "-"}
                         </span>
                         <button onClick={() => setGoesCompDateIndex(i => Math.min(goesCompData.days.length - 1, i + 1))} disabled={goesCompDateIndex === goesCompData.days.length - 1}
                           className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
@@ -1589,7 +1589,7 @@ export default function SSTHeatmapLeaflet(props) {
                           <button onClick={() => setChlDateIndex(i => Math.max(0, i - 1))} disabled={chlDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
                           <span className="flex-1 text-center text-[10px] font-semibold text-green-700 bg-green-50 rounded py-1 truncate">
-                            {chlData.days[chlDateIndex]?.date ?? "—"}
+                            {chlData.days[chlDateIndex]?.date ?? "-"}
                           </span>
                           <button onClick={() => setChlDateIndex(i => Math.min(chlData.days.length - 1, i + 1))} disabled={chlDateIndex === chlData.days.length - 1}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>
@@ -1620,7 +1620,7 @@ export default function SSTHeatmapLeaflet(props) {
                           <button onClick={() => setSeaColorDateIndex(i => Math.max(0, i - 1))} disabled={seaColorDateIndex === 0}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8249;</button>
                           <span className="flex-1 text-center text-[10px] font-semibold text-teal-700 bg-teal-50 rounded py-1 truncate">
-                            {seaColorData.days[seaColorDateIndex]?.date ?? "—"}
+                            {seaColorData.days[seaColorDateIndex]?.date ?? "-"}
                           </span>
                           <button onClick={() => setSeaColorDateIndex(i => Math.min(seaColorData.days.length - 1, i + 1))} disabled={seaColorDateIndex === seaColorData.days.length - 1}
                             className="px-2 py-1 rounded bg-white border border-slate-300 text-slate-600 text-sm font-bold disabled:opacity-30">&#8250;</button>

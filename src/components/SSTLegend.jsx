@@ -63,7 +63,7 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
 
   return (
     <div className="mt-2 flex items-center gap-3" onClick={onClick} style={{ ...(onClick ? { cursor: "pointer" } : {}) }}>
-      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{displayMin != null ? displayMin.toFixed(1) : "—"}°F</span>
+      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{displayMin != null ? displayMin.toFixed(1) : "-"}°F</span>
 
       <div className="relative flex-1 flex items-center" style={{ height: 20 }}>
         {/* Gradient bar */}
@@ -76,7 +76,7 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
           onMouseMove={onBarMouseMove}
           onMouseLeave={onBarMouseLeave}
         />
-        {/* Pin line only — no bubble here */}
+        {/* Pin line only - no bubble here */}
         {activeT != null && (
           <div
             className="absolute pointer-events-none w-0.5 h-5 bg-white/90 rounded-full shadow-lg"
@@ -85,7 +85,7 @@ export default function SSTLegend({ sstMin, sstMax, hoverSst, rangeMin, rangeMax
         )}
       </div>
 
-      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{displayMax != null ? displayMax.toFixed(1) : "—"}°F</span>
+      <span className="text-xs text-slate-500 whitespace-nowrap font-medium">{displayMax != null ? displayMax.toFixed(1) : "-"}°F</span>
       {onClick && <span className="text-[10px] text-slate-400 whitespace-nowrap ml-1" title="Click to adjust range">⚙</span>}
 
       {/* Bubble rendered via portal so no ancestor can clip it */}

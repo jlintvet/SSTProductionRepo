@@ -127,7 +127,7 @@ export default function CommunityReportForm({
     const accepted = [];
     let err = null;
     for (const f of picked) {
-      if (accepted.length >= remaining) { err = `Only added ${remaining} — you can add up to ${MAX_PHOTOS} photos.`; break; }
+      if (accepted.length >= remaining) { err = `Only added ${remaining} - you can add up to ${MAX_PHOTOS} photos.`; break; }
       if (!f.type.startsWith("image/")) { err = "Please choose image files only."; continue; }
       if (f.size > 8 * 1024 * 1024) { err = "Each image must be 8 MB or smaller."; continue; }
       accepted.push(f);
@@ -254,7 +254,7 @@ export default function CommunityReportForm({
         className="bg-white w-full sm:w-[380px] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header — type toggle + trip date */}
+        {/* Header - type toggle + trip date */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
@@ -323,7 +323,7 @@ export default function CommunityReportForm({
                     : "bg-white text-slate-600 border-slate-300 hover:border-emerald-400"
                 }`}
               >
-                {gpsLoading ? "Getting GPS…" : useGpsLoc ? "Using GPS — tap to reset" : "Use GPS location"}
+                {gpsLoading ? "Getting GPS…" : useGpsLoc ? "Using GPS - tap to reset" : "Use GPS location"}
               </button>
               {gpsError && <span className="text-red-500 text-[10px]">{gpsError}</span>}
             </div>
@@ -391,12 +391,12 @@ export default function CommunityReportForm({
             onChange={e => setNotes(e.target.value)}
             maxLength={280}
             rows={2}
-            placeholder="Notes — depth, technique, conditions… (optional)"
+            placeholder="Notes - depth, technique, conditions… (optional)"
             className="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-cyan-500 resize-none"
           />
         </div>
 
-        {/* Photos — up to 10 */}
+        {/* Photos - up to 10 */}
         <div className="px-4 pt-1 pb-2">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
             Photos (optional, up to {MAX_PHOTOS})
@@ -436,7 +436,7 @@ export default function CommunityReportForm({
               Post anonymously
               <span className="block text-[10px] text-slate-400">
                 Your name won't be shown on the map. You'll still get credit on the
-                leaderboard and can still be tipped — change your default in Settings.
+                leaderboard and can still be tipped - change your default in Settings.
               </span>
             </span>
           </label>

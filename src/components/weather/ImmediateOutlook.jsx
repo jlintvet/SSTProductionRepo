@@ -149,7 +149,7 @@ function DataSourcesHelp({ locationLabel, forecastTimestamp }) {
               detail="Solar times for each day"
               source="SunCalc library"
               url={null}
-              note="Computed locally from coordinates — no network call"
+              note="Computed locally from coordinates - no network call"
             />
           </dl>
 

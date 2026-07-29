@@ -495,7 +495,7 @@ function SSTPageBody() {
           setShowOnboarding(true);
         }
       })
-      .catch(() => {}) // Silently ignore — don't block map on onboarding check failure
+      .catch(() => {}) // Silently ignore - don't block map on onboarding check failure
       .finally(() => setOnboardingChecked(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, userId]);
@@ -583,7 +583,7 @@ function SSTPageBody() {
       .then((res) => {
         if (res?.data && res.data.length) setTipNotifications(res.data);
       })
-      .catch(() => {}); // Silently ignore — don't block map on this check failing
+      .catch(() => {}); // Silently ignore - don't block map on this check failing
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, userId, announcementsChecked, announcements.length]);
 
@@ -712,7 +712,7 @@ function SSTPageBody() {
         setCompositeData(d);
         setCompositeGenerated(d.generated ?? null);
         setCompositeDate(d.generated ?? null);
-        setCompositeDates([fmtDate(d.generated ?? "—")]);
+        setCompositeDates([fmtDate(d.generated ?? "-")]);
         setCompositeDateIndex(0);
       } catch(e) { console.warn("[COMPOSITE] load failed:", e); }
     }
@@ -886,7 +886,7 @@ function SSTPageBody() {
 
 
   useEffect(()=>{
-    console.log("[FISH] SSTLive effect — showHotspots:", showHotspots, "hasData:", !!hotspotData, "loading:", hotspotLoading);
+    console.log("[FISH] SSTLive effect - showHotspots:", showHotspots, "hasData:", !!hotspotData, "loading:", hotspotLoading);
     if(!showHotspots||hotspotData||hotspotLoading)return;
     setHotspotLoading(true);
     const fmtDate = d => `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
@@ -1572,7 +1572,7 @@ export default function SSTLive() {
     };
   }, []);
 
-  if (authed === null) return null; // loading — show nothing until auth resolves
+  if (authed === null) return null; // loading - show nothing until auth resolves
   if (!authed) return <InlineLogin />;
 
   return <SSTLiveGate />;

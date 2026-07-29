@@ -16,7 +16,7 @@ const PRICE_MONTHLY_ID = "price_1TikyxDWsT9O1EjovwRTZL7S";
 const PRICE_ANNUAL_ID  = "price_1Til1NDWsT9O1Ejonzrd7hIJ";
 
 const PRO_FEATURES = [
-  "Sea surface temperature — daily, hourly & 36h composite",
+  "Sea surface temperature - daily, hourly & 36h composite",
   "Chlorophyll concentration",
   "Sea-level anomaly (altimetry) + contours",
   "Ocean current particle overlay",
@@ -25,13 +25,13 @@ const PRO_FEATURES = [
   "Bathymetry & bottom features",
   "Isotherm (temp break) overlay",
   "Color gain & rendering controls",
-  "Weather buoys — live observations",
+  "Weather buoys - live observations",
   "Trip planning & GPS tracking",
   "Community fishing reports",
 ];
 
 const FREE_FEATURES = [
-  "Sea surface temperature — daily",
+  "Sea surface temperature - daily",
   "Departure location & marine forecast",
   "Basic map navigation",
 ];
@@ -194,9 +194,9 @@ export default function UpgradePage() {
     setSignupSent(true);
   }
 
-  const monthlyAmt  = prices ? fmt(prices.monthly.amount, prices.monthly.currency) : "—";
-  const annualAmt   = prices ? fmt(prices.annual.amount,  prices.annual.currency)  : "—";
-  const annualPerMo = prices ? fmt(Math.round(prices.annual.amount / 12), prices.annual.currency) : "—";
+  const monthlyAmt  = prices ? fmt(prices.monthly.amount, prices.monthly.currency) : "-";
+  const annualAmt   = prices ? fmt(prices.annual.amount,  prices.annual.currency)  : "-";
+  const annualPerMo = prices ? fmt(Math.round(prices.annual.amount / 12), prices.annual.currency) : "-";
   const savings     = prices
     ? Math.round((1 - (prices.annual.amount / 12) / prices.monthly.amount) * 100)
     : 0;
@@ -307,14 +307,14 @@ export default function UpgradePage() {
           <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", color: "#38bdf8", textTransform: "uppercase", marginBottom: 8 }}>Pro</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 6 }}>
             <span style={{ fontSize: 42, fontWeight: 800, color: "#fff" }}>
-              {prices ? (annual ? annualPerMo : monthlyAmt) : "—"}
+              {prices ? (annual ? annualPerMo : monthlyAmt) : "-"}
             </span>
             <span style={{ fontSize: 16, color: "#7dd3fc" }}>/mo</span>
           </div>
           <div style={{ fontSize: 14, color: "#7dd3fc", marginBottom: 28, minHeight: 20 }}>
             {prices
               ? annual
-                ? `Billed ${annualAmt}/year — save ${savings}%`
+                ? `Billed ${annualAmt}/year - save ${savings}%`
                 : "Billed monthly"
               : "Loading prices..."}
           </div>
@@ -343,7 +343,7 @@ export default function UpgradePage() {
                 boxShadow: (loading || !prices || session === undefined) ? "none" : "0 4px 20px rgba(14,165,233,0.4)",
                 transition: "all 0.2s",
               }}>
-                {loading ? "Loading..." : prices ? `Get Pro — ${annual ? annualAmt + "/yr" : monthlyAmt + "/mo"}` : "Loading..."}
+                {loading ? "Loading..." : prices ? `Get Pro - ${annual ? annualAmt + "/yr" : monthlyAmt + "/mo"}` : "Loading..."}
               </button>
 
               <div style={{ textAlign: "center", fontSize: 12, color: "#64748b", marginTop: 12 }}>
@@ -355,7 +355,7 @@ export default function UpgradePage() {
               <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Check your email</div>
               <p style={{ fontSize: 13, color: "#93c5fd", lineHeight: 1.6, margin: 0 }}>
                 Confirmation link sent to <strong>{email}</strong>. Click it to activate your
-                account — we'll take you straight to checkout.
+                account - we'll take you straight to checkout.
               </p>
             </div>
           ) : (

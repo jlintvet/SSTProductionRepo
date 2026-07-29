@@ -40,7 +40,7 @@ export default function TrialExpiredWall() {
     setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Session expired — please sign in again.");
+      if (!session?.access_token) throw new Error("Session expired - please sign in again.");
 
       const priceId = plan === "annual" ? prices?.annual?.id : prices?.monthly?.id;
       if (!priceId) throw new Error("Price unavailable, please try again.");
@@ -122,7 +122,7 @@ export default function TrialExpiredWall() {
             <div style={{ color: "#e2e8f0", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Standard</div>
             <div style={{ color: "#64748b", fontSize: 12, marginBottom: 14 }}>Free, no time limit</div>
             <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.6, marginBottom: 18, flex: 1 }}>
-              Keep using the app's core oceanographic features — no card required, no expiration.
+              Keep using the app's core oceanographic features - no card required, no expiration.
             </div>
             <button onClick={handleConfirmStandard} disabled={confirming} style={{
               width: "100%", padding: "0.8rem", borderRadius: 10,

@@ -22,7 +22,7 @@ export async function createShareToken(location, imageBlob = null) {
       .from("share-images")
       .upload(filePath, imageBlob, {
         contentType: "image/png",
-        cacheControl: "31536000",  // 1 year — content is static
+        cacheControl: "31536000",  // 1 year - content is static
         upsert: false,
       });
 

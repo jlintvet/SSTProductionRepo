@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 
-const TARGET_TEMP_HELP = `The dotted white line is the plain isotherm — every point where the water hits exactly your target temp, regardless of whether it's a sharp break or a gentle slope. It's a geometric contour, like a topographic line.`;
+const TARGET_TEMP_HELP = `The dotted white line is the plain isotherm - every point where the water hits exactly your target temp, regardless of whether it's a sharp break or a gentle slope. It's a geometric contour, like a topographic line.`;
 const SHARPNESS_HELP = `The Front Sharpness slider controls which temperature differences get highlighted as "breaks."
 
-• Low sharpness (0.5°F) — only draws the cyan line where the gradient is extremely sharp.
-• High sharpness (8°F) — draws the cyan line even where temperature changes slowly.
+• Low sharpness (0.5°F) - only draws the cyan line where the gradient is extremely sharp.
+• High sharpness (8°F) - draws the cyan line even where temperature changes slowly.
 
 The solid cyan line is the temp break and only drawn where the gradient exceeds your threshold.`;
 
