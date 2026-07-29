@@ -662,6 +662,12 @@ async function loadFeatures(){
 const ghH=tok=>({'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'});
 const ghGet=async(tok,p)=>{const r=await fetch(API+'/repos/'+REPO+'/'+p,{headers:ghH(tok)});if(!r.ok)throw new Error('GET '+p+' -> '+r.status);return r.json();};
 const ghPut=async(tok,p,b)=>{const r=await fetch(API+'/repos/'+REPO+'/'+p,{method:'PUT',headers:ghH(tok),body:JSON.stringify(b)});if(!r.ok)throw new Error('PUT '+p+' -> '+r.status+' '+await r.text());return r.json();};
+// The Contents API only returns base64 `content` for files <=1MB. wrecks.json
+// is past that now, so `content` comes back empty and JSON.parse('') blows up
+// with "Unexpected end of JSON input". The Git Data API's blob endpoint
+// supports up to 100MB and always returns full base64 content, so fall back
+// to it whenever the Contents API didn't hand back usable content.
+const ghGetBlob=async(tok,sha)=>{const r=await fetch(API+'/repos/'+REPO+'/git/blobs/'+sha,{headers:ghH(tok)});if(!r.ok)throw new Error('GET blob '+sha+' -> '+r.status);return r.json();};
 const toB64=s=>btoa(unescape(encodeURIComponent(s)));
 
 let progLines=[];
@@ -691,7 +697,13 @@ async function startCommit(){
   try{
     logP('...','Fetching current wrecks.json...');
     const cur=await ghGet(token,'contents/'+WRECKS_PATH);
-    const raw=decodeURIComponent(escape(atob(cur.content.replace(/\n/g,''))));
+    let b64content=cur.content;
+    if(!b64content||!b64content.trim()){
+      // Contents API omitted the payload (file >1MB) -- pull it via the blob API instead.
+      const blob=await ghGetBlob(token,cur.sha);
+      b64content=blob.content;
+    }
+    const raw=decodeURIComponent(escape(atob(b64content.replace(/\n/g,''))));
     const data=JSON.parse(raw);
     updP('ok','Fetched, '+data.features.length+' existing features','ok');
 
