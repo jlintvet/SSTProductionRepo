@@ -713,6 +713,19 @@ function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensit
   // literal crossing point isn't a meaningful location, only "roughly here" is.
   const step=Math.max(1,Math.round(distanceSteps||1));
   const get=(r,c)=>{if(r<0||r>=rows||c<0||c>=cols)return NaN;return field[r*cols+c];};
+  // Average a small (3x3) neighborhood around each sampled corner instead of reading a
+  // single raw pixel. A lone noisy/outlier grid cell shouldn't be able to draw a break on
+  // its own -- especially once Distance is comparing points several miles apart, where a
+  // one-off sensor artifact at either end can clear a small Differential purely by chance
+  // even though the water in between isn't actually a coherent front.
+  const avgAround=(r,c)=>{
+    let sum=0,n=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      const v=get(r+dr,c+dc);
+      if(Number.isFinite(v)){sum+=v;n++;}
+    }
+    return n?sum/n:NaN;
+  };
   const midPt=(r0,c0,r1,c1)=>[(lonSet[c0]+lonSet[c1])/2,(latSet[r0]+latSet[r1])/2];
   const edgePairs={1:[[2,3]],2:[[1,2]],3:[[1,3]],4:[[0,1]],5:[[0,3],[1,2]],6:[[0,2]],7:[[0,3]],8:[[0,3]],9:[[0,2]],10:[[0,1],[2,3]],11:[[0,1]],12:[[1,3]],13:[[1,2]],14:[[2,3]]};
   const segments=[];
@@ -720,7 +733,7 @@ function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensit
     const r2=Math.min(r+step,rows-1);
     for(let c=0;c<cols-1;c+=step){
       const c2=Math.min(c+step,cols-1);
-      const v00=get(r,c),v01=get(r,c2),v10=get(r2,c),v11=get(r2,c2);
+      const v00=avgAround(r,c),v01=avgAround(r,c2),v10=avgAround(r2,c),v11=avgAround(r2,c2);
       if(!Number.isFinite(v00)||!Number.isFinite(v01)||!Number.isFinite(v10)||!Number.isFinite(v11))continue;
       const idx=(v00>=targetTemp?8:0)|(v01>=targetTemp?4:0)|(v11>=targetTemp?2:0)|(v10>=targetTemp?1:0);
       const pairs=edgePairs[idx];if(!pairs)continue;
@@ -735,7 +748,10 @@ function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensit
       };
       for(const[eA,eB]of pairs){
         const A=edges[eA],B=edges[eB];
-        if(A.diff<sensitivity||B.diff<sensitivity)continue;
+        // Only one side of the crossing needs to clear the threshold -- requiring both
+        // over-pruned real, continuous fronts into short disconnected fragments as
+        // Distance increased.
+        if(A.diff<sensitivity&&B.diff<sensitivity)continue;
         segments.push([A.pt,B.pt]);
       }
     }
