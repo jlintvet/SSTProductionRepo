@@ -742,9 +742,38 @@ function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensit
   for(let i=0;i<maskedField.length;i++){if(gradient[i]<sensitivity)maskedField[i]=NaN;}
   return marchingSquares(latSet,lonSet,maskedField,rows,cols,targetTemp);
 }
-function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity,distanceSteps){
+// Coastal buffer for the Temp Break tool -- both the plain isotherm and the break
+// line should stop this far short of shore. Shallow nearshore water commonly runs
+// a real degree or two warmer/cooler than water a few miles out (fast solar heating,
+// surf-zone mixing, inlet/sound outflow), which otherwise draws break lines hugging
+// the beach -- not the offshore pelagic fronts this tool is meant to surface.
+const ISOTHERM_COASTAL_BUFFER_NM = 2.5;
+function bufferedWaterMask(waterMask, bufferNm){
+  if(!waterMask) return null;
+  const bufferDeg = bufferNm / 60; // 1 degree latitude ~= 60nm
+  const RING_DIRS = 8;
+  return (lat, lon) => {
+    if(!waterMask(lat, lon)) return false;
+    const lonScale = Math.cos(lat * Math.PI / 180) || 1e-6;
+    for(let i = 0; i < RING_DIRS; i++){
+      const theta = (i / RING_DIRS) * 2 * Math.PI;
+      const dLat = bufferDeg * Math.sin(theta);
+      const dLon = (bufferDeg / lonScale) * Math.cos(theta);
+      if(!waterMask(lat + dLat, lon + dLon)) return false;
+    }
+    return true;
+  };
+}
+function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity,distanceSteps,waterMask){
   if(!latSet.length||!lonSet.length)return{isotherms:[],breaks:[]};
   const{field,rows,cols}=buildField(latSet,lonSet,grid);
+  const buffered=bufferedWaterMask(waterMask,ISOTHERM_COASTAL_BUFFER_NM);
+  if(buffered){
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const i=r*cols+c;
+      if(Number.isFinite(field[i])&&!buffered(latSet[r],lonSet[c]))field[i]=NaN;
+    }
+  }
   const iso=marchingSquares(latSet,lonSet,field,rows,cols,targetTemp).map(line=>line.map(([lon,lat])=>[lat,lon]));
   const brk=computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensitivity,distanceSteps).map(line=>line.map(([lon,lat])=>[lat,lon]));
   return{isotherms:iso,breaks:brk};
@@ -2980,7 +3009,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!isoLatSet.length) return;
     const tid = setTimeout(() => {
       try {
-        const { isotherms, breaks } = buildIsothermLines(isoLatSet, isoLonSet, isoGrid, effectiveTargetTemp, isothermalSensitivity, isothermalDistance);
+        const { isotherms, breaks } = buildIsothermLines(isoLatSet, isoLonSet, isoGrid, effectiveTargetTemp, isothermalSensitivity, isothermalDistance, waterMaskRef.current);
         if (isotherms.length) {
           const lyr = L.layerGroup();
           isotherms.forEach(line => L.polyline(line, { color: "rgba(255,255,255,0.65)", weight: 1.5, dashArray: "3 4", interactive: false }).addTo(lyr));
