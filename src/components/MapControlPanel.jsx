@@ -89,7 +89,7 @@ const HELP_CONFIG = {
   seacolor:    { title: "Sea Color / Kd490",             image: "/help/seacolor.png",   text: "Kd490 measures water clarity. Cleaner, bluer water has lower Kd490. The boundary between turbid and clear water is a productive fishing zone, especially for mahi and tuna following the color change." },
   altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/altimetry_ref.png",   text: "Altimetry comes from satellite radar that detects extremely small changes in ocean surface height and turns them into a contour map. Raised areas (dark blue, light blue, green) mark spots where deep water is welling up toward the surface, bringing nutrients and bait with it. Lower areas (yellow, orange, red) mark spots where surface water is sinking, leaving less for baitfish to feed on. Dark blue is your top pick, light blue and green are still worth a look, and yellow, orange, or red areas are best skipped. Updated daily. Contour lines are drawn every 5cm (about 2 inches), with numbered lines every 10cm." },
   windmap:     { title: "Wind Map",                      image: "/help/windmap.png",    text: "The wind map shows surface wind speed and direction from the GFS model. Strong offshore winds push surface water and can affect sea state and bait positioning. Use this to gauge conditions before heading out." },
-  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",   text: "The temp break tool highlights the target isotherm — set the temperature and sharpness to isolate the thermal gradient you want to fish. Fish stack up along sharp temp breaks, especially yellowfin and blue marlin. Lower sharpness to see a broader gradient band." },
+  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",   text: "The temp break tool highlights the target isotherm — set the temperature and differential to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band." },
   hotspots:    { title: "Fish Hot Spots",                image: "/help/hotspots.png",   text: "AI-scored locations based on SST gradients, chlorophyll, currents, and bottom structure. Select a target species to tune the model for that fish's preferred conditions. Scores are computed daily and vary with data freshness." },
   windoverlay: { title: "Wind Overlay",                  image: "/help/windoverlay.png",text: "Animated wind arrows overlaid directly on the map. Shows real-time GFS wind direction and speed over the water. Useful for judging sea conditions at any point on the map." },
   currents:    { title: "Ocean Currents",                image: "/help/currents.png",   text: "Ocean current vectors from OSCAR (5-day lag). Shows water flow direction and speed. Current edges and convergence zones concentrate bait and attract pelagics. The Gulf Stream and its eddies appear clearly." },
@@ -214,7 +214,7 @@ function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitiv
       </div>
       <div>
         <div className="flex justify-between items-center mb-0.5">
-          <span className="text-[10px] text-slate-500">Sharpness</span>
+          <span className="text-[10px] text-slate-500">Differential</span>
           <span className="text-[10px] font-semibold text-cyan-600 tabular-nums">{sensitivity.toFixed(1)}°F</span>
         </div>
         <input
@@ -222,9 +222,6 @@ function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitiv
           value={sensitivity} onChange={e => onSensitivity(parseFloat(e.target.value))}
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-cyan-500"
         />
-        <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-          <span>← sharp only</span><span>all →</span>
-        </div>
       </div>
     </div>
   );

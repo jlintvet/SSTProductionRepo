@@ -944,12 +944,12 @@ function InfoPopup({ text, onClose, triggerRef }) {
   );
 }
 const TARGET_TEMP_HELP = `The dotted white line is the plain isotherm — every point where the water hits exactly your target temp, regardless of whether it's a sharp break or a gentle slope. It's a geometric contour, like a topographic line.`;
-const SHARPNESS_HELP = `The Front Sharpness slider controls which temperature differences get highlighted as "breaks."
+const DIFFERENTIAL_HELP = `The Differential slider sets how wide a temperature change has to be, between neighboring points, before it counts as a "break."
 
-• Low sharpness (0.5°F) — only draws the cyan line where the gradient is extremely sharp.
-• High sharpness (8°F) — draws the cyan line even where temperature changes slowly.
+• Low differential (0.5°F) — draws the cyan line across almost the whole isotherm, including gentle, gradual temperature changes.
+• High differential (8°F) — draws the cyan line only where temperature jumps sharply over a short distance — the strongest, widest breaks.
 
-The solid cyan line is the temp break and only drawn where the gradient exceeds your threshold.`;
+The solid cyan line is the temp break and is only drawn where the temperature differential exceeds your threshold.`;
 function HelpIcon({ onOpen, btnRef }) {
   return (
     <button ref={btnRef} onClick={e => { e.stopPropagation(); onOpen(); }} style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:"50%", width:13, height:13, cursor:"pointer", padding:0, display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:9, fontWeight:700, color:"#0284c7", lineHeight:1, flexShrink:0, marginLeft:3, verticalAlign:"middle" }}>?</button>
@@ -980,11 +980,10 @@ function IsothermControls({enabled,onToggle,targetTemp,onTargetTemp,sensitivity,
           </div>
           <div>
             <div className="flex justify-between items-center mb-0.5">
-              <span className="text-[10px] text-slate-500 font-medium flex items-center">Front sharpness<HelpIcon btnRef={sharpBtnRef} onOpen={() => openHelp(SHARPNESS_HELP, sharpBtnRef)} /></span>
+              <span className="text-[10px] text-slate-500 font-medium flex items-center">Differential<HelpIcon btnRef={sharpBtnRef} onOpen={() => openHelp(DIFFERENTIAL_HELP, sharpBtnRef)} /></span>
               <span className="text-[11px] font-bold text-violet-600 tabular-nums">{sensitivity.toFixed(1)}°F</span>
             </div>
             <input type="range" min={0.5} max={8} step={0.5} value={sensitivity} onChange={e=>onSensitivity(parseFloat(e.target.value))} className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-500"/>
-            <div className="flex justify-between text-[9px] text-slate-400 mt-0.5"><span>← sharp only</span><span>all gradients →</span></div>
           </div>
         </div>
       )}
@@ -4752,15 +4751,12 @@ export default function SSTHeatmapLeaflet(props) {
                             </div>
                             <div>
                               <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                                <span>Sharpness</span><span className="text-violet-600 font-semibold">{isothermalSensitivity.toFixed(1)}°F</span>
+                                <span>Differential</span><span className="text-violet-600 font-semibold">{isothermalSensitivity.toFixed(1)}°F</span>
                               </div>
                               <input type="range" min={0.5} max={8} step={0.5}
                                 value={isothermalSensitivity}
                                 onChange={e => setIsothermalSensitivity(parseFloat(e.target.value))}
                                 className="w-full h-2 rounded-full appearance-none cursor-pointer accent-violet-500"/>
-                              <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-                                <span>← sharp only</span><span>all →</span>
-                              </div>
                             </div>
                           </div>
                         )}
