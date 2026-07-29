@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>RipLoc — User Admin</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; }
 body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:#0f172a; color:#e2e8f0; }
@@ -18,6 +19,16 @@ body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; backgroun
 #topbar h1 { font-size:14px; font-weight:700; margin:0 8px 0 0; }
 .pill { background:#334155; border-radius:999px; padding:4px 11px; font-size:11px; font-weight:600; color:#cbd5e1; }
 .pill.cyan { background:#155e75; color:#cffafe; } .pill.green { background:#14532d; color:#bbf7d0; } .pill.amber { background:#78350f; color:#fde68a; }
+.pill.clickable { cursor:pointer; user-select:none; transition:box-shadow .1s; }
+.pill.clickable:hover { filter:brightness(1.15); }
+.pill.slate { background:#334155; color:#cbd5e1; }
+#chartPanel { padding:10px 14px 6px; background:#0f172a; border-bottom:1px solid #1e293b; flex-shrink:0; }
+#chartPanel .chart-head { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+#chartPanel .chart-title { font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.04em; }
+#chartPanel .chart-note { font-size:10px; color:#475569; }
+.grain-btn { background:#334155; color:#94a3b8; }
+.grain-btn.active { background:#2563eb; color:#fff; }
+#chartWrap { height:190px; }
 #toolbar { display:flex; gap:8px; align-items:center; padding:8px 14px; background:#0f172a; border-bottom:1px solid #1e293b; flex-wrap:wrap; flex-shrink:0; }
 #main { flex:1; display:flex; overflow:hidden; }
 #listWrap { flex:1; overflow:auto; }
@@ -61,14 +72,16 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
 <div id="app">
   <div id="topbar">
     <h1>User Admin</h1>
-    <div class="pill">Total <span id="cTotal">—</span></div>
-    <div class="pill cyan">Today <span id="cToday">—</span></div>
-    <div class="pill green">Last 30d <span id="c30">—</span></div>
-    <div class="pill amber">In range <span id="cRange">—</span></div>
+    <div class="pill clickable" id="cTotalPill" onclick="setDatePill('total')" title="Show all">Total <span id="cTotal">—</span></div>
+    <div class="pill cyan clickable" id="cTodayPill" onclick="setDatePill('today')" title="Show signups from today">Today <span id="cToday">—</span></div>
+    <div class="pill slate clickable" id="cYesterdayPill" onclick="setDatePill('yesterday')" title="Show signups from yesterday">Yesterday <span id="cYesterday">—</span></div>
+    <div class="pill cyan clickable" id="cWeekPill" onclick="setDatePill('week')" title="Show signups from the last 7 days">Last week <span id="cWeek">—</span></div>
+    <div class="pill green clickable" id="c30Pill" onclick="setDatePill('30d')" title="Show signups from the last 30 days">Last 30d <span id="c30">—</span></div>
+    <div class="pill amber clickable" id="cRangePill" onclick="setDatePill('range')" title="Show signups within the date range below">In range <span id="cRange">—</span></div>
     <div class="pill" id="issuesPill" style="background:#7f1d1d;color:#fecaca;display:none">Data issues <span id="cIssues">—</span></div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <input id="rangeFrom" type="date" class="finput-sm"/><span style="color:#64748b">→</span><input id="rangeTo" type="date" class="finput-sm"/>
-      <button class="btn btn-slate btn-sm" onclick="render()">Apply range</button>
+      <button class="btn btn-slate btn-sm" onclick="applyRangeClick()">Apply range</button>
       <button class="btn btn-slate btn-sm" onclick="loadUsers()">Refresh</button>
       <button class="btn btn-slate btn-sm" onclick="doSignOut()">Sign out</button>
     </div>
@@ -93,6 +106,18 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
       <input type="checkbox" id="fIssuesOnly" onchange="render()"/> Only issues
     </label>
     <span id="shownCount" class="note"></span>
+  </div>
+  <div id="chartPanel">
+    <div class="chart-head">
+      <span class="chart-title">Signups &amp; subscription activity</span>
+      <span class="chart-note">* Cancellations are bucketed by last-updated timestamp — there's no dedicated cancellation-date field yet, so this is approximate.</span>
+      <div style="display:flex;gap:4px;margin-left:auto">
+        <button class="btn btn-sm grain-btn" id="grainDay" onclick="setGrain('day')">Daily</button>
+        <button class="btn btn-sm grain-btn" id="grainWeek" onclick="setGrain('week')">Weekly</button>
+        <button class="btn btn-sm grain-btn" id="grainMonth" onclick="setGrain('month')">Monthly</button>
+      </div>
+    </div>
+    <div id="chartWrap"><canvas id="activityChart"></canvas></div>
   </div>
   <div id="main">
     <div id="listWrap">
@@ -254,6 +279,8 @@ function showApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   sb.auth.getUser().then(({data}) => { me = data.user; });
+  updateDatePillUI();
+  updateGrainUI();
   loadUsers();
 }
 
@@ -261,7 +288,7 @@ function showApp() {
 async function loadUsers() {
   const [{ data, error }, seedRes] = await Promise.all([
     sb.from('user_profiles')
-      .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,stripe_customer_id,referral_code,ambassador_status,last_sign_in_at')
+      .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,updated_at,stripe_customer_id,referral_code,ambassador_status,last_sign_in_at')
       .order('created_at', { ascending:false }),
     sb.from('seed_users').select('user_id'),
   ]);
@@ -270,6 +297,7 @@ async function loadUsers() {
   seedUserIds = new Set((seedRes.data || []).map(r => r.user_id));
   await loadReportCounts();
   render();
+  renderChart();
 }
 // Counts each user's fishing reports (community_locations rows with type='report').
 // Queried directly from community_locations rather than user_points.report_count
@@ -286,21 +314,153 @@ async function loadReportCounts() {
 function counts() {
   const now = new Date();
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startYesterday = startToday - 24*3600*1000;
+  const ago7 = now.getTime() - 7*24*3600*1000;
   const ago30 = now.getTime() - 30*24*3600*1000;
-  let total=0, today=0, last30=0, inRange=0;
+  let total=0, today=0, yesterday=0, week=0, last30=0, inRange=0;
   const from = document.getElementById('rangeFrom').value ? new Date(document.getElementById('rangeFrom').value).getTime() : null;
   const toRaw = document.getElementById('rangeTo').value ? new Date(document.getElementById('rangeTo').value).getTime() + 24*3600*1000 : null;
   allUsers.forEach(u => {
     const t = u.created_at ? new Date(u.created_at).getTime() : 0;
     total++;
     if (t >= startToday) today++;
+    if (t >= startYesterday && t < startToday) yesterday++;
+    if (t >= ago7) week++;
     if (t >= ago30) last30++;
     if (from !== null && toRaw !== null && t >= from && t < toRaw) inRange++;
   });
   document.getElementById('cTotal').textContent = total;
   document.getElementById('cToday').textContent = today;
+  document.getElementById('cYesterday').textContent = yesterday;
+  document.getElementById('cWeek').textContent = week;
   document.getElementById('c30').textContent = last30;
   document.getElementById('cRange').textContent = (from!==null && toRaw!==null) ? inRange : '—';
+}
+
+// ── Date-pill quick filter (clicking a header pill filters the table by created_at) ──
+let datePillFilter = null; // null|'today'|'yesterday'|'week'|'30d'|'range'
+function setDatePill(kind) {
+  datePillFilter = (kind === 'total') ? null : kind;
+  updateDatePillUI();
+  render();
+}
+function applyRangeClick() {
+  datePillFilter = 'range';
+  updateDatePillUI();
+  render();
+}
+function updateDatePillUI() {
+  const active = {
+    cTotalPill: !datePillFilter,
+    cTodayPill: datePillFilter==='today',
+    cYesterdayPill: datePillFilter==='yesterday',
+    cWeekPill: datePillFilter==='week',
+    c30Pill: datePillFilter==='30d',
+    cRangePill: datePillFilter==='range',
+  };
+  Object.entries(active).forEach(([id,on]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.boxShadow = on ? '0 0 0 2px #38bdf8' : 'none';
+  });
+}
+function inDatePillRange(t) {
+  if (!datePillFilter) return true;
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const oneDay = 24*3600*1000;
+  if (datePillFilter === 'today') return t >= startToday;
+  if (datePillFilter === 'yesterday') return t >= startToday - oneDay && t < startToday;
+  if (datePillFilter === 'week') return t >= now.getTime() - 7*oneDay;
+  if (datePillFilter === '30d') return t >= now.getTime() - 30*oneDay;
+  if (datePillFilter === 'range') {
+    const from = document.getElementById('rangeFrom').value ? new Date(document.getElementById('rangeFrom').value).getTime() : null;
+    const toRaw = document.getElementById('rangeTo').value ? new Date(document.getElementById('rangeTo').value).getTime() + oneDay : null;
+    if (from === null || toRaw === null) return true;
+    return t >= from && t < toRaw;
+  }
+  return true;
+}
+
+// ── Activity chart (signups / cancellations / trial-endings, selectable grain) ──
+let activityGrain = 'day', activityChart = null;
+function setGrain(g) { activityGrain = g; updateGrainUI(); renderChart(); }
+function updateGrainUI() {
+  [['day','grainDay'],['week','grainWeek'],['month','grainMonth']].forEach(([g,id]) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', g===activityGrain);
+  });
+}
+function truncToDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function truncToWeek(d) { const dow=(d.getDay()+6)%7; return new Date(d.getFullYear(), d.getMonth(), d.getDate()-dow); }
+function truncToMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function bucketStart(d, grain) { return grain==='day'?truncToDay(d):grain==='week'?truncToWeek(d):truncToMonth(d); }
+function bucketKey(d, grain) {
+  const b = bucketStart(d, grain);
+  const p = n => String(n).padStart(2,'0');
+  if (grain==='month') return `${b.getFullYear()}-${p(b.getMonth()+1)}`;
+  return `${b.getFullYear()}-${p(b.getMonth()+1)}-${p(b.getDate())}`;
+}
+function stepBucket(d, grain, n) {
+  const b = new Date(d);
+  if (grain==='day') b.setDate(b.getDate()+n);
+  else if (grain==='week') b.setDate(b.getDate()+7*n);
+  else b.setMonth(b.getMonth()+n);
+  return b;
+}
+function windowFor(grain) {
+  if (grain==='day') return { back:44, fwd:14 };
+  if (grain==='week') return { back:12, fwd:4 };
+  return { back:12, fwd:2 };
+}
+function buildBuckets(grain) {
+  const { back, fwd } = windowFor(grain);
+  const anchor = bucketStart(new Date(), grain);
+  const keys = [];
+  for (let i=-back; i<=fwd; i++) keys.push(bucketKey(stepBucket(anchor, grain, i), grain));
+  return keys;
+}
+function formatBucketLabel(key, grain) {
+  if (grain==='month') { const [y,m]=key.split('-'); return new Date(+y, +m-1, 1).toLocaleDateString(undefined,{month:'short',year:'2-digit'}); }
+  const d = new Date(key+'T00:00:00');
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + (grain==='week' ? ' wk' : '');
+}
+function aggregateActivity(grain) {
+  const buckets = buildBuckets(grain);
+  const idx = new Map(buckets.map((k,i)=>[k,i]));
+  const signups = new Array(buckets.length).fill(0);
+  const cancellations = new Array(buckets.length).fill(0);
+  const trialEnds = new Array(buckets.length).fill(0);
+  allUsers.forEach(u => {
+    if (u.created_at) { const k=bucketKey(new Date(u.created_at), grain); if (idx.has(k)) signups[idx.get(k)]++; }
+    if (u.subscription_status === 'cancelled' && u.updated_at) { const k=bucketKey(new Date(u.updated_at), grain); if (idx.has(k)) cancellations[idx.get(k)]++; }
+    if (u.trial_end) { const k=bucketKey(new Date(u.trial_end), grain); if (idx.has(k)) trialEnds[idx.get(k)]++; }
+  });
+  return { buckets, signups, cancellations, trialEnds };
+}
+function renderChart() {
+  if (typeof Chart === 'undefined') return;
+  updateGrainUI();
+  const { buckets, signups, cancellations, trialEnds } = aggregateActivity(activityGrain);
+  const labels = buckets.map(k => formatBucketLabel(k, activityGrain));
+  const data = {
+    labels,
+    datasets: [
+      { label:'New signups', data:signups, borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.15)', tension:.25, pointRadius:2 },
+      { label:'Cancellations*', data:cancellations, borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.15)', tension:.25, pointRadius:2 },
+      { label:'Trial ending', data:trialEnds, borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,.15)', tension:.25, pointRadius:2 },
+    ],
+  };
+  const opts = {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{ legend:{ labels:{ color:'#cbd5e1', font:{size:11}, boxWidth:12 } } },
+    scales:{
+      x:{ ticks:{ color:'#64748b', font:{size:10}, maxRotation:0, autoSkip:true }, grid:{ color:'#1e293b' } },
+      y:{ beginAtZero:true, ticks:{ color:'#64748b', font:{size:10}, precision:0 }, grid:{ color:'#1e293b' } },
+    },
+  };
+  if (activityChart) { activityChart.data = data; activityChart.options = opts; activityChart.update(); }
+  else { activityChart = new Chart(document.getElementById('activityChart'), { type:'line', data, options:opts }); }
 }
 function sortBy(k) { if (sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=true; } render(); }
 
@@ -316,7 +476,8 @@ function render() {
     (!document.getElementById('fRegion').value || u.region===document.getElementById('fRegion').value) &&
     (src !== 'real' || !seedUserIds.has(u.id)) &&
     (src !== 'seed' || seedUserIds.has(u.id)) &&
-    (!issuesOnly || computeIssues(u).length));
+    (!issuesOnly || computeIssues(u).length) &&
+    inDatePillRange(u.created_at ? new Date(u.created_at).getTime() : 0));
   const totalIssueCount = allUsers.reduce((n,u) => n + (computeIssues(u).length ? 1 : 0), 0);
   const issuesPill = document.getElementById('issuesPill');
   if (totalIssueCount) { issuesPill.style.display='inline-block'; document.getElementById('cIssues').textContent = totalIssueCount; }
