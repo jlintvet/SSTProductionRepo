@@ -335,17 +335,22 @@ function mkIcon(k,sel){
 function refreshMk(k){const m=markersMap[k];if(m)m.setIcon(mkIcon(k,k===selKey));}
 function buildAllMarkers(){
   Object.values(markersMap).forEach(m=>map.removeLayer(m));markersMap={};
-  features.forEach(f=>{
-    const k=fKey(f),[lo,la]=f.geometry.coordinates;
-    const m=L.marker([la,lo],{icon:mkIcon(k,false)});
-    m.on('click',()=>select(k,false));
-    m.addTo(map);markersMap[k]=m;
-  });
-  newFeatures.forEach(n=>{
-    const k=nKey(n);
-    const m=L.marker([n.lat,n.lon],{icon:mkIcon(k,false)});
-    m.on('click',()=>select(k,false));
-    m.addTo(map);markersMap[k]=m;
+  // Draw only what's currently filtered (region/type/decision/search/photo),
+  // matching the sidebar list -- previously this drew every feature/newFeature
+  // unconditionally, so selecting a region only narrowed the list, not the map.
+  getFiltered().forEach(item=>{
+    const k=item.k;
+    if(item.kind==='new'){
+      const n=item.n;
+      const m=L.marker([n.lat,n.lon],{icon:mkIcon(k,false)});
+      m.on('click',()=>select(k,false));
+      m.addTo(map);markersMap[k]=m;
+    }else{
+      const f=item.f,[lo,la]=f.geometry.coordinates;
+      const m=L.marker([la,lo],{icon:mkIcon(k,false)});
+      m.on('click',()=>select(k,false));
+      m.addTo(map);markersMap[k]=m;
+    }
   });
 }
 
@@ -540,8 +545,8 @@ function getFiltered(){
   }).map(n=>({kind:'new',n,k:nKey(n)}));
   return[...newFiltered,...existingFiltered];
 }
-['fRegion','fSymbol','fDecision'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{renderList();updateStats();}));
-document.getElementById('searchInput').addEventListener('input',()=>{renderList();updateStats();});
+['fRegion','fSymbol','fDecision'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{buildAllMarkers();renderList();updateStats();}));
+document.getElementById('searchInput').addEventListener('input',()=>{buildAllMarkers();renderList();updateStats();});
 
 function renderList(){
   const filtered=getFiltered();
@@ -832,7 +837,7 @@ function onPhotoPillClick(){
   if(!photoAuthed){openPhotoAuthModal();return;}
   photoFilterOn=!photoFilterOn;
   document.getElementById('photoPill').style.boxShadow=photoFilterOn?'0 0 0 2px #22d3ee':'none';
-  renderList();updateStats();
+  buildAllMarkers();renderList();updateStats();
 }
 
 async function approveAdminPhoto(photo){
