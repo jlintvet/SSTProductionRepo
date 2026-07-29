@@ -99,7 +99,7 @@ Since CHL at ~0.011° is close to the SST grid at 0.01°, `expandCoarseGrid` pro
 ├──────────────────────────────────────────┤
 │ Bathymetry / wreck markers               │
 ├──────────────────────────────────────────┤
-│ Isotherm / temp-break polylines          │
+│ Break tool polylines (SST/CHL/SC)        │
 ├──────────────────────────────────────────┤
 │ CHL / SeaColor / Composite imageOverlay  │ ← overlayLayerRef
 ├──────────────────────────────────────────┤

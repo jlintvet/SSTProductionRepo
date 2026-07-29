@@ -51,7 +51,7 @@ Date navigator with `‹` / `›` arrows. Used beneath layer buttons when multip
 `color` is effectively decorative-only: `labelColors` only ever defines a `cyan` entry (`text-cyan-700 bg-cyan-50`), so every DateNav call in this file renders the same cyan pill no matter what `color` value is passed -- the CHL/Sea color sub-sections below explicitly pass `color="cyan"` too, despite what older notes in this doc said about green/teal.
 
 ### `IsothermSubControls`
-Target / differential / distance sliders that appear inline when Break is active. Generalized (2026-07-29) beyond SST to also drive Chlorophyll and Altimetry -- takes `targetMin/targetMax/targetStep/targetDecimals/targetLabel/targetUnit` and `diffMin/diffMax/diffStep` props instead of hardcoded `sstMin/sstMax`/`°F`, so the parent picks the right bounds/units for whichever source is active (SST/Composite: °F, 50-90; Chlorophyll: mg/m³, 0.05-5.0; Altimetry: m, -0.4-0.4). The parent clamps the target value to `[targetMin, targetMax]` before rendering. Distance (1-5 grid steps, added 2026-07-29) sets how many grid cells apart `computeTempBreakContour` compares two points. The break line always sits exactly on the target contour (same `marchingSquares` call as the plain dotted isotherm/contour line) -- Distance and Differential only decide which stretches of it are strong enough to draw, they never reposition it. See `SSTHeatmapLeaflet.jsx`'s "Isotherm engine" section for the algorithm.
+Target / differential / distance sliders that appear inline when Break is active. Generalized (2026-07-29) beyond SST to also drive Chlorophyll and Sea Color -- takes `targetMin/targetMax/targetStep/targetDecimals/targetLabel/targetUnit` and `diffMin/diffMax/diffStep` props instead of hardcoded `sstMin/sstMax`/`°F`, so the parent picks the right bounds/units for whichever source is active (SST/Composite: °F, 50-90; Chlorophyll: mg/m³, 0.05-5.0; Sea Color: Kd490 m⁻¹, 0.02-0.50). Altimetry is deliberately excluded -- it already has its own fixed-interval SLA Overlay contours. The parent clamps the target value to `[targetMin, targetMax]` before rendering. Distance (1-5 grid steps, added 2026-07-29) sets how many grid cells apart `computeTempBreakContour` compares two points. The break line always sits exactly on the target contour (same `marchingSquares` call as the plain dotted isotherm/contour line) -- Distance and Differential only decide which stretches of it are strong enough to draw, they never reposition it. See `SSTHeatmapLeaflet.jsx`'s "Isotherm engine" section for the algorithm.
 
 ### `Divider`
 `<div className="border-t border-slate-100 mx-0" />`
@@ -160,7 +160,7 @@ Community button shows active pin count: `Community (${communityCount ?? 0})`.
 
 | Button text | Prop | Help key | Pro? | Notes |
 |---|---|---|---|---|
-| Break | `showIsotherm` | `isotherm` / `isotherm_chl` / `isotherm_alt` | Yes | Shown for SST, Composite, Chlorophyll, and Altimetry (`isBreakGroup` in `MapControlPanel.jsx`) -- not Sea Color. Renamed from "Temp break" and generalized beyond SST/Composite 2026-07-29; help key picked by `breakHelpId` to match whichever source is active. |
+| Break | `showIsotherm` | `isotherm` / `isotherm_chl` / `isotherm_sc` | Yes | Shown for SST, Composite, Chlorophyll, and Sea Color (`isBreakGroup` in `MapControlPanel.jsx`) -- not Altimetry, which already has its own fixed-interval SLA Overlay contours. Renamed from "Temp break" and generalized beyond SST/Composite 2026-07-29 (initially to Altimetry, corrected the same day to Sea Color instead); help key picked by `breakHelpId` to match whichever source is active. |
 | Hot spots | `showHotspots` | `hotspots` | Yes | Species chip row appears when active |
 | Wind overlay | `showWindOverlay` | `windoverlay` | Yes | Hidden entirely when `isWindMap` active |
 | Bottom Features | `showWrecks` | `bottomfeat` | Yes | Toggles the wrecks/structures overlay. A name-search input appears under this button once enabled (`2a497a7` onward, 2026-07-25) -- see "Bottom feature name search" below. The popup shown on clicking a feature is documented separately below (not part of `MapControlPanel.jsx` itself). |
@@ -296,9 +296,10 @@ isothermalSensitivity, setIsothermalSensitivity // SST/Composite differential, d
 isothermalDistance, setIsothermalDistance       // shared across all sources, default: 1 (grid step), range 1-5
 effectiveTargetTemp, sstMin, sstMax
 // Break tool, generalized 2026-07-29 -- selects the right state/bounds/unit for
-// whichever source (isBreakChl/isBreakAlt) is active; SST/Composite keep using
+// whichever source (isBreakChl/isBreakSC) is active; SST/Composite keep using
 // isothermalTargetTemp/isothermalSensitivity/sstMin/sstMax above unchanged.
-breakTargetValue, setBreakTargetValue           // current target (°F / mg/m³ / m depending on source)
+// Altimetry is not included -- see the Tools table row above.
+breakTargetValue, setBreakTargetValue           // current target (°F / mg/m³ / Kd490 m⁻¹ depending on source)
 breakDifferentialValue, setBreakDifferentialValue
 breakTargetMin, breakTargetMax, breakTargetStep, breakTargetDecimals, breakTargetLabel, breakTargetUnit
 breakDiffMin, breakDiffMax, breakDiffStep
