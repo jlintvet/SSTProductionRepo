@@ -749,17 +749,20 @@ function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensit
 // the beach -- not the offshore pelagic fronts this tool is meant to surface.
 const ISOTHERM_COASTAL_BUFFER_NM = 2.5;
 
-// Break tool target/differential bounds for Chlorophyll and Altimetry. SST/Composite
+// Break tool target/differential bounds for Chlorophyll and Sea Color. SST/Composite
 // keep using sstMin/sstMax (50-90F) and the existing 0.5-8F differential range --
-// these are separate constants because CHL (mg/m3) and SLA (meters) are different
+// these are separate constants because CHL (mg/m3) and Kd490 (m^-1) are different
 // units on completely different scales, so the same slider bounds would either never
-// trigger (CHL/SLA target set to an SST-range number) or be far too coarse/fine.
+// trigger (CHL/Kd490 target set to an SST-range number) or be far too coarse/fine.
+// Altimetry deliberately does NOT get the Break tool -- it already has its own
+// fixed-interval SLA Overlay contour lines (showAltimetryOverlay), so a second,
+// differently-behaved contour tool on the same data would be redundant/confusing.
 const CHL_BREAK_MIN = 0.05, CHL_BREAK_MAX = 5.0, CHL_BREAK_STEP = 0.05;
 const CHL_BREAK_DIFF_MIN = 0.1, CHL_BREAK_DIFF_MAX = 2.0, CHL_BREAK_DIFF_STEP = 0.1;
 const CHL_BREAK_DEFAULT_TARGET = 1.0, CHL_BREAK_DEFAULT_DIFF = 0.3;
-const ALT_BREAK_MIN = -0.4, ALT_BREAK_MAX = 0.4, ALT_BREAK_STEP = 0.01;
-const ALT_BREAK_DIFF_MIN = 0.02, ALT_BREAK_DIFF_MAX = 0.15, ALT_BREAK_DIFF_STEP = 0.01;
-const ALT_BREAK_DEFAULT_TARGET = 0, ALT_BREAK_DEFAULT_DIFF = 0.05;
+const SC_BREAK_MIN = 0.02, SC_BREAK_MAX = 0.50, SC_BREAK_STEP = 0.01;
+const SC_BREAK_DIFF_MIN = 0.02, SC_BREAK_DIFF_MAX = 0.2, SC_BREAK_DIFF_STEP = 0.01;
+const SC_BREAK_DEFAULT_TARGET = 0.1, SC_BREAK_DEFAULT_DIFF = 0.05;
 function bufferedWaterMask(waterMask, bufferNm){
   if(!waterMask) return null;
   const bufferDeg = bufferNm / 60; // 1 degree latitude ~= 60nm
@@ -1449,30 +1452,31 @@ export default function SSTHeatmapLeaflet(props) {
   const [isothermalSensitivity,setIsothermalSensitivity]= useState(2.0);
   const [isothermalDistance, setIsothermalDistance] = useState(1);
   const effectiveTargetTemp = isothermalTargetTemp ?? Math.round((sstMin + sstMax) / 2);
-  // Break tool, generalized to Chlorophyll and Altimetry (SST/Composite keep the
-  // state above, unchanged). Each source gets its own target/differential state so
-  // switching sources never leaks an out-of-range value from one unit system into
-  // another -- e.g. a 76 target left over from SST would never cross any CHL (0.05-5)
-  // or SLA (-0.4-0.4) value, silently drawing nothing after a source switch.
+  // Break tool, generalized to Chlorophyll and Sea Color (SST/Composite keep the
+  // state above, unchanged; Altimetry deliberately excluded -- see the constants
+  // comment above). Each source gets its own target/differential state so switching
+  // sources never leaks an out-of-range value from one unit system into another --
+  // e.g. a 76 target left over from SST would never cross any CHL (0.05-5) or
+  // Kd490 (0.02-0.50) value, silently drawing nothing after a source switch.
   const [chlBreakTarget, setChlBreakTarget] = useState(CHL_BREAK_DEFAULT_TARGET);
   const [chlBreakDifferential, setChlBreakDifferential] = useState(CHL_BREAK_DEFAULT_DIFF);
-  const [slaBreakTarget, setSlaBreakTarget] = useState(ALT_BREAK_DEFAULT_TARGET);
-  const [slaBreakDifferential, setSlaBreakDifferential] = useState(ALT_BREAK_DEFAULT_DIFF);
+  const [scBreakTarget, setScBreakTarget] = useState(SC_BREAK_DEFAULT_TARGET);
+  const [scBreakDifferential, setScBreakDifferential] = useState(SC_BREAK_DEFAULT_DIFF);
   const isBreakChl = activeDataLayer === "chlorophyll";
-  const isBreakAlt = activeDataLayer === "altimetry";
-  const breakTargetValue = isBreakChl ? chlBreakTarget : isBreakAlt ? slaBreakTarget : effectiveTargetTemp;
-  const breakDifferentialValue = isBreakChl ? chlBreakDifferential : isBreakAlt ? slaBreakDifferential : isothermalSensitivity;
-  const setBreakTargetValue = isBreakChl ? setChlBreakTarget : isBreakAlt ? setSlaBreakTarget : setIsothermalTargetTemp;
-  const setBreakDifferentialValue = isBreakChl ? setChlBreakDifferential : isBreakAlt ? setSlaBreakDifferential : setIsothermalSensitivity;
-  const breakTargetMin = isBreakChl ? CHL_BREAK_MIN : isBreakAlt ? ALT_BREAK_MIN : sstMin;
-  const breakTargetMax = isBreakChl ? CHL_BREAK_MAX : isBreakAlt ? ALT_BREAK_MAX : sstMax;
-  const breakTargetStep = isBreakChl ? CHL_BREAK_STEP : isBreakAlt ? ALT_BREAK_STEP : 0.5;
-  const breakTargetDecimals = isBreakChl ? 2 : isBreakAlt ? 2 : 1;
-  const breakTargetLabel = isBreakChl ? "Target CHL" : isBreakAlt ? "Target SLA" : "Target temp";
-  const breakTargetUnit = isBreakChl ? " mg/m\u00b3" : isBreakAlt ? " m" : "\u00b0F";
-  const breakDiffMin = isBreakChl ? CHL_BREAK_DIFF_MIN : isBreakAlt ? ALT_BREAK_DIFF_MIN : 0.5;
-  const breakDiffMax = isBreakChl ? CHL_BREAK_DIFF_MAX : isBreakAlt ? ALT_BREAK_DIFF_MAX : 8;
-  const breakDiffStep = isBreakChl ? CHL_BREAK_DIFF_STEP : isBreakAlt ? ALT_BREAK_DIFF_STEP : 0.5;
+  const isBreakSC = activeDataLayer === "seacolor";
+  const breakTargetValue = isBreakChl ? chlBreakTarget : isBreakSC ? scBreakTarget : effectiveTargetTemp;
+  const breakDifferentialValue = isBreakChl ? chlBreakDifferential : isBreakSC ? scBreakDifferential : isothermalSensitivity;
+  const setBreakTargetValue = isBreakChl ? setChlBreakTarget : isBreakSC ? setScBreakTarget : setIsothermalTargetTemp;
+  const setBreakDifferentialValue = isBreakChl ? setChlBreakDifferential : isBreakSC ? setScBreakDifferential : setIsothermalSensitivity;
+  const breakTargetMin = isBreakChl ? CHL_BREAK_MIN : isBreakSC ? SC_BREAK_MIN : sstMin;
+  const breakTargetMax = isBreakChl ? CHL_BREAK_MAX : isBreakSC ? SC_BREAK_MAX : sstMax;
+  const breakTargetStep = isBreakChl ? CHL_BREAK_STEP : isBreakSC ? SC_BREAK_STEP : 0.5;
+  const breakTargetDecimals = isBreakChl ? 2 : isBreakSC ? 2 : 1;
+  const breakTargetLabel = isBreakChl ? "Target CHL" : isBreakSC ? "Target Kd490" : "Target temp";
+  const breakTargetUnit = isBreakChl ? " mg/m\u00b3" : isBreakSC ? " m\u207b\u00b9" : "\u00b0F";
+  const breakDiffMin = isBreakChl ? CHL_BREAK_DIFF_MIN : isBreakSC ? SC_BREAK_DIFF_MIN : 0.5;
+  const breakDiffMax = isBreakChl ? CHL_BREAK_DIFF_MAX : isBreakSC ? SC_BREAK_DIFF_MAX : 8;
+  const breakDiffStep = isBreakChl ? CHL_BREAK_DIFF_STEP : isBreakSC ? SC_BREAK_DIFF_STEP : 0.5;
   const [interactionMode, setInteractionMode] = useState("pan");
   const interactionModeRef = useRef("pan");
   const tripModeRef        = useRef(false);
@@ -3027,12 +3031,13 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     [isothermLayerRef, breakLayerRef, breakGlowRef].forEach(r => { if (r.current) { map.removeLayer(r.current); r.current = null; } });
-    if (!showIsotherm || !(activeDataLayer === "sst" || activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "altimetry")) return;
+    if (!showIsotherm || !(activeDataLayer === "sst" || activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor")) return;
     // Break works on whichever source is active. SST reads the SST grid directly;
-    // composite/chlorophyll/altimetry each build their own flat isoGrid from their
+    // composite/chlorophyll/seacolor each build their own flat isoGrid from their
     // own data shape (same pattern the overlay-rendering useEffect above uses for
     // each layer's raster). marchingSquares/computeTempBreakContour need no changes --
-    // they only ever see a generic latSet/lonSet/flat-grid/target-value.
+    // they only ever see a generic latSet/lonSet/flat-grid/target-value. Altimetry is
+    // deliberately not included here -- it already has its own SLA Overlay contours.
     let isoLatSet = latSet, isoLonSet = lonSet, isoGrid = grid;
     if (activeDataLayer === "composite" && compositeDataRef.current?.latSet?.length) {
       const cd = compositeDataRef.current;
@@ -3056,20 +3061,14 @@ export default function SSTHeatmapLeaflet(props) {
       } else {
         isoLatSet = [];
       }
-    } else if (activeDataLayer === "altimetry") {
-      const alt = altimetryDataRef.current;
-      if (alt?.lats?.length) {
-        const rawLats = alt.lats.map(v => Math.round(v * 1e5) / 1e5);
-        const rawLons = alt.lons.map(v => Math.round(v * 1e5) / 1e5);
-        isoLatSet = [...rawLats].sort((a, b) => b - a);
-        isoLonSet = [...rawLons].sort((a, b) => a - b);
+    } else if (activeDataLayer === "seacolor") {
+      const scRef = seaColorDataRef.current;
+      const day = scRef?.days?.length ? (scRef.days[seaColorDateIndexRef.current] || scRef.days[scRef.days.length - 1]) : null;
+      if (day?.grid?.length) {
+        isoLatSet = [...new Set(day.grid.map(d => d.lat))].sort((a, b) => b - a);
+        isoLonSet = [...new Set(day.grid.map(d => d.lon))].sort((a, b) => a - b);
         isoGrid = {};
-        for (let i = 0; i < rawLats.length; i++) {
-          const row = alt.sla?.[i]; if (!row) continue;
-          for (let j = 0; j < rawLons.length; j++) {
-            const v = row[j]; if (v != null && Number.isFinite(v)) isoGrid[`${rawLats[i]}_${rawLons[j]}`] = v;
-          }
-        }
+        day.grid.forEach(d => { if (d.kd490 != null && Number.isFinite(d.kd490)) isoGrid[`${d.lat}_${d.lon}`] = d.kd490; });
       } else {
         isoLatSet = [];
       }
@@ -3094,7 +3093,7 @@ export default function SSTHeatmapLeaflet(props) {
       } catch(err) { console.error("[ISOTHERM] computation failed:", err); }
     }, 60);
     return () => clearTimeout(tid);
-  }, [mapReady, showIsotherm, latSet, lonSet, grid, breakTargetValue, breakDifferentialValue, isothermalDistance, activeDataLayer, compositeData, chlData, chlDateIndex, altimetryData, waterMaskVersion, repaintTrigger]);
+  }, [mapReady, showIsotherm, latSet, lonSet, grid, breakTargetValue, breakDifferentialValue, isothermalDistance, activeDataLayer, compositeData, chlData, chlDateIndex, seaColorData, seaColorDateIndex, waterMaskVersion, repaintTrigger]);
 
   // ── Bathy tile layer (CloudFront raster PNG) ────────────────────────────────
   useEffect(() => {
@@ -4861,7 +4860,7 @@ export default function SSTHeatmapLeaflet(props) {
                 {mobilePanel === "tools" && (
                   <>
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Tools</div>
-                    {(activeDataLayer === "sst" || activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "altimetry") && (
+                    {(activeDataLayer === "sst" || activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor") && (
                       <MobileProGate isPro={isPro} label="Break overlay is available on the Pro plan.">
                         <button onClick={() => setShowIsotherm(v => !v)}
                           className={`w-full text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${showIsotherm ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-600 border-slate-300"}`}>

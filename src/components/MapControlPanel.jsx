@@ -91,7 +91,7 @@ const HELP_CONFIG = {
   windmap:     { title: "Wind Map",                      image: "/help/windmap.png",    text: "The wind map shows surface wind speed and direction from the GFS model. Strong offshore winds push surface water and can affect sea state and bait positioning. Use this to gauge conditions before heading out." },
   isotherm:    { title: "Break",                         image: "/help/isotherm.png",   text: "The break tool highlights the target isotherm - set the temperature, differential, and distance to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band. Distance sets how many grid steps apart the comparison is made - raise it to catch breaks that build up gradually over a wider area instead of a single sharp step. The line always sits exactly on the target isotherm; Distance and Differential only decide which stretches of it are strong enough to draw." },
   isotherm_chl:{ title: "Break (Chlorophyll)",            image: "/help/isotherm.png",   text: "The same break tool, applied to chlorophyll - set the target concentration, differential, and distance to isolate the edge between high- and low-chl water. That edge often holds mahi, wahoo, and tuna. Raise the differential to isolate only the sharpest color-change edges; lower it to see a broader gradient band. The line always sits exactly on the target chlorophyll contour; Distance and Differential only decide which stretches of it are strong enough to draw." },
-  isotherm_alt:{ title: "Break (Altimetry)",              image: "/help/isotherm.png",   text: "The same break tool, applied to altimetry - set the target sea-level-anomaly value, differential, and distance to isolate one specific eddy edge or front. This is a single adjustable line, separate from the SLA Overlay's fixed-interval contours. Raise the differential to isolate only the sharpest edges; lower it to see a broader gradient band. The line always sits exactly on the target SLA contour; Distance and Differential only decide which stretches of it are strong enough to draw." },
+  isotherm_sc: { title: "Break (Sea Color)",              image: "/help/isotherm.png",   text: "The same break tool, applied to Sea Color (Kd490) - set the target clarity value, differential, and distance to isolate the edge between clear and turbid water. That edge is a productive fishing zone, especially for mahi and tuna following the color change. Raise the differential to isolate only the sharpest clarity edges; lower it to see a broader gradient band. The line always sits exactly on the target Kd490 contour; Distance and Differential only decide which stretches of it are strong enough to draw." },
   hotspots:    { title: "Fish Hot Spots",                image: "/help/hotspots.png",   text: "AI-scored locations based on SST gradients, chlorophyll, currents, and bottom structure. Select a target species to tune the model for that fish's preferred conditions. Scores are computed daily and vary with data freshness." },
   windoverlay: { title: "Wind Overlay",                  image: "/help/windoverlay.png",text: "Animated wind arrows overlaid directly on the map. Shows real-time GFS wind direction and speed over the water. Useful for judging sea conditions at any point on the map." },
   currents:    { title: "Ocean Currents",                image: "/help/currents.png",   text: "Ocean current vectors from OSCAR (5-day lag). Shows water flow direction and speed. Current edges and convergence zones concentrate bait and attract pelagics. The Gulf Stream and its eddies appear clearly." },
@@ -397,10 +397,12 @@ export default function MapControlPanel({
 
   const gainLabel = isSSTGroup ? "Temp gain" : isCHL ? "CHL gain" : isSC ? "Kd490 gain" : "Gain";
   // Break tool (formerly "Temp Break") now works on SST/Composite, Chlorophyll, and
-  // Altimetry -- Sea Color is not included. breakHelpId picks the matching HELP_CONFIG
-  // entry/copy for whichever source is active.
-  const isBreakGroup = isSSTGroup || isCHL || isAlt;
-  const breakHelpId  = isSSTGroup ? "isotherm" : isCHL ? "isotherm_chl" : "isotherm_alt";
+  // Sea Color. Altimetry is deliberately excluded -- it already has its own
+  // fixed-interval SLA Overlay contour lines, so a second, differently-behaved
+  // contour tool on the same data would be redundant/confusing. breakHelpId picks
+  // the matching HELP_CONFIG entry/copy for whichever source is active.
+  const isBreakGroup = isSSTGroup || isCHL || isSC;
+  const breakHelpId  = isSSTGroup ? "isotherm" : isCHL ? "isotherm_chl" : "isotherm_sc";
 
   const activeViirsDay = viirsData?.days?.[viirsDateIndex] ?? null;
 
