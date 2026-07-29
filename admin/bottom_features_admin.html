@@ -13,6 +13,7 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
 #topbar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0;flex-wrap:wrap}
 #topbar h1{font-size:14px;font-weight:700;color:#f8fafc;margin-right:2px;white-space:nowrap}
 .stat-pill{background:#334155;border-radius:10px;padding:2px 9px;font-size:11px;color:#94a3b8;white-space:nowrap}
+.stat-pill.clickable{cursor:pointer;user-select:none}
 .stat-pill span{color:#f8fafc;font-weight:600}
 .stat-pill.red span{color:#f87171}
 .stat-pill.amber span{color:#fbbf24}
@@ -98,12 +99,12 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
 <body>
 <div id="topbar">
   <h1>&#9875; Bottom Features Admin</h1>
-  <div class="stat-pill">Total <span id="sTotal">&#8212;</span></div>
-  <div class="stat-pill amber">Pending <span id="sPending">&#8212;</span></div>
-  <div class="stat-pill green">Keep <span id="sKeep">&#8212;</span></div>
-  <div class="stat-pill red">Remove <span id="sRemove">&#8212;</span></div>
-  <div class="stat-pill">Edited <span id="sEdited">&#8212;</span></div>
-  <div class="stat-pill" style="background:#1e3a5c"><span style="color:#93c5fd">New <span id="sNew">0</span></span></div>
+  <div class="stat-pill clickable" id="sTotalPill" onclick="setStatFilter('total')" title="Show all">Total <span id="sTotal">&#8212;</span></div>
+  <div class="stat-pill amber clickable" id="sPendingPill" onclick="setStatFilter('pending')" title="Show pending only">Pending <span id="sPending">&#8212;</span></div>
+  <div class="stat-pill green clickable" id="sKeepPill" onclick="setStatFilter('keep')" title="Show keep only">Keep <span id="sKeep">&#8212;</span></div>
+  <div class="stat-pill red clickable" id="sRemovePill" onclick="setStatFilter('remove')" title="Show remove only">Remove <span id="sRemove">&#8212;</span></div>
+  <div class="stat-pill clickable" id="sEditedPill" onclick="setStatFilter('edited')" title="Show edited only">Edited <span id="sEdited">&#8212;</span></div>
+  <div class="stat-pill clickable" id="sNewPill" style="background:#1e3a5c" onclick="setStatFilter('new')" title="Show new pins only"><span style="color:#93c5fd">New <span id="sNew">0</span></span></div>
   <div class="stat-pill cyan" id="photoPill" onclick="onPhotoPillClick()" title="Click to sign in / filter to wrecks with a pending photo">Photos <span id="sPhotos">Sign in</span></div>
   <button id="bathyBtn" onclick="toggleBathy()">Bathy off</button>
   <button id="addBtn" onclick="toggleAddMode()">+ Add Feature</button>
@@ -278,6 +279,11 @@ const NORM_SYM=s=>s==='Rocks'?'Structure':(s||'Structure');
 const TO_RAW_SYM=s=>s==='Structure'?'Rocks':(s||'Rocks');
 
 let features=[],decisions={},newFeatures=[],selKey=null,spatialOrder=[],spatialPos=0,addMode=false,nextTempId=1;
+// Quick-filter driven by clicking a header stat pill. null = no extra filter
+// beyond the manual dropdowns; 'edited'/'new' aren't native fDecision values
+// so they're tracked here, while 'pending'/'keep'/'remove' just drive the
+// existing fDecision select directly (see setStatFilter).
+let statFilter=null,initialRegionSet=false;
 let map,markersMap={},bathyLayer=null,bathyOn=false,lastCommitSucceeded=false;
 let photoAuthed=false,photoAdminUserId=null,photoAdminEmail=null,wreckPhotosAll=[],pendingPhotoKeys=new Set(),photoFilterOn=false;
 
@@ -551,18 +557,24 @@ function getFiltered(){
   const sym=document.getElementById('fSymbol').value;
   const dec=document.getElementById('fDecision').value;
   const q=document.getElementById('searchInput').value.trim().toLowerCase();
-  const existingFiltered=features.filter(f=>{
+  // 'new' pill: only newFeatures are new, so hide every existing feature.
+  const existingFiltered=(statFilter==='new')?[]:features.filter(f=>{
     const k=fKey(f);
     const r=getRegionOverride(k,f);
     if(reg&&r!==reg)return false;
     if(sym&&getSym(k,f)!==sym)return false;
     if(dec&&getDec(k)!==dec)return false;
+    if(statFilter==='edited'){
+      const d=decisions[k];
+      if(!(d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth)))return false;
+    }
     if(q&&!getName(k,f).toLowerCase().includes(q))return false;
     if(photoFilterOn&&!pendingPhotoKeys.has(k))return false;
     return true;
   }).map(f=>({kind:'existing',f,k:fKey(f)}));
-  const newFiltered=newFeatures.filter(n=>{
-    if(photoFilterOn)return false;
+  // 'edited' pill: newFeatures have no decisions[] entry, so they're never
+  // "edited" -- hide them. photoFilterOn keeps its prior all-new-hidden behavior.
+  const newFiltered=(statFilter==='edited'||photoFilterOn)?[]:newFeatures.filter(n=>{
     if(reg&&n.region!==reg)return false;
     if(sym&&NORM_SYM(n.symbol)!==sym)return false;
     if(dec&&dec!=='pending')return false;
@@ -571,7 +583,52 @@ function getFiltered(){
   }).map(n=>({kind:'new',n,k:nKey(n)}));
   return[...newFiltered,...existingFiltered];
 }
-['fRegion','fSymbol','fDecision'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{buildAllMarkers();renderList();updateStats();}));
+['fRegion','fSymbol','fDecision'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{statFilter=null;updateStatPillUI();buildAllMarkers();renderList();updateStats();}));
+
+// Clicking a header stat pill resets the manual dropdowns/search/photo
+// toggle and jumps straight to that exact subset (matching the number shown
+// on the pill, which is always a global count, not scoped to the current
+// region/search). Click semantics: 'pending'/'keep'/'remove' just drive the
+// existing fDecision select; 'edited'/'new' aren't native select values so
+// they're tracked via statFilter and handled in getFiltered().
+function setStatFilter(kind){
+  document.getElementById('fRegion').value='';
+  document.getElementById('fSymbol').value='';
+  const searchEl=document.getElementById('searchInput');
+  searchEl.value='';
+  updateSearchClearVisibility();
+  photoFilterOn=false;
+  const photoPill=document.getElementById('photoPill');
+  if(photoPill)photoPill.style.boxShadow='none';
+  const decSel=document.getElementById('fDecision');
+  if(kind==='pending'||kind==='keep'||kind==='remove'){
+    decSel.value=kind;
+    statFilter=null;
+  }else if(kind==='edited'||kind==='new'){
+    decSel.value='';
+    statFilter=kind;
+  }else{
+    decSel.value='';
+    statFilter=null;
+  }
+  updateStatPillUI();
+  buildAllMarkers();renderList();updateStats();
+}
+function updateStatPillUI(){
+  const dec=document.getElementById('fDecision').value;
+  const active={
+    sTotalPill:!dec&&!statFilter,
+    sPendingPill:dec==='pending',
+    sKeepPill:dec==='keep',
+    sRemovePill:dec==='remove',
+    sEditedPill:statFilter==='edited',
+    sNewPill:statFilter==='new',
+  };
+  Object.entries(active).forEach(([id,on])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.boxShadow=on?'0 0 0 2px #38bdf8':'none';
+  });
+}
 function updateSearchClearVisibility(){
   document.getElementById('searchClear').style.display=document.getElementById('searchInput').value?'block':'none';
 }
@@ -681,6 +738,7 @@ function updateStats(){
   document.getElementById('sEdited').textContent=edited;
   document.getElementById('sNew').textContent=newFeatures.length;
   document.getElementById('commitBtn').disabled=!(remove>0||edited>0||newFeatures.length>0);
+  updateStatPillUI();
 }
 
 async function loadFeatures(){
@@ -693,6 +751,10 @@ async function loadFeatures(){
     fKeyMap=computeFKeys(features);
     REGION_KEYS=computeRegionKeys(features);
     populateRegionFilter();
+    if(!initialRegionSet){
+      initialRegionSet=true;
+      if(REGION_KEYS.includes('mid_atlantic'))document.getElementById('fRegion').value='mid_atlantic';
+    }
     spatialOrder=buildSpatialOrder(features);
     loadD();loadN();
     buildAllMarkers();
