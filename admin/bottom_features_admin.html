@@ -29,8 +29,11 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
 #main{display:flex;flex:1;overflow:hidden}
 #leftPanel{width:310px;flex-shrink:0;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column}
 #filterBar{padding:8px;border-bottom:1px solid #334155;display:flex;flex-direction:column;gap:6px}
-#searchInput{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px}
+#searchWrap{position:relative}
+#searchInput{width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 24px 5px 8px;color:#e2e8f0;font-size:12px}
 #searchInput::placeholder{color:#64748b}
+#searchClear{display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:#64748b;font-size:15px;line-height:1;cursor:pointer;padding:3px 5px}
+#searchClear:hover{color:#e2e8f0}
 .filter-row{display:flex;gap:5px}
 .filter-sel{flex:1;background:#334155;border:1px solid #475569;border-radius:4px;padding:3px 5px;color:#e2e8f0;font-size:11px}
 .list-count{padding:4px 10px;font-size:10px;color:#64748b;border-bottom:1px solid #334155;display:flex;justify-content:space-between}
@@ -112,7 +115,10 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
 <div id="main">
   <div id="leftPanel">
     <div id="filterBar">
-      <input id="searchInput" type="text" placeholder="Search by name..."/>
+      <div id="searchWrap">
+        <input id="searchInput" type="text" placeholder="Search by name..."/>
+        <button id="searchClear" type="button" title="Clear search" onclick="clearSearch()">&times;</button>
+      </div>
       <div class="filter-row">
         <select id="fRegion" class="filter-sel">
           <option value="">All regions</option>
@@ -275,7 +281,27 @@ let features=[],decisions={},newFeatures=[],selKey=null,spatialOrder=[],spatialP
 let map,markersMap={},bathyLayer=null,bathyOn=false,lastCommitSucceeded=false;
 let photoAuthed=false,photoAdminUserId=null,photoAdminEmail=null,wreckPhotosAll=[],pendingPhotoKeys=new Set(),photoFilterOn=false;
 
-const fKey=f=>{const[lo,la]=f.geometry.coordinates;return`${(f.properties?.name??'').trim()}_${la.toFixed(4)}_${lo.toFixed(4)}`;};
+// Base signature: name + coordinates rounded to 4 decimals. Two distinct
+// features can share this (e.g. two survey entries for the same spot with
+// different depth/notes) -- computeFKeys() disambiguates those with a
+// #2, #3... suffix in array order so they no longer collide onto one key.
+function computeFKeys(feats){
+  const seen=new Map(),map=new WeakMap();
+  feats.forEach(f=>{
+    const[lo,la]=f.geometry.coordinates;
+    const base=`${(f.properties?.name??'').trim()}_${la.toFixed(4)}_${lo.toFixed(4)}`;
+    const n=(seen.get(base)||0)+1;
+    seen.set(base,n);
+    map.set(f,n===1?base:`${base}#${n}`);
+  });
+  return map;
+}
+let fKeyMap=new WeakMap();
+const fKey=f=>{
+  if(fKeyMap.has(f))return fKeyMap.get(f);
+  const[lo,la]=f.geometry.coordinates;
+  return`${(f.properties?.name??'').trim()}_${la.toFixed(4)}_${lo.toFixed(4)}`;
+};
 const nKey=n=>'NEW::'+n.tempId;
 const isNewKey=k=>!!k&&k.startsWith('NEW::');
 const getDec=k=>decisions[k]?.decision??'pending';
@@ -546,7 +572,17 @@ function getFiltered(){
   return[...newFiltered,...existingFiltered];
 }
 ['fRegion','fSymbol','fDecision'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{buildAllMarkers();renderList();updateStats();}));
-document.getElementById('searchInput').addEventListener('input',()=>{buildAllMarkers();renderList();updateStats();});
+function updateSearchClearVisibility(){
+  document.getElementById('searchClear').style.display=document.getElementById('searchInput').value?'block':'none';
+}
+function clearSearch(){
+  const i=document.getElementById('searchInput');
+  i.value='';
+  updateSearchClearVisibility();
+  buildAllMarkers();renderList();updateStats();
+  i.focus();
+}
+document.getElementById('searchInput').addEventListener('input',()=>{updateSearchClearVisibility();buildAllMarkers();renderList();updateStats();});
 
 function renderList(){
   const filtered=getFiltered();
@@ -654,6 +690,7 @@ async function loadFeatures(){
     if(!res.ok)throw new Error('HTTP '+res.status);
     const data=await res.json();
     features=data.features??[];
+    fKeyMap=computeFKeys(features);
     REGION_KEYS=computeRegionKeys(features);
     populateRegionFilter();
     spatialOrder=buildSpatialOrder(features);
@@ -711,11 +748,17 @@ async function startCommit(){
     const raw=decodeURIComponent(escape(atob(b64content.replace(/\n/g,''))));
     const data=JSON.parse(raw);
     updP('ok','Fetched, '+data.features.length+' existing features','ok');
+    // data.features are freshly-fetched objects, distinct from the client's
+    // `features` array -- fKeyMap (keyed by object reference) won't have
+    // entries for them, so compute a local map scoped to this fetch instead
+    // of falling back to the shared fKey (which would re-collide duplicates).
+    const dataFKeyMap=computeFKeys(data.features);
+    const dataFKey=f=>dataFKeyMap.get(f);
 
     logP('...','Applying changes...');
-    let kept=data.features.filter(f=>!removedKeys.includes(fKey(f)));
+    let kept=data.features.filter(f=>!removedKeys.includes(dataFKey(f)));
     kept=kept.map(f=>{
-      const k=fKey(f),d=decisions[k];
+      const k=dataFKey(f),d=decisions[k];
       if(!d)return f;
       const p={...f.properties};
       if(d.newName)p.name=d.newName;
