@@ -89,7 +89,9 @@ const HELP_CONFIG = {
   seacolor:    { title: "Sea Color / Kd490",             image: "/help/seacolor.png",   text: "Kd490 measures water clarity. Cleaner, bluer water has lower Kd490. The boundary between turbid and clear water is a productive fishing zone, especially for mahi and tuna following the color change." },
   altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/altimetry_ref.png",   text: "Altimetry comes from satellite radar that detects extremely small changes in ocean surface height and turns them into a contour map. Raised areas (dark blue, light blue, green) mark spots where deep water is welling up toward the surface, bringing nutrients and bait with it. Lower areas (yellow, orange, red) mark spots where surface water is sinking, leaving less for baitfish to feed on. Dark blue is your top pick, light blue and green are still worth a look, and yellow, orange, or red areas are best skipped. Updated daily. Contour lines are drawn every 5cm (about 2 inches), with numbered lines every 10cm." },
   windmap:     { title: "Wind Map",                      image: "/help/windmap.png",    text: "The wind map shows surface wind speed and direction from the GFS model. Strong offshore winds push surface water and can affect sea state and bait positioning. Use this to gauge conditions before heading out." },
-  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",   text: "The temp break tool highlights the target isotherm - set the temperature, differential, and distance to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band. Distance sets how many grid steps apart the comparison is made - raise it to catch breaks that build up gradually over a wider area instead of a single sharp step; the line is drawn midway between the cooler and warmer water, not at the exact crossing." },
+  isotherm:    { title: "Break",                         image: "/help/isotherm.png",   text: "The break tool highlights the target isotherm - set the temperature, differential, and distance to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band. Distance sets how many grid steps apart the comparison is made - raise it to catch breaks that build up gradually over a wider area instead of a single sharp step. The line always sits exactly on the target isotherm; Distance and Differential only decide which stretches of it are strong enough to draw." },
+  isotherm_chl:{ title: "Break (Chlorophyll)",            image: "/help/isotherm.png",   text: "The same break tool, applied to chlorophyll - set the target concentration, differential, and distance to isolate the edge between high- and low-chl water. That edge often holds mahi, wahoo, and tuna. Raise the differential to isolate only the sharpest color-change edges; lower it to see a broader gradient band. The line always sits exactly on the target chlorophyll contour; Distance and Differential only decide which stretches of it are strong enough to draw." },
+  isotherm_alt:{ title: "Break (Altimetry)",              image: "/help/isotherm.png",   text: "The same break tool, applied to altimetry - set the target sea-level-anomaly value, differential, and distance to isolate one specific eddy edge or front. This is a single adjustable line, separate from the SLA Overlay's fixed-interval contours. Raise the differential to isolate only the sharpest edges; lower it to see a broader gradient band. The line always sits exactly on the target SLA contour; Distance and Differential only decide which stretches of it are strong enough to draw." },
   hotspots:    { title: "Fish Hot Spots",                image: "/help/hotspots.png",   text: "AI-scored locations based on SST gradients, chlorophyll, currents, and bottom structure. Select a target species to tune the model for that fish's preferred conditions. Scores are computed daily and vary with data freshness." },
   windoverlay: { title: "Wind Overlay",                  image: "/help/windoverlay.png",text: "Animated wind arrows overlaid directly on the map. Shows real-time GFS wind direction and speed over the water. Useful for judging sea conditions at any point on the map." },
   currents:    { title: "Ocean Currents",                image: "/help/currents.png",   text: "Ocean current vectors from OSCAR (5-day lag). Shows water flow direction and speed. Current edges and convergence zones concentrate bait and attract pelagics. The Gulf Stream and its eddies appear clearly." },
@@ -194,31 +196,35 @@ const FISH_SPECIES = [
 ];
 
 // ── Isotherm sub-controls ──────────────────────────────────────────────────────
-function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitivity, distance, onDistance, sstMin, sstMax }) {
-  const clamped = Math.max(sstMin, Math.min(sstMax, targetTemp));
+function IsothermSubControls({
+  targetTemp, onTargetTemp, sensitivity, onSensitivity, distance, onDistance,
+  targetMin, targetMax, targetStep = 0.5, targetDecimals = 1, targetLabel = "Target temp", targetUnit = "°F",
+  diffMin = 0.5, diffMax = 8, diffStep = 0.5,
+}) {
+  const clamped = Math.max(targetMin, Math.min(targetMax, targetTemp));
   return (
     <div className="flex flex-col gap-2 px-1 pt-1">
       <div>
         <div className="flex justify-between items-center mb-0.5">
-          <span className="text-[10px] text-slate-500">Target temp</span>
-          <span className="text-[10px] font-semibold text-sky-600 tabular-nums">{clamped.toFixed(1)}°F</span>
+          <span className="text-[10px] text-slate-500">{targetLabel}</span>
+          <span className="text-[10px] font-semibold text-sky-600 tabular-nums">{clamped.toFixed(targetDecimals)}{targetUnit}</span>
         </div>
         <input
-          type="range" min={Math.floor(sstMin)} max={Math.ceil(sstMax)} step={0.5}
+          type="range" min={targetMin} max={targetMax} step={targetStep}
           value={clamped} onChange={e => onTargetTemp(parseFloat(e.target.value))}
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-sky-500"
         />
         <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-          <span>{Math.floor(sstMin)}°F</span><span>{Math.ceil(sstMax)}°F</span>
+          <span>{targetMin.toFixed(targetDecimals)}{targetUnit}</span><span>{targetMax.toFixed(targetDecimals)}{targetUnit}</span>
         </div>
       </div>
       <div>
         <div className="flex justify-between items-center mb-0.5">
           <span className="text-[10px] text-slate-500">Differential</span>
-          <span className="text-[10px] font-semibold text-cyan-600 tabular-nums">{sensitivity.toFixed(1)}°F</span>
+          <span className="text-[10px] font-semibold text-cyan-600 tabular-nums">{sensitivity.toFixed(targetDecimals)}{targetUnit}</span>
         </div>
         <input
-          type="range" min={0.5} max={8} step={0.5}
+          type="range" min={diffMin} max={diffMax} step={diffStep}
           value={sensitivity} onChange={e => onSensitivity(parseFloat(e.target.value))}
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-cyan-500"
         />
@@ -295,6 +301,10 @@ export default function MapControlPanel({
   isothermalSensitivity, setIsothermalSensitivity,
   isothermalDistance, setIsothermalDistance,
   effectiveTargetTemp, sstMin, sstMax,
+  breakTargetValue, setBreakTargetValue,
+  breakDifferentialValue, setBreakDifferentialValue,
+  breakTargetMin, breakTargetMax, breakTargetStep, breakTargetDecimals, breakTargetLabel, breakTargetUnit,
+  breakDiffMin, breakDiffMax, breakDiffStep,
   showHotspots, setShowHotspots,
   hotspotLoading,
   selectedFishSpecies, setSelectedFishSpecies,
@@ -386,6 +396,11 @@ export default function MapControlPanel({
   const showGain    = !isWindMap && !isAlt && !showBathyRaster && !showRadarOverlay;
 
   const gainLabel = isSSTGroup ? "Temp gain" : isCHL ? "CHL gain" : isSC ? "Kd490 gain" : "Gain";
+  // Break tool (formerly "Temp Break") now works on SST/Composite, Chlorophyll, and
+  // Altimetry -- Sea Color is not included. breakHelpId picks the matching HELP_CONFIG
+  // entry/copy for whichever source is active.
+  const isBreakGroup = isSSTGroup || isCHL || isAlt;
+  const breakHelpId  = isSSTGroup ? "isotherm" : isCHL ? "isotherm_chl" : "isotherm_alt";
 
   const activeViirsDay = viirsData?.days?.[viirsDateIndex] ?? null;
 
@@ -769,27 +784,29 @@ export default function MapControlPanel({
       <SectionHeader id="mcp-tools-section" title="Tools" open={openSections.tools} onToggle={() => toggleSection("tools")} />
       {openSections.tools && (
         <div className="flex flex-col gap-1 px-2 pb-2">
-          {isSSTGroup && (
+          {isBreakGroup && (
             <div className="flex gap-1 items-start">
               <div className="flex-1">
-                <ProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
+                <ProGate isPro={isPro} label="Break overlay is available on the Pro plan.">
                   <ToolBtn active={showIsotherm} color="sky" onClick={() => setShowIsotherm(v => !v)}>
-                    Temp break
+                    Break
                   </ToolBtn>
                   {showIsotherm && (
                     <IsothermSubControls
-                      targetTemp={effectiveTargetTemp}
-                      onTargetTemp={setIsothermalTargetTemp}
-                      sensitivity={isothermalSensitivity}
-                      onSensitivity={setIsothermalSensitivity}
+                      targetTemp={breakTargetValue}
+                      onTargetTemp={setBreakTargetValue}
+                      sensitivity={breakDifferentialValue}
+                      onSensitivity={setBreakDifferentialValue}
                       distance={isothermalDistance}
                       onDistance={setIsothermalDistance}
-                      sstMin={sstMin} sstMax={sstMax}
+                      targetMin={breakTargetMin} targetMax={breakTargetMax} targetStep={breakTargetStep}
+                      targetDecimals={breakTargetDecimals} targetLabel={breakTargetLabel} targetUnit={breakTargetUnit}
+                      diffMin={breakDiffMin} diffMax={breakDiffMax} diffStep={breakDiffStep}
                     />
                   )}
                 </ProGate>
               </div>
-              {hbtn("isotherm")}
+              {hbtn(breakHelpId)}
             </div>
           )}
 

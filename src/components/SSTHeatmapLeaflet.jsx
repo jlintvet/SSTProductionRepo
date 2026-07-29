@@ -742,12 +742,24 @@ function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensit
   for(let i=0;i<maskedField.length;i++){if(gradient[i]<sensitivity)maskedField[i]=NaN;}
   return marchingSquares(latSet,lonSet,maskedField,rows,cols,targetTemp);
 }
-// Coastal buffer for the Temp Break tool -- both the plain isotherm and the break
+// Coastal buffer for the Break tool -- both the plain isotherm and the break
 // line should stop this far short of shore. Shallow nearshore water commonly runs
 // a real degree or two warmer/cooler than water a few miles out (fast solar heating,
 // surf-zone mixing, inlet/sound outflow), which otherwise draws break lines hugging
 // the beach -- not the offshore pelagic fronts this tool is meant to surface.
 const ISOTHERM_COASTAL_BUFFER_NM = 2.5;
+
+// Break tool target/differential bounds for Chlorophyll and Altimetry. SST/Composite
+// keep using sstMin/sstMax (50-90F) and the existing 0.5-8F differential range --
+// these are separate constants because CHL (mg/m3) and SLA (meters) are different
+// units on completely different scales, so the same slider bounds would either never
+// trigger (CHL/SLA target set to an SST-range number) or be far too coarse/fine.
+const CHL_BREAK_MIN = 0.05, CHL_BREAK_MAX = 5.0, CHL_BREAK_STEP = 0.05;
+const CHL_BREAK_DIFF_MIN = 0.1, CHL_BREAK_DIFF_MAX = 2.0, CHL_BREAK_DIFF_STEP = 0.1;
+const CHL_BREAK_DEFAULT_TARGET = 1.0, CHL_BREAK_DEFAULT_DIFF = 0.3;
+const ALT_BREAK_MIN = -0.4, ALT_BREAK_MAX = 0.4, ALT_BREAK_STEP = 0.01;
+const ALT_BREAK_DIFF_MIN = 0.02, ALT_BREAK_DIFF_MAX = 0.15, ALT_BREAK_DIFF_STEP = 0.01;
+const ALT_BREAK_DEFAULT_TARGET = 0, ALT_BREAK_DEFAULT_DIFF = 0.05;
 function bufferedWaterMask(waterMask, bufferNm){
   if(!waterMask) return null;
   const bufferDeg = bufferNm / 60; // 1 degree latitude ~= 60nm
@@ -1437,6 +1449,30 @@ export default function SSTHeatmapLeaflet(props) {
   const [isothermalSensitivity,setIsothermalSensitivity]= useState(2.0);
   const [isothermalDistance, setIsothermalDistance] = useState(1);
   const effectiveTargetTemp = isothermalTargetTemp ?? Math.round((sstMin + sstMax) / 2);
+  // Break tool, generalized to Chlorophyll and Altimetry (SST/Composite keep the
+  // state above, unchanged). Each source gets its own target/differential state so
+  // switching sources never leaks an out-of-range value from one unit system into
+  // another -- e.g. a 76 target left over from SST would never cross any CHL (0.05-5)
+  // or SLA (-0.4-0.4) value, silently drawing nothing after a source switch.
+  const [chlBreakTarget, setChlBreakTarget] = useState(CHL_BREAK_DEFAULT_TARGET);
+  const [chlBreakDifferential, setChlBreakDifferential] = useState(CHL_BREAK_DEFAULT_DIFF);
+  const [slaBreakTarget, setSlaBreakTarget] = useState(ALT_BREAK_DEFAULT_TARGET);
+  const [slaBreakDifferential, setSlaBreakDifferential] = useState(ALT_BREAK_DEFAULT_DIFF);
+  const isBreakChl = activeDataLayer === "chlorophyll";
+  const isBreakAlt = activeDataLayer === "altimetry";
+  const breakTargetValue = isBreakChl ? chlBreakTarget : isBreakAlt ? slaBreakTarget : effectiveTargetTemp;
+  const breakDifferentialValue = isBreakChl ? chlBreakDifferential : isBreakAlt ? slaBreakDifferential : isothermalSensitivity;
+  const setBreakTargetValue = isBreakChl ? setChlBreakTarget : isBreakAlt ? setSlaBreakTarget : setIsothermalTargetTemp;
+  const setBreakDifferentialValue = isBreakChl ? setChlBreakDifferential : isBreakAlt ? setSlaBreakDifferential : setIsothermalSensitivity;
+  const breakTargetMin = isBreakChl ? CHL_BREAK_MIN : isBreakAlt ? ALT_BREAK_MIN : sstMin;
+  const breakTargetMax = isBreakChl ? CHL_BREAK_MAX : isBreakAlt ? ALT_BREAK_MAX : sstMax;
+  const breakTargetStep = isBreakChl ? CHL_BREAK_STEP : isBreakAlt ? ALT_BREAK_STEP : 0.5;
+  const breakTargetDecimals = isBreakChl ? 2 : isBreakAlt ? 2 : 1;
+  const breakTargetLabel = isBreakChl ? "Target CHL" : isBreakAlt ? "Target SLA" : "Target temp";
+  const breakTargetUnit = isBreakChl ? " mg/m\u00b3" : isBreakAlt ? " m" : "\u00b0F";
+  const breakDiffMin = isBreakChl ? CHL_BREAK_DIFF_MIN : isBreakAlt ? ALT_BREAK_DIFF_MIN : 0.5;
+  const breakDiffMax = isBreakChl ? CHL_BREAK_DIFF_MAX : isBreakAlt ? ALT_BREAK_DIFF_MAX : 8;
+  const breakDiffStep = isBreakChl ? CHL_BREAK_DIFF_STEP : isBreakAlt ? ALT_BREAK_DIFF_STEP : 0.5;
   const [interactionMode, setInteractionMode] = useState("pan");
   const interactionModeRef = useRef("pan");
   const tripModeRef        = useRef(false);
@@ -2987,12 +3023,16 @@ export default function SSTHeatmapLeaflet(props) {
     }
   }, [mapReady, windActive, windData, windHourIndex, isWindMap, waterMaskVersion]);
 
-  // ── Isotherm layer ─────────────────────────────────────────────────────────
+  // ── Break tool (isotherm layer) ─────────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     [isothermLayerRef, breakLayerRef, breakGlowRef].forEach(r => { if (r.current) { map.removeLayer(r.current); r.current = null; } });
-    if (!showIsotherm || activeDataLayer !== "sst" && activeDataLayer !== "composite") return;
-    // For composite mode, build a flat grid from compositeData
+    if (!showIsotherm || !(activeDataLayer === "sst" || activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "altimetry")) return;
+    // Break works on whichever source is active. SST reads the SST grid directly;
+    // composite/chlorophyll/altimetry each build their own flat isoGrid from their
+    // own data shape (same pattern the overlay-rendering useEffect above uses for
+    // each layer's raster). marchingSquares/computeTempBreakContour need no changes --
+    // they only ever see a generic latSet/lonSet/flat-grid/target-value.
     let isoLatSet = latSet, isoLonSet = lonSet, isoGrid = grid;
     if (activeDataLayer === "composite" && compositeDataRef.current?.latSet?.length) {
       const cd = compositeDataRef.current;
@@ -3005,11 +3045,39 @@ export default function SSTHeatmapLeaflet(props) {
           const v = cd.sst[i * nLons + j]; if (v != null && Number.isFinite(v)) isoGrid[`${cd.latSet[i]}_${cd.lonSet[j]}`] = v;
         }
       }
+    } else if (activeDataLayer === "chlorophyll") {
+      const cdRef = chlDataRef.current;
+      const day = cdRef?.days?.length ? (cdRef.days[chlDateIndexRef.current] || cdRef.days[cdRef.days.length - 1]) : null;
+      if (day?.grid?.length) {
+        isoLatSet = [...new Set(day.grid.map(d => d.lat))].sort((a, b) => b - a);
+        isoLonSet = [...new Set(day.grid.map(d => d.lon))].sort((a, b) => a - b);
+        isoGrid = {};
+        day.grid.forEach(d => { if (d.chlorophyll != null && Number.isFinite(d.chlorophyll)) isoGrid[`${d.lat}_${d.lon}`] = d.chlorophyll; });
+      } else {
+        isoLatSet = [];
+      }
+    } else if (activeDataLayer === "altimetry") {
+      const alt = altimetryDataRef.current;
+      if (alt?.lats?.length) {
+        const rawLats = alt.lats.map(v => Math.round(v * 1e5) / 1e5);
+        const rawLons = alt.lons.map(v => Math.round(v * 1e5) / 1e5);
+        isoLatSet = [...rawLats].sort((a, b) => b - a);
+        isoLonSet = [...rawLons].sort((a, b) => a - b);
+        isoGrid = {};
+        for (let i = 0; i < rawLats.length; i++) {
+          const row = alt.sla?.[i]; if (!row) continue;
+          for (let j = 0; j < rawLons.length; j++) {
+            const v = row[j]; if (v != null && Number.isFinite(v)) isoGrid[`${rawLats[i]}_${rawLons[j]}`] = v;
+          }
+        }
+      } else {
+        isoLatSet = [];
+      }
     }
     if (!isoLatSet.length) return;
     const tid = setTimeout(() => {
       try {
-        const { isotherms, breaks } = buildIsothermLines(isoLatSet, isoLonSet, isoGrid, effectiveTargetTemp, isothermalSensitivity, isothermalDistance, waterMaskRef.current);
+        const { isotherms, breaks } = buildIsothermLines(isoLatSet, isoLonSet, isoGrid, breakTargetValue, breakDifferentialValue, isothermalDistance, waterMaskRef.current);
         if (isotherms.length) {
           const lyr = L.layerGroup();
           isotherms.forEach(line => L.polyline(line, { color: "rgba(255,255,255,0.65)", weight: 1.5, dashArray: "3 4", interactive: false }).addTo(lyr));
@@ -3026,7 +3094,7 @@ export default function SSTHeatmapLeaflet(props) {
       } catch(err) { console.error("[ISOTHERM] computation failed:", err); }
     }, 60);
     return () => clearTimeout(tid);
-  }, [mapReady, showIsotherm, latSet, lonSet, grid, effectiveTargetTemp, isothermalSensitivity, isothermalDistance, activeDataLayer, compositeData, waterMaskVersion, repaintTrigger]);
+  }, [mapReady, showIsotherm, latSet, lonSet, grid, breakTargetValue, breakDifferentialValue, isothermalDistance, activeDataLayer, compositeData, chlData, chlDateIndex, altimetryData, waterMaskVersion, repaintTrigger]);
 
   // ── Bathy tile layer (CloudFront raster PNG) ────────────────────────────────
   useEffect(() => {
@@ -4155,6 +4223,11 @@ export default function SSTHeatmapLeaflet(props) {
             isothermalSensitivity={isothermalSensitivity} setIsothermalSensitivity={setIsothermalSensitivity}
             isothermalDistance={isothermalDistance} setIsothermalDistance={setIsothermalDistance}
             effectiveTargetTemp={effectiveTargetTemp} sstMin={sstMin} sstMax={sstMax}
+            breakTargetValue={breakTargetValue} setBreakTargetValue={setBreakTargetValue}
+            breakDifferentialValue={breakDifferentialValue} setBreakDifferentialValue={setBreakDifferentialValue}
+            breakTargetMin={breakTargetMin} breakTargetMax={breakTargetMax} breakTargetStep={breakTargetStep}
+            breakTargetDecimals={breakTargetDecimals} breakTargetLabel={breakTargetLabel} breakTargetUnit={breakTargetUnit}
+            breakDiffMin={breakDiffMin} breakDiffMax={breakDiffMax} breakDiffStep={breakDiffStep}
             showHotspots={showHotspots} setShowHotspots={setShowHotspots} hotspotLoading={hotspotLoading}
             selectedFishSpecies={selectedFishSpecies} setSelectedFishSpecies={setSelectedFishSpecies}
             showWindOverlay={showWindOverlay} setShowWindOverlay={setShowWindOverlay}
@@ -4788,33 +4861,33 @@ export default function SSTHeatmapLeaflet(props) {
                 {mobilePanel === "tools" && (
                   <>
                     <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Tools</div>
-                    {(activeDataLayer === "sst" || activeDataLayer === "composite") && (
-                      <MobileProGate isPro={isPro} label="Isotherm (temp break) overlay is available on the Pro plan.">
+                    {(activeDataLayer === "sst" || activeDataLayer === "composite" || activeDataLayer === "chlorophyll" || activeDataLayer === "altimetry") && (
+                      <MobileProGate isPro={isPro} label="Break overlay is available on the Pro plan.">
                         <button onClick={() => setShowIsotherm(v => !v)}
                           className={`w-full text-[11px] font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${showIsotherm ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-600 border-slate-300"}`}>
-                          <span className="text-sm leading-none">~</span> Temp Break
+                          <span className="text-sm leading-none">~</span> Break
                         </button>
                         {showIsotherm && (
                           <div className="space-y-2 px-1 pt-1">
                             <div>
                               <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                                <span>Target temp</span><span className="text-sky-600 font-semibold">{effectiveTargetTemp.toFixed(1)}°F</span>
+                                <span>{breakTargetLabel}</span><span className="text-sky-600 font-semibold">{breakTargetValue.toFixed(breakTargetDecimals)}{breakTargetUnit}</span>
                               </div>
-                              <input type="range" min={Math.floor(sstMin)} max={Math.ceil(sstMax)} step={0.5}
-                                value={Math.max(sstMin, Math.min(sstMax, effectiveTargetTemp))}
-                                onChange={e => setIsothermalTargetTemp(parseFloat(e.target.value))}
+                              <input type="range" min={breakTargetMin} max={breakTargetMax} step={breakTargetStep}
+                                value={Math.max(breakTargetMin, Math.min(breakTargetMax, breakTargetValue))}
+                                onChange={e => setBreakTargetValue(parseFloat(e.target.value))}
                                 className="w-full h-2 rounded-full appearance-none cursor-pointer accent-sky-500"/>
                               <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-                                <span>{Math.floor(sstMin)}°F</span><span>{Math.ceil(sstMax)}°F</span>
+                                <span>{breakTargetMin.toFixed(breakTargetDecimals)}{breakTargetUnit}</span><span>{breakTargetMax.toFixed(breakTargetDecimals)}{breakTargetUnit}</span>
                               </div>
                             </div>
                             <div>
                               <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                                <span>Differential</span><span className="text-violet-600 font-semibold">{isothermalSensitivity.toFixed(1)}°F</span>
+                                <span>Differential</span><span className="text-violet-600 font-semibold">{breakDifferentialValue.toFixed(breakTargetDecimals)}{breakTargetUnit}</span>
                               </div>
-                              <input type="range" min={0.5} max={8} step={0.5}
-                                value={isothermalSensitivity}
-                                onChange={e => setIsothermalSensitivity(parseFloat(e.target.value))}
+                              <input type="range" min={breakDiffMin} max={breakDiffMax} step={breakDiffStep}
+                                value={breakDifferentialValue}
+                                onChange={e => setBreakDifferentialValue(parseFloat(e.target.value))}
                                 className="w-full h-2 rounded-full appearance-none cursor-pointer accent-violet-500"/>
                             </div>
                             <div>
