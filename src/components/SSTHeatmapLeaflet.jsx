@@ -706,19 +706,60 @@ function marchingSquares(latSet, lonSet, field, rows, cols, isoValue) {
   }
   return lines;
 }
-function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensitivity){
-  const gradient=new Float32Array(rows*cols).fill(0);
+function computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensitivity,distanceSteps){
+  // "distanceSteps" (1-5) sets how many grid cells apart the two compared points are.
+  // The break line is drawn at the midpoint between the cool and warm sample points,
+  // not interpolated to the exact target-temp crossing -- at coarser distances the
+  // literal crossing point isn't a meaningful location, only "roughly here" is.
+  const step=Math.max(1,Math.round(distanceSteps||1));
   const get=(r,c)=>{if(r<0||r>=rows||c<0||c>=cols)return NaN;return field[r*cols+c];};
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const v=get(r,c);if(!Number.isFinite(v))continue;let maxDiff=0;for(const[dr,dc]of[[0,1],[0,-1],[1,0],[-1,0]]){const n=get(r+dr,c+dc);if(Number.isFinite(n))maxDiff=Math.max(maxDiff,Math.abs(v-n));}gradient[r*cols+c]=maxDiff;}
-  const maskedField=new Float32Array(field);
-  for(let i=0;i<maskedField.length;i++){if(gradient[i]<sensitivity)maskedField[i]=NaN;}
-  return marchingSquares(latSet,lonSet,maskedField,rows,cols,targetTemp);
+  const midPt=(r0,c0,r1,c1)=>[(lonSet[c0]+lonSet[c1])/2,(latSet[r0]+latSet[r1])/2];
+  const edgePairs={1:[[2,3]],2:[[1,2]],3:[[1,3]],4:[[0,1]],5:[[0,3],[1,2]],6:[[0,2]],7:[[0,3]],8:[[0,3]],9:[[0,2]],10:[[0,1],[2,3]],11:[[0,1]],12:[[1,3]],13:[[1,2]],14:[[2,3]]};
+  const segments=[];
+  for(let r=0;r<rows-1;r+=step){
+    const r2=Math.min(r+step,rows-1);
+    for(let c=0;c<cols-1;c+=step){
+      const c2=Math.min(c+step,cols-1);
+      const v00=get(r,c),v01=get(r,c2),v10=get(r2,c),v11=get(r2,c2);
+      if(!Number.isFinite(v00)||!Number.isFinite(v01)||!Number.isFinite(v10)||!Number.isFinite(v11))continue;
+      const idx=(v00>=targetTemp?8:0)|(v01>=targetTemp?4:0)|(v11>=targetTemp?2:0)|(v10>=targetTemp?1:0);
+      const pairs=edgePairs[idx];if(!pairs)continue;
+      // edge 0=top(v00-v01) 1=right(v01-v11) 2=bottom(v11-v10) 3=left(v10-v00) -- each edge's
+      // two corners are `step` grid cells apart and (per the classification above) straddle
+      // targetTemp, so |diff| is the real temperature swing across that specific crossing.
+      const edges={
+        0:{diff:Math.abs(v00-v01),pt:midPt(r,c,r,c2)},
+        1:{diff:Math.abs(v01-v11),pt:midPt(r,c2,r2,c2)},
+        2:{diff:Math.abs(v11-v10),pt:midPt(r2,c2,r2,c)},
+        3:{diff:Math.abs(v10-v00),pt:midPt(r2,c,r,c)},
+      };
+      for(const[eA,eB]of pairs){
+        const A=edges[eA],B=edges[eB];
+        if(A.diff<sensitivity||B.diff<sensitivity)continue;
+        segments.push([A.pt,B.pt]);
+      }
+    }
+  }
+  if(!segments.length)return[];
+  const Q=5,fmt=([lon,lat])=>`${lon.toFixed(Q)},${lat.toFixed(Q)}`;
+  const startMap=new Map(),endMap=new Map();
+  for(let i=0;i<segments.length;i++){const sk=fmt(segments[i][0]),ek=fmt(segments[i][1]);if(!startMap.has(sk))startMap.set(sk,[]);if(!endMap.has(ek))endMap.set(ek,[]);startMap.get(sk).push(i);endMap.get(ek).push(i);}
+  const used=new Uint8Array(segments.length),lines=[];
+  for(let i=0;i<segments.length;i++){
+    if(used[i])continue;used[i]=1;const coords=[...segments[i]];
+    let tail=fmt(coords[coords.length-1]),found=true;
+    while(found){found=false;for(const j of(startMap.get(tail)||[])){if(!used[j]){used[j]=1;coords.push(segments[j][1]);tail=fmt(coords[coords.length-1]);found=true;break;}}if(!found)for(const j of(endMap.get(tail)||[])){if(!used[j]){used[j]=1;coords.push(segments[j][0]);tail=fmt(coords[coords.length-1]);found=true;break;}}}
+    let head=fmt(coords[0]);found=true;
+    while(found){found=false;for(const j of(endMap.get(head)||[])){if(!used[j]){used[j]=1;coords.unshift(segments[j][0]);head=fmt(coords[0]);found=true;break;}}if(!found)for(const j of(startMap.get(head)||[])){if(!used[j]){used[j]=1;coords.unshift(segments[j][1]);head=fmt(coords[0]);found=true;break;}}}
+    if(coords.length>=2)lines.push(coords);
+  }
+  return lines;
 }
-function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity){
+function buildIsothermLines(latSet,lonSet,grid,targetTemp,sensitivity,distanceSteps){
   if(!latSet.length||!lonSet.length)return{isotherms:[],breaks:[]};
   const{field,rows,cols}=buildField(latSet,lonSet,grid);
   const iso=marchingSquares(latSet,lonSet,field,rows,cols,targetTemp).map(line=>line.map(([lon,lat])=>[lat,lon]));
-  const brk=computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensitivity).map(line=>line.map(([lon,lat])=>[lat,lon]));
+  const brk=computeTempBreakContour(latSet,lonSet,field,rows,cols,targetTemp,sensitivity,distanceSteps).map(line=>line.map(([lon,lat])=>[lat,lon]));
   return{isotherms:iso,breaks:brk};
 }
 
@@ -1378,6 +1419,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [showCanyonLabels, setShowCanyonLabels] = useState(true);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(76);
   const [isothermalSensitivity,setIsothermalSensitivity]= useState(2.0);
+  const [isothermalDistance, setIsothermalDistance] = useState(1);
   const effectiveTargetTemp = isothermalTargetTemp ?? Math.round((sstMin + sstMax) / 2);
   const [interactionMode, setInteractionMode] = useState("pan");
   const interactionModeRef = useRef("pan");
@@ -2951,7 +2993,7 @@ export default function SSTHeatmapLeaflet(props) {
     if (!isoLatSet.length) return;
     const tid = setTimeout(() => {
       try {
-        const { isotherms, breaks } = buildIsothermLines(isoLatSet, isoLonSet, isoGrid, effectiveTargetTemp, isothermalSensitivity);
+        const { isotherms, breaks } = buildIsothermLines(isoLatSet, isoLonSet, isoGrid, effectiveTargetTemp, isothermalSensitivity, isothermalDistance);
         if (isotherms.length) {
           const lyr = L.layerGroup();
           isotherms.forEach(line => L.polyline(line, { color: "rgba(255,255,255,0.65)", weight: 1.5, dashArray: "3 4", interactive: false }).addTo(lyr));
@@ -2968,7 +3010,7 @@ export default function SSTHeatmapLeaflet(props) {
       } catch(err) { console.error("[ISOTHERM] computation failed:", err); }
     }, 60);
     return () => clearTimeout(tid);
-  }, [mapReady, showIsotherm, latSet, lonSet, grid, effectiveTargetTemp, isothermalSensitivity, activeDataLayer, compositeData, waterMaskVersion, repaintTrigger]);
+  }, [mapReady, showIsotherm, latSet, lonSet, grid, effectiveTargetTemp, isothermalSensitivity, isothermalDistance, activeDataLayer, compositeData, waterMaskVersion, repaintTrigger]);
 
   // ── Bathy tile layer (CloudFront raster PNG) ────────────────────────────────
   useEffect(() => {
@@ -4095,6 +4137,7 @@ export default function SSTHeatmapLeaflet(props) {
             showIsotherm={showIsotherm} setShowIsotherm={setShowIsotherm}
             isothermalTargetTemp={isothermalTargetTemp} setIsothermalTargetTemp={setIsothermalTargetTemp}
             isothermalSensitivity={isothermalSensitivity} setIsothermalSensitivity={setIsothermalSensitivity}
+            isothermalDistance={isothermalDistance} setIsothermalDistance={setIsothermalDistance}
             effectiveTargetTemp={effectiveTargetTemp} sstMin={sstMin} sstMax={sstMax}
             showHotspots={showHotspots} setShowHotspots={setShowHotspots} hotspotLoading={hotspotLoading}
             selectedFishSpecies={selectedFishSpecies} setSelectedFishSpecies={setSelectedFishSpecies}
@@ -4757,6 +4800,15 @@ export default function SSTHeatmapLeaflet(props) {
                                 value={isothermalSensitivity}
                                 onChange={e => setIsothermalSensitivity(parseFloat(e.target.value))}
                                 className="w-full h-2 rounded-full appearance-none cursor-pointer accent-violet-500"/>
+                            </div>
+                            <div>
+                              <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
+                                <span>Distance</span><span className="text-cyan-600 font-semibold">{isothermalDistance} {isothermalDistance === 1 ? "step" : "steps"}</span>
+                              </div>
+                              <input type="range" min={1} max={5} step={1}
+                                value={isothermalDistance}
+                                onChange={e => setIsothermalDistance(parseInt(e.target.value, 10))}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-cyan-500"/>
                             </div>
                           </div>
                         )}

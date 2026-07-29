@@ -51,7 +51,7 @@ Date navigator with `‹` / `›` arrows. Used beneath layer buttons when multip
 `color` is effectively decorative-only: `labelColors` only ever defines a `cyan` entry (`text-cyan-700 bg-cyan-50`), so every DateNav call in this file renders the same cyan pill no matter what `color` value is passed -- the CHL/Sea color sub-sections below explicitly pass `color="cyan"` too, despite what older notes in this doc said about green/teal.
 
 ### `IsothermSubControls`
-Temp range slider + sharpness slider that appears inline when Temp Break is active. The parent `effectiveTargetTemp` value clamps to `[sstMin, sstMax]` before rendering.
+Target temp / differential / distance sliders that appear inline when Temp Break is active. The parent `effectiveTargetTemp` value clamps to `[sstMin, sstMax]` before rendering. Distance (1-5 grid steps, added 2026-07-29) sets how many grid cells apart `computeTempBreakContour` compares two points -- the break line is drawn at the midpoint between the two sampled points, not the interpolated target-temp crossing. See `SSTHeatmapLeaflet.jsx`'s "Isotherm engine" section for the algorithm.
 
 ### `Divider`
 `<div className="border-t border-slate-100 mx-0" />`
@@ -293,6 +293,7 @@ chlDataMin, chlDataMax, seaColorDataMin, seaColorDataMax
 showIsotherm, setShowIsotherm
 isothermalTargetTemp, setIsothermalTargetTemp   // default: 76°F
 isothermalSensitivity, setIsothermalSensitivity // default: 2.0°F
+isothermalDistance, setIsothermalDistance       // default: 1 (grid step), range 1-5
 effectiveTargetTemp, sstMin, sstMax
 showHotspots, setShowHotspots
 hotspotLoading

@@ -89,7 +89,7 @@ const HELP_CONFIG = {
   seacolor:    { title: "Sea Color / Kd490",             image: "/help/seacolor.png",   text: "Kd490 measures water clarity. Cleaner, bluer water has lower Kd490. The boundary between turbid and clear water is a productive fishing zone, especially for mahi and tuna following the color change." },
   altimetry:   { title: "Altimetry (Sea Level Anomaly)", image: "/altimetry_ref.png",   text: "Altimetry comes from satellite radar that detects extremely small changes in ocean surface height and turns them into a contour map. Raised areas (dark blue, light blue, green) mark spots where deep water is welling up toward the surface, bringing nutrients and bait with it. Lower areas (yellow, orange, red) mark spots where surface water is sinking, leaving less for baitfish to feed on. Dark blue is your top pick, light blue and green are still worth a look, and yellow, orange, or red areas are best skipped. Updated daily. Contour lines are drawn every 5cm (about 2 inches), with numbered lines every 10cm." },
   windmap:     { title: "Wind Map",                      image: "/help/windmap.png",    text: "The wind map shows surface wind speed and direction from the GFS model. Strong offshore winds push surface water and can affect sea state and bait positioning. Use this to gauge conditions before heading out." },
-  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",   text: "The temp break tool highlights the target isotherm — set the temperature and differential to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band." },
+  isotherm:    { title: "Temp Break",                    image: "/help/isotherm.png",   text: "The temp break tool highlights the target isotherm — set the temperature, differential, and distance to isolate the thermal gradient you want to fish. Fish stack up along strong, wide temp breaks, especially yellowfin and blue marlin. Raise the differential to isolate only the strongest breaks; lower it to see a broader gradient band. Distance sets how many grid steps apart the comparison is made — raise it to catch breaks that build up gradually over a wider area instead of a single sharp step; the line is drawn midway between the cooler and warmer water, not at the exact crossing." },
   hotspots:    { title: "Fish Hot Spots",                image: "/help/hotspots.png",   text: "AI-scored locations based on SST gradients, chlorophyll, currents, and bottom structure. Select a target species to tune the model for that fish's preferred conditions. Scores are computed daily and vary with data freshness." },
   windoverlay: { title: "Wind Overlay",                  image: "/help/windoverlay.png",text: "Animated wind arrows overlaid directly on the map. Shows real-time GFS wind direction and speed over the water. Useful for judging sea conditions at any point on the map." },
   currents:    { title: "Ocean Currents",                image: "/help/currents.png",   text: "Ocean current vectors from OSCAR (5-day lag). Shows water flow direction and speed. Current edges and convergence zones concentrate bait and attract pelagics. The Gulf Stream and its eddies appear clearly." },
@@ -194,7 +194,7 @@ const FISH_SPECIES = [
 ];
 
 // ── Isotherm sub-controls ──────────────────────────────────────────────────────
-function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitivity, sstMin, sstMax }) {
+function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitivity, distance, onDistance, sstMin, sstMax }) {
   const clamped = Math.max(sstMin, Math.min(sstMax, targetTemp));
   return (
     <div className="flex flex-col gap-2 px-1 pt-1">
@@ -220,6 +220,17 @@ function IsothermSubControls({ targetTemp, onTargetTemp, sensitivity, onSensitiv
         <input
           type="range" min={0.5} max={8} step={0.5}
           value={sensitivity} onChange={e => onSensitivity(parseFloat(e.target.value))}
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-cyan-500"
+        />
+      </div>
+      <div>
+        <div className="flex justify-between items-center mb-0.5">
+          <span className="text-[10px] text-slate-500">Distance</span>
+          <span className="text-[10px] font-semibold text-cyan-600 tabular-nums">{distance} {distance === 1 ? "step" : "steps"}</span>
+        </div>
+        <input
+          type="range" min={1} max={5} step={1}
+          value={distance} onChange={e => onDistance(parseInt(e.target.value, 10))}
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-cyan-500"
         />
       </div>
@@ -282,6 +293,7 @@ export default function MapControlPanel({
   showIsotherm, setShowIsotherm,
   isothermalTargetTemp, setIsothermalTargetTemp,
   isothermalSensitivity, setIsothermalSensitivity,
+  isothermalDistance, setIsothermalDistance,
   effectiveTargetTemp, sstMin, sstMax,
   showHotspots, setShowHotspots,
   hotspotLoading,
@@ -770,6 +782,8 @@ export default function MapControlPanel({
                       onTargetTemp={setIsothermalTargetTemp}
                       sensitivity={isothermalSensitivity}
                       onSensitivity={setIsothermalSensitivity}
+                      distance={isothermalDistance}
+                      onDistance={setIsothermalDistance}
                       sstMin={sstMin} sstMax={sstMax}
                     />
                   )}
