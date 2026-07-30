@@ -1216,6 +1216,7 @@ export default function SSTHeatmapLeaflet(props) {
   const {
     navigatingRoute, currentWpIndex, setCurrentWpIndex,
     endNavigation, smoothedSpeedKts, tripSharing,
+    weatherPanel,
   } = useAppContext();
 
   const { latSet, lonSet, grid } = data;
@@ -4054,7 +4055,7 @@ export default function SSTHeatmapLeaflet(props) {
   // used to hide it, to suppress the (lower-priority) source-nav compact
   // bar and the mobile legend while it's up, since both would otherwise
   // occupy the same bottom-pinned strip.
-  const wreckSearchBarVisible = showWreckSearchBar && !mobilePanel && (wreckSearchResults.length > 0 || !!wreckSearchMsg);
+  const wreckSearchBarVisible = showWreckSearchBar && !mobilePanel && weatherPanel === "hidden" && (wreckSearchResults.length > 0 || !!wreckSearchMsg);
 
   return (
     <>
@@ -5038,7 +5039,7 @@ export default function SSTHeatmapLeaflet(props) {
           )}
 
           {/* Compact day/hour nav (mobile) - replaces the full drawer once a secondary source is picked, so it doesn't cover most of the map. Content computed once in dayNavContent above and shared with the desktop bar below. */}
-          {showMobileSourceNav && !mobilePanel && dayNavContent.content && !wreckSearchBarVisible && (
+          {showMobileSourceNav && !mobilePanel && weatherPanel === "hidden" && dayNavContent.content && !wreckSearchBarVisible && (
             <div className="sm:hidden fixed left-2 right-2 bg-white rounded-2xl border border-slate-200 shadow-xl flex items-center gap-1 px-2 py-1.5"
                  style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", zIndex: 1500 }}>
               {dayNavContent.content}
