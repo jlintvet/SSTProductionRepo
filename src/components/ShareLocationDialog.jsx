@@ -6,6 +6,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { X, Copy, Check, MessageSquare, Mail, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { generateShareImage } from "@/lib/generateShareImage";
+import { useAppContext } from "@/context/AppContext";
+import { formatCoordinate } from "@/lib/coordinates";
 
 // ── Build share URL from location data (no Supabase needed) ──────────────────
 function buildShareUrl(location, notes) {
@@ -19,15 +21,14 @@ function buildShareUrl(location, notes) {
   return `${base}/share?${params.toString()}`;
 }
 
-function coordStr(lat, lon) {
-  const la = parseFloat(lat), lo = parseFloat(lon);
-  return `${Math.abs(la).toFixed(4)}°${la >= 0 ? "N" : "S"}, ${Math.abs(lo).toFixed(4)}°${lo >= 0 ? "E" : "W"}`;
+function coordStr(lat, lon, format) {
+  return formatCoordinate(parseFloat(lat), parseFloat(lon), format);
 }
 
-function buildShareText(location, notes) {
+function buildShareText(location, notes, format) {
   const name  = location.name || location.label || "Fishing Spot";
   const url   = buildShareUrl(location, notes);
-  const lines = [name, coordStr(location.lat, location.lon)];
+  const lines = [name, coordStr(location.lat, location.lon, format)];
   if (location.sst != null) lines.push(`${parseFloat(location.sst).toFixed(1)}°F`);
   if (notes?.trim())        lines.push(notes.trim());
   lines.push(`\n${url}`);
@@ -46,6 +47,8 @@ export default function ShareLocationDialog({
   sstMax,
   sstRange,
 }) {
+  const { userSettings } = useAppContext();
+  const coordFormat = userSettings?.coordinate_format || "ddm";
   const [notes,      setNotes]      = useState(location.notes ?? "");
   const [notesSaved, setNotesSaved] = useState(false);
   const [imgPreview, setImgPreview] = useState(null);
@@ -127,7 +130,7 @@ export default function ShareLocationDialog({
 
   // ── Text / Email — Web Share API with image when available ──────────────
   async function handleShare(type) {
-    const text  = buildShareText(location, notes);
+    const text  = buildShareText(location, notes, coordFormat);
     const url   = buildShareUrl(location, notes);
     const lName = location.name || location.label || "Fishing Spot";
     const blob  = imgBlobRef.current;
@@ -158,7 +161,7 @@ export default function ShareLocationDialog({
   // Bypass navigator.clipboard entirely — it competes for Web Locks with
   // Supabase's concurrent IndexedDB session operations and causes AbortErrors.
   function handleCopy() {
-    legacyCopy(buildShareText(location, notes));
+    legacyCopy(buildShareText(location, notes, coordFormat));
   }
 
   function legacyCopy(text) {
@@ -234,7 +237,7 @@ export default function ShareLocationDialog({
         {/* Coordinates + SST */}
         <div className="px-4 pt-2">
           <p className="text-[11px] text-slate-400 font-mono">
-            {coordStr(location.lat, location.lon)}
+            {coordStr(location.lat, location.lon, coordFormat)}
             {location.sst != null && (
               <span className="ml-2 text-cyan-600 font-semibold">
                 {parseFloat(location.sst).toFixed(1)}°F

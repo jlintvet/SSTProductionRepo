@@ -4,6 +4,8 @@
 import { useState, useRef } from "react";
 import { Trash2, MessageSquare, Pencil, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useAppContext } from "@/context/AppContext";
+import { formatLat, formatLon } from "@/lib/coordinates";
 
 // ── Inline editable field ────────────────────────────────────────────────────
 function EditableField({ value, onSave, multiline, placeholder, className }) {
@@ -77,6 +79,8 @@ export default function SavedLocations({
   onTipCommunitySource,  // (loc) => void - opens tip modal for community-saved location
   isPro,                 // only show share button for pro/trial users
 }) {
+  const { userSettings } = useAppContext();
+  const coordFormat = userSettings?.coordinate_format || "ddm";
   const [deletingId, setDeletingId] = useState(null);
 
   async function handleDelete(e, loc) {
@@ -154,7 +158,7 @@ export default function SavedLocations({
 
                 {/* Coordinates (read-only) */}
                 <div className="text-slate-400 font-mono text-[10px] mt-0.5">
-                  {lat.toFixed(4)}°N &nbsp;{Math.abs(lon).toFixed(4)}°{lon < 0 ? "W" : "E"}
+                  {formatLat(lat, coordFormat)} &nbsp;{formatLon(lon, coordFormat)}
                 </div>
 
                 {/* SST / depth */}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useAppContext } from "@/context/AppContext";
+import { formatLat, formatLon } from "@/lib/coordinates";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { Crosshair, Move, Wind, LifeBuoy, Trash2, Play, Pause } from "lucide-react";
@@ -1216,8 +1217,9 @@ export default function SSTHeatmapLeaflet(props) {
   const {
     navigatingRoute, currentWpIndex, setCurrentWpIndex,
     endNavigation, smoothedSpeedKts, tripSharing,
-    weatherPanel,
+    weatherPanel, userSettings,
   } = useAppContext();
+  const coordFormat = userSettings?.coordinate_format || "ddm";
 
   const { latSet, lonSet, grid } = data;
   const regionBounds = regionConfig.bounds;
@@ -5490,7 +5492,7 @@ export default function SSTHeatmapLeaflet(props) {
             } else {
               popT = Math.max(8, Math.min(py + GAP, mapH - CARD_H_ESTIMATE - 8)); // neither fits fully -- clamp on-screen
             }
-            const coordStr = `${lat.toFixed(4)}°N  ${Math.abs(lon).toFixed(4)}°${lon < 0 ? "W" : "E"}`;
+            const coordStr = `${formatLat(lat, coordFormat)}  ${formatLon(lon, coordFormat)}`;
             const wreckDistNm = selectedLocation ? distanceNm(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
             const wreckBrgDeg = selectedLocation ? bearingDeg(selectedLocation.lat, selectedLocation.lon, lat, lon) : null;
             const wreckSst = sampleSstAt(lat, lon);
@@ -5746,7 +5748,7 @@ export default function SSTHeatmapLeaflet(props) {
                   <span className="text-slate-800 font-semibold truncate">{mk.label || "Saved Location"}</span>
                   <button onClick={() => setSelectedMarker(null)} className="text-slate-400 hover:text-slate-700 ml-2 flex-shrink-0"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
                 </div>
-                <div className="font-mono text-slate-600 mb-1">{lat.toFixed(4)}°N &nbsp; {Math.abs(lon).toFixed(4)}°{lon < 0 ? "W" : "E"}</div>
+                <div className="font-mono text-slate-600 mb-1">{formatLat(lat, coordFormat)} &nbsp; {formatLon(lon, coordFormat)}</div>
                 {(mk.sst != null || mk.depth_ft != null) && (
                   <div className="flex gap-3 mb-2">
                     {mk.sst != null && <span className="text-cyan-600 font-semibold">{parseFloat(mk.sst).toFixed(1)}°F</span>}
@@ -5874,7 +5876,7 @@ export default function SSTHeatmapLeaflet(props) {
                                                 padding: "1px 4px" }}>LIVE</span>}
                 </div>
                 <div style={{ color: "#94a3b8", fontSize: 10.5 }}>
-                  {boatPosition.lat.toFixed(5)}° N &nbsp; {Math.abs(boatPosition.lon).toFixed(5)}° W
+                  {formatLat(boatPosition.lat, coordFormat)} &nbsp; {formatLon(boatPosition.lon, coordFormat)}
                 </div>
                 {navLine1 && <div style={{ color: "#34d399", fontWeight: 600, marginTop: 2 }}>{navLine1}</div>}
                 {navLine2 && <div style={{ color: "#f0f9ff" }}>{navLine2}</div>}

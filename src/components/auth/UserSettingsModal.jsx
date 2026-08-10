@@ -14,6 +14,7 @@
 //     trolling_burn_gal_hr numeric,
 //     cruise_speed_kts numeric,
 //     gps_device_label text default '',
+//     coordinate_format text not null default 'ddm',
 //     updated_at timestamptz default now()
 //   );
 //   alter table public.user_settings enable row level security;
@@ -24,6 +25,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAppContext } from "@/context/AppContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { COORDINATE_FORMAT_OPTIONS, DEFAULT_COORDINATE_FORMAT } from "@/lib/coordinates";
 
 // iOS Safari doesn't expose the Push API in a regular browser tab at all --
 // only inside a PWA that's been added to the Home Screen (iOS 16.4+). When
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS = {
   trolling_burn_gal_hr: "",
   cruise_speed_kts: "",
   gps_device_label: "",
+  coordinate_format: DEFAULT_COORDINATE_FORMAT,
 };
 
 export async function loadUserSettings(userId) {
@@ -70,6 +73,7 @@ export async function loadUserSettings(userId) {
     trolling_burn_gal_hr: data.trolling_burn_gal_hr ?? "",
     cruise_speed_kts:     data.cruise_speed_kts     ?? "",
     gps_device_label: data.gps_device_label ?? "",
+    coordinate_format: data.coordinate_format ?? DEFAULT_SETTINGS.coordinate_format,
   };
 }
 
@@ -85,6 +89,7 @@ export async function saveUserSettings(userId, settings) {
     trolling_burn_gal_hr: settings.trolling_burn_gal_hr !== "" ? Number(settings.trolling_burn_gal_hr) : null,
     cruise_speed_kts:     settings.cruise_speed_kts     !== "" ? Number(settings.cruise_speed_kts)     : null,
     gps_device_label: settings.gps_device_label || null,
+    coordinate_format: settings.coordinate_format || DEFAULT_SETTINGS.coordinate_format,
     updated_at:       new Date().toISOString(),
   };
   const { error } = await supabase.from("user_settings").upsert(row, { onConflict: "user_id" });
@@ -317,6 +322,16 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 onChange={v => set("depth_unit", v)}
               />
             </Row>
+            <Row label="Coordinates">
+              <ToggleGroup
+                value={form.coordinate_format || DEFAULT_COORDINATE_FORMAT}
+                options={COORDINATE_FORMAT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                onChange={v => set("coordinate_format", v)}
+              />
+            </Row>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              {COORDINATE_FORMAT_OPTIONS.find(o => o.value === (form.coordinate_format || DEFAULT_COORDINATE_FORMAT))?.example} - controls how lat/lon is shown everywhere on the map.
+            </p>
           </Section>
 
           {/* ── Boat Info ── */}

@@ -2,8 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { X, Bookmark } from "lucide-react";
+import { useAppContext } from "@/context/AppContext";
+import { formatCoordinate } from "@/lib/coordinates";
 
 export default function MapClickInfo({ info, onClose, onSaved, date, userId, onPostCommunityReport }) {
+  const { userSettings } = useAppContext();
+  const coordFormat = userSettings?.coordinate_format || "ddm";
   const [label, setLabel] = useState(info?.prefillLabel || "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -25,7 +29,7 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
   async function handleSave() {
     if (!userId) return;
     setSaving(true);
-    const finalLabel = label.trim() || `Location ${info.lat.toFixed(3)}, ${info.lon.toFixed(3)}`;
+    const finalLabel = label.trim() || `Location ${formatCoordinate(info.lat, info.lon, coordFormat)}`;
 
     const { data, error } = await supabase
       .from("saved_locations")
@@ -80,7 +84,7 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-slate-500 font-mono">{info.lat.toFixed(4)}°N, {info.lon.toFixed(4)}°E</span>
+        <span className="text-slate-500 font-mono">{formatCoordinate(info.lat, info.lon, coordFormat)}</span>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-700 ml-2 flex-shrink-0">
           <X className="w-3.5 h-3.5" />
         </button>

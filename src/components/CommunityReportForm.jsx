@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { X } from "lucide-react";
+import { useAppContext } from "@/context/AppContext";
+import { formatLat, formatLon } from "@/lib/coordinates";
 
 const SPECIES = [
   { key: "yellowfin",     label: "Yellowfin Tuna" },
@@ -47,6 +49,8 @@ export default function CommunityReportForm({
   onClose,
   onPosted,                 // (newLocation) => void
 }) {
+  const { userSettings } = useAppContext();
+  const coordFormat = userSettings?.coordinate_format || "ddm";
   const [type,       setType]       = useState(initialType);
   // Date the trip/catch actually happened, as chosen by the poster --
   // defaults to today. Distinct from created_at (the posting timestamp),
@@ -301,8 +305,8 @@ export default function CommunityReportForm({
           <div className="flex items-center gap-3">
             <span className="font-mono">
               {useGpsLoc && gpsCoords
-                ? <>{gpsCoords.lat.toFixed(4)}°N, {Math.abs(gpsCoords.lon).toFixed(4)}°W <span className="text-emerald-600 font-semibold">(GPS)</span></>
-                : <>{lat?.toFixed(4)}°N, {Math.abs(lon)?.toFixed(4)}°W</>
+                ? <>{formatLat(gpsCoords.lat, coordFormat)}, {formatLon(gpsCoords.lon, coordFormat)} <span className="text-emerald-600 font-semibold">(GPS)</span></>
+                : <>{formatLat(lat, coordFormat)}, {formatLon(lon, coordFormat)}</>
               }
             </span>
             {waterTemp != null && !useGpsLoc && (
