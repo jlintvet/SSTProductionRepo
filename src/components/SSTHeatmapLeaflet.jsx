@@ -3,6 +3,7 @@ import { useAppContext } from "@/context/AppContext";
 import { formatLat, formatLon } from "@/lib/coordinates";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
+import { useUserBottomFeatures } from "@/hooks/useUserBottomFeatures";
 import { Crosshair, Move, Wind, LifeBuoy, Trash2, Play, Pause, MapPin } from "lucide-react";
 import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
@@ -1338,6 +1339,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [radarPlaying, setRadarPlaying] = useState(false);
   const [showBathyRaster, setShowBathyRaster] = useState(false);
   const [showWrecks,      setShowWrecks]      = useState(false);
+  const [wreckViewMode,   setWreckViewMode]   = useState("all"); // "all" | "mine" -- filters the Bottom Features layer to just this user's imported spots
   const [showBuoys,       setShowBuoys]       = useState(false);
   const [buoysData,       setBuoysData]       = useState(null);
   const [buoysLoading,    setBuoysLoading]    = useState(false);
@@ -2991,6 +2993,14 @@ export default function SSTHeatmapLeaflet(props) {
       });
   }, [userId]);
 
+  // ── User's own bulk-uploaded bottom features (private, Settings > My Imported Spots) ──
+  const userBottomFeatures = useUserBottomFeatures(userId);
+  useEffect(() => {
+    function onBottomFeaturesUpdated() { userBottomFeatures.refresh(); }
+    document.addEventListener("riploc:user-bottom-features-updated", onBottomFeaturesUpdated);
+    return () => document.removeEventListener("riploc:user-bottom-features-updated", onBottomFeaturesUpdated);
+  }, [userBottomFeatures.refresh]);
+
   // ── Canyon name labels (standalone overlay) ──────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -3354,7 +3364,12 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     const map = mapRef.current; if (!mapReady || !map) return;
     if (wreckLayerRef.current) { map.removeLayer(wreckLayerRef.current); wreckLayerRef.current = null; }
-    if (!showWrecks || !wrecksData) return;
+    // "Mine only" needs just the user's own uploaded spots -- the public
+    // wrecks.json fetch/cache is untouched either way (see the effect
+    // above), this just decides what gets iterated below.
+    const publicFeatures = wreckViewMode === "mine" ? [] : (wrecksData?.features || []);
+    const mineFeatures = userBottomFeatures.features || [];
+    if (!showWrecks || (publicFeatures.length === 0 && mineFeatures.length === 0)) return;
     // Clustered so the layer stays usable as bottom-feature coverage grows
     // (FWC statewide import will roughly 6x the marker count). Radius/zoom
     // tuned so clusters break apart well before port-level zoom, and cluster
@@ -3380,13 +3395,21 @@ export default function SSTHeatmapLeaflet(props) {
     });
     // Bottom features are shown for the whole loaded map region regardless of
     // which departure port is selected -- no per-port wreckRegion filtering.
-    wrecksData.features.forEach(f => {
+    // A user's own uploaded spots aren't bounds-filtered against
+    // regionBounds -- it's a small private set the user explicitly
+    // imported, they should always see all of it while the layer is on,
+    // not just whatever falls inside the currently selected region.
+    [...publicFeatures, ...mineFeatures].forEach(f => {
       const [lon, lat] = f.geometry.coordinates;
       const props = f.properties || {};
-      if (lat<regionBounds.south||lat>regionBounds.north||lon<regionBounds.west||lon>regionBounds.east) return;
+      const isMine = props.source === "user_upload";
+      if (!isMine && (lat<regionBounds.south||lat>regionBounds.north||lon<regionBounds.west||lon>regionBounds.east)) return;
       const fKey = `${(props.name ?? "").trim()}_${lat.toFixed(4)}_${lon.toFixed(4)}`;
-      if (wreckRemovedKeys?.has(fKey)) return;
-      const wreckIcon = L.divIcon({ className:"", html:'<div style="width:12px;height:12px;border-radius:50%;background:#CAD8DB;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>', iconSize:[12,12], iconAnchor:[6,6] });
+      if (!isMine && wreckRemovedKeys?.has(fKey)) return;
+      // User-uploaded spots get a distinct cyan dot (vs. the pale public
+      // wreck color) so they're never confused with the shared dataset.
+      const dotColor = isMine ? "#0891B2" : "#CAD8DB";
+      const wreckIcon = L.divIcon({ className:"", html:`<div style="width:12px;height:12px;border-radius:50%;background:${dotColor};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`, iconSize:[12,12], iconAnchor:[6,6] });
       const m = L.marker([lat, lon], { icon: wreckIcon });
       const showPopup = e => { const containerPt=map.latLngToContainerPoint(e.latlng); const wDist=selectedLocation?distanceNm(selectedLocation.lat,selectedLocation.lon,lat,lon):null; const wBrg=selectedLocation?bearingDeg(selectedLocation.lat,selectedLocation.lon,lat,lon):null; const wSst=sampleSstAt(lat,lon); const wDepth=props.depth_ft??sampleBathyDepthAt(lat,lon); setHoveredWreck({px:containerPt.x,py:containerPt.y,props,lat,lon,dist:wDist,bearing:wBrg,sst:wSst,depthFt:wDepth}); try{map.getContainer().style.cursor="pointer";}catch(_){} };
       m.on("mouseover", showPopup);
@@ -3427,7 +3450,7 @@ export default function SSTHeatmapLeaflet(props) {
       m.addTo(lyr);
     });
     lyr.addTo(map); wreckLayerRef.current = lyr;
-  }, [mapReady, showWrecks, wrecksData, selectedLocation, regionBounds, wreckRemovedKeys]);
+  }, [mapReady, showWrecks, wrecksData, selectedLocation, regionBounds, wreckRemovedKeys, wreckViewMode, userBottomFeatures.features]);
 
   // ── Bottom-feature name search ─────────────────────────────────────────
   // Searches the already-loaded global wrecks.json in memory (no new
@@ -4299,6 +4322,7 @@ export default function SSTHeatmapLeaflet(props) {
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
             showBathyRaster={showBathyRaster} setShowBathyRaster={setShowBathyRaster}
             showWrecks={showWrecks} setShowWrecks={setShowWrecks} wrecksLoading={wrecksLoading}
+            wreckViewMode={wreckViewMode} setWreckViewMode={setWreckViewMode} hasUserBottomFeatures={userBottomFeatures.rows.length > 0}
             wreckSearchTerm={wreckSearchTerm} setWreckSearchTerm={setWreckSearchTerm}
             wreckSearchResults={wreckSearchResults} wreckSearchIndex={wreckSearchIndex}
             wreckSearchMsg={wreckSearchMsg}
@@ -5005,6 +5029,16 @@ export default function SSTHeatmapLeaflet(props) {
                     {showWrecks && (
                       <MobileProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
                         <div className="flex flex-col gap-1 mt-1">
+                          {userBottomFeatures.rows.length > 0 && (
+                            <div className="flex gap-1">
+                              {[["all","All"],["mine","Mine"]].map(([val,label]) => (
+                                <button key={val} onClick={() => setWreckViewMode(val)}
+                                  className={`flex-1 text-[11px] font-semibold py-1.5 rounded-lg border transition-colors ${wreckViewMode === val ? "bg-cyan-600 text-white border-cyan-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           <div className="flex gap-1">
                             <input
                               ref={wreckSearchInputRef}
@@ -5648,6 +5682,11 @@ export default function SSTHeatmapLeaflet(props) {
                 <div className="flex items-start justify-between mb-2">
                   <div className="font-semibold text-slate-700 pr-2">
                     {wp.symbol === "Wreck" ? "Wreck" : "Structure"}: {wp.name || "Unknown"}
+                    {wp.source === "user_upload" && (
+                      <span className="ml-1.5 align-middle text-[9px] font-bold text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded">
+                        YOUR IMPORT
+                      </span>
+                    )}
                   </div>
                   <button onClick={() => setSelectedWreck(null)} className="text-slate-400 hover:text-slate-700 flex-shrink-0">
                     <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>

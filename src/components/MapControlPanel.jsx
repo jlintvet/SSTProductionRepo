@@ -101,7 +101,7 @@ const HELP_CONFIG = {
   radar:       { title: "Radar",              image: "/help/radar.png",      text: "Live Doppler radar showing rain and storm activity near the region. Data refreshes roughly every 10 minutes." },
   shadedrelief:{ title: "Shaded Relief",                  image: "/help/bathy.png",      text: "Full-color bathymetric relief from NOAA hydrographic survey data. Depth is shown with a nautical color gradient, with topographic shading revealing canyon walls, shelf-edge structure, and seafloor terrain not visible in standard contour lines." },
   altoverlay:  { title: "SLA Overlay",                   image: "/altimetry_ref.png",   text: "Adds surface-height contour lines on top of whichever layer you're viewing, so you can cross-reference eddies against temperature or chlorophyll. Dark blue areas are the strongest upwelling and the best bet; light blue and green are decent; yellow, orange, and red mean sinking water with little to offer. Updated daily. Contour lines are drawn every 5cm (about 2 inches), with numbered lines every 10cm." },
-  bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png", text: "Wrecks, reefs, rock piles, and hard bottom from NOAA charts. Bottom structure concentrates bait and holds amberjack, grouper, cobia, and sharks. Many offshore wrecks also attract pelagics when the conditions are right." },
+  bottomfeat:  { title: "Bottom Features",               image: "/help/bottomfeat.png", text: "Wrecks, reefs, rock piles, and hard bottom from NOAA charts. Bottom structure concentrates bait and holds amberjack, grouper, cobia, and sharks. Many offshore wrecks also attract pelagics when the conditions are right. Upload your own spots in Settings under My Imported Spots, then use the All/Mine toggle here to see just yours." },
   loran:       { title: "About Loran-C",                  image: "/loran_ref_point.png", text: "" },
   community:   { title: "Community Pins",                image: "/help/community.png",  text: "Community pins show catch reports and live fish activity posted by other anglers. Lime green pins are live (48h) and pulse while active; after 48h they turn blue like a regular catch report. All pins stay visible for 7 days total. Click any pin to see details and tip the poster." },
   labels:      { title: "Map Labels",                    image: "/help/labels.png",     text: "Shows canyon names and geographic feature labels on the map. Labels scale with zoom level and display the names of major offshore canyons, ridges, and banks." },
@@ -324,6 +324,7 @@ export default function MapControlPanel({
   wreckSearchTerm, setWreckSearchTerm,
   wreckSearchResults, wreckSearchIndex, wreckSearchMsg,
   onWreckSearchSubmit, onWreckSearchCycle,
+  wreckViewMode, setWreckViewMode, hasUserBottomFeatures,
   showBuoys, setShowBuoys, buoysLoading,
   showCanyonLabels, setShowCanyonLabels,
   showRadarOverlay, setShowRadarOverlay,
@@ -850,6 +851,16 @@ export default function MapControlPanel({
           {showWrecks && (
             <ProGate isPro={isPro} label="Bottom Features are available on the Pro plan.">
               <div className="flex flex-col gap-1">
+                {hasUserBottomFeatures && (
+                  <div className="flex gap-1">
+                    {[["all","All"],["mine","Mine only"]].map(([val,label]) => (
+                      <button key={val} onClick={() => setWreckViewMode(val)}
+                        className={`flex-1 text-[11px] font-semibold py-1 rounded border transition-colors ${wreckViewMode === val ? "bg-cyan-600 text-white border-cyan-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-1">
                   <input
                     type="text"

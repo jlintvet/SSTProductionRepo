@@ -26,6 +26,8 @@ import { supabase } from "@/lib/supabase";
 import { useAppContext } from "@/context/AppContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { COORDINATE_FORMAT_OPTIONS, DEFAULT_COORDINATE_FORMAT } from "@/lib/coordinates";
+import { useUserBottomFeatures } from "@/hooks/useUserBottomFeatures";
+import { parseFileByName, CSV_TEMPLATE } from "@/lib/userBottomFeatureImport";
 
 // iOS Safari doesn't expose the Push API in a regular browser tab at all --
 // only inside a PWA that's been added to the Home Screen (iOS 16.4+). When
@@ -114,6 +116,63 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
     setRadiusInput(String(n));
     if (n !== push.pushRadius) push.handleChangePushRadius(n);
   }
+  // ── My Imported Spots (bulk bottom-feature upload) ──────────────────────
+  const ubf = useUserBottomFeatures(userId);
+  const bottomFeatureFileInputRef = useRef(null);
+  const [bfParsing, setBfParsing] = useState(false);
+  const [bfPreview, setBfPreview] = useState(null); // { fileName, rows, errors }
+  const [bfUploading, setBfUploading] = useState(false);
+  const [bfReverting, setBfReverting] = useState(false);
+  const [bfMsg, setBfMsg] = useState(null);
+
+  function handleBottomFeatureFileChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBfMsg(null);
+    setBfParsing(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const { rows, errors } = parseFileByName(file.name, String(reader.result || ""));
+      setBfPreview({ fileName: file.name, rows, errors });
+      setBfParsing(false);
+    };
+    reader.onerror = () => { setBfMsg("Couldn't read that file - try again."); setBfParsing(false); };
+    reader.readAsText(file);
+  }
+
+  async function handleConfirmBottomFeatureUpload(mode) {
+    if (!bfPreview) return;
+    setBfUploading(true);
+    const res = await ubf.uploadBatch({ parsedRows: bfPreview.rows, fileName: bfPreview.fileName, mode });
+    setBfUploading(false);
+    setBfPreview(null);
+    if (res.ok) {
+      let msg = `Imported ${res.imported} spot${res.imported === 1 ? "" : "s"}.`;
+      if (res.duplicates) msg += ` Skipped ${res.duplicates} duplicate${res.duplicates === 1 ? "" : "s"} within the file.`;
+      if (res.alreadyImported) msg += ` Skipped ${res.alreadyImported} already in your list.`;
+      setBfMsg(msg);
+      document.dispatchEvent(new CustomEvent("riploc:user-bottom-features-updated"));
+    } else {
+      setBfMsg(res.error || "Import failed - try again.");
+    }
+  }
+
+  async function handleRevertBottomFeatureUpload() {
+    setBfReverting(true);
+    const res = await ubf.revertLastUpload();
+    setBfReverting(false);
+    setBfMsg(res.ok ? "Last upload reverted." : (res.error || "Couldn't revert - try again."));
+    if (res.ok) document.dispatchEvent(new CustomEvent("riploc:user-bottom-features-updated"));
+  }
+
+  async function handleClearBottomFeatures() {
+    if (!window.confirm("Remove all your imported bottom features? This can't be undone.")) return;
+    const res = await ubf.clearAll();
+    setBfMsg(res.ok ? "Cleared all imported spots." : (res.error || "Couldn't clear - try again."));
+    if (res.ok) document.dispatchEvent(new CustomEvent("riploc:user-bottom-features-updated"));
+  }
+
   const [form, setForm]       = useState(DEFAULT_SETTINGS);
   const [navShareDefault, setNavShareDefault] = useState(() => {
     try { return localStorage.getItem("riploc.navShareDefault") === "1"; } catch (_) { return false; }
@@ -627,6 +686,128 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
             <p className="text-[11px] text-slate-400 leading-relaxed">
               Used to label your position on the map when Real Time mode is active. NMEA bridge support for Simrad/Lowrance coming soon.
             </p>
+          </Section>
+
+          {/* ── My Imported Spots ── */}
+          <Section title="My Imported Spots">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Upload your own bottom-feature list - a Navionics data card export, chartplotter GPX, or a CSV/KML file. Visible only to you on the map, with a "Mine only" filter next to Bottom Features.
+            </p>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-600">
+                {ubf.rows.length > 0 ? `${ubf.rows.length} spot${ubf.rows.length === 1 ? "" : "s"} imported` : "No spots imported yet"}
+              </span>
+              <a
+                href={`data:text/csv;charset=utf-8,${encodeURIComponent(CSV_TEMPLATE)}`}
+                download="bottom_features_template.csv"
+                className="text-[11px] text-cyan-600 font-semibold hover:text-cyan-700"
+              >
+                CSV template
+              </a>
+            </div>
+
+            <input
+              ref={bottomFeatureFileInputRef}
+              type="file"
+              accept=".gpx,.csv,.kml"
+              className="hidden"
+              onChange={handleBottomFeatureFileChange}
+            />
+            <button
+              onClick={() => bottomFeatureFileInputRef.current?.click()}
+              disabled={bfParsing}
+              className="w-full py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
+            >
+              {bfParsing ? "Reading file…" : "Upload GPX / CSV / KML"}
+            </button>
+
+            {bfPreview && (
+              <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+                <p className="text-xs text-slate-700 font-semibold">
+                  {bfPreview.fileName}: {bfPreview.rows.length} spot{bfPreview.rows.length === 1 ? "" : "s"} found
+                </p>
+                {bfPreview.errors.length > 0 && (
+                  <p className="text-[11px] text-amber-600">{bfPreview.errors.length} row(s) skipped - out of range or unreadable.</p>
+                )}
+                {bfPreview.rows.length > 0 && (
+                  <div className="max-h-28 overflow-y-auto text-[11px] text-slate-500 space-y-0.5">
+                    {bfPreview.rows.slice(0, 10).map((r, i) => (
+                      <div key={i} className="truncate">{r.name} - {r.symbol}</div>
+                    ))}
+                    {bfPreview.rows.length > 10 && (
+                      <div className="text-slate-400">…and {bfPreview.rows.length - 10} more</div>
+                    )}
+                  </div>
+                )}
+                {bfPreview.rows.length > 0 && (
+                  ubf.rows.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-slate-500">
+                        You already have {ubf.rows.length} imported. Replace them with this file, or add these to your list?
+                      </p>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleConfirmBottomFeatureUpload("replace")}
+                          disabled={bfUploading}
+                          className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+                        >
+                          {bfUploading ? "Working…" : "Replace my list"}
+                        </button>
+                        <button
+                          onClick={() => handleConfirmBottomFeatureUpload("add")}
+                          disabled={bfUploading}
+                          className="flex-1 text-xs font-semibold py-1.5 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50"
+                        >
+                          {bfUploading ? "Working…" : "Add to my list"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleConfirmBottomFeatureUpload("add")}
+                      disabled={bfUploading}
+                      className="w-full text-xs font-semibold py-1.5 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50"
+                    >
+                      {bfUploading ? "Importing…" : "Import"}
+                    </button>
+                  )
+                )}
+                <button onClick={() => setBfPreview(null)} className="w-full text-[11px] text-slate-400 hover:text-slate-600">
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {bfMsg && <p className="text-[11px] text-slate-500">{bfMsg}</p>}
+
+            {ubf.batches.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Upload history</p>
+                {ubf.batches.slice(0, 5).map(b => (
+                  <div key={b.id} className="flex items-center justify-between text-[11px] gap-2">
+                    <span className={`truncate ${b.reverted ? "text-slate-300 line-through" : "text-slate-600"}`}>
+                      {b.file_name || "Upload"} - {b.mode} - {b.row_count} spot{b.row_count === 1 ? "" : "s"}
+                    </span>
+                    {!b.reverted && ubf.mostRecentBatch?.id === b.id && (
+                      <button
+                        onClick={handleRevertBottomFeatureUpload}
+                        disabled={bfReverting}
+                        className="text-[11px] font-semibold text-red-500 hover:text-red-700 flex-shrink-0 disabled:opacity-50"
+                      >
+                        {bfReverting ? "Reverting…" : "Revert"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {ubf.rows.length > 0 && (
+              <button onClick={handleClearBottomFeatures} className="text-[11px] text-red-500 hover:text-red-700">
+                Clear all my imported spots
+              </button>
+            )}
           </Section>
 
         </div>
