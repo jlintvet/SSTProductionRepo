@@ -1,5 +1,5 @@
 // src/components/MapClickInfo.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { X, Bookmark, Pencil, Check } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
@@ -16,6 +16,11 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
   const [latDraft, setLatDraft] = useState("");
   const [lonDraft, setLonDraft] = useState("");
   const [coordError, setCoordError] = useState(null);
+  const popupRef = useRef(null);
+  // Corrected {left, top} from a real post-render measurement of the popup
+  // (see the useLayoutEffect below); null until the first measurement runs,
+  // during which the POPUP_W/H *estimate* below is used for first paint.
+  const [measuredPos, setMeasuredPos] = useState(null);
 
   // Keyed on clickId (assigned once per genuine new Inspect click), not
   // lat/lon -- editing the coordinates in place also changes info.lat/lon,
@@ -28,6 +33,73 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
     setEditingCoords(false);
     setCoordError(null);
   }, [info?.clickId]);
+
+  // ── Popup positioning ──────────────────────────────────────────────────
+  // Kept clear of the provisional pin (SSTHeatmapLeaflet renders a 30px
+  // pin icon anchored by its tip at px/py, extending upward) by defaulting
+  // to below-and-centered on the point instead of just a 14px offset,
+  // which used to land the popup right on top of the pin -- most visible
+  // on mobile where the popup is a much bigger fraction of the screen.
+  const POPUP_W = 220;
+  const POPUP_H = 240;   // rough estimate only, used for first-paint placement
+  const MARGIN  = 8;
+  const PIN_H   = 30;    // matches the pin icon's size in SSTHeatmapLeaflet
+  const GAP     = 10;
+
+  function resolvePopupContainer() {
+    return typeof window !== "undefined"
+      ? (document.querySelector(".mapboxgl-canvas")?.closest(".relative")
+         ?? document.querySelector(".leaflet-container")?.closest(".relative"))
+      : null;
+  }
+  const container  = resolvePopupContainer();
+  const containerW = container?.clientWidth  ?? 600;
+  const containerH = container?.clientHeight ?? 500;
+
+  let estLeft = (info?.px ?? 0) - POPUP_W / 2;
+  let estTop  = (info?.py ?? 0) + GAP;
+  if (estTop + POPUP_H + MARGIN > containerH) estTop = (info?.py ?? 0) - PIN_H - GAP - POPUP_H;
+  estLeft = Math.max(MARGIN, Math.min(estLeft, containerW - POPUP_W - MARGIN));
+  estTop  = Math.max(MARGIN, Math.min(estTop,  containerH - POPUP_H - MARGIN));
+
+  const left = measuredPos?.left ?? estLeft;
+  const top  = measuredPos?.top  ?? estTop;
+
+  // POPUP_H above is only ever a guess -- actual height varies with which
+  // optional rows are present (SST/depth/SLA, distance/bearing, Post-Trip
+  // Report button, the coordinate-edit error line) and previously nothing
+  // corrected for a real height taller than the guess, letting the popup's
+  // bottom edge extend past the visible screen. This re-measures the
+  // *actual* rendered box after paint and snaps left/top to keep it fully
+  // on-screen using the real dimensions instead. Placed before the early
+  // "if (!info) return null" below (and guarded internally) so this hook
+  // is always called in the same order every render, per the Rules of
+  // Hooks -- calling it conditionally after an early return would break
+  // React's hook bookkeeping.
+  useLayoutEffect(() => {
+    if (!info) return;
+    const el = popupRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const c  = resolvePopupContainer();
+    const cw = c?.clientWidth  ?? containerW;
+    const ch = c?.clientHeight ?? containerH;
+
+    let l = info.px - rect.width / 2;
+    let t = info.py + GAP;
+    if (t + rect.height + MARGIN > ch) t = info.py - PIN_H - GAP - rect.height;
+    l = Math.max(MARGIN, Math.min(l, cw - rect.width - MARGIN));
+    t = Math.max(MARGIN, Math.min(t, ch - rect.height - MARGIN));
+
+    setMeasuredPos(prev => (prev && prev.left === l && prev.top === t) ? prev : { left: l, top: t });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [info?.clickId, info?.px, info?.py, editingCoords, coordError]);
+
+  // Hard backstop regardless of the measurement above -- the popup can
+  // never visually extend past the container even in an edge case the
+  // re-measure doesn't catch (e.g. a very short mobile viewport); it
+  // scrolls internally instead of overflowing.
+  const maxPopupHeight = Math.max(120, containerH - MARGIN * 2);
 
   if (!info) return null;
 
@@ -101,35 +173,11 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
     setTimeout(onClose, 800);
   }
 
-  // ── Popup positioning ──────────────────────────────────────────────────
-  // Kept clear of the provisional pin (SSTHeatmapLeaflet renders a 30px
-  // pin icon anchored by its tip at px/py, extending upward) by defaulting
-  // to below-and-centered on the point instead of just a 14px offset,
-  // which used to land the popup right on top of the pin -- most visible
-  // on mobile where the popup is a much bigger fraction of the screen.
-  const POPUP_W = 220;
-  const POPUP_H = 240;   // taller to fit notes field
-  const MARGIN  = 8;
-  const PIN_H   = 30;    // matches the pin icon's size in SSTHeatmapLeaflet
-  const GAP     = 10;
-
-  const container = typeof window !== "undefined"
-    ? (document.querySelector(".mapboxgl-canvas")?.closest(".relative")
-       ?? document.querySelector(".leaflet-container")?.closest(".relative"))
-    : null;
-  const containerW = container?.clientWidth  ?? 600;
-  const containerH = container?.clientHeight ?? 500;
-
-  let left = info.px - POPUP_W / 2;
-  let top  = info.py + GAP;
-  if (top + POPUP_H + MARGIN > containerH) top = info.py - PIN_H - GAP - POPUP_H;
-  left = Math.max(MARGIN, Math.min(left, containerW - POPUP_W - MARGIN));
-  top  = Math.max(MARGIN, Math.min(top,  containerH - POPUP_H - MARGIN));
-
   return (
     <div
+      ref={popupRef}
       className="absolute z-[1100] bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs"
-      style={{ left, top, cursor: "default", width: POPUP_W }}
+      style={{ left, top, cursor: "default", width: POPUP_W, maxHeight: maxPopupHeight, overflowY: "auto", overscrollBehavior: "contain" }}
       onClick={e => e.stopPropagation()}
     >
       {/* Header -- close button is pinned to the corner independent of
