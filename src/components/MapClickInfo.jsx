@@ -126,11 +126,21 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
       style={{ left, top, cursor: "default", width: POPUP_W }}
       onClick={e => e.stopPropagation()}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-2 gap-2">
+      {/* Header -- close button is pinned to the corner independent of
+          layout below, so it never fights the coordinate display/inputs
+          for space. Read-only coordinates render centered on a single
+          line (small enough font that even DMS fits); editing switches to
+          two full-width stacked rows (Lat then Lon) so the full digit
+          string is always visible instead of being squeezed into two
+          side-by-side halves. */}
+      <div className="relative mb-2 pr-5">
+        <button onClick={onClose} className="absolute -top-0.5 right-0 text-slate-400 hover:text-slate-700 p-0.5">
+          <X className="w-3.5 h-3.5" />
+        </button>
         {editingCoords ? (
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1">
+          <div>
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-[9px] font-semibold text-slate-400 w-6 flex-shrink-0">LAT</span>
               <input
                 type="text"
                 value={latDraft}
@@ -138,21 +148,30 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
                 onKeyDown={handleCoordDraftKeyDown}
                 placeholder="Lat"
                 autoFocus
-                className="w-1/2 min-w-0 bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-800 focus:outline-none focus:border-cyan-500"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
+                className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded px-1.5 py-1 text-[12px] font-mono text-slate-800 focus:outline-none focus:border-cyan-500"
               />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] font-semibold text-slate-400 w-6 flex-shrink-0">LON</span>
               <input
                 type="text"
                 value={lonDraft}
                 onChange={e => setLonDraft(e.target.value)}
                 onKeyDown={handleCoordDraftKeyDown}
                 placeholder="Lon"
-                className="w-1/2 min-w-0 bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-800 focus:outline-none focus:border-cyan-500"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
+                className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded px-1.5 py-1 text-[12px] font-mono text-slate-800 focus:outline-none focus:border-cyan-500"
               />
               <button onClick={confirmEditCoords} title="Update coordinates" className="text-emerald-600 hover:text-emerald-700 flex-shrink-0">
-                <Check className="w-3.5 h-3.5" />
+                <Check className="w-4 h-4" />
               </button>
               <button onClick={cancelEditCoords} title="Cancel" className="text-slate-400 hover:text-slate-700 flex-shrink-0">
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             {coordError && <div className="text-red-500 text-[10px] mt-1">{coordError}</div>}
@@ -161,15 +180,12 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
           <button
             onClick={startEditCoords}
             title="Edit coordinates"
-            className="flex items-center gap-1 text-slate-500 font-mono hover:text-cyan-600 transition-colors"
+            className="w-full flex items-center justify-center gap-1 text-slate-500 font-mono text-[11px] whitespace-nowrap hover:text-cyan-600 transition-colors"
           >
-            {formatCoordinate(info.lat, info.lon, coordFormat)}
+            {formatCoordinate(info.lat, info.lon, coordFormat, "  ")}
             <Pencil className="w-2.5 h-2.5 text-slate-300 flex-shrink-0" />
           </button>
         )}
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 flex-shrink-0">
-          <X className="w-3.5 h-3.5" />
-        </button>
       </div>
 
       {/* Temp | Depth | SLA */}

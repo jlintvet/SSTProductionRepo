@@ -3,7 +3,7 @@ import { useAppContext } from "@/context/AppContext";
 import { formatLat, formatLon } from "@/lib/coordinates";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
-import { Crosshair, Move, Wind, LifeBuoy, Trash2, Play, Pause } from "lucide-react";
+import { Crosshair, Move, Wind, LifeBuoy, Trash2, Play, Pause, MapPin } from "lucide-react";
 import MapClickInfo from "@/components/MapClickInfo";
 import MapControlPanel from "@/components/MapControlPanel";
 import SavedLocations from "@/components/SavedLocations";
@@ -5270,6 +5270,19 @@ export default function SSTHeatmapLeaflet(props) {
               <button onClick={() => setBuoyPopup(null)}
                 style={{ position: "absolute", top: 2, right: 6, background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1, color: "#94a3b8" }}>&times;</button>
               <div dangerouslySetInnerHTML={{ __html: buoyPopupHtml(buoyPopup.b, buoyPopup.loc) }} />
+            </div>
+          )}
+
+          {/* Provisional pin -- shows exactly where the Inspect point sits,
+              including where it moves to after a manual lat/lon edit. Anchored
+              by its bottom-center tip (translate -50%,-100%) at the same
+              px/py the popup itself uses, so the two always agree. */}
+          {clickInfo && (
+            <div
+              className="absolute pointer-events-none"
+              style={{ left: clickInfo.px, top: clickInfo.py, zIndex: 1050, transform: "translate(-50%, -100%)" }}
+            >
+              <MapPin size={30} color="white" fill="#0891b2" strokeWidth={1.75} className="drop-shadow-lg" />
             </div>
           )}
 
