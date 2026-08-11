@@ -101,10 +101,17 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
     setTimeout(onClose, 800);
   }
 
-  // ── Popup positioning (unchanged logic) ──────────────────────────────────
+  // ── Popup positioning ──────────────────────────────────────────────────
+  // Kept clear of the provisional pin (SSTHeatmapLeaflet renders a 30px
+  // pin icon anchored by its tip at px/py, extending upward) by defaulting
+  // to below-and-centered on the point instead of just a 14px offset,
+  // which used to land the popup right on top of the pin -- most visible
+  // on mobile where the popup is a much bigger fraction of the screen.
   const POPUP_W = 220;
   const POPUP_H = 240;   // taller to fit notes field
   const MARGIN  = 8;
+  const PIN_H   = 30;    // matches the pin icon's size in SSTHeatmapLeaflet
+  const GAP     = 10;
 
   const container = typeof window !== "undefined"
     ? (document.querySelector(".mapboxgl-canvas")?.closest(".relative")
@@ -113,10 +120,9 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
   const containerW = container?.clientWidth  ?? 600;
   const containerH = container?.clientHeight ?? 500;
 
-  let left = info.px + 14;
-  let top  = info.py - 14;
-  if (left + POPUP_W + MARGIN > containerW) left = info.px - POPUP_W - 10;
-  if (top  + POPUP_H + MARGIN > containerH) top  = info.py - POPUP_H - 10;
+  let left = info.px - POPUP_W / 2;
+  let top  = info.py + GAP;
+  if (top + POPUP_H + MARGIN > containerH) top = info.py - PIN_H - GAP - POPUP_H;
   left = Math.max(MARGIN, Math.min(left, containerW - POPUP_W - MARGIN));
   top  = Math.max(MARGIN, Math.min(top,  containerH - POPUP_H - MARGIN));
 
@@ -180,7 +186,7 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
           <button
             onClick={startEditCoords}
             title="Edit coordinates"
-            className="w-full flex items-center justify-center gap-1 text-slate-500 font-mono text-[11px] whitespace-nowrap hover:text-cyan-600 transition-colors"
+            className="w-full flex items-center justify-start gap-1 text-slate-500 font-mono text-[11px] whitespace-nowrap hover:text-cyan-600 transition-colors"
           >
             {formatCoordinate(info.lat, info.lon, coordFormat, "  ")}
             <Pencil className="w-2.5 h-2.5 text-slate-300 flex-shrink-0" />
