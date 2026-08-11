@@ -174,19 +174,13 @@ body{font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e
         <div class="plabel">New feature &mdash; not yet saved</div>
         <button id="deletePendingBtn" class="dec-btn rem" style="width:100%;padding:6px">&#10007; Discard this pending feature</button>
       </div>
-      <div id="coordWrap">
-        <div class="plabel">Coordinates</div>
+      <div id="latLonEditWrap">
+        <div class="plabel">Coordinates (click map, or type -- any format: DD, DDM, DMS)</div>
         <div class="coord-row">
-          <div class="coord-val" id="cLat">&#8212;</div>
-          <div class="coord-val" id="cLon">&#8212;</div>
+          <input id="eLat" class="pinput" type="text" placeholder="Lat e.g. 36 50.130 N" autocomplete="off" autocorrect="off" spellcheck="false"/>
+          <input id="eLon" class="pinput" type="text" placeholder="Lon e.g. 75 58.686 W" autocomplete="off" autocorrect="off" spellcheck="false"/>
         </div>
-      </div>
-      <div id="latLonEditWrap" style="display:none">
-        <div class="plabel">Coordinates (click map or type)</div>
-        <div class="coord-row">
-          <input id="eLat" class="pinput" type="number" step="0.00001" placeholder="Latitude"/>
-          <input id="eLon" class="pinput" type="number" step="0.00001" placeholder="Longitude"/>
-        </div>
+        <div id="eLatLonErr" style="display:none;color:#f87171;font-size:11px;margin-top:4px"></div>
       </div>
       <div>
         <div class="plabel">Region</div>
@@ -278,6 +272,60 @@ const NEW_STORE_KEY='bf_admin_new_features_v1';
 const NORM_SYM=s=>s==='Rocks'?'Structure':(s||'Structure');
 const TO_RAW_SYM=s=>s==='Structure'?'Rocks':(s||'Rocks');
 
+// ── Flexible lat/lon parsing + DDM display formatting ───────────────────────
+// Vanilla-JS port of src/lib/coordinates.js's parseLat/parseLon/formatLat/
+// formatLon (used by the live map's Inspect-and-edit popup) -- this admin
+// tool is a standalone static page with no build step / ES module imports,
+// so the same logic is duplicated here rather than shared. Accepts DD
+// ("36.8355" / "36.8355N"), DDM ("36 50.130 N" / "36\u00b050.130'N"), or DMS
+// ("36 50 07.8 N" / "36\u00b050'07.8\"N") based on how many numeric tokens are
+// typed, regardless of which the admin happens to use. Storage stays plain
+// decimal degrees (matches wrecks.json's geometry.coordinates); display in
+// this tool is always DDM.
+function parseCoordAxis(raw,isLat){
+  if(raw==null)return null;
+  const str=String(raw).trim();
+  if(!str)return null;
+  let hemSign=null;
+  const hemMatch=str.match(/[NSEWnsew]/);
+  if(hemMatch){
+    const letter=hemMatch[0].toUpperCase();
+    if(isLat&&letter!=='N'&&letter!=='S')return null;
+    if(!isLat&&letter!=='E'&&letter!=='W')return null;
+    hemSign=(letter==='S'||letter==='W')?-1:1;
+  }
+  const cleaned=str.replace(/[NSEWnsew]/g,' ').replace(/[\u00b0'",]/g,' ');
+  const tokens=cleaned.trim().split(/\s+/).filter(Boolean);
+  if(tokens.length===0||tokens.length>3)return null;
+  const nums=tokens.map(Number);
+  if(nums.some(n=>Number.isNaN(n)))return null;
+  const firstRaw=nums[0];
+  const d=Math.abs(nums[0]);
+  const m=nums.length>1?Math.abs(nums[1]):0;
+  const s=nums.length>2?Math.abs(nums[2]):0;
+  if(m>=60||s>=60)return null;
+  let value=d+m/60+s/3600;
+  const sign=hemSign??(firstRaw<0?-1:1);
+  value*=sign;
+  const maxAbs=isLat?90:180;
+  if(Math.abs(value)>maxAbs+1e-9)return null;
+  return value;
+}
+function parseCoordLat(str){return parseCoordAxis(str,true);}
+function parseCoordLon(str){return parseCoordAxis(str,false);}
+function formatCoordAxis(value,isLat){
+  if(value==null||isNaN(value))return'--';
+  const hemi=isLat?(value<0?'S':'N'):(value<0?'W':'E');
+  const abs=Math.abs(value);
+  let deg=Math.floor(abs);
+  let minFull=(abs-deg)*60;
+  minFull=Math.round(minFull*1000)/1000;
+  if(minFull>=60){minFull-=60;deg+=1;}
+  return`${deg}\u00b0${minFull.toFixed(3)}'${hemi}`;
+}
+function formatCoordLat(lat){return formatCoordAxis(lat,true);}
+function formatCoordLon(lon){return formatCoordAxis(lon,false);}
+
 let features=[],decisions={},newFeatures=[],selKey=null,spatialOrder=[],spatialPos=0,addMode=false,nextTempId=1;
 // Quick-filter driven by clicking a header stat pill. null = no extra filter
 // beyond the manual dropdowns; 'edited'/'new' aren't native fDecision values
@@ -315,6 +363,16 @@ const getName=(k,f)=>decisions[k]?.newName??f.properties?.name??'';
 const getSym=(k,f)=>decisions[k]?.newSymbol??NORM_SYM(f.properties?.symbol);
 const getRegionOverride=(k,f)=>decisions[k]?.newRegion??f.properties?.region;
 const getDepth=(k,f)=>decisions[k]?.newDepth??(f.properties?.depth_ft!=null?String(f.properties.depth_ft):'');
+// [lat,lon] for an *existing* feature, honoring a pending coordinate edit
+// (decisions[k].newLat/newLon) same as getName/getRegionOverride/getDepth do
+// for their fields. New (not-yet-committed) features don't use this -- they
+// read n.lat/n.lon directly, same as they already do for every other field.
+const getLatLon=(k,f)=>{
+  const d=decisions[k];
+  if(d&&d.newLat!=null&&d.newLon!=null)return[d.newLat,d.newLon];
+  const[lo,la]=f.geometry.coordinates;
+  return[la,lo];
+};
 const findF=k=>isNewKey(k)?newFeatures.find(n=>nKey(n)===k):features.find(f=>fKey(f)===k);
 const saveD=()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(decisions));}catch(_){}};
 const loadD=()=>{try{const s=localStorage.getItem(STORE_KEY);if(s)decisions=JSON.parse(s);}catch(_){}};
@@ -378,7 +436,7 @@ function buildAllMarkers(){
       m.on('click',()=>select(k,false));
       m.addTo(map);markersMap[k]=m;
     }else{
-      const f=item.f,[lo,la]=f.geometry.coordinates;
+      const f=item.f,[la,lo]=getLatLon(k,f);
       const m=L.marker([la,lo],{icon:mkIcon(k,false)});
       m.on('click',()=>select(k,false));
       m.addTo(map);markersMap[k]=m;
@@ -425,7 +483,7 @@ function select(k,flyTo){
   if(flyTo){
     const f=findF(k);
     if(f){
-      const[la,lo]=isNewKey(k)?[f.lat,f.lon]:[f.geometry.coordinates[1],f.geometry.coordinates[0]];
+      const[la,lo]=isNewKey(k)?[f.lat,f.lon]:getLatLon(k,f);
       map.setView([la,lo],Math.max(map.getZoom(),10),{animate:true});
     }
   }
@@ -517,13 +575,35 @@ function commitDepth(){
   saveD();updateStats();
 }
 function commitLatLon(){
-  if(!selKey||!isNewKey(selKey))return;
-  const n=findF(selKey);if(!n)return;
-  const lat=parseFloat(document.getElementById('eLat').value);
-  const lon=parseFloat(document.getElementById('eLon').value);
-  if(!isNaN(lat))n.lat=lat;
-  if(!isNaN(lon))n.lon=lon;
-  saveN();buildAllMarkers();refreshMk(selKey);
+  if(!selKey)return;
+  const errEl=document.getElementById('eLatLonErr');
+  const lat=parseCoordLat(document.getElementById('eLat').value);
+  const lon=parseCoordLon(document.getElementById('eLon').value);
+  if(lat==null||lon==null){
+    errEl.textContent="Couldn't read those coordinates -- check the format.";
+    errEl.style.display='block';
+    return;
+  }
+  errEl.style.display='none';
+  if(isNewKey(selKey)){
+    const n=findF(selKey);if(!n)return;
+    n.lat=lat;n.lon=lon;
+    saveN();buildAllMarkers();refreshMk(selKey);
+    document.getElementById('eLat').value=formatCoordLat(lat);
+    document.getElementById('eLon').value=formatCoordLon(lon);
+    return;
+  }
+  const f=findF(selKey);if(!f)return;
+  const[origLo,origLa]=f.geometry.coordinates;
+  if(!decisions[selKey])decisions[selKey]={};
+  if(Math.abs(lat-origLa)<1e-9&&Math.abs(lon-origLo)<1e-9){
+    delete decisions[selKey].newLat;delete decisions[selKey].newLon;
+  }else{
+    decisions[selKey].newLat=lat;decisions[selKey].newLon=lon;
+  }
+  saveD();buildAllMarkers();refreshMk(selKey);updateStats();renderList();
+  document.getElementById('eLat').value=formatCoordLat(lat);
+  document.getElementById('eLon').value=formatCoordLon(lon);
 }
 function deletePending(){
   if(!selKey||!isNewKey(selKey))return;
@@ -540,6 +620,8 @@ document.getElementById('eRegion').addEventListener('change',commitRegion);
 document.getElementById('eDepth').addEventListener('change',commitDepth);
 document.getElementById('eLat').addEventListener('change',commitLatLon);
 document.getElementById('eLon').addEventListener('change',commitLatLon);
+document.getElementById('eLat').addEventListener('keydown',e=>{if(e.key==='Enter'){commitLatLon();e.target.blur();}});
+document.getElementById('eLon').addEventListener('keydown',e=>{if(e.key==='Enter'){commitLatLon();e.target.blur();}});
 document.getElementById('deletePendingBtn').addEventListener('click',deletePending);
 
 document.addEventListener('keydown',e=>{
@@ -566,7 +648,7 @@ function getFiltered(){
     if(dec&&getDec(k)!==dec)return false;
     if(statFilter==='edited'){
       const d=decisions[k];
-      if(!(d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth)))return false;
+      if(!(d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth||d.newLat)))return false;
     }
     if(q&&!getName(k,f).toLowerCase().includes(q))return false;
     if(photoFilterOn&&!pendingPhotoKeys.has(k))return false;
@@ -689,8 +771,6 @@ function renderPanel(){
   empty.style.display='none';content.style.display='flex';
   document.getElementById('dispWrap').style.display=isNew?'none':'block';
   document.getElementById('newModeWrap').style.display=isNew?'block':'none';
-  document.getElementById('coordWrap').style.display=isNew?'none':'block';
-  document.getElementById('latLonEditWrap').style.display=isNew?'block':'none';
   document.getElementById('photoSection').style.display=isNew?'none':'block';
   renderPhotoSection();
 
@@ -698,8 +778,8 @@ function renderPanel(){
     const n=findF(selKey);
     document.getElementById('eName').value=n.name||'';
     document.getElementById('eNotes').value=n.notes||'';
-    document.getElementById('eLat').value=n.lat;
-    document.getElementById('eLon').value=n.lon;
+    document.getElementById('eLat').value=formatCoordLat(n.lat);
+    document.getElementById('eLon').value=formatCoordLon(n.lon);
     document.getElementById('eDepth').value=n.depth_ft||'';
     fillRegionSelect(document.getElementById('eRegion'),n.region);
     document.getElementById('sWreck').className='sym-btn'+(n.symbol==='Wreck'?' aw':'');
@@ -710,13 +790,14 @@ function renderPanel(){
   const dec=getDec(selKey);
   const name=getName(selKey,f);
   const sym=getSym(selKey,f);
-  const[lo,la]=f.geometry.coordinates;
+  const[la,lo]=getLatLon(selKey,f);
   const region=getRegionOverride(selKey,f);
   document.getElementById('eName').value=name;
   document.getElementById('eNotes').value=decisions[selKey]?.notes??f.properties?.notes??'';
   document.getElementById('eDepth').value=getDepth(selKey,f);
-  document.getElementById('cLat').textContent=la.toFixed(5)+'deg N';
-  document.getElementById('cLon').textContent=Math.abs(lo).toFixed(5)+'deg W';
+  document.getElementById('eLat').value=formatCoordLat(la);
+  document.getElementById('eLon').value=formatCoordLon(lo);
+  document.getElementById('eLatLonErr').style.display='none';
   fillRegionSelect(document.getElementById('eRegion'),region);
   document.getElementById('sWreck').className='sym-btn'+(sym==='Wreck'?' aw':'');
   document.getElementById('sStructure').className='sym-btn'+(sym==='Structure'?' as':'');
@@ -730,7 +811,7 @@ function updateStats(){
   const keep=features.filter(f=>getDec(fKey(f))==='keep').length;
   const remove=features.filter(f=>getDec(fKey(f))==='remove').length;
   const pending=features.filter(f=>getDec(fKey(f))==='pending').length;
-  const edited=features.filter(f=>{const d=decisions[fKey(f)];return d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth);}).length;
+  const edited=features.filter(f=>{const d=decisions[fKey(f)];return d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth||d.newLat);}).length;
   document.getElementById('sTotal').textContent=total;
   document.getElementById('sKeep').textContent=keep;
   document.getElementById('sRemove').textContent=remove;
@@ -792,7 +873,7 @@ async function startCommit(){
   const token=document.getElementById('tokenInput').value.trim();
   if(!token){alert('Paste a GitHub token with write access to jlintvet/SSTv2 into the field first. It is only held in this browser tab for this session and is never saved to the file.');return;}
   const removedKeys=features.filter(f=>getDec(fKey(f))==='remove').map(fKey);
-  const editedFeatures=features.filter(f=>{const d=decisions[fKey(f)];return d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth)&&d.decision!=='remove';});
+  const editedFeatures=features.filter(f=>{const d=decisions[fKey(f)];return d&&(d.newName||d.newSymbol||d.newRegion||d.newDepth||d.newLat)&&d.decision!=='remove';});
   if(!removedKeys.length&&!editedFeatures.length&&!newFeatures.length){alert('No changes to commit.');return;}
   progLines=[];lastCommitSucceeded=false;
   document.getElementById('modalTitle').textContent='Committing to GitHub...';
@@ -828,7 +909,8 @@ async function startCommit(){
       if(d.newRegion)p.region=d.newRegion;
       if(d.newDepth){const dv=parseInt(d.newDepth,10);if(!isNaN(dv))p.depth_ft=dv;}
       if(d.notes)p.notes=d.notes;
-      return{...f,properties:p};
+      const geometry=(d.newLat!=null&&d.newLon!=null)?{...f.geometry,coordinates:[d.newLon,d.newLat]}:f.geometry;
+      return{...f,geometry,properties:p};
     });
     const additions=newFeatures.map(n=>{
       const p={name:n.name||'(unnamed)',symbol:TO_RAW_SYM(n.symbol||'Wreck'),region:n.region||'OceanCityMD'};
