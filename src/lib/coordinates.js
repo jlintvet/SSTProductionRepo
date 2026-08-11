@@ -61,3 +61,55 @@ export function formatLon(lon, format = DEFAULT_COORDINATE_FORMAT) {
 export function formatCoordinate(lat, lon, format = DEFAULT_COORDINATE_FORMAT, separator = ", ") {
   return `${formatLat(lat, format)}${separator}${formatLon(lon, format)}`;
 }
+
+// ── Parsing (for the coordinate-edit field) ─────────────────────────────────
+// Accepts DD ("36.8355" / "-75.9781" / "36.8355N"), DDM ("36 50.130 N" /
+// "36\u00b050.130'N"), or DMS ("36 50 07.8 N" / "36\u00b050'07.8\"N") regardless of
+// which format is currently selected for display -- the token count (1/2/3
+// numbers) determines how it's interpreted, so users can paste coordinates
+// from a chart, another GPS unit, or a text from a buddy without having to
+// match whatever format they happen to have display turned on.
+function parseAxis(raw, isLat) {
+  if (raw == null) return null;
+  const str = String(raw).trim();
+  if (!str) return null;
+
+  let hemSign = null;
+  const hemMatch = str.match(/[NSEWnsew]/);
+  if (hemMatch) {
+    const letter = hemMatch[0].toUpperCase();
+    if (isLat && letter !== "N" && letter !== "S") return null;
+    if (!isLat && letter !== "E" && letter !== "W") return null;
+    hemSign = (letter === "S" || letter === "W") ? -1 : 1;
+  }
+
+  const cleaned = str.replace(/[NSEWnsew]/g, " ").replace(/[°'",]/g, " ");
+  const tokens = cleaned.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 3) return null;
+
+  const nums = tokens.map(Number);
+  if (nums.some(n => Number.isNaN(n))) return null;
+
+  const firstRaw = nums[0];
+  const d = Math.abs(nums[0]);
+  const m = nums.length > 1 ? Math.abs(nums[1]) : 0;
+  const s = nums.length > 2 ? Math.abs(nums[2]) : 0;
+  if (m >= 60 || s >= 60) return null;
+
+  let value = d + m / 60 + s / 3600;
+  const sign = hemSign ?? (firstRaw < 0 ? -1 : 1);
+  value *= sign;
+
+  const maxAbs = isLat ? 90 : 180;
+  if (Math.abs(value) > maxAbs + 1e-9) return null;
+
+  return value;
+}
+
+export function parseLat(str) {
+  return parseAxis(str, true);
+}
+
+export function parseLon(str) {
+  return parseAxis(str, false);
+}

@@ -1373,6 +1373,57 @@ export default function SSTHeatmapLeaflet(props) {
     }
     return best?.depth_ft ?? null;
   }
+  // Mirrors the sla_m branch in the Inspect click handler below -- kept as
+  // its own small copy rather than refactoring that handler, so editing a
+  // click's coordinates can resample SLA without touching the working
+  // click-handler code path.
+  function sampleSlaAt(lat, lon) {
+    if (activeDataLayerRef.current !== "altimetry" || !altimetryDataRef.current) return null;
+    const alt = altimetryDataRef.current;
+    if (!alt.lats?.length || !alt.lons?.length || !alt.sla) return null;
+    const li = alt.lats.reduce((bi, v, i) => Math.abs(v - lat) < Math.abs(alt.lats[bi] - lat) ? i : bi, 0);
+    const lj = alt.lons.reduce((bj, v, j) => Math.abs(v - lon) < Math.abs(alt.lons[bj] - lon) ? j : bj, 0);
+    const row = alt.sla[li];
+    return row ? (row[lj] ?? null) : null;
+  }
+  // Called when the user edits lat/lon directly in the Inspect popup
+  // (MapClickInfo) instead of clicking a new point -- resamples SST/depth/
+  // SLA and distance/bearing for the corrected coordinates, and recenters
+  // the map on the new point (waiting for the pan to finish before
+  // recomputing the popup's on-screen position) if it isn't comfortably
+  // within the current viewport.
+  function handleCoordsEdited(lat, lon) {
+    const sst      = sampleSstAt(lat, lon);
+    const depth_ft = sampleBathyDepthAt(lat, lon);
+    const sla_m    = sampleSlaAt(lat, lon);
+    const refLoc   = selectedLocationRef.current;
+    const dist     = refLoc ? distanceNm(refLoc.lat, refLoc.lon, lat, lon) : null;
+    const bearing  = refLoc ? bearingDeg(refLoc.lat, refLoc.lon, lat, lon) : null;
+
+    const map = mapRef.current;
+    if (!map) {
+      setClickInfo(prev => prev ? { ...prev, lat, lon, sst, depth_ft, sla_m, dist, bearing } : prev);
+      return;
+    }
+
+    function applyPosition() {
+      const pt = map.latLngToContainerPoint([lat, lon]);
+      setClickInfo(prev => prev ? { ...prev, lat, lon, sst, depth_ft, sla_m, dist, bearing, px: pt.x, py: pt.y } : prev);
+    }
+
+    const pt = map.latLngToContainerPoint([lat, lon]);
+    const mapW = mapDivRef.current?.clientWidth  ?? 800;
+    const mapH = mapDivRef.current?.clientHeight ?? 600;
+    const MARGIN = 40;
+    const offscreen = pt.x < MARGIN || pt.x > mapW - MARGIN || pt.y < MARGIN || pt.y > mapH - MARGIN;
+
+    if (offscreen) {
+      map.once("moveend", applyPosition);
+      map.setView([lat, lon], map.getZoom());
+    } else {
+      applyPosition();
+    }
+  }
   // Precomputed open-ocean mask (static, /openocean_mask.json): 1 = open Atlantic/shelf,
   // 0 = sounds/bays/rivers/land. Built offline from GEBCO via morphological opening
   // (sever narrow inlets) + bay polygons. Coarse 0.125deg altimetry otherwise bleeds
@@ -2095,6 +2146,7 @@ export default function SSTHeatmapLeaflet(props) {
         dist: refLoc ? distanceNm(refLoc.lat, refLoc.lon, lat, lon) : null,
         bearing: refLoc ? bearingDeg(refLoc.lat, refLoc.lon, lat, lon) : null,
         locationLabel: refLoc?.label ?? null, px: containerPt.x, py: containerPt.y,
+        clickId: Date.now(),
       });
     });
 
@@ -5116,7 +5168,7 @@ export default function SSTHeatmapLeaflet(props) {
                       setClickInfo({lat,lon,sst:hoverInfo.sst,depth_ft:hoverInfo.depth_ft,
                         dist:hoverInfo.dist,bearing:hoverInfo.bearing,
                         locationLabel:selectedLocationRef.current?.label??null,
-                        px:touchMarker.px,py:touchMarker.py});
+                        px:touchMarker.px,py:touchMarker.py,clickId:Date.now()});
                       setHoverInfo(null);setTouchMarker(null);
                     }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
@@ -5224,6 +5276,8 @@ export default function SSTHeatmapLeaflet(props) {
           {clickInfo && (
             <MapClickInfo info={clickInfo} date={date} userId={userId} onClose={() => setClickInfo(null)}
               onPostCommunityReport={onPostCommunityReport}
+              onCoordsEdited={handleCoordsEdited}
+              regionBounds={regionBounds}
               onSaved={info => {
                 setMarkers(m => [...m, { lat:info.lat, lon:info.lon, sst:info.sst, depth_ft:info.depth_ft, label:info.label, notes:info.notes ?? null, id:info.id, dist_nm:info.dist, bearing_deg:info.bearing != null ? Math.round(info.bearing) : null, bearing_cardinal:info.bearing != null ? bearingLabel(info.bearing) : null, from_location:info.locationLabel }]);
                 setSavedWreckKeys(s => new Set([...s, `${info.lat}_${info.lon}`]));

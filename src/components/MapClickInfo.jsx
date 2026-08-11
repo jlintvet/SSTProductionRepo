@@ -1,25 +1,69 @@
 // src/components/MapClickInfo.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { X, Bookmark } from "lucide-react";
+import { X, Bookmark, Pencil, Check } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
-import { formatCoordinate } from "@/lib/coordinates";
+import { formatCoordinate, formatLat, formatLon, parseLat, parseLon } from "@/lib/coordinates";
 
-export default function MapClickInfo({ info, onClose, onSaved, date, userId, onPostCommunityReport }) {
+export default function MapClickInfo({ info, onClose, onSaved, date, userId, onPostCommunityReport, onCoordsEdited, regionBounds }) {
   const { userSettings } = useAppContext();
   const coordFormat = userSettings?.coordinate_format || "ddm";
   const [label, setLabel] = useState(info?.prefillLabel || "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
+  const [editingCoords, setEditingCoords] = useState(false);
+  const [latDraft, setLatDraft] = useState("");
+  const [lonDraft, setLonDraft] = useState("");
+  const [coordError, setCoordError] = useState(null);
 
+  // Keyed on clickId (assigned once per genuine new Inspect click), not
+  // lat/lon -- editing the coordinates in place also changes info.lat/lon,
+  // and keying this off lat/lon would wipe out the label/notes the user
+  // just typed every time they corrected a coordinate.
   useEffect(() => {
     setLabel(info?.prefillLabel || "");
     setNotes("");
     setSaved(false);
-  }, [info?.lat, info?.lon]);
+    setEditingCoords(false);
+    setCoordError(null);
+  }, [info?.clickId]);
 
   if (!info) return null;
+
+  function startEditCoords() {
+    setLatDraft(formatLat(info.lat, coordFormat));
+    setLonDraft(formatLon(info.lon, coordFormat));
+    setCoordError(null);
+    setEditingCoords(true);
+  }
+
+  function cancelEditCoords() {
+    setEditingCoords(false);
+    setCoordError(null);
+  }
+
+  function confirmEditCoords() {
+    const lat = parseLat(latDraft);
+    const lon = parseLon(lonDraft);
+    if (lat == null || lon == null) {
+      setCoordError("Couldn't read those coordinates - check the format.");
+      return;
+    }
+    if (regionBounds && (lon < regionBounds.west || lon > regionBounds.east ||
+        lat < regionBounds.south || lat > regionBounds.north)) {
+      setCoordError("That point falls outside the current region.");
+      return;
+    }
+    setCoordError(null);
+    setEditingCoords(false);
+    onCoordsEdited?.(lat, lon);
+  }
+
+  function handleCoordDraftKeyDown(e) {
+    if (e.key === "Enter") confirmEditCoords();
+    else if (e.key === "Escape") cancelEditCoords();
+  }
 
   function bearingLabel(deg) {
     const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
@@ -83,9 +127,47 @@ export default function MapClickInfo({ info, onClose, onSaved, date, userId, onP
       onClick={e => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-slate-500 font-mono">{formatCoordinate(info.lat, info.lon, coordFormat)}</span>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 ml-2 flex-shrink-0">
+      <div className="flex items-start justify-between mb-2 gap-2">
+        {editingCoords ? (
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={latDraft}
+                onChange={e => setLatDraft(e.target.value)}
+                onKeyDown={handleCoordDraftKeyDown}
+                placeholder="Lat"
+                autoFocus
+                className="w-1/2 min-w-0 bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-800 focus:outline-none focus:border-cyan-500"
+              />
+              <input
+                type="text"
+                value={lonDraft}
+                onChange={e => setLonDraft(e.target.value)}
+                onKeyDown={handleCoordDraftKeyDown}
+                placeholder="Lon"
+                className="w-1/2 min-w-0 bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-800 focus:outline-none focus:border-cyan-500"
+              />
+              <button onClick={confirmEditCoords} title="Update coordinates" className="text-emerald-600 hover:text-emerald-700 flex-shrink-0">
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={cancelEditCoords} title="Cancel" className="text-slate-400 hover:text-slate-700 flex-shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {coordError && <div className="text-red-500 text-[10px] mt-1">{coordError}</div>}
+          </div>
+        ) : (
+          <button
+            onClick={startEditCoords}
+            title="Edit coordinates"
+            className="flex items-center gap-1 text-slate-500 font-mono hover:text-cyan-600 transition-colors"
+          >
+            {formatCoordinate(info.lat, info.lon, coordFormat)}
+            <Pencil className="w-2.5 h-2.5 text-slate-300 flex-shrink-0" />
+          </button>
+        )}
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 flex-shrink-0">
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
