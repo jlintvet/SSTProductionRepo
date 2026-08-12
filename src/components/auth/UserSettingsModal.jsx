@@ -728,7 +728,12 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                   {bfPreview.fileName}: {bfPreview.rows.length} spot{bfPreview.rows.length === 1 ? "" : "s"} found
                 </p>
                 {bfPreview.errors.length > 0 && (
-                  <p className="text-[11px] text-amber-600">{bfPreview.errors.length} row(s) skipped - out of range or unreadable.</p>
+                  <div className="text-[11px] text-amber-600 space-y-0.5">
+                    {bfPreview.errors.slice(0, 3).map((e, i) => <div key={i}>{e}</div>)}
+                    {bfPreview.errors.length > 3 && (
+                      <div>...and {bfPreview.errors.length - 3} more issue{bfPreview.errors.length - 3 === 1 ? "" : "s"}.</div>
+                    )}
+                  </div>
                 )}
                 {bfPreview.rows.length > 0 && (
                   <div className="max-h-28 overflow-y-auto text-[11px] text-slate-500 space-y-0.5">

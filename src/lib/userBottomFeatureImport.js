@@ -44,39 +44,65 @@ function cleanName(name, fallbackIndex) {
   return t || `Imported spot ${fallbackIndex + 1}`;
 }
 
+function stripCdata(s) {
+  if (s == null) return "";
+  const m = String(s).match(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/);
+  return (m ? m[1] : s).trim();
+}
+
 // ── GPX ──────────────────────────────────────────────────────────────────
 // Standard GPX 1.1 <wpt lat lon><name/><desc/><sym/></wpt>, plus a
 // best-effort check for Garmin's gpxx:WaypointExtension/gpxx:Symbol (real
-// Navionics Boating app exports are Garmin-owned and likely to use it,
-// even though the one confirmed sample we tested -- a fishingstatus.com
-// export -- uses plain <sym> instead).
+// Navionics Boating app exports are Garmin-owned and likely to use it).
+//
+// Deliberately regex-based rather than DOMParser -- real-world exports
+// from at least one common source (fishingstatus.com) have been observed
+// missing the closing </wpt> tag on the last waypoint in the file (a
+// truncated-output bug on their end, not ours), which makes the document
+// malformed XML. A strict DOMParser().parseFromString() call fails (or
+// silently mis-recovers) on the whole file for that one dangling tag, even
+// though every other waypoint in the file is perfectly fine. Each waypoint
+// here is instead bounded by the next "<wpt " occurrence (or end of file)
+// rather than requiring a matching "</wpt>", so one malformed tag -- at
+// the end or anywhere else -- can't take down the rest of a real import.
 export function parseGPX(xmlText) {
   const rows = [];
   const errors = [];
-  let doc;
-  try {
-    doc = new DOMParser().parseFromString(xmlText, "application/xml");
-    if (doc.getElementsByTagName("parsererror").length > 0) throw new Error("Malformed XML");
-  } catch (e) {
-    return { rows: [], errors: ["Couldn't parse this file as GPX (invalid XML)."] };
+  const wptOpenRe = /<wpt\b([^>]*)>/gi;
+  const opens = [];
+  let m;
+  while ((m = wptOpenRe.exec(xmlText)) !== null) {
+    opens.push({ attrs: m[1], start: m.index, contentStart: wptOpenRe.lastIndex });
   }
-  const wpts = Array.from(doc.getElementsByTagName("wpt"));
-  wpts.forEach((wpt, i) => {
-    const lat = parseFloat(wpt.getAttribute("lat"));
-    const lon = parseFloat(wpt.getAttribute("lon"));
-    if (!coordsInBounds(lat, lon)) { errors.push(`Row ${i + 1}: coordinates out of range, skipped.`); return; }
-    const name = wpt.getElementsByTagName("name")[0]?.textContent;
-    const desc = wpt.getElementsByTagName("desc")[0]?.textContent || "";
-    const sym = wpt.getElementsByTagName("sym")[0]?.textContent
-      || wpt.getElementsByTagName("gpxx:Symbol")[0]?.textContent
-      || "";
-    const depthEl = wpt.getElementsByTagName("depth")[0] || wpt.getElementsByTagName("ele")[0];
+  if (opens.length === 0) {
+    return { rows: [], errors: ["No waypoints found in this GPX file."] };
+  }
+  opens.forEach((wpt, i) => {
+    const contentEnd = i + 1 < opens.length ? opens[i + 1].start : xmlText.length;
+    // Trim a trailing </wpt> (and anything after it, e.g. </gpx>) if present
+    // -- if it's missing (the truncation bug), just use the slice as-is.
+    const content = xmlText.slice(wpt.contentStart, contentEnd).replace(/<\/wpt>[\s\S]*$/i, "");
+
+    const latMatch = wpt.attrs.match(/\blat\s*=\s*"([^"]*)"/i);
+    const lonMatch = wpt.attrs.match(/\blon\s*=\s*"([^"]*)"/i);
+    const lat = latMatch ? parseFloat(latMatch[1]) : NaN;
+    const lon = lonMatch ? parseFloat(lonMatch[1]) : NaN;
+    if (!coordsInBounds(lat, lon)) { errors.push(`Row ${i + 1}: coordinates out of range or missing, skipped.`); return; }
+
+    const nameMatch = content.match(/<name>([\s\S]*?)<\/name>/i);
+    const descMatch = content.match(/<desc>([\s\S]*?)<\/desc>/i);
+    const symMatch = content.match(/<sym>([\s\S]*?)<\/sym>/i) || content.match(/<gpxx:Symbol>([\s\S]*?)<\/gpxx:Symbol>/i);
+    const depthMatch = content.match(/<depth>([\s\S]*?)<\/depth>/i) || content.match(/<ele>([\s\S]*?)<\/ele>/i);
+
+    const name = stripCdata(nameMatch?.[1]);
+    const desc = stripCdata(descMatch?.[1]);
+    const sym = stripCdata(symMatch?.[1]);
     const { type, symbol } = classify(sym || desc);
     rows.push({
       name: cleanName(name, i),
       lat, lon, type, symbol,
-      depth_ft: depthEl ? parseFloat(depthEl.textContent) || null : null,
-      notes: desc.trim() || null,
+      depth_ft: depthMatch ? (parseFloat(stripCdata(depthMatch[1])) || null) : null,
+      notes: desc || null,
     });
   });
   if (rows.length === 0 && errors.length === 0) errors.push("No waypoints found in this GPX file.");
