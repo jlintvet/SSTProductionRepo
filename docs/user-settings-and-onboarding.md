@@ -58,6 +58,17 @@ If `userId` from AppContext hasn't resolved yet when the flag is read, `showSett
 
 ---
 
+### Display Units — Coordinate Format (`77cf90c`, 2026-08-10)
+
+Settings > Display Units gained a third toggle alongside the existing speed/depth unit toggles: **Coordinate Format** — `DD` / `DDM` / `DMS`. Default is `DDM` (degrees + decimal minutes, e.g. `36°50.128'N`).
+
+- Stored as `coordinate_format` on `user_settings` (Supabase column), loaded/saved through the same `loadUserSettings`/`saveUserSettings`/`DEFAULT_SETTINGS` mechanism already used for `speed_unit`/`depth_unit` — no new plumbing needed.
+- `src/lib/coordinates.js` is the single shared formatter (`formatLat`/`formatLon`/`formatCoordinate`) and parser (`parseLat`/`parseLon`, added `e39843e` for the editable Inspect popup — see `docs/map_control_panel.md`). Every in-app lat/lon display reads `userSettings.coordinate_format` via `AppContext` and calls into this file: saved locations list, saved-location marker popup, wreck/bottom-feature popup, boat GPS HUD, Inspect click-info popup, share dialog text, community report form location strip.
+- **Share links and public share-link landing pages are intentionally unaffected** — they always render `DDM` regardless of the viewer's own setting, since the recipient may not be signed in or may have a different preference set.
+- The parser accepts DD, DDM, or DMS input by token count (1 = DD, 2 = DDM, 3 = DMS), independent of which format is currently selected for display — pasting a DMS string works even when the display preference is DD.
+
+---
+
 ## OnboardingCarousel
 
 ### Overview

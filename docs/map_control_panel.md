@@ -208,6 +208,24 @@ Added under the Bottom Features toggle (desktop panel `MapControlPanel.jsx`; mob
 
 ---
 
+## Inspect click-info popup (MapClickInfo.jsx)
+
+**File:** `src/components/MapClickInfo.jsx`, opened via the Mode row's **Inspect** button (`interactionMode === "inspect"`). The click handler, provisional-pin render, and `onCoordsEdited` recenter logic live in `SSTHeatmapLeaflet.jsx`, not this component itself.
+
+**Provisional pin (`6c9a4c9`, 2026-08-11):** an Inspect click previously opened the popup with no marker at the clicked point, so there was nothing on the map to reference once the popup was off-screen or the coordinates were later edited. A `MapPin` (lucide-react, white outline / `#0891b2` cyan fill) now renders at `clickInfo.px/py`, anchored by its tip, and moves whenever the point changes (new click, or a coordinate edit below).
+
+**Editable coordinates (`e39843e`, 2026-08-10):** clicking the coordinate line in the popup header switches it into edit mode — two full-width stacked rows (`LAT`/`LON`, not side-by-side halves, so the full digit string stays visible on narrow mobile widths) with Check/X confirm buttons. Input is parsed by `parseLat`/`parseLon` (`src/lib/coordinates.js`), which accepts DD, DDM, or DMS regardless of the currently selected display format (token-count based: 1 token = DD, 2 = DDM, 3 = DMS; hemisphere letters N/S/E/W or a leading sign both work). See `docs/user-settings-and-onboarding.md` for the display-format setting this parser is paired with.
+
+- On a valid edit, `onCoordsEdited(lat, lon)` (in `SSTHeatmapLeaflet.jsx`) resamples SST/depth/SLA at the new point and recomputes distance/bearing from the departure location, then repositions the pin. If the new point isn't comfortably inside the current viewport, the map recenters (`map.setView`, waiting for `moveend` before repositioning the popup) rather than leaving the popup pointing at an off-screen pin.
+- If the new point falls outside `regionBounds`, an inline error shows and the map does not move — coordinates transcribed from a paper chart can accidentally land in the wrong region/hemisphere, and this catches that before a bogus saved-location gets created.
+- **`clickId` reset guard:** the popup's notes/label reset effect used to be keyed on `info.lat`/`info.lon`, which fired (and wiped in-progress notes) on every coordinate edit, not just on a genuinely new Inspect click. Now keyed on `clickId` (`Date.now()`, set once per new click, untouched by edits).
+
+**Layout (`6105a25`, `be3e502`, 2026-08-11):**
+- Read-only coordinates render left-justified on one line (not centered) via `formatCoordinate(info.lat, info.lon, coordFormat, "  ")`; edit mode is the two-row stacked layout above. Popup defaults to opening below and centered on the click point, clear of the provisional pin's own footprint, flipping above only if there isn't room below.
+- **Real-measurement positioning:** the popup used to clamp its position against a fixed height *estimate* (`POPUP_H = 240`), which didn't match actual rendered height once optional rows (SST/depth/SLA, distance/bearing, coordinate-edit error line, Post-Trip Report button) were factored in — worst on mobile, where the popup is a much larger fraction of a shorter viewport. A `useLayoutEffect` now measures the popup's real `getBoundingClientRect()` after every paint (new click, coordinate-edit toggle, validation-error change) and clamps `left`/`top` against that, plus a hard `maxHeight`/`overflow-y:auto` backstop sized to the visible container height as a last resort.
+
+---
+
 ## Desktop collapsed icon rail
 
 When `collapsed` is true, `MapControlPanel` itself renders `null` (see Overview), and `SSTHeatmapLeaflet.jsx` shows a `hidden sm:flex` column of 32×32px icon buttons in its place, fixed at `right: 8, top: 8`. This rail was built up incrementally (`aa0b89a` through `e999790`, 2026-07-22) to reach icon parity with the mobile floating rail -- both now expose the same set of layer toggles and action buttons, just in a vertical column instead of mobile's own floating layout.

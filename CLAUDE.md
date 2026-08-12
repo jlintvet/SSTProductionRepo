@@ -128,12 +128,14 @@ Check the build directly at **vercel.com → SSTProductionRepo → Deployments**
 | Weather forecast display, departure location selection | `docs/weather-and-location-display.md` |
 | Community reports feature spec, UX flows, access rules | `community-reports-requirements.md` |
 | Control panel sections, props, help system, button rules | `docs/map_control_panel.md` |
+| Inspect click-info popup (MapClickInfo.jsx), coordinate display/parsing | `docs/map_control_panel.md`, `docs/user-settings-and-onboarding.md` |
 
 **Rule:** Before making changes to any of the following areas, read the corresponding doc:
 - Anything touching `SSTHeatmapLeaflet.jsx` viewport, zoom, or overlay rendering → read `SST_RENDERING.md` and `docs/map_viewport_nuances.md`
 - Anything touching community pins, access gates, leaderboard, tips → read `community-reports-requirements.md`
 - Anything touching weather widget or departure location → read `docs/weather-and-location-display.md`
 - Anything touching `MapControlPanel.jsx` → read `docs/map_control_panel.md`
+- Anything touching `MapClickInfo.jsx`, `src/lib/coordinates.js`, or lat/lon display/parsing (including `admin/bottom_features_admin.html`) → read `docs/map_control_panel.md` (Inspect click-info popup section) and `docs/user-settings-and-onboarding.md` (Display Units section)
 
 ---
 
