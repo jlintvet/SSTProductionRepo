@@ -129,6 +129,7 @@ Check the build directly at **vercel.com → SSTProductionRepo → Deployments**
 | Community reports feature spec, UX flows, access rules | `community-reports-requirements.md` |
 | Control panel sections, props, help system, button rules | `docs/map_control_panel.md` |
 | Inspect click-info popup (MapClickInfo.jsx), coordinate display/parsing | `docs/map_control_panel.md`, `docs/user-settings-and-onboarding.md` |
+| User bulk bottom-feature upload (GPX/CSV/KML), revert, All/Mine toggle | `docs/user-bottom-feature-uploads-plan.md` |
 
 **Rule:** Before making changes to any of the following areas, read the corresponding doc:
 - Anything touching `SSTHeatmapLeaflet.jsx` viewport, zoom, or overlay rendering → read `SST_RENDERING.md` and `docs/map_viewport_nuances.md`
@@ -136,6 +137,7 @@ Check the build directly at **vercel.com → SSTProductionRepo → Deployments**
 - Anything touching weather widget or departure location → read `docs/weather-and-location-display.md`
 - Anything touching `MapControlPanel.jsx` → read `docs/map_control_panel.md`
 - Anything touching `MapClickInfo.jsx`, `src/lib/coordinates.js`, or lat/lon display/parsing (including `admin/bottom_features_admin.html`) → read `docs/map_control_panel.md` (Inspect click-info popup section) and `docs/user-settings-and-onboarding.md` (Display Units section)
+- Anything touching `user_bottom_features`/`user_bottom_feature_batches`, the "My Imported Spots" section of `UserSettingsModal.jsx`, `src/lib/userBottomFeatureImport.js`, `src/hooks/useUserBottomFeatures.js`, or the user-upload merge in `SSTHeatmapLeaflet.jsx`'s wreck render loop → read `docs/user-bottom-feature-uploads-plan.md`
 
 ---
 

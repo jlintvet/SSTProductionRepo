@@ -92,6 +92,22 @@ export default function SavedLocations({
         .delete()
         .eq("id", loc.id);
       if (!error) {
+        // A saved location sourced from a wreck/bottom-feature ("Save
+        // Location" on the wreck popup, source_type="wreck") has a
+        // matching wreck_pinned_labels row keyed on the same fKey
+        // (source_key here, wreck_key there) that drives the always-on
+        // Labels overlay on the map. Deleting just the saved_locations
+        // row left that label pinned -- previously the only way to clear
+        // it was to separately open Bottom Features and manually unpin
+        // it from the wreck popup. RLS scopes this delete to the current
+        // user regardless, so no explicit user_id filter is needed here.
+        if (loc.source_type === "wreck" && loc.source_key) {
+          supabase.from("wreck_pinned_labels").delete().eq("wreck_key", loc.source_key)
+            .then(({ error: labelErr }) => {
+              if (!labelErr) document.dispatchEvent(new CustomEvent("riploc:wreck-pinned-labels-updated"));
+              else console.error("Pinned label cleanup failed:", labelErr.message);
+            });
+        }
         onClearMarkers?.(loc.id);
         onRefresh?.();
       } else {

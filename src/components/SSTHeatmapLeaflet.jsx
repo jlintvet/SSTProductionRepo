@@ -2982,7 +2982,7 @@ export default function SSTHeatmapLeaflet(props) {
   }, [isPro, profileLoaded]);
 
   // ── User's pinned wreck labels (per-user, feeds into the Labels overlay below) ──
-  useEffect(() => {
+  function fetchPinnedWreckLabels() {
     if (!userId) { setPinnedWreckLabels([]); return; }
     supabase
       .from("wreck_pinned_labels")
@@ -2991,6 +2991,15 @@ export default function SSTHeatmapLeaflet(props) {
       .then(({ data, error }) => {
         if (!error && data) setPinnedWreckLabels(data);
       });
+  }
+  useEffect(() => { fetchPinnedWreckLabels(); }, [userId]);
+  // Also refetch when a saved location's own delete cascades into removing
+  // its pinned label (SavedLocations.jsx) -- that component doesn't share
+  // this map component's pinnedWreckLabels state, so it announces the
+  // change instead of trying to reach in and update it directly.
+  useEffect(() => {
+    document.addEventListener("riploc:wreck-pinned-labels-updated", fetchPinnedWreckLabels);
+    return () => document.removeEventListener("riploc:wreck-pinned-labels-updated", fetchPinnedWreckLabels);
   }, [userId]);
 
   // ── User's own bulk-uploaded bottom features (private, Settings > My Imported Spots) ──
