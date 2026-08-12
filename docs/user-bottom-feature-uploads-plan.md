@@ -59,19 +59,23 @@ Shared validation regardless of format: coordinate bounds sanity check (roughly 
 
 Settings dispatches a `riploc:user-bottom-features-updated` custom event after any upload/revert/clear so the already-mounted map component can refetch without a full page reload.
 
+**Per-spot delete**: the wreck detail card's header shows a small Trash2 icon (matching `SavedLocations.jsx`'s existing delete-icon styling, not a full-width button) whenever `properties.source === "user_upload"`. Clicking it calls `useUserBottomFeatures.js`'s `deleteFeature(id)`, which deletes that one row directly by its `user_bottom_features.id` and refreshes — independent of the batch/revert model in §3, since a one-off deletion isn't part of that undo stack. This requires each rendered feature to carry its DB `id` in `properties` (added alongside `name`/`symbol`/etc.), which the earlier GeoJSON shape didn't originally include.
+
 ## 7. Files touched
 
 - New: `src/lib/userBottomFeatureImport.js`, `src/hooks/useUserBottomFeatures.js`
 - Modified: `src/components/auth/UserSettingsModal.jsx`, `src/components/SSTHeatmapLeaflet.jsx`, `src/components/MapControlPanel.jsx`
+- Modified again for per-spot delete: `src/hooks/useUserBottomFeatures.js` (added `id` to feature properties, added `deleteFeature`), `src/components/SSTHeatmapLeaflet.jsx` (delete icon in the wreck detail card)
 
 ## 8. Known limitations / not built
 
 - No sharing of a user's uploads with other users, by design.
 - No promotion tool into the shared `wrecks.json` yet (the `promoted` column and admin-read RLS policy exist for this, unused so far).
-- No per-row editing — only whole-batch replace/add/clear.
+- Per-spot delete exists (§6), but no per-row *editing* — to fix a wrong name/depth/etc. on one spot, delete it and re-add via a corrected file, or replace the whole batch.
 - `SSTHeatmapMapbox.jsx` (an experimental, not-production-wired alternate map renderer from an earlier GL-basemap spike) does **not** have this feature — it isn't imported by `SSTLive.jsx` and isn't part of the deployed app.
 
 ## History
 
 - `3437a24` (2026-08-11) — initial ship: tables, parsers, Settings UI, map rendering, All/Mine toggle, revert.
 - `d88b515` (2026-08-11) — fixed the GPX-parser-fails-on-truncated-export bug described in §4, and fixed a misleading Settings error message that showed a whole-file parse failure as a generic per-row "skipped" count.
+- `a85003d` (2026-08-11) — added per-spot delete (§6): Trash2 icon on the wreck detail card for the user's own uploads, `deleteFeature(id)` in the hook.
