@@ -5682,6 +5682,17 @@ export default function SSTHeatmapLeaflet(props) {
               }
             }
 
+            // Only ever called for the user's own uploaded spots (icon is
+            // gated on wp.source === "user_upload" below) -- deletes the
+            // exact row from user_bottom_features via its id, not a batch
+            // or revert action, then closes the card since the marker
+            // itself is about to disappear from the layer underneath it.
+            async function handleDeleteUserFeature() {
+              const res = await userBottomFeatures.deleteFeature(wp.id);
+              if (res.ok) setSelectedWreck(null);
+              else console.error("[Wreck] delete imported spot failed:", res.error);
+            }
+
             return (
               <div
                 className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs"
@@ -5697,9 +5708,16 @@ export default function SSTHeatmapLeaflet(props) {
                       </span>
                     )}
                   </div>
-                  <button onClick={() => setSelectedWreck(null)} className="text-slate-400 hover:text-slate-700 flex-shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  </button>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {wp.source === "user_upload" && (
+                      <button onClick={handleDeleteUserFeature} className="p-1 rounded-md hover:bg-red-100 text-slate-300 hover:text-red-500 transition-colors" title="Delete this imported spot">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button onClick={() => setSelectedWreck(null)} className="text-slate-400 hover:text-slate-700">
+                      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M10.5 3.5l-7 7M3.5 3.5l7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="font-mono text-slate-600 mb-1">{coordStr}</div>

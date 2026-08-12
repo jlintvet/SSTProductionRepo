@@ -55,7 +55,7 @@ export function useUserBottomFeatures(userId) {
     type: "Feature",
     geometry: { type: "Point", coordinates: [r.lon, r.lat] },
     properties: {
-      name: r.name, symbol: r.symbol, type: r.type,
+      id: r.id, name: r.name, symbol: r.symbol, type: r.type,
       depth_ft: r.depth_ft, notes: r.notes,
       source: "user_upload",
     },
@@ -155,9 +155,27 @@ export function useUserBottomFeatures(userId) {
     return { ok: true };
   }
 
+  // Deletes a single imported spot -- used by the small delete icon on the
+  // wreck detail card when inspecting one of the user's own uploads on the
+  // map, as opposed to uploadBatch's mode: 'replace' (whole list) or
+  // clearAll (everything). Not tied to any batch/revert bookkeeping -- a
+  // one-off deletion isn't something the single-level revert stack needs
+  // to know about, it's just gone.
+  async function deleteFeature(id) {
+    if (!userId || !id) return { ok: false, error: "Nothing to delete." };
+    const { error: delErr } = await supabase
+      .from("user_bottom_features")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", id);
+    if (delErr) return { ok: false, error: delErr.message };
+    await refresh();
+    return { ok: true };
+  }
+
   return {
     rows, features, batches, loading, error,
     mostRecentBatch, canRevert,
-    refresh, uploadBatch, revertLastUpload, clearAll,
+    refresh, uploadBatch, revertLastUpload, clearAll, deleteFeature,
   };
 }
