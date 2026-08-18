@@ -2583,7 +2583,7 @@ export default function SSTHeatmapLeaflet(props) {
         // wsum pixels stay soft (solidify would negate the blur's edge fade).
         // Composite keeps solidify — full-region coverage, needs crisp land-edge clipping.
         const isSoftOverlay = activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor";
-        const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 4) : await solidify(dataURL);
+        const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 2) : await solidify(dataURL);
         if (_ac_ov.signal.aborted) return;
         blobUrlsRef.current.push(imgUrl);
         upsertSstImage(glLayerRef.current, imgUrl, west, east, north, south);
