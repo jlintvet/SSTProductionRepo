@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { STANDARD_FEATURES as FREE_FEATS, PRO_FEATURES as PRO_FEATS } from "@/data/pricingFeatures";
 
 import altimetryImg   from "../public/altimetry_ref.png";
 import tripDetailImg  from "../public/trip_detail_ref.png";
@@ -878,35 +879,6 @@ const DATA_LAYERS = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c8e8" strokeWidth="2" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg> },
 ];
 
-const FREE_FEATS = [
-  "Sea Surface Temperature - daily, hourly & 36h HD composite",
-  "Chlorophyll & sea color layers",
-  "Altimetry (sea-level) data layer",
-  "Bathymetry contours + canyon labels",
-  "Wind map & NOAA marine forecast",
-  "Weather buoy live observations",
-  "Color gain & rendering controls",
-  "Departure port planning",
-  "Unlimited saved locations",
-  "Community reports (contribute to access)",
-];
-const PRO_FEATS = [
-  "Everything in Standard",
-  "Ocean current particle overlay",
-  "Sea level anomaly (altimetry) overlay",
-  "Wind vector overlay (layered on other maps)",
-  "Isotherm (temp break) overlay",
-  "Loran-C grid, incl. phantom/X lines",
-  "Doppler radar overlay",
-  "Shaded relief bathymetry",
-  "Fishing hotspot scoring map",
-  "Wreck & bottom structure locations",
-  "Bulk waypoint import (GPX/CSV/KML)",
-  "Trip planner with fuel & ETA calc",
-  "Route saving & sharing",
-  "GPS tracking overlay",
-  "90-day community access window",
-];
 
 const TRUST_ITEMS = [
   "30-Day Pro Trial Free",

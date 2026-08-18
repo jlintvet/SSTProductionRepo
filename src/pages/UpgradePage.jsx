@@ -11,36 +11,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { STANDARD_FEATURES as FREE_FEATURES, PRO_FEATURES } from "@/data/pricingFeatures";
 
 const PRICE_MONTHLY_ID = "price_1TikyxDWsT9O1EjovwRTZL7S";
 const PRICE_ANNUAL_ID  = "price_1Til1NDWsT9O1Ejonzrd7hIJ";
-
-const PRO_FEATURES = [
-  "Everything in Standard",
-  "Ocean current particle overlay",
-  "Sea-level anomaly (altimetry) overlay + contours",
-  "Wind vector overlay (layered on other maps)",
-  "Isotherm (temp break) overlay",
-  "Loran-C grid, incl. phantom/X lines",
-  "Doppler radar overlay",
-  "Shaded relief bathymetry",
-  "Fishing hotspot scoring",
-  "Wreck & bottom structure locations",
-  "Bulk waypoint import (GPX/CSV/KML)",
-  "Trip planning, route saving & GPS tracking",
-  "90-day community access window",
-];
-
-const FREE_FEATURES = [
-  "Sea surface temperature - daily, hourly & 36h composite",
-  "Chlorophyll & sea color layers",
-  "Altimetry data layer",
-  "Bathymetry contours & canyon labels",
-  "Weather buoys - live observations",
-  "Color gain & rendering controls",
-  "Departure location & marine forecast",
-  "Community fishing reports (contribute to access)",
-];
 
 const inputStyle = {
   width: "100%", boxSizing: "border-box", padding: "12px 14px", marginBottom: 10,
