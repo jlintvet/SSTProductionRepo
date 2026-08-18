@@ -20,6 +20,7 @@ import React, {
 import { createPortal } from "react-dom";
 import { Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { loadStoredRange, saveStoredRange, clampStoredRange } from "@/lib/rangeStorage";
 
 // ── Design tokens ─────────────────────────────────────────────────────────
 const OCEAN      = "#0e7490";
@@ -584,11 +585,16 @@ export default function SSTRangeControl({
     ? { ...baseCfg, defaultMin: seasonalDefault.min, defaultMax: seasonalDefault.max }
     : baseCfg;
 
-  // Internal range mirrors external; external wins when parent resets it
-  const [range, _setRange] = useState({
-    min: externalRange?.min ?? cfg.defaultMin,
-    max: externalRange?.max ?? cfg.defaultMax,
-    maskOutside: externalRange?.maskOutside ?? false,
+  // Internal range mirrors external; a per-layer localStorage recall takes
+  // priority over the parent's initial value so the last gain setting the
+  // user chose for THIS layer survives a page refresh or reopening the app.
+  const [range, _setRange] = useState(() => {
+    const recalled = clampStoredRange(loadStoredRange(activeLayer), cfg.absMin, cfg.absMax);
+    return {
+      min: recalled?.min ?? externalRange?.min ?? cfg.defaultMin,
+      max: recalled?.max ?? externalRange?.max ?? cfg.defaultMax,
+      maskOutside: recalled?.maskOutside ?? externalRange?.maskOutside ?? false,
+    };
   });
 
   // On mount: if externalRange is outside this layer's valid bounds (e.g. SST
@@ -601,17 +607,20 @@ export default function SSTRangeControl({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset when activeLayer changes.
-  // SST: restore seasonal default (keeps colors temperature-absolute).
-  // CHL/SeaColor: clear to null so overlay uses its own day stats.
+  // On layer switch, recall this layer's last-set gain from localStorage
+  // instead of always snapping back to the default.
+  // SST: seasonal default if nothing was recalled (keeps colors
+  // temperature-absolute). CHL/SeaColor: null if nothing was recalled, so
+  // the overlay falls back to that day's own data stats, same as before.
   const prevActiveLayer = useRef(activeLayer);
   useEffect(() => {
     if (prevActiveLayer.current === activeLayer) return;
     prevActiveLayer.current = activeLayer;
-    const defaultRange = { min: cfg.defaultMin, max: cfg.defaultMax, maskOutside: false };
-    _setRange(defaultRange);
-    onRangeChange?.(activeLayer === "sst" ? defaultRange : null);
-  }, [activeLayer, cfg.defaultMin, cfg.defaultMax]);
+    const recalled = clampStoredRange(loadStoredRange(activeLayer), cfg.absMin, cfg.absMax);
+    const nextRange = recalled ?? { min: cfg.defaultMin, max: cfg.defaultMax, maskOutside: false };
+    _setRange(nextRange);
+    onRangeChange?.(activeLayer === "sst" ? nextRange : recalled);
+  }, [activeLayer, cfg.defaultMin, cfg.defaultMax, cfg.absMin, cfg.absMax]);
 
   // Sync when parent resets (e.g. source switch)
   const prevExternal = useRef(externalRange);
@@ -624,9 +633,15 @@ export default function SSTRangeControl({
     prevExternal.current = externalRange;
   }, [externalRange?.min, externalRange?.max, externalRange?.maskOutside]);
 
+  const saveTimerRef = useRef(null);
+  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
+
   function setRange(r) {
     _setRange(r);
     onRangeChange?.(r);
+    // Debounced: a slider drag fires this on every mousemove tick.
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveStoredRange(activeLayer, r), 250);
   }
 
   const [isOpen, setIsOpen] = useState(false);
@@ -674,6 +689,7 @@ export default function SSTRangeControl({
   function handleApply(r) {
     onApply?.(r);
     _setRange(r); // keep internal state in sync with applied
+    saveStoredRange(activeLayer, r);
   }
 
   function handleReset() {
@@ -683,6 +699,8 @@ export default function SSTRangeControl({
     // CHL/SeaColor: clear to null so day stats take over.
     onRangeChange?.(activeLayer === "sst" ? r : null);
     onApply?.(activeLayer === "sst" ? r : null);
+    // Forget the recalled override too, so a refresh doesn't bring it back.
+    saveStoredRange(activeLayer, null);
   }
 
   return (

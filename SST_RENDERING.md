@@ -317,9 +317,11 @@ Promise.resolve(gridToDataURL(latSet, lonSet, sstGrid, ..., sstIsOcean, ...))
 **Fix:** Replace `solidify` with `blurOverlay` for CHL and Sea Color:
 ```js
 const isSoftOverlay = activeDataLayer === "chlorophyll" || activeDataLayer === "seacolor";
-const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 4) : await solidify(dataURL);
+const imgUrl = isSoftOverlay ? await blurOverlay(dataURL, 2) : await solidify(dataURL);
 ```
 `blurOverlay(blobUrl, radius)` is exported from `glSandwich.js`. It draws the image with `ctx.filter = 'blur(Npx)'` before `toBlob`. The underlying wsum-based alpha at cell boundaries stays soft (not solidified), and the blur feathers those boundaries visually.
+
+**Radius history:** Originally shipped at `4`. Reduced to `2` (2026-08-18, commit `e3eccc6`) at Jon's request to compare against the 4px feel — 2px still feathers the 4km cell edges but keeps more of the underlying block structure visible. The separate altimetry `blurOverlay(dataURL, 4)` call (a few lines below in the same `useEffect`) was deliberately left at `4` — this change only touches CHL/SeaColor.
 
 Composite overlay keeps `solidify` — it has full-region coverage and needs crisp land-edge clipping where `gapFillGrid` fills land-adjacent cells.
 
@@ -584,7 +586,7 @@ The elevation-sign + morphological opening approach solves all three problems wi
 6. **SeaColor composite shows large squares** → `_bin_sc_rows` in `CHLSeaColorBundler.py` must NOT flood-fill. Each native row bins to its nearest 0.02° cell only. If flood-fill (SPREAD loop) is re-added, double-expansion with `expandCoarseGrid` produces large-square artifacts. Regenerate bundle files after fixing the bundler.
 7. **Hourly VIIRS shows solid-color rectangles** → check that `gapFillGrid` is NOT being called for `dataSource === "VIIRS"` or `"VIIRSSNPP"`. `gapFillGrid` requires the full canonical 266×335 grid; calling it on the sparse hourly lonSet×latSet floods the entire Cartesian product (problem 7). Also confirm bracket bounds check (`lat > gridLat0 || lat < gridLat1`) is present in `gridToDataURL` cursor loop. **Do not remove the `!isHourlyViirs` guard even if passing canonical latSet/lonSet** — `gapFillGrid`'s `inshore()` check floods Albemarle/Pamlico Sounds from nearby ocean data.
 8. **Hourly VIIRS SST shifted west** → check that `gridToDataURL` uses cursor-based bracket finding (not average-step `lonFloat = (lon - lonWest) / lonStep`). See problem 6. Do not revert to average-step indexing.
-9. **CHL or Sea Color overlay has hard staircase edges** → confirm overlay `useEffect` is calling `blurOverlay(dataURL, 4)` for CHL/SeaColor (not `solidify`). See problem 8. If `solidify` is restored for these layers, the wsum edge fade is negated and hard rectangular block walls return.
+9. **CHL or Sea Color overlay has hard staircase edges** → confirm overlay `useEffect` is calling `blurOverlay(dataURL, 2)` for CHL/SeaColor (not `solidify`). See problem 8. If `solidify` is restored for these layers, the wsum edge fade is negated and hard rectangular block walls return. (Radius was `4` originally, reduced to `2` 2026-08-18 — see problem 8.)
 10. **Altimetry raster is all transparent (blank canvas)** → the `gridToDataURL` lat/lon bracket gap check threshold is too tight. CMEMS altimetry grid step is exactly 0.125°. The threshold must be `> 0.2` — if it is `> 0.12` (the original default), every adjacent bracket pair exceeds the limit and the entire canvas stays transparent. Do not lower the threshold below 0.2.
 11. **Previous layer bleeds through beneath altimetry overlay** → confirm `removeSstImage(glLayerRef.current)` is called in the overlay effect immediately after computing `useGl` when `activeDataLayer === "altimetry"`. If missing, SST/CHL/composite data in the `sst-img` GL raster source remains visible underneath the Leaflet imageOverlay.
 12. **Altimetry legend bar colors don't match the map** → `SLA_GRADIENT` in `SSTLive.jsx` and `SLA_STOPS` in `SSTHeatmapLeaflet.jsx` must use the same color stops. Update both together whenever the color scheme changes.

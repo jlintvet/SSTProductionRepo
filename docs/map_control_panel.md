@@ -63,7 +63,7 @@ Target / differential / distance sliders that appear inline when Break is active
 1. **Header** — "Controls" label + collapse button. The chevron SVG points **right** (`M4.5 2L8.5 6L4.5 10`), matching the direction the panel collapses (into the icon rail on the right edge) -- it pointed left until `e999790` (2026-07-22), which read backwards. The header div is `sticky top-0 z-10 bg-white/95 backdrop-blur-sm` (same commit) so it stays pinned while the panel body scrolls, instead of scrolling away and forcing a scroll back up just to collapse.
 2. **Mode row** — Pan / Inspect buttons
 3. **Data layer** — collapsible
-4. **Gain** — collapsible, hidden when altimetry or windmap is active
+4. **Gain** — collapsible, hidden when altimetry or windmap is active. One shared range value (`sstRange` in `SSTLive.jsx`) drives the SST/Composite, Chlorophyll, and Sea Color color-scale windows depending on which is active (`SSTRangeControl.jsx`'s `activeLayer` prop). As of 2026-08-18, the last range the user set for each of those three layers is recalled from localStorage (`src/lib/rangeStorage.js`, keys `sst_range_sst`/`sst_range_chlorophyll`/`sst_range_seacolor`) on layer switch, page refresh, and reopening the app — previously it always reset to that layer's hardcoded default on every layer switch and never persisted across a reload at all. This is separate from the named saved presets in the `user_sst_ranges` Supabase table (opt-in, per-signed-in-user, cross-device) — the localStorage recall requires no sign-in and only remembers the single most recent range per layer, not a named list. `Reset` clears both the in-session value and the localStorage entry.
 5. **Overlays** — collapsible
 6. **Tools** — collapsible
 7. **Community** — collapsible
