@@ -97,7 +97,21 @@ function SavedPanel({
 
   async function clearAllLocations() {
     if (!window.confirm("Delete all saved locations?")) return;
+    // Same cascade SavedLocations.jsx's single-item delete does, just for
+    // every wreck-sourced location being cleared at once -- otherwise a
+    // "Clear all" here left every one of those pinned labels behind on
+    // the map with no way to reach them, since the wreck they came from
+    // no longer has a matching saved location to delete from.
+    const wreckKeys = (savedLocations || [])
+      .filter(l => l.source_type === "wreck" && l.source_key)
+      .map(l => l.source_key);
     await supabase.from("saved_locations").delete().eq("user_id", userId);
+    if (wreckKeys.length > 0) {
+      const { error: labelErr } = await supabase.from("wreck_pinned_labels")
+        .delete().eq("user_id", userId).in("wreck_key", wreckKeys);
+      if (!labelErr) document.dispatchEvent(new CustomEvent("riploc:wreck-pinned-labels-updated"));
+      else console.error("Pinned label cleanup failed:", labelErr.message);
+    }
     (savedLocations || []).forEach(l => clearMarkersRef.current?.(l.id));
     fetchSavedLocations?.();
   }
@@ -2001,6 +2015,11 @@ export default function SSTHeatmapLeaflet(props) {
         label: loc.label, notes: loc.notes ?? null, dist_nm: loc.dist_nm,
         bearing_deg: loc.bearing_deg, bearing_cardinal: loc.bearing_cardinal,
         from_location: loc.from_location,
+        // Needed by the marker popup's own Delete button so it can run the
+        // same wreck_pinned_labels cascade as SavedLocations.jsx's sidebar
+        // delete -- without these this object had no way to know it came
+        // from a wreck at all.
+        source_type: loc.source_type, source_key: loc.source_key,
       }));
       const knownIds = new Set(next.map(m => m.id));
       prev.forEach(m => { if (m.id && !knownIds.has(m.id)) next.push(m); });
@@ -5878,6 +5897,25 @@ export default function SSTHeatmapLeaflet(props) {
             const rawL = selectedMarker.px + 14;
             const popLeft = Math.max(8, rawL + POPUP_W > mapW - 8 ? selectedMarker.px - POPUP_W - 14 : rawL);
             const popTop = Math.min(Math.max(8, selectedMarker.py - 40), mapH - POPUP_H - 8);
+            // Mirrors SavedLocations.jsx's handleDelete cascade -- clicking a
+            // saved-location pin directly on the map and deleting it from
+            // here is a separate code path from the sidebar list, and was
+            // missing the same wreck_pinned_labels cleanup (mk now carries
+            // source_type/source_key from the markers-mapping effect above).
+            async function handleDeleteMarker() {
+              if (!mk.id) return;
+              const { error } = await supabase.from("saved_locations").delete().eq("id", mk.id);
+              if (!error && mk.source_type === "wreck" && mk.source_key) {
+                supabase.from("wreck_pinned_labels").delete().eq("wreck_key", mk.source_key)
+                  .then(({ error: labelErr }) => {
+                    if (!labelErr) document.dispatchEvent(new CustomEvent("riploc:wreck-pinned-labels-updated"));
+                    else console.error("Pinned label cleanup failed:", labelErr.message);
+                  });
+              }
+              setMarkers(m => m.filter(m2 => m2.id !== mk.id));
+              setSelectedMarker(null);
+              onLocationSaved();
+            }
             return (
               <div className="absolute bg-white border border-slate-200 rounded-xl shadow-xl p-3 text-xs" style={{ left: popLeft, top: popTop, zIndex: 800, width: 220 }} onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
@@ -5903,7 +5941,7 @@ export default function SSTHeatmapLeaflet(props) {
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Send
                     </button>
                   )}
-                  <button onClick={async () => { if (mk.id) await supabase.from("saved_locations").delete().eq("id", mk.id); setMarkers(m => m.filter(m2 => m2.id !== mk.id)); setSelectedMarker(null); onLocationSaved(); }} className="flex-1 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-1.5 rounded-lg transition-colors">Delete</button>
+                  <button onClick={handleDeleteMarker} className="flex-1 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-1.5 rounded-lg transition-colors">Delete</button>
                 </div>
               </div>
             );
