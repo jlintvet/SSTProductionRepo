@@ -822,31 +822,34 @@ const CANYON_LABELS = [
   { name: "Veatch Canyon",     lat: 40.0401, lon: -69.6617 },
 ];
 
-// ── Loran-C overlay — two crossing families ──────────────────────────────────
-// W family: GRI 7980 (Southeast US) — Jupiter FL master + Malone FL secondary
-//   runs NE-SW off NC coast; ~26760 at The Point (35.529°N, 74.833°W)
-// Y family: GRI 9960 (Northeast US) — Caribou ME master + Jupiter FL secondary
-//   runs WNW-ESE, crosses W at ~60°; ~40575 at The Point
-// Both calibrated from NOAA chart values at The Point.
-const LORAN_W_MASTER = { lat: 26.9783, lon: -80.1167 }; // Jupiter, FL
-const LORAN_W_SEC    = { lat: 30.9933, lon: -85.1783, ed: 26725 }; // Malone, FL
-const LORAN_Y_MASTER = { lat: 46.809,  lon: -67.928  }; // Caribou, ME
-const LORAN_Y_SEC    = { lat: 26.9783, lon: -80.1167, ed: 41592 }; // Jupiter, FL
+// ── Loran-C overlay — two crossing families, both off GRI 9960 (Northeast US chain) ──
+// Master: Seneca, NY. X family: Nantucket, MA secondary (runs roughly N-S, tracks
+// east-west/depth range). Y family: Carolina Beach, NC secondary (runs roughly E-W,
+// tracks up/down the beach). Station coordinates verified against the USCG Loran-C
+// User Handbook and loran-history.info station records. `ed` per family is a
+// calibration constant, back-solved so the computed TD matches a known real reading
+// at "The Point" (35°33.00'N, 74°50.50'W): 26795.0 X / 40590.0 Y, per Jon 2026-08-18.
+// This replaces an earlier version of this overlay that mixed stations from two
+// different chains (GRI 9960 and GRI 7980) with master/secondary roles swapped,
+// which produced bogus TD numbers and offered a nonexistent "W" line instead of X.
+const LORAN_MASTER = { lat: 42.7084, lon: -76.8223 }; // Seneca, NY
+const LORAN_X_SEC   = { lat: 41.2533, lon: -69.9775, ed: 26967.02 }; // Nantucket, MA
+const LORAN_Y_SEC   = { lat: 34.0628, lon: -77.9128, ed: 42220.03 }; // Carolina Beach, NC
 function loranHaversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371.009, r = Math.PI / 180;
   const dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-function computeLoranTD_W(lat, lon) {
-  return LORAN_W_SEC.ed + (loranHaversineKm(lat, lon, LORAN_W_SEC.lat, LORAN_W_SEC.lon)
-    - loranHaversineKm(lat, lon, LORAN_W_MASTER.lat, LORAN_W_MASTER.lon)) / 0.299709;
+function computeLoranTD_X(lat, lon) {
+  return LORAN_X_SEC.ed + (loranHaversineKm(lat, lon, LORAN_X_SEC.lat, LORAN_X_SEC.lon)
+    - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
 }
 function computeLoranTD_Y(lat, lon) {
   return LORAN_Y_SEC.ed + (loranHaversineKm(lat, lon, LORAN_Y_SEC.lat, LORAN_Y_SEC.lon)
-    - loranHaversineKm(lat, lon, LORAN_Y_MASTER.lat, LORAN_Y_MASTER.lon)) / 0.299709;
+    - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
 }
-function buildLoranGrid(map, waterMask, regionBounds, includeWFamily) {
+function buildLoranGrid(map, waterMask, regionBounds, includeXFamily) {
   const LSTEP = 0.1;
   // Clip to region + padding instead of full US coast — the full extent
   // (~49k points x ~1000 isoline levels) freezes the main thread.
@@ -859,10 +862,10 @@ function buildLoranGrid(map, waterMask, regionBounds, includeWFamily) {
   for (let la = LAT_MAX; la >= LAT_MIN - 0.001; la = Math.round((la - LSTEP) * 1e4) / 1e4) latSet.push(la);
   for (let lo = LON_MIN; lo <= LON_MAX + 0.001; lo = Math.round((lo + LSTEP) * 1e4) / 1e4) lonSet.push(lo);
 
-  const wGrid = {}, yGrid = {};
+  const xGrid = {}, yGrid = {};
   for (const la of latSet) for (const lo of lonSet) {
     const k = `${la}_${lo}`;
-    wGrid[k] = computeLoranTD_W(la, lo);
+    xGrid[k] = computeLoranTD_X(la, lo);
     yGrid[k] = computeLoranTD_Y(la, lo);
   }
 
@@ -873,19 +876,19 @@ function buildLoranGrid(map, waterMask, regionBounds, includeWFamily) {
       const [la, lo] = k.split("_").map(Number); return waterMask(la, lo);
     }));
   }
-  const wMasked = applyMask(wGrid), yMasked = applyMask(yGrid);
-  const { field: wField, rows, cols } = buildField(latSet, lonSet, wMasked);
+  const xMasked = applyMask(xGrid), yMasked = applyMask(yGrid);
+  const { field: xField, rows, cols } = buildField(latSet, lonSet, xMasked);
   const { field: yField } = buildField(latSet, lonSet, yMasked);
 
   function rangeFor(grid) {
     const vals = Object.values(grid).filter(Number.isFinite).sort((a,b)=>a-b);
     return [Math.ceil(vals[0] / 20) * 20, Math.floor(vals[vals.length-1] / 20) * 20];
   }
-  const [wLo, wHi] = rangeFor(wGrid);
+  const [xLo, xHi] = rangeFor(xGrid);
   const [yLo, yHi] = rangeFor(yGrid);
 
-  const wLL = [], yLL = [];
-  for (let l = wLo; l <= wHi; l += 20) { const lines = marchingSquares(latSet, lonSet, wField, rows, cols, l); if (lines.length) wLL.push({ level: l, lines }); }
+  const xLL = [], yLL = [];
+  for (let l = xLo; l <= xHi; l += 20) { const lines = marchingSquares(latSet, lonSet, xField, rows, cols, l); if (lines.length) xLL.push({ level: l, lines }); }
   for (let l = yLo; l <= yHi; l += 20) { const lines = marchingSquares(latSet, lonSet, yField, rows, cols, l); if (lines.length) yLL.push({ level: l, lines }); }
 
   const group = L.layerGroup();
@@ -901,7 +904,7 @@ function buildLoranGrid(map, waterMask, regionBounds, includeWFamily) {
     }
   }
   drawLL(yLL, "rgba(140,140,140,1.0)", "rgba(140,140,140,1.0)");
-  if (includeWFamily) drawLL(wLL, "rgba(180,120,60,1.0)", "rgba(180,120,60,1.0)");
+  if (includeXFamily) drawLL(xLL, "rgba(180,120,60,1.0)", "rgba(180,120,60,1.0)");
 
   const lbl = { layer: null };
   function buildLoranLabels() {
@@ -936,7 +939,7 @@ function buildLoranGrid(map, waterMask, regionBounds, includeWFamily) {
       }
     }
     addLbls(yLL, "Y", "#444444");
-    if (includeWFamily) addLbls(wLL, "W", "#8a5a2a");
+    if (includeXFamily) addLbls(xLL, "X", "#8a5a2a");
     lg.addTo(map); lbl.layer = lg;
   }
   buildLoranLabels();
@@ -1501,7 +1504,7 @@ export default function SSTHeatmapLeaflet(props) {
   const [showIsotherm,         setShowIsotherm]         = useState(false);
   const [showAltimetryOverlay, setShowAltimetryOverlay] = useState(false);
   const [showLoranGrid, setShowLoranGrid] = useState(() => localStorage.getItem("show_loran_grid") === "true");
-  const [showLoranWFamily, setShowLoranWFamily] = useState(() => localStorage.getItem("show_loran_w_family") === "true");
+  const [showLoranXFamily, setShowLoranXFamily] = useState(() => localStorage.getItem("show_loran_x_family") === "true");
   const [loranHelpOpen, setLoranHelpOpen] = useState(false);
   const [showCanyonLabels, setShowCanyonLabels] = useState(true);
   const [isothermalTargetTemp, setIsothermalTargetTemp] = useState(76);
@@ -2936,7 +2939,7 @@ export default function SSTHeatmapLeaflet(props) {
 
   // ── Persist Loran toggle ─────────────────────────────────────────────────────
   useEffect(() => { localStorage.setItem("show_loran_grid", showLoranGrid); }, [showLoranGrid]);
-  useEffect(() => { localStorage.setItem("show_loran_w_family", showLoranWFamily); }, [showLoranWFamily]);
+  useEffect(() => { localStorage.setItem("show_loran_x_family", showLoranXFamily); }, [showLoranXFamily]);
 
   // ── Loran-C phantom grid overlay ────────────────────────────────────────────
   useEffect(() => {
@@ -2949,9 +2952,9 @@ export default function SSTHeatmapLeaflet(props) {
     // says otherwise (see the reset effect below, which handles the state
     // itself once profileLoaded confirms the user is non-pro).
     if (!showLoranGrid || !isPro) return;
-    const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds, showLoranWFamily && regionKey === "mid_atlantic");
+    const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds, showLoranXFamily && regionKey === "mid_atlantic");
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
-  }, [mapReady, showLoranGrid, showLoranWFamily, waterMaskVersion, regionKey, isPro]);
+  }, [mapReady, showLoranGrid, showLoranXFamily, waterMaskVersion, regionKey, isPro]);
 
   // ── Force off any Pro-gated layer whose state survived a downgrade ──────────
   // Loran Grid persists via localStorage across a full logout/login, so a user
@@ -2968,9 +2971,9 @@ export default function SSTHeatmapLeaflet(props) {
   useEffect(() => {
     if (!profileLoaded || isPro) return;
     setShowLoranGrid(false);
-    setShowLoranWFamily(false);
+    setShowLoranXFamily(false);
     localStorage.setItem("show_loran_grid", "false");
-    localStorage.setItem("show_loran_w_family", "false");
+    localStorage.setItem("show_loran_x_family", "false");
     setShowCurrents(false);
     setShowWindOverlay(false);
     setShowHotspots(false);
@@ -4325,7 +4328,7 @@ export default function SSTHeatmapLeaflet(props) {
             chlPlaying={chlPlaying} setChlPlaying={setChlPlaying}
             seaColorPlaying={seaColorPlaying} setSeaColorPlaying={setSeaColorPlaying}
             showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
-            showLoranWFamily={showLoranWFamily} setShowLoranWFamily={setShowLoranWFamily}
+            showLoranXFamily={showLoranXFamily} setShowLoranXFamily={setShowLoranXFamily}
             regionKey={regionKey}
             showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
@@ -5097,9 +5100,9 @@ export default function SSTHeatmapLeaflet(props) {
                           </button>
                         </MobileProGate>
                         {showLoranGrid && regionKey === "mid_atlantic" && (
-                          <button onClick={() => setShowLoranWFamily(v => !v)}
-                            className={`px-2.5 text-[10px] font-semibold rounded-lg border flex-shrink-0 transition-colors ${showLoranWFamily ? "bg-amber-50 text-amber-700 border-amber-400" : "bg-white text-slate-400 border-slate-300"}`}>
-                            W Lines
+                          <button onClick={() => setShowLoranXFamily(v => !v)}
+                            className={`px-2.5 text-[10px] font-semibold rounded-lg border flex-shrink-0 transition-colors ${showLoranXFamily ? "bg-amber-50 text-amber-700 border-amber-400" : "bg-white text-slate-400 border-slate-300"}`}>
+                            X Lines
                           </button>
                         )}
                         <button onClick={() => setLoranHelpOpen(o => !o)}
@@ -5120,7 +5123,7 @@ export default function SSTHeatmapLeaflet(props) {
                                  className="w-full object-cover" style={{maxHeight:200}}
                                  onError={e => { e.currentTarget.style.display="none"; }} />
                             <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
-                              The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: &ldquo;The bite&apos;s been hot in 100 fathoms at the 580&rdquo; (&lsquo;The Point&rsquo; off Oregon Inlet).<br/><br/>Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that&apos;s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.<br/><br/>In the mid-Atlantic, a second crossing set of lines (the &ldquo;W&rdquo; family) can be toggled on to show the full LORAN grid.
+                              The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: &ldquo;The bite&apos;s been hot in 100 fathoms at the 580&rdquo; (&lsquo;The Point&rsquo; off Oregon Inlet).<br/><br/>Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that&apos;s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.<br/><br/>In the mid-Atlantic, a second crossing set of lines (the &ldquo;X&rdquo; family) can be toggled on to show the full LORAN grid.
                             </div>
                           </div>
                         </div>,
