@@ -879,27 +879,31 @@ const DATA_LAYERS = [
 ];
 
 const FREE_FEATS = [
-  "Sea Surface Temperature, daily",
+  "Sea Surface Temperature - daily, hourly & 36h HD composite",
   "Chlorophyll & sea color layers",
+  "Altimetry (sea-level) data layer",
   "Bathymetry contours + canyon labels",
   "Wind map & NOAA marine forecast",
+  "Weather buoy live observations",
+  "Color gain & rendering controls",
   "Departure port planning",
   "Unlimited saved locations",
   "Community reports (contribute to access)",
 ];
 const PRO_FEATS = [
   "Everything in Standard",
-  "36h VIIRS composite + MUR 1km SST",
-  "Sea level anomaly (altimetry)",
   "Ocean current particle overlay",
+  "Sea level anomaly (altimetry) overlay",
+  "Wind vector overlay (layered on other maps)",
   "Isotherm (temp break) overlay",
+  "Loran-C grid, incl. phantom/X lines",
+  "Doppler radar overlay",
+  "Shaded relief bathymetry",
   "Fishing hotspot scoring map",
-  "Color gain & rendering controls",
   "Wreck & bottom structure locations",
-  "Weather buoy live observations",
   "Trip planner with fuel & ETA calc",
-  "GPS tracking overlay",
   "Route saving & sharing",
+  "GPS tracking overlay",
   "90-day community access window",
 ];
 

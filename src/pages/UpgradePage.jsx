@@ -16,24 +16,29 @@ const PRICE_MONTHLY_ID = "price_1TikyxDWsT9O1EjovwRTZL7S";
 const PRICE_ANNUAL_ID  = "price_1Til1NDWsT9O1Ejonzrd7hIJ";
 
 const PRO_FEATURES = [
-  "Sea surface temperature - daily, hourly & 36h composite",
-  "Chlorophyll concentration",
-  "Sea-level anomaly (altimetry) + contours",
+  "Everything in Standard",
   "Ocean current particle overlay",
-  "Wind speed/direction overlay",
-  "Fishing hotspot scoring",
-  "Bathymetry & bottom features",
+  "Sea-level anomaly (altimetry) overlay + contours",
+  "Wind vector overlay (layered on other maps)",
   "Isotherm (temp break) overlay",
-  "Color gain & rendering controls",
-  "Weather buoys - live observations",
-  "Trip planning & GPS tracking",
-  "Community fishing reports",
+  "Loran-C grid, incl. phantom/X lines",
+  "Doppler radar overlay",
+  "Shaded relief bathymetry",
+  "Fishing hotspot scoring",
+  "Wreck & bottom structure locations",
+  "Trip planning, route saving & GPS tracking",
+  "90-day community access window",
 ];
 
 const FREE_FEATURES = [
-  "Sea surface temperature - daily",
+  "Sea surface temperature - daily, hourly & 36h composite",
+  "Chlorophyll & sea color layers",
+  "Altimetry data layer",
+  "Bathymetry contours & canyon labels",
+  "Weather buoys - live observations",
+  "Color gain & rendering controls",
   "Departure location & marine forecast",
-  "Basic map navigation",
+  "Community fishing reports (contribute to access)",
 ];
 
 const inputStyle = {
