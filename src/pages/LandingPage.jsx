@@ -901,6 +901,7 @@ const PRO_FEATS = [
   "Shaded relief bathymetry",
   "Fishing hotspot scoring map",
   "Wreck & bottom structure locations",
+  "Bulk waypoint import (GPX/CSV/KML)",
   "Trip planner with fuel & ETA calc",
   "Route saving & sharing",
   "GPS tracking overlay",

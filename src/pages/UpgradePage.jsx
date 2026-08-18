@@ -26,6 +26,7 @@ const PRO_FEATURES = [
   "Shaded relief bathymetry",
   "Fishing hotspot scoring",
   "Wreck & bottom structure locations",
+  "Bulk waypoint import (GPX/CSV/KML)",
   "Trip planning, route saving & GPS tracking",
   "90-day community access window",
 ];

@@ -28,6 +28,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { COORDINATE_FORMAT_OPTIONS, DEFAULT_COORDINATE_FORMAT } from "@/lib/coordinates";
 import { useUserBottomFeatures } from "@/hooks/useUserBottomFeatures";
 import { parseFileByName, CSV_TEMPLATE } from "@/lib/userBottomFeatureImport";
+import ProGate from "@/components/ProGate";
 
 // iOS Safari doesn't expose the Push API in a regular browser tab at all --
 // only inside a PWA that's been added to the Home Screen (iOS 16.4+). When
@@ -104,7 +105,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
   // gpsActive/boatPosition live in AppContext (not local map state) so this
   // modal -- a sibling of the map, not nested under it -- can read live
   // position for the "use my live GPS" notification preference.
-  const { selectedLocation, gpsActive, boatPosition, startGps } = useAppContext();
+  const { selectedLocation, gpsActive, boatPosition, startGps, isPro } = useAppContext();
   const push = usePushNotifications({ userId, selectedLocation, gpsActive, boatPosition, startGps });
   // Local text buffer for the radius input -- lets the user freely clear/
   // retype without the controlled value immediately snapping to a clamped
@@ -694,6 +695,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
               Upload your own bottom-feature list - a Navionics data card export, chartplotter GPX, or a CSV/KML file. Visible only to you on the map, with a "Mine only" filter next to Bottom Features.
             </p>
 
+            <ProGate isPro={isPro} label="Bulk waypoint import is available on the Pro plan.">
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-600">
                 {ubf.rows.length > 0 ? `${ubf.rows.length} spot${ubf.rows.length === 1 ? "" : "s"} imported` : "No spots imported yet"}
@@ -813,6 +815,7 @@ export default function UserSettingsModal({ userId, onClose, onSaved }) {
                 Clear all my imported spots
               </button>
             )}
+            </ProGate>
           </Section>
 
         </div>
