@@ -345,18 +345,62 @@ const FALLBACK_GAIN_DEFAULTS = {
   seacolor:    { min: 0.01, max: 0.50 },
 };
 
+// ── Live gain-defaults override (fetched at runtime, admin-editable) ──────
+// Optional live JSON published to jlintvet/SSTv2's DailySST/gain_defaults.json
+// via admin/gain_defaults_admin.html lets Jon retune these numbers without a
+// frontend deploy. It's fetched once on app start (loadLiveGainDefaults(),
+// called from SSTLive.jsx) and, when present and well-formed, takes priority
+// over the hardcoded seasonalGainDefaults below -- which remain the safety
+// net if the live file is ever unreachable, slow, or malformed. A user's own
+// saved/cached gain override (src/lib/rangeStorage.js) still always wins
+// over both tiers; this only changes what a new user or fresh page load sees.
+const GAIN_DEFAULTS_URL =
+  "https://raw.githubusercontent.com/jlintvet/SSTv2/main/DailySST/gain_defaults.json";
+let liveGainDefaults = null; // null until a successful fetch+validate; shape: { [regionKey]: { [layer]: { [season]: {min,max} } } }
+
+function isValidRange(v) {
+  return v && typeof v.min === "number" && typeof v.max === "number" && v.min < v.max;
+}
+
+/**
+ * Fetches the live gain-defaults JSON and caches it in memory. Never throws:
+ * any network/parse/shape failure just leaves the existing cache (or null)
+ * in place, so getSeasonalGainDefault() silently falls through to the
+ * static seasonalGainDefaults / FALLBACK_GAIN_DEFAULTS below. Safe to call
+ * more than once (re-fetches each call). Returns true if the cache was
+ * updated with valid data, false otherwise -- callers can use this to decide
+ * whether a re-render is worth triggering.
+ */
+export async function loadLiveGainDefaults() {
+  try {
+    const res = await fetch(GAIN_DEFAULTS_URL, { cache: "no-store" });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data || typeof data.regions !== "object") return false;
+    liveGainDefaults = data.regions;
+    return true;
+  } catch (err) {
+    console.warn("loadLiveGainDefaults: fetch failed, using static gain defaults", err);
+    return false;
+  }
+}
+
 /**
  * Returns the region+season color-gain default for a given layer
  * ("sst" | "chlorophyll" | "seacolor"). Always {min,max} - never null.
  * This is the DEFAULT only -- a user's saved/cached gain override (see
  * src/lib/rangeStorage.js and SSTRangeControl.jsx) always takes priority
  * over this when one exists; it's used for new users and any page load
- * with no saved or cached override.
+ * with no saved or cached override. Checks, in order: the live admin-edited
+ * JSON (see above), then this file's hardcoded seasonalGainDefaults, then
+ * FALLBACK_GAIN_DEFAULTS.
  */
 export function getSeasonalGainDefault(regionKey, layer) {
   const cfg      = getRegionConfig(regionKey);
   const season   = getSeason(new Date().getMonth() + 1);
   const fallback = FALLBACK_GAIN_DEFAULTS[layer] ?? FALLBACK_GAIN_DEFAULTS.sst;
+  const live = liveGainDefaults?.[regionKey]?.[layer]?.[season];
+  if (isValidRange(live)) return live;
   return cfg.seasonalGainDefaults?.[layer]?.[season] ?? fallback;
 }
 

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gain Defaults Admin — SST</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:system-ui,sans-serif;font-size:13px;background:#0f172a;color:#e2e8f0}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+
+/* Auth */
+#authScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0f172a;z-index:9999}
+.auth-box{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:32px;width:340px}
+.auth-box h2{font-size:16px;font-weight:700;margin-bottom:6px}
+.auth-box p{font-size:12px;color:#64748b;margin-bottom:20px}
+.auth-err{color:#f87171;font-size:11px;margin-top:8px;min-height:16px}
+
+/* Shell */
+#app{display:none;flex-direction:column;height:100vh}
+#topbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0;flex-wrap:wrap}
+#topbar h1{font-size:14px;font-weight:700;color:#f8fafc;margin-right:4px;white-space:nowrap}
+.pill{background:#334155;border-radius:10px;padding:3px 10px;font-size:11px;color:#94a3b8;white-space:nowrap}
+#tokenWrap{margin-left:auto;display:flex;align-items:center;gap:6px}
+#tokenInput{background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;width:200px}
+#tokenInput::placeholder{color:#64748b}
+.btn{border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:all .1s;white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-blue{background:#2563eb;color:white}.btn-blue:hover:not(:disabled){background:#1d4ed8}
+.btn-slate{background:#334155;color:#e2e8f0}.btn-slate:hover{background:#475569}
+
+/* Region tabs */
+#regionBar{display:flex;gap:4px;padding:10px 14px 0;background:#0f172a;border-bottom:1px solid #1e293b;flex-shrink:0;flex-wrap:wrap}
+.region-btn{background:transparent;border:none;border-bottom:2px solid transparent;color:#94a3b8;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer}
+.region-btn:hover{color:#e2e8f0}
+.region-btn.active{color:#e2e8f0;border-bottom-color:#2563eb}
+
+/* Body */
+#body{flex:1;overflow-y:auto;padding:18px}
+#statusLine{font-size:12px;color:#64748b;margin-bottom:14px;min-height:16px}
+#statusLine.err{color:#f87171}
+.layer-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.layer-title{font-size:12px;font-weight:700;color:#f8fafc;margin-bottom:2px}
+.layer-sub{font-size:11px;color:#64748b;margin-bottom:12px}
+.season-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.season-col{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 10px}
+.season-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.mm-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.mm-row:last-child{margin-bottom:0}
+.mm-row label{font-size:10px;color:#64748b;width:28px;flex-shrink:0}
+.mm-row input{width:100%;background:#334155;border:1px solid #475569;border-radius:5px;padding:4px 6px;color:#e2e8f0;font-size:12px}
+.mm-row input:focus{outline:none;border-color:#3b82f6}
+#actionsRow{display:flex;align-items:center;gap:10px;margin-top:6px}
+#genLine{font-size:11px;color:#475569}
+
+/* Modal */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center}
+#modal.show{display:flex}
+#modalBox{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px;width:420px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:14px}
+.prog-line{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;line-height:1.4}
+.prog-icon{width:18px;text-align:center;flex-shrink:0;margin-top:1px}
+.prog-text{flex:1;color:#94a3b8}
+.prog-text.ok{color:#86efac}
+.prog-text.err{color:#fca5a5}
+.prog-text.cur{color:#e2e8f0}
+#modalClose{margin-top:14px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;display:none}
+#modalClose:hover{background:#475569}
+</style>
+</head>
+<body>
+
+<!-- Auth -->
+<div id="authScreen">
+  <div class="auth-box">
+    <h2>Gain Defaults Admin</h2>
+    <p>Sign in with your SST account to continue.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div><div style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Email</div><input id="authEmail" style="width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px" type="email" placeholder="you@email.com" autocomplete="email"/></div>
+      <div><div style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Password</div><input id="authPass" style="width:100%;background:#334155;border:1px solid #475569;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px" type="password" autocomplete="current-password"/></div>
+      <button id="authBtn" class="btn btn-blue" onclick="doLogin()" style="margin-top:4px">Sign In</button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div id="topbar">
+    <h1>Gain Defaults Admin</h1>
+    <div class="pill">Per-region, per-season SST / Chlorophyll / Sea Color color-gain defaults</div>
+    <div id="tokenWrap">
+      <input id="tokenInput" type="password" placeholder="GitHub token (write access to jlintvet/SSTv2)" autocomplete="off"/>
+      <button id="resetBtn" class="btn btn-slate" onclick="resetRegionToCodeDefaults()">Reset region to code defaults</button>
+      <button id="commitBtn" class="btn btn-blue" onclick="commit()">Save &amp; Commit to GitHub</button>
+    </div>
+  </div>
+  <div id="regionBar"></div>
+  <div id="body">
+    <div id="statusLine">Loading current values...</div>
+    <div id="genLine"></div>
+    <div id="cards"></div>
+    <div style="font-size:11px;color:#475569;margin-top:6px;line-height:1.5">
+      These are DEFAULTS only — shown to new users and any page load with no saved/cached Gain setting.
+      A user's own saved or cached Gain override on riploc.com always takes priority over whatever is set here.
+      Changes here take effect immediately for new sessions once committed — no frontend deploy needed.
+    </div>
+  </div>
+</div>
+
+<!-- Commit progress modal -->
+<div id="modal">
+  <div id="modalBox">
+    <div class="modal-title" id="modalTitle">Committing...</div>
+    <div id="modalLines"></div>
+    <button id="modalClose" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────
+const SB_URL   = 'https://upxerlzdgdbjkbjpuktn.supabase.co';
+const SB_ANON  = 'sb_publishable_h7ckPab1qOvXWNB70lgg1A_GJQo6SSc';
+const ADMIN_EMAILS = ['jlintvet@gmail.com', 'jlintvet@butterpayments.com'];
+
+const REPO    = 'jlintvet/SSTv2';           // data repo -- NOT SSTProductionRepo
+const PATH    = 'DailySST/gain_defaults.json';
+const RAW_URL = 'https://raw.githubusercontent.com/' + REPO + '/main/' + PATH;
+const API     = 'https://api.github.com';
+
+const REGIONS = ['mid_atlantic', 'ga_sc', 'ne_fl', 's_fl', 'va_ri'];
+const REGION_LABELS = {
+  mid_atlantic: 'Mid-Atlantic',
+  ga_sc:        'Georgia & South Carolina',
+  ne_fl:        'Northeast Florida',
+  s_fl:         'Southern Florida',
+  va_ri:        'Virginia to Rhode Island',
+};
+const LAYERS = [
+  { key: 'sst',         label: 'SST',                    unit: '°F',  step: 1 },
+  { key: 'chlorophyll', label: 'Chlorophyll',             unit: 'mg/m³', step: 0.01 },
+  { key: 'seacolor',    label: 'Sea Color / Kd490',       unit: 'm⁻¹', step: 0.001 },
+];
+const SEASONS = ['summer', 'fall', 'winter', 'spring'];
+const SEASON_LABELS = { summer: 'Summer (Jun-Sep)', fall: 'Fall (Oct-Nov)', winter: 'Winter (Dec-Feb)', spring: 'Spring (Mar-May)' };
+
+// Reference-only copy of what shipped in src/config/regionConfig.js's
+// seasonalGainDefaults on 2026-08-19 (commit 8accd9c) -- used solely by the
+// "Reset region to code defaults" button. gain_defaults.json (fetched live
+// above) is the ACTUAL source of truth for the live site once this file has
+// been committed at least once; this constant is never written back
+// automatically, only used to prefill the form on request.
+const CODE_DEFAULTS = {
+  mid_atlantic: {
+    sst:         { summer: {min:55,max:85}, fall: {min:52,max:76}, winter: {min:44,max:65}, spring: {min:50,max:74} },
+    chlorophyll: { summer: {min:0.05,max:0.7}, fall: {min:0.05,max:0.7}, winter: {min:0.05,max:0.7}, spring: {min:0.05,max:0.7} },
+    seacolor:    { summer: {min:0.02,max:0.40}, fall: {min:0.02,max:0.40}, winter: {min:0.02,max:0.40}, spring: {min:0.02,max:0.40} },
+  },
+  ga_sc: {
+    sst:         { summer: {min:64,max:88}, fall: {min:60,max:82}, winter: {min:52,max:74}, spring: {min:58,max:80} },
+    chlorophyll: { summer: {min:0.05,max:1.8}, fall: {min:0.05,max:1.8}, winter: {min:0.05,max:1.8}, spring: {min:0.05,max:1.8} },
+    seacolor:    { summer: {min:0.02,max:0.20}, fall: {min:0.02,max:0.20}, winter: {min:0.02,max:0.20}, spring: {min:0.02,max:0.20} },
+  },
+  ne_fl: {
+    sst:         { summer: {min:72,max:90}, fall: {min:68,max:86}, winter: {min:64,max:82}, spring: {min:68,max:84} },
+    chlorophyll: { summer: {min:0.05,max:0.7}, fall: {min:0.05,max:0.7}, winter: {min:0.05,max:0.7}, spring: {min:0.05,max:0.7} },
+    seacolor:    { summer: {min:0.02,max:0.10}, fall: {min:0.02,max:0.10}, winter: {min:0.02,max:0.10}, spring: {min:0.02,max:0.10} },
+  },
+  s_fl: {
+    sst:         { summer: {min:76,max:90}, fall: {min:72,max:87}, winter: {min:66,max:84}, spring: {min:72,max:86} },
+    chlorophyll: { summer: {min:0.05,max:3.0}, fall: {min:0.05,max:3.0}, winter: {min:0.05,max:3.0}, spring: {min:0.05,max:3.0} },
+    seacolor:    { summer: {min:0.02,max:0.20}, fall: {min:0.02,max:0.20}, winter: {min:0.02,max:0.20}, spring: {min:0.02,max:0.20} },
+  },
+  va_ri: {
+    sst:         { summer: {min:55,max:78}, fall: {min:46,max:68}, winter: {min:34,max:50}, spring: {min:40,max:62} },
+    chlorophyll: { summer: {min:0.10,max:1.6}, fall: {min:0.10,max:1.6}, winter: {min:0.10,max:1.6}, spring: {min:0.10,max:1.6} },
+    seacolor:    { summer: {min:0.03,max:0.40}, fall: {min:0.03,max:0.40}, winter: {min:0.03,max:0.40}, spring: {min:0.03,max:0.40} },
+  },
+};
+
+let liveDoc = null;        // full parsed gain_defaults.json ({ _comment, generated, regions })
+let currentRegion = 'mid_atlantic';
+
+function $(id) { return document.getElementById(id); }
+
+// ── Supabase / Auth ─────────────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(SB_URL, SB_ANON);
+
+async function doLogin() {
+  const email = $('authEmail').value.trim();
+  const pass  = $('authPass').value;
+  const btn   = $('authBtn');
+  const err   = $('authErr');
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error || !data.user) {
+    err.textContent = error?.message || 'Sign-in failed.';
+    btn.disabled = false; btn.textContent = 'Sign In'; return;
+  }
+  if (!ADMIN_EMAILS.includes(data.user.email)) {
+    await sb.auth.signOut();
+    err.textContent = 'Not authorized as admin.';
+    btn.disabled = false; btn.textContent = 'Sign In'; return;
+  }
+  showApp();
+}
+async function checkExistingSession() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (user && ADMIN_EMAILS.includes(user.email)) showApp();
+}
+function showApp() {
+  $('authScreen').style.display = 'none';
+  $('app').style.display = 'flex';
+  buildRegionBar();
+  buildCards();
+  loadLive();
+}
+$('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ── Region bar ────────────────────────────────────────────────────────────
+function buildRegionBar() {
+  const bar = $('regionBar');
+  bar.innerHTML = '';
+  REGIONS.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'region-btn' + (r === currentRegion ? ' active' : '');
+    btn.textContent = REGION_LABELS[r];
+    btn.dataset.region = r;
+    btn.onclick = () => selectRegion(r);
+    bar.appendChild(btn);
+  });
+}
+function selectRegion(r) {
+  currentRegion = r;
+  document.querySelectorAll('.region-btn').forEach(b => b.classList.toggle('active', b.dataset.region === r));
+  fillFormFromRegionData(liveDoc?.regions?.[r] || CODE_DEFAULTS[r]);
+}
+
+// ── Cards (built once; values re-filled per region) ─────────────────────────
+function buildCards() {
+  const wrap = $('cards');
+  wrap.innerHTML = LAYERS.map(L => `
+    <div class="layer-card">
+      <div class="layer-title">${L.label}</div>
+      <div class="layer-sub">${L.unit}</div>
+      <div class="season-grid">
+        ${SEASONS.map(s => `
+          <div class="season-col">
+            <div class="season-label">${SEASON_LABELS[s]}</div>
+            <div class="mm-row"><label>Min</label><input type="number" step="${L.step}" id="in_${L.key}_${s}_min"/></div>
+            <div class="mm-row"><label>Max</label><input type="number" step="${L.step}" id="in_${L.key}_${s}_max"/></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function fillFormFromRegionData(data) {
+  LAYERS.forEach(L => SEASONS.forEach(s => {
+    const v = data?.[L.key]?.[s];
+    $(`in_${L.key}_${s}_min`).value = v?.min ?? '';
+    $(`in_${L.key}_${s}_max`).value = v?.max ?? '';
+  }));
+}
+
+function resetRegionToCodeDefaults() {
+  if (!confirm(`Reset the ${REGION_LABELS[currentRegion]} form to the original code defaults (from regionConfig.js)? This does not commit anything yet -- you still need to click Save & Commit.`)) return;
+  fillFormFromRegionData(CODE_DEFAULTS[currentRegion]);
+}
+
+function collectFormRegionData() {
+  const out = {};
+  LAYERS.forEach(L => {
+    out[L.key] = {};
+    SEASONS.forEach(s => {
+      out[L.key][s] = {
+        min: parseFloat($(`in_${L.key}_${s}_min`).value),
+        max: parseFloat($(`in_${L.key}_${s}_max`).value),
+      };
+    });
+  });
+  return out;
+}
+
+function validateFormRegionData(data) {
+  for (const L of LAYERS) {
+    for (const s of SEASONS) {
+      const v = data[L.key][s];
+      if (!Number.isFinite(v.min) || !Number.isFinite(v.max)) {
+        return `${L.label} / ${SEASON_LABELS[s]}: min and max must both be numbers.`;
+      }
+      if (v.min >= v.max) {
+        return `${L.label} / ${SEASON_LABELS[s]}: min (${v.min}) must be less than max (${v.max}).`;
+      }
+    }
+  }
+  return null;
+}
+
+// ── Load current live values (public raw fetch -- no token needed to view) ──
+async function loadLive() {
+  $('statusLine').className = '';
+  $('statusLine').textContent = 'Loading current values...';
+  try {
+    const r = await fetch(RAW_URL + '?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    liveDoc = await r.json();
+    $('statusLine').textContent = '';
+    $('genLine').textContent = liveDoc.generated ? ('Last updated: ' + liveDoc.generated) : '';
+  } catch (e) {
+    $('statusLine').className = 'err';
+    $('statusLine').textContent = 'Could not load gain_defaults.json (' + e.message + ') -- showing code defaults instead. Committing will still work once a token is entered.';
+    liveDoc = { regions: JSON.parse(JSON.stringify(CODE_DEFAULTS)) };
+  }
+  fillFormFromRegionData(liveDoc.regions?.[currentRegion] || CODE_DEFAULTS[currentRegion]);
+}
+
+// ── Commit ────────────────────────────────────────────────────────────────
+const ghHeaders = tok => ({ 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' });
+const toB64 = s => btoa(unescape(encodeURIComponent(s)));
+
+async function commit() {
+  const tok = $('tokenInput').value.trim();
+  if (!tok) { alert('Paste a GitHub token with write access to jlintvet/SSTv2 into the field first.'); return; }
+  const regionData = collectFormRegionData();
+  const err = validateFormRegionData(regionData);
+  if (err) { alert('Cannot save -- ' + err); return; }
+
+  openModal('Committing gain_defaults.json...');
+  try {
+    logP('...', 'Fetching current file...');
+    const r = await fetch(`${API}/repos/${REPO}/contents/${PATH}`, { headers: ghHeaders(tok) });
+    if (!r.ok) throw new Error('GET ' + r.status);
+    const existing = await r.json();
+    const full = JSON.parse(decodeURIComponent(escape(atob(existing.content.replace(/\n/g, '')))));
+    updP('ok', 'Fetched current file (sha ' + existing.sha.slice(0, 7) + ')', 'ok');
+
+    logP('...', `Applying ${REGION_LABELS[currentRegion]} changes...`);
+    full.regions = full.regions || {};
+    full.regions[currentRegion] = regionData;
+    full.generated = new Date().toISOString();
+    updP('ok', 'Applied', 'ok');
+
+    logP('...', 'Pushing to GitHub...');
+    const body = {
+      message: `admin: gain defaults update (${currentRegion})`,
+      content: toB64(JSON.stringify(full, null, 2)),
+      sha: existing.sha,
+      branch: 'main',
+    };
+    const put = await fetch(`${API}/repos/${REPO}/contents/${PATH}`, { method: 'PUT', headers: ghHeaders(tok), body: JSON.stringify(body) });
+    if (!put.ok) throw new Error('PUT ' + put.status + ' ' + await put.text());
+    updP('ok', 'Committed successfully', 'ok');
+    logP('done', `${REGION_LABELS[currentRegion]} gain defaults updated. New page loads on riploc.com pick this up immediately (a user's own saved/cached override is unaffected).`, 'ok');
+    $('modalTitle').textContent = 'Commit successful';
+    liveDoc = full;
+    $('genLine').textContent = 'Last updated: ' + full.generated;
+  } catch (e) {
+    logP('x', 'Error: ' + e.message, 'err');
+    $('modalTitle').textContent = 'Commit failed';
+  }
+  $('modalClose').style.display = 'inline-block';
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────
+let progLines = [];
+function openModal(title) {
+  progLines = [];
+  $('modalTitle').textContent = title;
+  $('modalLines').innerHTML = '';
+  $('modalClose').style.display = 'none';
+  $('modal').classList.add('show');
+}
+function closeModal() { $('modal').classList.remove('show'); }
+function logP(icon, text, cls = 'cur') {
+  progLines.push({ icon, text, cls });
+  $('modalLines').innerHTML = progLines.map(l => `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`).join('');
+}
+function updP(icon, text, cls = 'ok') {
+  if (!progLines.length) return;
+  Object.assign(progLines[progLines.length - 1], { icon, text, cls });
+  $('modalLines').innerHTML = progLines.map(l => `<div class="prog-line"><div class="prog-icon">${l.icon}</div><div class="prog-text ${l.cls}">${l.text}</div></div>`).join('');
+}
+
+// ── Boot: hub embedding (single sign-on + token relay) or standalone ────────
+if (window.parent !== window) {
+  window.addEventListener('message', (ev) => {
+    if (!ev.data || ev.data.type !== 'SST_ADMIN_SESSION') return;
+    if (typeof ev.data.ghToken === 'string') {
+      const ti = $('tokenInput');
+      if (ti) ti.value = ev.data.ghToken;
+    }
+    if (ev.data.session) {
+      sb.auth.setSession(ev.data.session).then(({ data }) => {
+        if (data.user && ADMIN_EMAILS.includes(data.user.email)) showApp();
+      });
+    }
+  });
+  window.parent.postMessage({ type: 'SST_ADMIN_READY' }, '*');
+} else {
+  checkExistingSession();
+}
+</script>
+</body>
+</html>

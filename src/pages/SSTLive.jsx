@@ -10,7 +10,7 @@ import SSTLegend from "@/components/SSTLegend";
 import ShareLocationDialog from "@/components/ShareLocationDialog";
 import { WindLegend } from "@/components/TimeScrubber";
 import { useRegionAccess } from "@/hooks/useRegionAccess";
-import { getSeasonalSstDefault, DEFAULT_REGION } from "@/config/regionConfig";
+import { getSeasonalSstDefault, DEFAULT_REGION, loadLiveGainDefaults } from "@/config/regionConfig";
 import TripPlanner from "@/components/TripPlanner";
 import TripSummaryModal from "@/components/TripSummaryModal";
 import CommunityReportForm from "@/components/CommunityReportForm";
@@ -369,6 +369,11 @@ function SSTPageBody() {
   // Chlorophyll/Sea Color gain override with nonsense SST numbers whenever
   // they changed region.
   const [sstRange, setSstRange] = useState(() => getSeasonalSstDefault(DEFAULT_REGION));
+  // Bumped once loadLiveGainDefaults() resolves (see mount effect below) so
+  // MapControlPanel/SSTHeatmapLeaflet -- which call getSeasonalGainDefault()
+  // inline on every render -- re-evaluate with any admin-edited live values
+  // merged in. Purely a re-render trigger; its value is never read.
+  const [gainDefaultsVersion, setGainDefaultsVersion] = useState(0);
 
   const [murState,      setMurState]      = useState({ data: null, dateIndex: 0 });
   const [viirsState,    setViirsState]    = useState({ data: null, dateIndex: 0, hour: null });
@@ -484,6 +489,21 @@ function SSTPageBody() {
     function handleStartTour() { setShowOnboarding(true); }
     document.addEventListener("riploc:start-tour", handleStartTour);
     return () => document.removeEventListener("riploc:start-tour", handleStartTour);
+  }, []);
+
+  // Fetch the admin-editable live gain-defaults JSON once on mount (see
+  // regionConfig.js). Never blocks the map -- getSeasonalGainDefault()
+  // already returns the hardcoded static defaults until/unless this
+  // resolves. Bumping gainDefaultsVersion on success just forces one
+  // re-render so components reading getSeasonalGainDefault() pick up any
+  // admin-edited values already merged into regionConfig.js's cache; a
+  // user's own saved/cached gain override is untouched either way.
+  useEffect(() => {
+    let cancelled = false;
+    loadLiveGainDefaults().then((changed) => {
+      if (changed && !cancelled) setGainDefaultsVersion((v) => v + 1);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   // Check has_seen_onboarding after map loads and userId is available
