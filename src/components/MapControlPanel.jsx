@@ -330,6 +330,7 @@ export default function MapControlPanel({
   showRadarOverlay, setShowRadarOverlay,
   showLoranGrid, setShowLoranGrid,
   showLoranXFamily, setShowLoranXFamily,
+  loranSecondaryAvailable, loranSecondaryLabel,
   regionKey,
   // tier
   isPro,
@@ -728,12 +729,12 @@ export default function MapControlPanel({
                 </ToolBtn>
               </ProGate>
             </div>
-            {showLoranGrid && regionKey === "mid_atlantic" && (
+            {showLoranGrid && loranSecondaryAvailable && (
               <button onClick={() => setShowLoranXFamily(v => !v)}
                 className={`px-2 text-[10px] font-semibold rounded-lg border flex-shrink-0 transition-colors ${
                   showLoranXFamily ? "bg-amber-50 text-amber-700 border-amber-400" : "bg-white text-slate-400 border-slate-300 hover:bg-slate-50"
                 }`}>
-                X Lines
+                {loranSecondaryLabel} Lines
               </button>
             )}
             {hbtn("loran")}
@@ -983,7 +984,7 @@ export default function MapControlPanel({
                  onError={e => { e.currentTarget.style.display = "none"; }} />
             <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
               {helpOpen === "loran"
-                ? <>{`The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: "The bite's been hot in 100 fathoms at the 580" ('The Point' off Oregon Inlet).`}<br/><br/>{`Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that's roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.`}<br/><br/>{`In the mid-Atlantic, a second crossing set of lines (the "X" family) can be toggled on to show the full LORAN grid.`}</>
+                ? <>{`The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: "The bite's been hot in 100 fathoms at the 580" ('The Point' off Oregon Inlet).`}<br/><br/>{`Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that's roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.`}{loranSecondaryAvailable && <><br/><br/>{`In this region, a second crossing set of lines (the "${loranSecondaryLabel}" family) can be toggled on to show the full LORAN grid.`}</>}</>
                 : HELP_CONFIG[helpOpen].text}
             </div>
           </div>

@@ -836,40 +836,69 @@ const CANYON_LABELS = [
   { name: "Veatch Canyon",     lat: 40.0401, lon: -69.6617 },
 ];
 
-// ── Loran-C overlay — two crossing families, both off GRI 9960 (Northeast US chain) ──
-// Master: Seneca, NY. X family: Nantucket, MA secondary (runs roughly N-S, tracks
-// east-west/depth range). Y family: Carolina Beach, NC secondary (runs roughly E-W,
-// tracks up/down the beach). Station coordinates verified against the USCG Loran-C
-// User Handbook and loran-history.info station records. `ed` per family is a
-// calibration constant, back-solved so the computed TD matches a known real reading
-// at "The Point" (35°33.00'N, 74°50.50'W): 26795.0 X / 40590.0 Y, per Jon 2026-08-18.
-// This replaces an earlier version of this overlay that mixed stations from two
-// different chains (GRI 9960 and GRI 7980) with master/secondary roles swapped,
-// which produced bogus TD numbers and offered a nonexistent "W" line instead of X.
-const LORAN_MASTER = { lat: 42.7084, lon: -76.8223 }; // Seneca, NY
-const LORAN_X_SEC   = { lat: 41.2533, lon: -69.9775, ed: 26967.02 }; // Nantucket, MA
-const LORAN_Y_SEC   = { lat: 34.0628, lon: -77.9128, ed: 42220.03 }; // Carolina Beach, NC
+// ── Loran-C overlay — real historical chains, one per region group ──────────
+// mid_atlantic/va_ri: GRI 9960 (Northeast US chain). Master: Seneca, NY. "primary"
+// family (always on, labeled "Y" on the map): Carolina Beach, NC secondary. "secondary"
+// family (togglable, labeled "X"): Nantucket, MA secondary. Calibrated 2026-08-18
+// against a known real reading at "The Point" (35°33.00'N, 74°50.50'W): 26795.0 X /
+// 40590.0 Y, per Jon. This replaced an earlier version that mixed stations from two
+// different chains (GRI 9960 and GRI 7980) with master/secondary roles swapped.
+//
+// ga_sc/ne_fl/s_fl: GRI 7980 (Southeast US chain). Master: Malone, FL. "primary"
+// family (always on, labeled "Z"): Carolina Beach, NC secondary — the same physical
+// station as the GRI 9960 pairing above, reused here under a different master; real
+// Loran-C stations commonly served double duty across chains. "secondary" family
+// (togglable, labeled "Y" — its real USCG designation, "Yankee"): Jupiter, FL
+// secondary. Calibrated 2026-08-19 against 3 known real readings (Loran Tower Reef
+// off Hobe Sound FL, Alligator Reef Light, Sombrero Key Light) back-solved via a
+// cross-point consistency check — see project memory / docs for the derivation.
+// Covers s_fl's Atlantic ports (Miami down through the Keys); s_fl's Gulf-side ports
+// (Naples, Marco Island, Ft Myers Beach) reuse this same pairing for now, but the real
+// chain used a different secondary there (Grangeville, LA) that has no calibrated
+// reading yet — Gulf-side numbers are a known lower-confidence gap until that's sourced.
+//
+// Station coordinates verified against the USCG Loran-C User Handbook, Wikipedia's
+// LORAN-C transmitter pages, and loran-history.info station records.
+const LORAN_CHAINS = {
+  mid_atlantic: {
+    master:        { lat: 42.7084, lon: -76.8223 }, // Seneca, NY
+    primary:       { lat: 34.0628, lon: -77.9128, ed: 42220.03 }, // Carolina Beach, NC
+    primaryLabel:  "Y",
+    secondary:     { lat: 41.2533, lon: -69.9775, ed: 26967.02 }, // Nantucket, MA
+    secondaryLabel:"X",
+  },
+  ga_sc: {
+    master:        { lat: 30.9933, lon: -85.1783 }, // Malone, FL
+    primary:       { lat: 34.0628, lon: -77.9128, ed: 61538.1 },  // Carolina Beach, NC
+    primaryLabel:  "Z",
+    secondary:     { lat: 27.0265, lon: -80.1088, ed: 16105.0 },  // Jupiter, FL ("Yankee")
+    secondaryLabel:"Y",
+  },
+};
+LORAN_CHAINS.va_ri = LORAN_CHAINS.mid_atlantic;
+LORAN_CHAINS.ne_fl = LORAN_CHAINS.ga_sc;
+LORAN_CHAINS.s_fl  = LORAN_CHAINS.ga_sc;
 function loranHaversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371.009, r = Math.PI / 180;
   const dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-function computeLoranTD_X(lat, lon) {
-  return LORAN_X_SEC.ed + (loranHaversineKm(lat, lon, LORAN_X_SEC.lat, LORAN_X_SEC.lon)
-    - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
+function computeLoranTD_X(lat, lon, chain) {
+  return chain.secondary.ed + (loranHaversineKm(lat, lon, chain.secondary.lat, chain.secondary.lon)
+    - loranHaversineKm(lat, lon, chain.master.lat, chain.master.lon)) / 0.299709;
 }
-function computeLoranTD_Y(lat, lon) {
-  return LORAN_Y_SEC.ed + (loranHaversineKm(lat, lon, LORAN_Y_SEC.lat, LORAN_Y_SEC.lon)
-    - loranHaversineKm(lat, lon, LORAN_MASTER.lat, LORAN_MASTER.lon)) / 0.299709;
+function computeLoranTD_Y(lat, lon, chain) {
+  return chain.primary.ed + (loranHaversineKm(lat, lon, chain.primary.lat, chain.primary.lon)
+    - loranHaversineKm(lat, lon, chain.master.lat, chain.master.lon)) / 0.299709;
 }
-function buildLoranGrid(map, waterMask, regionBounds, includeXFamily) {
+function buildLoranGrid(map, waterMask, regionBounds, chain, includeXFamily) {
   const LSTEP = 0.1;
   // Clip to region + padding instead of full US coast — the full extent
   // (~49k points x ~1000 isoline levels) freezes the main thread.
   const PAD = 1.5;
   const LAT_MAX = regionBounds ? Math.min(42, regionBounds.north + PAD) : 42;
-  const LAT_MIN = regionBounds ? Math.max(24, regionBounds.south - PAD) : 24;
+  const LAT_MIN = regionBounds ? Math.max(20, regionBounds.south - PAD) : 20;
   const LON_MIN = regionBounds ? Math.max(-87, regionBounds.west  - PAD) : -87;
   const LON_MAX = regionBounds ? Math.min(-60, regionBounds.east  + PAD) : -60;
   const latSet = [], lonSet = [];
@@ -879,8 +908,8 @@ function buildLoranGrid(map, waterMask, regionBounds, includeXFamily) {
   const xGrid = {}, yGrid = {};
   for (const la of latSet) for (const lo of lonSet) {
     const k = `${la}_${lo}`;
-    xGrid[k] = computeLoranTD_X(la, lo);
-    yGrid[k] = computeLoranTD_Y(la, lo);
+    xGrid[k] = computeLoranTD_X(la, lo, chain);
+    yGrid[k] = computeLoranTD_Y(la, lo, chain);
   }
 
   // Apply ocean mask — blank out land cells so contours stop at coastlines
@@ -952,8 +981,8 @@ function buildLoranGrid(map, waterMask, regionBounds, includeXFamily) {
         }
       }
     }
-    addLbls(yLL, "Y", "#444444");
-    if (includeXFamily) addLbls(xLL, "X", "#8a5a2a");
+    addLbls(yLL, chain.primaryLabel, "#444444");
+    if (includeXFamily) addLbls(xLL, chain.secondaryLabel, "#8a5a2a");
     lg.addTo(map); lbl.layer = lg;
   }
   buildLoranLabels();
@@ -1241,6 +1270,7 @@ export default function SSTHeatmapLeaflet(props) {
 
   const { latSet, lonSet, grid } = data;
   const regionBounds = regionConfig.bounds;
+  const loranChain = LORAN_CHAINS[regionKey] ?? LORAN_CHAINS.mid_atlantic;
   // Region-aware VIIRS bundled path (GA/SC files live under a subdir).
   const _vSuffix    = regionConfig?.dataPathSuffix ?? "";
   const _vSubdir    = _vSuffix ? `${_vSuffix}/` : "";
@@ -2971,7 +3001,7 @@ export default function SSTHeatmapLeaflet(props) {
     // says otherwise (see the reset effect below, which handles the state
     // itself once profileLoaded confirms the user is non-pro).
     if (!showLoranGrid || !isPro) return;
-    const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds, showLoranXFamily && regionKey === "mid_atlantic");
+    const grp = buildLoranGrid(map, waterMaskRef.current, regionBounds, loranChain, showLoranXFamily && !!loranChain.secondary);
     if (grp) { grp.addTo(map); loranLayerRef.current = grp; }
   }, [mapReady, showLoranGrid, showLoranXFamily, waterMaskVersion, regionKey, isPro]);
 
@@ -4348,6 +4378,7 @@ export default function SSTHeatmapLeaflet(props) {
             seaColorPlaying={seaColorPlaying} setSeaColorPlaying={setSeaColorPlaying}
             showLoranGrid={showLoranGrid} setShowLoranGrid={setShowLoranGrid}
             showLoranXFamily={showLoranXFamily} setShowLoranXFamily={setShowLoranXFamily}
+            loranSecondaryAvailable={!!loranChain.secondary} loranSecondaryLabel={loranChain.secondaryLabel}
             regionKey={regionKey}
             showCanyonLabels={showCanyonLabels} setShowCanyonLabels={setShowCanyonLabels}
             showBathyLayer={showBathyLayer} setShowBathyLayer={setShowBathyLayer} jsonContoursLoading={jsonContoursLoading}
@@ -5118,10 +5149,10 @@ export default function SSTHeatmapLeaflet(props) {
                             Loran Grid
                           </button>
                         </MobileProGate>
-                        {showLoranGrid && regionKey === "mid_atlantic" && (
+                        {showLoranGrid && loranChain.secondary && (
                           <button onClick={() => setShowLoranXFamily(v => !v)}
                             className={`px-2.5 text-[10px] font-semibold rounded-lg border flex-shrink-0 transition-colors ${showLoranXFamily ? "bg-amber-50 text-amber-700 border-amber-400" : "bg-white text-slate-400 border-slate-300"}`}>
-                            X Lines
+                            {loranChain.secondaryLabel} Lines
                           </button>
                         )}
                         <button onClick={() => setLoranHelpOpen(o => !o)}
@@ -5142,7 +5173,7 @@ export default function SSTHeatmapLeaflet(props) {
                                  className="w-full object-cover" style={{maxHeight:200}}
                                  onError={e => { e.currentTarget.style.display="none"; }} />
                             <div className="px-4 py-3 text-[11px] text-slate-600 leading-relaxed">
-                              The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: &ldquo;The bite&apos;s been hot in 100 fathoms at the 580&rdquo; (&lsquo;The Point&rsquo; off Oregon Inlet).<br/><br/>Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that&apos;s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.<br/><br/>In the mid-Atlantic, a second crossing set of lines (the &ldquo;X&rdquo; family) can be toggled on to show the full LORAN grid.
+                              The U.S. LORAN-C system was officially decommissioned in 2010. This overlay approximates the positions of those lines for reference and waypoint sharing. In practice, we typically refer only to the last three digits, combined with a depth reference. For example: &ldquo;The bite&apos;s been hot in 100 fathoms at the 580&rdquo; (&lsquo;The Point&rsquo; off Oregon Inlet).<br/><br/>Major lines are spaced 10 miles apart, so if a buddy reports mahi at the 680, that&apos;s roughly a 10-mile run from the 580. Minor lines are spaced 2 miles apart, making it easy to estimate distance and position on the water.{loranChain.secondary && <><br/><br/>{`In this region, a second crossing set of lines (the "${loranChain.secondaryLabel}" family) can be toggled on to show the full LORAN grid.`}</>}
                             </div>
                           </div>
                         </div>,
