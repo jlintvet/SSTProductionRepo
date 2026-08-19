@@ -15,13 +15,41 @@ export const REGION_CONFIGS = {
     defaultZoom:   7.5,
     defaultLocation: "Oregon Inlet, NC",
     dataPathSuffix: "",
-    // Seasonal SST color range defaults (degrees F). Anchors the color ramp so
-    // the same temperature always maps to the same hue regardless of daily data range.
-    sstSeasonalDefaults: {
-      summer: { min: 55, max: 85 }, // Jun-Sep: Gulf Stream 78-82, inshore 60-70
-      fall:   { min: 52, max: 76 }, // Oct-Nov: cooling, offshore still warm
-      winter: { min: 44, max: 65 }, // Dec-Feb: cold inshore, warmer offshore
-      spring: { min: 50, max: 74 }, // Mar-May: gradual warming
+    // Per-region, per-season color-gain defaults for all 3 data layers.
+    // Anchors the color ramp so a new user (no saved/cached gain override)
+    // sees a sensible default instead of the raw day's full data range --
+    // see docs/map_control_panel.md (Gain section) for the full rationale.
+    seasonalGainDefaults: {
+      // SST (degrees F): same temperature always maps to the same hue
+      // regardless of daily data range.
+      sst: {
+        summer: { min: 55, max: 85 }, // Jun-Sep: Gulf Stream 78-82, inshore 60-70
+        fall:   { min: 52, max: 76 }, // Oct-Nov: cooling, offshore still warm
+        winter: { min: 44, max: 65 }, // Dec-Feb: cold inshore, warmer offshore
+        spring: { min: 50, max: 74 }, // Mar-May: gradual warming
+      },
+      // Chlorophyll (mg/m3). 2026-08-19 anchor: ~p5-p90 band of that day's
+      // live CHL grid for this region -- the raw day max routinely blows
+      // past 100+ mg/m3 from a single river-mouth/turbid-water outlier
+      // pixel, which is what was washing out a new user's first view (full
+      // ramp stretched to the outlier). Only summer is data-anchored;
+      // fall/winter/spring reuse the summer band as a placeholder (no
+      // multi-season CHL history pulled yet) -- same "best-guess, refine
+      // later" status as this region's SST numbers where noted below.
+      chlorophyll: {
+        summer: { min: 0.05, max: 0.7 },
+        fall:   { min: 0.05, max: 0.7 },
+        winter: { min: 0.05, max: 0.7 },
+        spring: { min: 0.05, max: 0.7 },
+      },
+      // Sea Color / Kd490 (m^-1, water clarity). Same 2026-08-19 percentile-
+      // anchor approach as chlorophyll above.
+      seacolor: {
+        summer: { min: 0.02, max: 0.40 },
+        fall:   { min: 0.02, max: 0.40 },
+        winter: { min: 0.02, max: 0.40 },
+        spring: { min: 0.02, max: 0.40 },
+      },
     },
     locations: [
       { label: "Bay Bridge Tunnel, VA", lat: 36.9082,            lon: -76.0918,           wreckRegion: "ChesapeakeMD", noaaCoverage: true  },
@@ -53,12 +81,27 @@ export const REGION_CONFIGS = {
     // e.g. DailySSTData/MUR/ga_sc/mur_YYYYMMDD.csv
     // Leave "" for mid_atlantic (uses root paths for backward compat).
     dataPathSuffix:  "ga_sc",
-    // GA/SC runs 6-9 degF warmer than mid-Atlantic; Gulf Stream year-round.
-    sstSeasonalDefaults: {
-      summer: { min: 64, max: 88 }, // Jun-Sep: nearshore 78-84, Gulf Stream 84-88
-      fall:   { min: 60, max: 82 }, // Oct-Nov: still warm offshore
-      winter: { min: 52, max: 74 }, // Dec-Feb: mild winters, offshore 70+
-      spring: { min: 58, max: 80 }, // Mar-May: Gulf Stream ~78
+    seasonalGainDefaults: {
+      // GA/SC runs 6-9 degF warmer than mid-Atlantic; Gulf Stream year-round.
+      sst: {
+        summer: { min: 64, max: 88 }, // Jun-Sep: nearshore 78-84, Gulf Stream 84-88
+        fall:   { min: 60, max: 82 }, // Oct-Nov: still warm offshore
+        winter: { min: 52, max: 74 }, // Dec-Feb: mild winters, offshore 70+
+        spring: { min: 58, max: 80 }, // Mar-May: Gulf Stream ~78
+      },
+      // 2026-08-19 anchor (see mid_atlantic comment above for methodology).
+      chlorophyll: {
+        summer: { min: 0.05, max: 1.8 },
+        fall:   { min: 0.05, max: 1.8 },
+        winter: { min: 0.05, max: 1.8 },
+        spring: { min: 0.05, max: 1.8 },
+      },
+      seacolor: {
+        summer: { min: 0.02, max: 0.20 },
+        fall:   { min: 0.02, max: 0.20 },
+        winter: { min: 0.02, max: 0.20 },
+        spring: { min: 0.02, max: 0.20 },
+      },
     },
     locations: [
       // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
@@ -100,12 +143,27 @@ export const REGION_CONFIGS = {
     // e.g. DailySSTData/MUR/ne_fl/mur_YYYYMMDD.csv
     // Leave "" for mid_atlantic (uses root paths for backward compat).
     dataPathSuffix:  "ne_fl",
-    // South Florida runs warmer than ga_sc; these are best-guess estimates.
-    sstSeasonalDefaults: {
-      summer: { min: 72, max: 90 }, // Jun-Sep: nearshore 82-88, Gulf Stream close to shore
-      fall:   { min: 68, max: 86 },
-      winter: { min: 64, max: 82 }, // mild winters, Gulf Stream runs very close to shore south of Ft Pierce
-      spring: { min: 68, max: 84 },
+    seasonalGainDefaults: {
+      // South Florida runs warmer than ga_sc; these are best-guess estimates.
+      sst: {
+        summer: { min: 72, max: 90 }, // Jun-Sep: nearshore 82-88, Gulf Stream close to shore
+        fall:   { min: 68, max: 86 },
+        winter: { min: 64, max: 82 }, // mild winters, Gulf Stream runs very close to shore south of Ft Pierce
+        spring: { min: 68, max: 84 },
+      },
+      // 2026-08-19 anchor (see mid_atlantic comment above for methodology).
+      chlorophyll: {
+        summer: { min: 0.05, max: 0.7 },
+        fall:   { min: 0.05, max: 0.7 },
+        winter: { min: 0.05, max: 0.7 },
+        spring: { min: 0.05, max: 0.7 },
+      },
+      seacolor: {
+        summer: { min: 0.02, max: 0.10 },
+        fall:   { min: 0.02, max: 0.10 },
+        winter: { min: 0.02, max: 0.10 },
+        spring: { min: 0.02, max: 0.10 },
+      },
     },
     locations: [
       // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
@@ -142,11 +200,30 @@ export const REGION_CONFIGS = {
     // Keys year-round; Gulf-side ports (Naples/Marco Island/Ft Myers Beach)
     // sit on a shallower shelf that swings colder in winter than the
     // Atlantic/Straits side. These are best-guess estimates.
-    sstSeasonalDefaults: {
-      summer: { min: 76, max: 90 }, // Jun-Sep: nearshore 84-88, Gulf Stream close to the Keys
-      fall:   { min: 72, max: 87 },
-      winter: { min: 66, max: 84 }, // Gulf-side shelf runs cooler than the Straits side
-      spring: { min: 72, max: 86 },
+    seasonalGainDefaults: {
+      sst: {
+        summer: { min: 76, max: 90 }, // Jun-Sep: nearshore 84-88, Gulf Stream close to the Keys
+        fall:   { min: 72, max: 87 },
+        winter: { min: 66, max: 84 }, // Gulf-side shelf runs cooler than the Straits side
+        spring: { min: 72, max: 86 },
+      },
+      // 2026-08-19 anchor (see mid_atlantic comment above for methodology).
+      // s_fl CHL is strongly bimodal (clear Keys/Gulf Stream water vs. turbid
+      // Florida Bay/nearshore) -- max is set near the p85 band so the common
+      // clear-water case reads well; a user fishing turbid water can widen
+      // the slider manually (their choice always overrides this default).
+      chlorophyll: {
+        summer: { min: 0.05, max: 3.0 },
+        fall:   { min: 0.05, max: 3.0 },
+        winter: { min: 0.05, max: 3.0 },
+        spring: { min: 0.05, max: 3.0 },
+      },
+      seacolor: {
+        summer: { min: 0.02, max: 0.20 },
+        fall:   { min: 0.02, max: 0.20 },
+        winter: { min: 0.02, max: 0.20 },
+        spring: { min: 0.02, max: 0.20 },
+      },
     },
     locations: [
       // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
@@ -187,11 +264,26 @@ export const REGION_CONFIGS = {
     dataPathSuffix:  "va_ri",
     // This region runs colder than mid_atlantic, especially in winter/spring
     // up toward Rhode Island Sound; these are best-guess estimates.
-    sstSeasonalDefaults: {
-      summer: { min: 55, max: 78 }, // Jun-Sep: nearshore up to high 70s, shelf water cooler than Gulf Stream regions
-      fall:   { min: 46, max: 68 }, // Oct-Nov: rapid cooling north of Cape Cod latitudes
-      winter: { min: 34, max: 50 }, // Dec-Feb: cold, near-freezing in shallow bays/sounds
-      spring: { min: 40, max: 62 }, // Mar-May: slow warming
+    seasonalGainDefaults: {
+      sst: {
+        summer: { min: 55, max: 78 }, // Jun-Sep: nearshore up to high 70s, shelf water cooler than Gulf Stream regions
+        fall:   { min: 46, max: 68 }, // Oct-Nov: rapid cooling north of Cape Cod latitudes
+        winter: { min: 34, max: 50 }, // Dec-Feb: cold, near-freezing in shallow bays/sounds
+        spring: { min: 40, max: 62 }, // Mar-May: slow warming
+      },
+      // 2026-08-19 anchor (see mid_atlantic comment above for methodology).
+      chlorophyll: {
+        summer: { min: 0.10, max: 1.6 },
+        fall:   { min: 0.10, max: 1.6 },
+        winter: { min: 0.10, max: 1.6 },
+        spring: { min: 0.10, max: 1.6 },
+      },
+      seacolor: {
+        summer: { min: 0.03, max: 0.40 },
+        fall:   { min: 0.03, max: 0.40 },
+        winter: { min: 0.03, max: 0.40 },
+        spring: { min: 0.03, max: 0.40 },
+      },
     },
     locations: [
       // noaaZone: zone used for offshore forecast; see docs/adding_a_new_region.md
@@ -242,11 +334,35 @@ function getSeason(month) {
   return "spring";
 }
 
+// Ultimate fallback if a region is ever missing a layer's seasonalGainDefaults
+// table entirely (shouldn't happen for the 5 known regions, but keeps
+// getSeasonalGainDefault's "always {min,max}, never null" contract safe for
+// any future region added without gain defaults yet). Matches the static
+// LAYER_CONFIG defaults in SSTRangeControl.jsx.
+const FALLBACK_GAIN_DEFAULTS = {
+  sst:         { min: 55,   max: 85 },
+  chlorophyll: { min: 0.05, max: 20 },
+  seacolor:    { min: 0.01, max: 0.50 },
+};
+
+/**
+ * Returns the region+season color-gain default for a given layer
+ * ("sst" | "chlorophyll" | "seacolor"). Always {min,max} - never null.
+ * This is the DEFAULT only -- a user's saved/cached gain override (see
+ * src/lib/rangeStorage.js and SSTRangeControl.jsx) always takes priority
+ * over this when one exists; it's used for new users and any page load
+ * with no saved or cached override.
+ */
+export function getSeasonalGainDefault(regionKey, layer) {
+  const cfg      = getRegionConfig(regionKey);
+  const season   = getSeason(new Date().getMonth() + 1);
+  const fallback = FALLBACK_GAIN_DEFAULTS[layer] ?? FALLBACK_GAIN_DEFAULTS.sst;
+  return cfg.seasonalGainDefaults?.[layer]?.[season] ?? fallback;
+}
+
 /** Returns the seasonal SST color default for a region. Always {min,max} - never null. */
 export function getSeasonalSstDefault(regionKey) {
-  const cfg    = getRegionConfig(regionKey);
-  const season = getSeason(new Date().getMonth() + 1);
-  return cfg.sstSeasonalDefaults?.[season] ?? { min: 55, max: 85 };
+  return getSeasonalGainDefault(regionKey, "sst");
 }
 
 export function getRegionBounds(regionConfig) {

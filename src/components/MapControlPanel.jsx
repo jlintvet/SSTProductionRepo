@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { ChevronDown, Play, Pause } from "lucide-react";
 import SSTRangeControl from "@/components/SSTRangeControl";
+import { getSeasonalGainDefault } from "@/config/regionConfig";
 import riplocIcon from "@/public/Branding/riplocB text w icon.png";
 import { startProCheckout } from "@/lib/checkout";
 
@@ -677,7 +678,7 @@ export default function MapControlPanel({
                 openRef={rangeControlOpenRef}
                 dataMin={isCHL ? chlDataMin : isSC ? seaColorDataMin : undefined}
                 dataMax={isCHL ? chlDataMax : isSC ? seaColorDataMax : undefined}
-                seasonalDefault={isSSTGroup ? seasonalSstDefault : undefined}
+                seasonalDefault={getSeasonalGainDefault(regionKey, isSSTGroup ? "sst" : isCHL ? "chlorophyll" : "seacolor")}
               />
             </div>
           )}

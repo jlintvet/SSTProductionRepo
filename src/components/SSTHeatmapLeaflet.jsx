@@ -12,7 +12,7 @@ import ShareRouteDialogModal from "@/components/ShareRouteDialog";
 import { SPECIES_LABELS } from "@/components/CommunityReportForm";
 import riplocIcon from "@/public/Branding/riplocB text w icon.png";
 import { startProCheckout } from "@/lib/checkout";
-import { REGION_CONFIGS } from "@/config/regionConfig";
+import { REGION_CONFIGS, getSeasonalGainDefault } from "@/config/regionConfig";
 
 // loc.trip_date (a plain "YYYY-MM-DD", poster-chosen) vs. loc.created_at
 // (posting timestamp) -- when they differ, the report was backdated (posted
@@ -4805,6 +4805,7 @@ export default function SSTHeatmapLeaflet(props) {
                         openRef={rangeControlOpenRef}
                         dataMin={chlData?.days?.[chlDateIndex]?.stats?.min ?? chlData?.days?.[chlData.days.length-1]?.stats?.min}
                         dataMax={chlData?.days?.[chlDateIndex]?.stats?.max ?? chlData?.days?.[chlData.days.length-1]?.stats?.max}
+                        seasonalDefault={getSeasonalGainDefault(regionKey, "chlorophyll")}
                       />
                     </MobileProGate>
                   </>
@@ -4872,6 +4873,7 @@ export default function SSTHeatmapLeaflet(props) {
                         openRef={rangeControlOpenRef}
                         dataMin={seaColorData?.days?.[seaColorDateIndex]?.stats?.min ?? seaColorData?.days?.[seaColorData.days.length-1]?.stats?.min}
                         dataMax={seaColorData?.days?.[seaColorDateIndex]?.stats?.max ?? seaColorData?.days?.[seaColorData.days.length-1]?.stats?.max}
+                        seasonalDefault={getSeasonalGainDefault(regionKey, "seacolor")}
                       />
                     </MobileProGate>
                   </>

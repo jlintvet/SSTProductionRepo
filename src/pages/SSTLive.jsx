@@ -354,17 +354,21 @@ function SSTPageBody() {
 
 
 
-  // sstRange is the SST color window applied to all SST-family layers.
-  // Initialized to the seasonal default so colors are temperature-absolute
-  // (78 degF always the same hue regardless of daily data range).
-  // SSTRangeControl restores the seasonal default on layer switch or region change.
-  // CHL/SeaColor layers clear this to null on switch so they use their own data range.
+  // sstRange holds whichever data layer's color-gain window is currently
+  // active (SST/Composite, Chlorophyll, or Sea Color -- one shared slot,
+  // see SSTRangeControl.jsx). Seeded here to the SST default for the
+  // default region purely so other consumers (legend fallback, etc.) have
+  // a sane value before SSTRangeControl mounts; SSTRangeControl itself is
+  // the source of truth from then on -- it resolves the correct value for
+  // whichever layer/region is active (cached/saved user override first,
+  // else that layer's region+season default from getSeasonalGainDefault)
+  // and reports it up via onRangeChange on every layer switch AND region
+  // switch. Deliberately NOT reset here on regionKey change: doing so
+  // used to always push the SST-scaled seasonal default regardless of
+  // which layer was actually active, silently discarding a user's cached
+  // Chlorophyll/Sea Color gain override with nonsense SST numbers whenever
+  // they changed region.
   const [sstRange, setSstRange] = useState(() => getSeasonalSstDefault(DEFAULT_REGION));
-
-  // When region changes, reset SST range to that region's seasonal default.
-  useEffect(() => {
-    setSstRange(getSeasonalSstDefault(regionKey));
-  }, [regionKey]);
 
   const [murState,      setMurState]      = useState({ data: null, dateIndex: 0 });
   const [viirsState,    setViirsState]    = useState({ data: null, dateIndex: 0, hour: null });

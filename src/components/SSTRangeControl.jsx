@@ -571,19 +571,33 @@ export default function SSTRangeControl({
   onApply,
   style = {},
   openRef,
-  dataMin,        // live data bounds (CHL/SeaColor day stats)
-  dataMax,
-  seasonalDefault, // { min, max } from getSeasonalSstDefault() - SST only.
-                   // Overrides cfg.defaultMin/defaultMax so isNarrowed and Reset
-                   // target the seasonal values.
+  dataMin,        // live data bounds (CHL/SeaColor day stats) -- no longer
+  dataMax,        // drives absMin/absMax/defaults (see note below); kept as
+                   // an accepted prop so callers don't need changing.
+  seasonalDefault, // { min, max } from getSeasonalGainDefault(regionKey, activeLayer)
+                   // -- region+season default for ANY layer (sst/chlorophyll/
+                   // seacolor), not just SST. Drives cfg.defaultMin/defaultMax
+                   // so isNarrowed and Reset target the curated seasonal
+                   // window instead of the layer's static config default.
 }) {
   const baseCfg = LAYER_CONFIG[activeLayer] || LAYER_CONFIG.sst;
-  // Priority: live data bounds > seasonal default > config defaults
-  const cfg = (dataMin != null && dataMax != null)
-    ? { ...baseCfg, absMin: dataMin, absMax: dataMax, defaultMin: dataMin, defaultMax: dataMax }
-    : (activeLayer === "sst" && seasonalDefault)
-    ? { ...baseCfg, defaultMin: seasonalDefault.min, defaultMax: seasonalDefault.max }
-    : baseCfg;
+  // absMin/absMax stay the layer's static config bounds -- NOT that day's
+  // live data bounds. A single outlier pixel (e.g. a river-mouth CHL spike)
+  // can push a day's real max to 100+ against a curated default under 1;
+  // widening the slider's draggable range out to that value every time would
+  // make the default window an unusable sliver near one edge. Static bounds
+  // already comfortably cover realistic values and keep the slider consistent
+  // day to day, same as SST always has.
+  //
+  // Priority for the DEFAULT shown to a user with no cached/saved override:
+  // region+season default (seasonalDefault, all 3 layers) > layer's static
+  // config default. (A user's own saved/cached range always wins over both --
+  // see the localStorage recall below, which is unaffected by this cfg.)
+  const cfg = {
+    ...baseCfg,
+    defaultMin: Math.max(baseCfg.absMin, seasonalDefault?.min ?? baseCfg.defaultMin),
+    defaultMax: Math.min(baseCfg.absMax, seasonalDefault?.max ?? baseCfg.defaultMax),
+  };
 
   // Internal range mirrors external; a per-layer localStorage recall takes
   // priority over the parent's initial value so the last gain setting the
@@ -608,10 +622,14 @@ export default function SSTRangeControl({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On layer switch, recall this layer's last-set gain from localStorage
-  // instead of always snapping back to the default.
-  // SST: seasonal default if nothing was recalled (keeps colors
-  // temperature-absolute). CHL/SeaColor: null if nothing was recalled, so
-  // the overlay falls back to that day's own data stats, same as before.
+  // instead of always snapping back to the default. All 3 layers now behave
+  // the same way: recalled cache wins; otherwise fall back to this layer's
+  // region+season default (seasonalDefault -- see cfg above). Always reports
+  // the resolved value up via onRangeChange (not just for SST) so the actual
+  // map tile coloring (finalRangeMin/Max in SSTHeatmapLeaflet.jsx) picks up
+  // the curated default too, instead of falling back to that day's raw data
+  // range -- that raw-range fallback was the actual source of the "washed
+  // out" colors, not just the panel's displayed slider position.
   const prevActiveLayer = useRef(activeLayer);
   useEffect(() => {
     if (prevActiveLayer.current === activeLayer) return;
@@ -619,8 +637,26 @@ export default function SSTRangeControl({
     const recalled = clampStoredRange(loadStoredRange(activeLayer), cfg.absMin, cfg.absMax);
     const nextRange = recalled ?? { min: cfg.defaultMin, max: cfg.defaultMax, maskOutside: false };
     _setRange(nextRange);
-    onRangeChange?.(activeLayer === "sst" ? nextRange : recalled);
+    onRangeChange?.(nextRange);
   }, [activeLayer, cfg.defaultMin, cfg.defaultMax, cfg.absMin, cfg.absMax]);
+
+  // On region switch (same layer): re-resolve the same way as the layer
+  // switch above. Region changes surface here as a change to the resolved
+  // seasonalDefault prop's min/max (the parent recomputes it from regionKey
+  // every render) -- the parent no longer force-pushes a raw reset into the
+  // shared range state directly (that was the source of a bug where
+  // switching regions while on Chlorophyll/Sea Color would silently discard
+  // a user's cached gain override with SST-scaled numbers instead).
+  const prevSeasonalDefault = useRef(seasonalDefault);
+  useEffect(() => {
+    const prev = prevSeasonalDefault.current;
+    prevSeasonalDefault.current = seasonalDefault;
+    if (prev?.min === seasonalDefault?.min && prev?.max === seasonalDefault?.max) return;
+    const recalled = clampStoredRange(loadStoredRange(activeLayer), cfg.absMin, cfg.absMax);
+    const nextRange = recalled ?? { min: cfg.defaultMin, max: cfg.defaultMax, maskOutside: false };
+    _setRange(nextRange);
+    onRangeChange?.(nextRange);
+  }, [seasonalDefault?.min, seasonalDefault?.max, activeLayer, cfg.defaultMin, cfg.defaultMax, cfg.absMin, cfg.absMax]);
 
   // Sync when parent resets (e.g. source switch)
   const prevExternal = useRef(externalRange);
