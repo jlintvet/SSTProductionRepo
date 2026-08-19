@@ -9,6 +9,17 @@
 // out, since it's a legitimate account action rather than a way to keep
 // using the app without choosing.
 //
+// Styling: this is the third place in the app that shows the Standard-vs-Pro
+// choice (alongside LandingPage.jsx's pricing section and UpgradePage.jsx),
+// and previously had its own bespoke slate/cyan color scheme and a short,
+// inaccurate one-line Pro summary ("...and community reports", which isn't
+// actually Pro-gated). Now uses the same "rl-" brand design system
+// (src/styles/riplocBrandCss.js) and the same StandardPricingCard/
+// ProPricingCard components (src/components/PricingCards.jsx) as the other
+// two surfaces, so the feature lists are the real, accurate, unified copy
+// (src/data/pricingFeatures.js) and the visual brand matches everywhere the
+// user is asked to upgrade.
+//
 // Fetches real prices from /api/get-prices, then initiates Stripe Checkout
 // via /api/create-checkout-session on Pro upgrade. Standard confirmation
 // calls the confirm_standard_tier() RPC (SECURITY DEFINER -- tier is a
@@ -20,13 +31,30 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import riplocLogo from "@/public/Branding/Riploc OFI w Icon.png";
+import { injectRlGlobalCss } from "@/styles/riplocBrandCss";
+import { StandardPricingCard, ProPricingCard } from "@/components/PricingCards";
+
+injectRlGlobalCss();
+
+function fmt(cents, currency) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency?.toUpperCase() || "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
 
 export default function TrialExpiredWall() {
   const [prices, setPrices]         = useState(null);
-  const [plan, setPlan]             = useState("annual");
+  const [annual, setAnnual]         = useState(true);
   const [loading, setLoading]       = useState(false);   // Pro checkout in flight
   const [confirming, setConfirming] = useState(false);   // Standard confirm in flight
   const [error, setError]           = useState(null);
+
+  useEffect(() => {
+    injectRlGlobalCss();
+  }, []);
 
   useEffect(() => {
     fetch("/api/get-prices")
@@ -42,7 +70,7 @@ export default function TrialExpiredWall() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Session expired - please sign in again.");
 
-      const priceId = plan === "annual" ? prices?.annual?.id : prices?.monthly?.id;
+      const priceId = annual ? prices?.annual?.id : prices?.monthly?.id;
       if (!priceId) throw new Error("Price unavailable, please try again.");
 
       const res = await fetch("/api/create-checkout-session", {
@@ -83,107 +111,79 @@ export default function TrialExpiredWall() {
     window.location.href = "/";
   }
 
-  const fmt = cents => `$${(cents / 100).toFixed(0)}`;
-  const annualLabel  = prices?.annual?.amount  ? `${fmt(prices.annual.amount)}/yr`  : "$69/yr";
-  const monthlyLabel = prices?.monthly?.amount ? `${fmt(prices.monthly.amount)}/mo` : "$8/mo";
+  const monthlyAmt  = prices ? fmt(prices.monthly.amount, prices.monthly.currency) : "-";
+  const annualAmt   = prices ? fmt(prices.annual.amount,  prices.annual.currency)  : "-";
+  const annualPerMo = prices ? fmt(Math.round(prices.annual.amount / 12), prices.annual.currency) : "-";
+  const savings     = prices
+    ? Math.round((1 - (prices.annual.amount / 12) / prices.monthly.amount) * 100)
+    : 0;
 
   return createPortal(
-    <div style={{
+    <div className="rl" style={{
       position: "fixed", inset: 0, zIndex: 99999, display: "flex",
       alignItems: "center", justifyContent: "center",
-      background: "rgba(15,23,42,0.75)", padding: "1.5rem", overflowY: "auto",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      background: "rgba(4,9,16,0.85)", padding: "1.5rem", overflowY: "auto",
     }}>
       <div style={{
-        background: "#1e293b", border: "1px solid #334155", borderRadius: 16,
-        padding: "2rem 1.75rem", maxWidth: 580, width: "100%", textAlign: "center",
-        margin: "auto",
+        background: "#08101e", border: "1.5px solid rgba(0,200,232,.2)",
+        boxShadow: "0 0 0 1px rgba(12,196,160,.12), 0 24px 80px rgba(0,0,0,.5)",
+        borderRadius: 20, padding: "2.5rem 2rem", maxWidth: 880, width: "100%",
+        textAlign: "center", margin: "auto",
       }}>
         <img src={riplocLogo} alt="RipLoc: Offshore Fishing Intelligence"
           style={{ height: 40, width: "auto", margin: "0 auto 1.5rem", display: "block" }} />
 
-        <h1 style={{ color: "#f1f5f9", fontSize: 20, fontWeight: 700, margin: "0 0 0.75rem", lineHeight: 1.3 }}>
+        <h1 className="rl-price-h2" style={{ color: "#fff", fontSize: "clamp(1.6rem,4vw,2.25rem)" }}>
           Your free trial has ended
         </h1>
 
-        <p style={{ color: "#94a3b8", fontSize: 13.5, lineHeight: 1.7, margin: "0 0 1.75rem", textAlign: "left" }}>
+        <p style={{ color: "#7a9ab5", fontSize: 14, lineHeight: 1.7, margin: "0 auto 1.75rem", maxWidth: 560, textAlign: "left" }}>
           We hope you enjoyed exploring the app during your trial. You can continue to use the app
           and the core oceanographic features by confirming your Standard subscription below.
           Or you can complete a Pro subscription and continue using all of the Pro features
           included in RipLoc.
         </p>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", textAlign: "left" }}>
-          {/* Standard column */}
-          <div style={{
-            flex: "1 1 220px", background: "#0f172a", border: "1px solid #334155",
-            borderRadius: 12, padding: "1.25rem 1.1rem", display: "flex", flexDirection: "column",
-          }}>
-            <div style={{ color: "#e2e8f0", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Standard</div>
-            <div style={{ color: "#64748b", fontSize: 12, marginBottom: 14 }}>Free, no time limit</div>
-            <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.6, marginBottom: 18, flex: 1 }}>
-              Keep using the app's core oceanographic features - no card required, no expiration.
-            </div>
-            <button onClick={handleConfirmStandard} disabled={confirming} style={{
-              width: "100%", padding: "0.8rem", borderRadius: 10,
-              background: "transparent", color: "#cbd5e1", border: "2px solid #475569",
-              fontSize: 14, fontWeight: 700, cursor: confirming ? "not-allowed" : "pointer",
-              opacity: confirming ? 0.6 : 1, transition: "border-color 0.15s",
-            }}>
-              {confirming ? "Confirming…" : "Confirm Standard"}
-            </button>
-          </div>
-
-          {/* Pro column */}
-          <div style={{
-            flex: "1 1 280px", background: "#0f172a", border: "1px solid #0e7490",
-            borderRadius: 12, padding: "1.25rem 1.1rem", display: "flex", flexDirection: "column",
-          }}>
-            <div style={{ color: "#e2e8f0", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Pro</div>
-            <div style={{ color: "#64748b", fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>
-              Real-time SST, VIIRS composites, current &amp; altimetry overlays, and community reports.
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              {[
-                { key: "annual",  label: "Annual",  amount: annualLabel,  note: "Best value" },
-                { key: "monthly", label: "Monthly", amount: monthlyLabel, note: null },
-              ].map(p => {
-                const active = plan === p.key;
-                return (
-                  <button key={p.key} onClick={() => setPlan(p.key)} style={{
-                    flex: 1, padding: "0.65rem 0.4rem", borderRadius: 10,
-                    border: active ? "2px solid #0e7490" : "2px solid #334155",
-                    background: active ? "rgba(14,116,144,0.12)" : "transparent",
-                    cursor: "pointer", transition: "border-color 0.15s, background 0.15s",
-                  }}>
-                    <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 600, marginBottom: 1 }}>{p.label}</div>
-                    <div style={{ color: "#38bdf8", fontSize: 17, fontWeight: 800 }}>{p.amount}</div>
-                    {p.note && <div style={{ color: "#475569", fontSize: 10, marginTop: 1 }}>{p.note}</div>}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button onClick={handleUpgrade} disabled={loading || !prices} style={{
-              width: "100%", padding: "0.8rem", borderRadius: 10, marginTop: "auto",
-              background: loading || !prices ? "#164e63" : "#0e7490",
-              color: "#fff", border: "none", fontSize: 14, fontWeight: 700,
-              cursor: loading || !prices ? "not-allowed" : "pointer", transition: "background 0.15s",
-            }}>
-              {loading ? "Redirecting to checkout…" : "Upgrade to Pro"}
-            </button>
-          </div>
+        {/* Billing toggle for the Pro option */}
+        <div className="rl-toggle-wrap" style={{ marginBottom: "1.5rem" }}>
+          <button className={`rl-toggle-btn ${!annual ? "on" : ""}`} onClick={() => setAnnual(false)}>
+            Monthly
+          </button>
+          <button className={`rl-toggle-btn ${annual ? "on" : ""}`} onClick={() => setAnnual(true)}>
+            Annual
+            {prices && savings > 0 && <span className="rl-toggle-save">Save {savings}%</span>}
+          </button>
         </div>
 
+        <div className="rl-cards" style={{ textAlign: "left" }}>
+          <StandardPricingCard
+            price="Free" priceUnit="" note="No card required, no expiration."
+            ctaLabel={confirming ? "Confirming…" : "Confirm Standard"}
+            onCta={handleConfirmStandard} ctaDisabled={confirming}
+          />
+
+          <ProPricingCard
+            price={prices ? (annual ? annualPerMo : monthlyAmt) : "-"}
+            priceUnit="/mo"
+            note={prices
+              ? annual
+                ? `Billed ${annualAmt}/year - save ${savings}%`
+                : "Billed monthly"
+              : "Loading prices..."}
+          >
+            <button className="rl-pcta dk" onClick={handleUpgrade} disabled={loading || !prices}>
+              {loading ? "Redirecting to checkout…" : `Upgrade to Pro - ${annual ? annualAmt + "/yr" : monthlyAmt + "/mo"}`}
+            </button>
+          </ProPricingCard>
+        </div>
+
+        {/* Shared error line -- covers both the Standard-confirm RPC and the
+            Pro-checkout request, since either can set `error`. */}
         {error && (
-          <p style={{ color: "#f87171", fontSize: 13, margin: "1.1rem 0 0", lineHeight: 1.5 }}>{error}</p>
+          <p style={{ color: "#f87171", fontSize: 13, margin: "1.1rem 0 0", lineHeight: 1.5, textAlign: "left" }}>{error}</p>
         )}
 
-        <button onClick={handleSignOut} style={{
-          background: "none", border: "none", color: "#475569",
-          fontSize: 12.5, cursor: "pointer", textDecoration: "underline", marginTop: 18,
-        }}>
+        <button onClick={handleSignOut} className="rl-lnk dk" style={{ marginTop: 18, background: "none", border: "none", cursor: "pointer", fontSize: 12.5 }}>
           Sign out
         </button>
       </div>
