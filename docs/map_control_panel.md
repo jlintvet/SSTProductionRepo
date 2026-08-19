@@ -1,7 +1,7 @@
 # MapControlPanel Reference
 
 **File:** `src/components/MapControlPanel.jsx`  
-**Current commit:** `7ed241e` (as of 2026-07-22)
+**Current commit:** `3e6a44d` (as of 2026-08-19)
 
 ---
 
@@ -146,13 +146,29 @@ Both the Chlorophyll and Sea color layer buttons expand to show a Daily / Compos
 | Bathy | `showBathyLayer` | `bathy` | No |
 | Currents | `showCurrents` | `currents` | Yes |
 | SLA Overlay | `showAltimetryOverlay` | `altoverlay` | Yes |
-| Loran Grid | `showLoranGrid` | `loran` | No |
+| Loran Grid | `showLoranGrid` | `loran` | Yes |
 | Community (N) | `showCommunityLayer` | `community` | No |
 | Labels | `showCanyonLabels` | `labels` | No |
 
 Community button shows active pin count: `Community (${communityCount ?? 0})`.
 
+**Loran Grid's second-family toggle button is region-aware, not hardcoded to mid_atlantic (as of 2026-08-19, commit `3e6a44d`).** See the "Loran-C overlay: per-region chains" section below.
+
 **Labels button also renders the signed-in user's pinned wreck labels (`ad63f87`, 2026-07-24):** `showCanyonLabels` used to only draw the static `CANYON_LABELS` list. It now also draws whatever's in the user's `wreck_pinned_labels` table (fetched on `userId` change, independent of this toggle), rendered into the same `canyonLabelLayerRef` layer group with a smaller/lighter `divIcon` style (9px, `#94a3b8`) so a pinned wreck reads as a personal annotation, not a basemap feature. This is a deliberate merge into the existing toggle rather than a second Overlays button — see the Bottom feature popup section below for how a label gets pinned in the first place.
+
+---
+
+## Loran-C overlay: per-region chains (added 2026-08-19, commit `3e6a44d`)
+
+`LORAN_CHAINS` (defined in `SSTHeatmapLeaflet.jsx`, above `buildLoranGrid`) maps each `regionKey` to a real historical Loran-C chain, replacing the earlier single-chain-everywhere setup:
+
+- **`mid_atlantic` / `va_ri`** share GRI 9960 (Northeast US chain, master Seneca NY): `primary` family (always on, on-map label `"Y"`) is Carolina Beach NC; `secondary` family (togglable, label `"X"`) is Nantucket MA.
+- **`ga_sc` / `ne_fl` / `s_fl`** share GRI 7980 (Southeast US chain, master Malone FL): `primary` family (always on, label `"Z"`) is Carolina Beach NC again — the same physical station reused under a different master, which is real/expected Loran-C behavior, not a mistake; `secondary` family (togglable, label `"Y"` — its real USCG "Yankee" designation) is Jupiter FL.
+- `s_fl`'s Gulf-side ports (Naples, Marco Island, Ft Myers Beach) currently reuse the Atlantic pairing above — the real chain used a different secondary there (Grangeville, LA) with no calibrated reading yet. Known gap, documented inline in the `LORAN_CHAINS` comment block.
+
+**The "second family" toggle button (mobile and desktop) is driven by the chain, not a hardcoded region check:** `{loranChain.secondary && <button>...{loranChain.secondaryLabel} Lines</button>}` (mobile, in `SSTHeatmapLeaflet.jsx`) / `{loranSecondaryAvailable && <button>...{loranSecondaryLabel} Lines</button>}` (desktop, `MapControlPanel.jsx` — receives `loranSecondaryAvailable`/`loranSecondaryLabel` as props computed from `loranChain` in the parent, since `LORAN_CHAINS` itself only lives in `SSTHeatmapLeaflet.jsx`). **Do not reintroduce a `regionKey === "mid_atlantic"` check here** — that was the exact bug this change fixed (the toggle rendered everywhere already, just always showed the wrong chain's numbers outside mid_atlantic/va_ri).
+
+Calibration constants (`ed` per secondary) were back-solved from real charted TD readings via a cross-point consistency check — the full derivation (why Jupiter pairs with the "~14000" family and Carolina Beach with "~62000", not the reverse) is in project memory (`project_loran_overlay_southern_regions_plan_2026-08-19.md`), not duplicated here.
 
 ---
 
