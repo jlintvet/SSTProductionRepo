@@ -301,7 +301,7 @@ const NOAA_SOURCES = {
   },
   "Barnegat Light, NJ": {
     tideStation: "8533615",
-    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/barnegatlightnj_noaa.json", noaaZone: { id: "ANZ481", description: "Manasquan Inlet NJ to Little Egg Inlet NJ, 20-60nm" } },
+    offshore:  { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/barnegatlightnj_noaa.json", noaaZone: { id: "ANZ482", description: "Little Egg Inlet NJ to Great Egg Inlet NJ, 20-60nm" } },
     nearshore: { forecastJsonUrl: "https://raw.githubusercontent.com/jlintvet/NOAAPARSE/main/barnegatlightnj_noaa_nearshore.json", noaaZone: { id: "ANZ451", description: "Manasquan Inlet to Little Egg Inlet NJ, 0-20nm" } },
   },
   "Manasquan, NJ": {
