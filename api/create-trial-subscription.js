@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     // Covers retries from flaky networks or the user refreshing right after signup.
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
-      .select("stripe_customer_id, stripe_subscription_id")
+      .select("tier, comped, stripe_customer_id, stripe_subscription_id")
       .eq("id", user.id)
       .single();
 
@@ -66,21 +66,30 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, alreadyExists: true });
     }
 
+    // This runs on every SIGNED_IN event, not just the first one. Only a
+    // brand-new user should ever get a trial. Comped/ambassador/referral/pro
+    // users don't need one, and anyone with a Stripe customer already had
+    // their trial. Without this, every login after a lapsed trial quietly
+    // created a fresh 30-day Stripe trial.
+    if (
+      profile?.comped ||
+      ["pro", "ambassador", "referral"].includes(profile?.tier) ||
+      profile?.stripe_customer_id
+    ) {
+      return res.status(200).json({ ok: true, skipped: true });
+    }
+
     const priceId = process.env.STRIPE_PRICE_MONTHLY;
     if (!priceId) {
       console.error("create-trial-subscription: STRIPE_PRICE_MONTHLY not set");
       return res.status(500).json({ error: "Server misconfigured" });
     }
 
-    // Reuse an existing Stripe customer if one was already created for this user
-    let customerId = profile?.stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { supabase_user_id: user.id },
-      });
-      customerId = customer.id;
-    }
+    const customer = await stripe.customers.create({
+      email: user.email,
+      metadata: { supabase_user_id: user.id },
+    });
+    const customerId = customer.id;
 
     const subscription = await stripe.subscriptions.create({
       customer: customerId,

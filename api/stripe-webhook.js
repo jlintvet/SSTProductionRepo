@@ -13,6 +13,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Admin-granted access (comped Pro, ambassador, referral) must never be
+// changed by Stripe. Those users can still hold a leftover Stripe trial
+// subscription from signup, and when it lapses Stripe sends
+// customer.subscription.deleted. Before this guard that event silently
+// demoted them to "standard".
+const PROTECTED_TIERS = new Set(["ambassador", "referral"]);
+function isProtected(profile) {
+  return !!profile && (profile.comped === true || PROTECTED_TIERS.has(profile.tier));
+}
+
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -54,12 +64,17 @@ export default async function handler(req, res) {
         break;
       }
 
-      const { error } = await supabase.from("user_profiles").update({
-        tier: "pro",
+      const { data: profile } = await supabase.from("user_profiles")
+        .select("tier, comped").eq("id", userId).maybeSingle();
+
+      const updates = {
         stripe_customer_id: customerId,
         stripe_subscription_id: subscriptionId,
         subscription_status: "active",
-      }).eq("id", userId);
+      };
+      if (!isProtected(profile)) updates.tier = "pro";
+
+      const { error } = await supabase.from("user_profiles").update(updates).eq("id", userId);
 
       if (error) console.error("Supabase update error (checkout.completed):", error);
       else console.log("Upgraded user to Pro:", userId);
@@ -72,10 +87,15 @@ export default async function handler(req, res) {
       const isActive = sub.status === "active" || sub.status === "trialing";
       const tier = isActive ? "pro" : "standard";
 
-      const { error } = await supabase.from("user_profiles").update({
-        tier,
-        subscription_status: sub.status,
-      }).eq("stripe_subscription_id", sub.id);
+      const { data: profile } = await supabase.from("user_profiles")
+        .select("tier, comped").eq("stripe_subscription_id", sub.id).maybeSingle();
+
+      const updates = { subscription_status: sub.status };
+      if (!isProtected(profile)) updates.tier = tier;
+      else console.log("Protected tier, not changing:", sub.id, profile.tier, profile.comped ? "(comped)" : "");
+
+      const { error } = await supabase.from("user_profiles").update(updates)
+        .eq("stripe_subscription_id", sub.id);
 
       if (error) console.error("Supabase update error (sub.updated):", error);
       else console.log("Updated subscription status:", sub.id, sub.status);
@@ -85,11 +105,15 @@ export default async function handler(req, res) {
     case "customer.subscription.deleted": {
       const sub = event.data.object;
 
-      const { error } = await supabase.from("user_profiles").update({
-        tier: "standard",
-        subscription_status: "cancelled",
-        stripe_subscription_id: null,
-      }).eq("stripe_subscription_id", sub.id);
+      const { data: profile } = await supabase.from("user_profiles")
+        .select("tier, comped").eq("stripe_subscription_id", sub.id).maybeSingle();
+
+      const updates = { subscription_status: "cancelled", stripe_subscription_id: null };
+      if (!isProtected(profile)) updates.tier = "standard";
+      else console.log("Protected tier, not downgrading:", sub.id, profile.tier, profile.comped ? "(comped)" : "");
+
+      const { error } = await supabase.from("user_profiles").update(updates)
+        .eq("stripe_subscription_id", sub.id);
 
       if (error) console.error("Supabase update error (sub.deleted):", error);
       else console.log("Downgraded user to standard:", sub.id);

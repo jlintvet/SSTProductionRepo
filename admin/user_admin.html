@@ -151,6 +151,9 @@ input::-webkit-calendar-picker-indicator { filter:invert(1); }
         <select id="eTier" class="finput">
           <option>trial</option><option>standard</option><option>pro</option><option>ambassador</option>
         </select>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#cbd5e1">
+          <input type="checkbox" id="eComped" onchange="onTierChange()"/> Comped (Stripe can never change this user's tier)
+        </label>
         <div id="stripeWarn" class="note" style="color:#fbbf24;display:none;margin-top:4px"></div>
 
         <div class="flabel">Region</div>
@@ -293,7 +296,7 @@ function showApp() {
 async function loadUsers() {
   const [{ data, error }, seedRes] = await Promise.all([
     sb.from('user_profiles')
-      .select('id,email,display_name,tier,subscription_status,trial_end,region,created_at,updated_at,stripe_customer_id,referral_code,ambassador_status,last_sign_in_at')
+      .select('id,email,display_name,tier,comped,subscription_status,trial_end,region,created_at,updated_at,stripe_customer_id,referral_code,ambassador_status,last_sign_in_at')
       .order('created_at', { ascending:false }),
     sb.from('seed_users').select('user_id'),
   ]);
@@ -500,7 +503,7 @@ function render() {
   document.getElementById('tbody').innerHTML = rows.map(u => `
     <tr class="${u.id===selectedId?'sel':''}" onclick="selectUser('${u.id}')">
       <td>${u.email||'—'}${(src==='' && seedUserIds.has(u.id)) ? '<span class="seed-badge">seed</span>' : ''}</td><td>${u.display_name||'—'}</td>
-      <td><span class="tier" style="background:${TIER_COLORS[u.tier]||'#475569'}">${u.tier||'—'}</span></td>
+      <td><span class="tier" style="background:${TIER_COLORS[u.tier]||'#475569'}">${u.tier||'—'}</span>${u.comped?' <span style="font-size:10px;color:#86efac">comped</span>':''}</td>
       <td>${u.subscription_status||'—'}</td><td>${fmt(u.trial_end)}</td>
       <td>${u.region||'—'}</td><td>${fmt(u.created_at)}</td>
       <td>${daysSinceLogin(u.last_sign_in_at)}</td>
@@ -519,6 +522,7 @@ function selectUser(id) {
   document.getElementById('eMeta').textContent = `Signed up ${u.created_at?new Date(u.created_at).toLocaleString():'—'} · region ${u.region||'—'}`;
   document.getElementById('eName').value = u.display_name || '';
   document.getElementById('eTier').value = u.tier || 'standard';
+  document.getElementById('eComped').checked = !!u.comped;
   document.getElementById('eRegion').value = u.region || 'mid_atlantic';
   document.getElementById('eTrial').value = toLocal(u.trial_end);
   const issBox = document.getElementById('eIssues');
@@ -532,7 +536,10 @@ function onTierChange() {
   const u = allUsers.find(x=>x.id===selectedId); if(!u) return;
   const w = document.getElementById('stripeWarn');
   const stripeManaged = !!u.stripe_customer_id || u.subscription_status==='active';
-  if (stripeManaged) { w.style.display='block'; w.textContent='Heads up: this user has a Stripe subscription. Stripe is the source of truth — a manual tier change here may be overwritten by Stripe and does not change their billing.'; }
+  const tierNow = document.getElementById('eTier').value;
+  const protectedTier = document.getElementById('eComped').checked || tierNow === 'ambassador' || tierNow === 'referral';
+  if (stripeManaged && protectedTier) { w.style.display='block'; w.style.color='#86efac'; w.textContent='Protected: Stripe events will not change this tier. Billing is unaffected.'; }
+  else if (stripeManaged) { w.style.color='#fbbf24'; w.style.display='block'; w.textContent='Heads up: this user has a Stripe subscription. Stripe is the source of truth — a manual tier change here may be overwritten by Stripe and does not change their billing.'; }
   else w.style.display='none';
   const ambSec = document.getElementById('ambassadorSection');
   const isAmb = document.getElementById('eTier').value === 'ambassador';
@@ -637,6 +644,7 @@ async function saveUser() {
   const st = document.getElementById('saveStatus'); st.style.color='#67e8f9'; st.textContent='Saving…';
   const newName   = document.getElementById('eName').value.trim() || null;
   const newTier   = document.getElementById('eTier').value;
+  const newComped = document.getElementById('eComped').checked;
   const newRegion = document.getElementById('eRegion').value;
   const trialVal  = document.getElementById('eTrial').value;
   const newTrial  = trialVal ? new Date(trialVal).toISOString() : null;
@@ -647,6 +655,7 @@ async function saveUser() {
   const cmp = (field, oldV, newV) => { if ((oldV??null) !== (newV??null)) { updates[field]=newV; audits.push({field, old:oldV, new:newV}); } };
   cmp('display_name', u.display_name||null, newName);
   cmp('tier', u.tier||null, newTier);
+  cmp('comped', !!u.comped, newComped);
   cmp('region', u.region||null, newRegion);
   cmp('trial_end', u.trial_end?new Date(u.trial_end).toISOString():null, newTrial);
   if (isAmbassador) {
@@ -660,7 +669,7 @@ async function saveUser() {
   // ambassador_status must be selected here too (it's a possible audited field) or it always
   // reads back as undefined and falsely reports as blocked.
   const { data: confirmed, error: readErr } = await sb.from('user_profiles')
-    .select('display_name,tier,region,trial_end,referral_code,ambassador_status').eq('id', u.id).single();
+    .select('display_name,tier,comped,region,trial_end,referral_code,ambassador_status').eq('id', u.id).single();
   if (readErr) { st.style.color='#fbbf24'; st.textContent='Saved (read-back failed: ' + readErr.message + ')'; }
   else {
     // trial_end comes back from Postgres/PostgREST as e.g. "2026-08-14T12:53:00+00:00"
